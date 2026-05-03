@@ -93,15 +93,89 @@ class Kilosort2Backend(SorterBackend):
 
         Delegates to ``ks2_runner.spike_sort`` which handles binary
         conversion, MATLAB/Docker execution, and result loading.
+        Computes the sorter inactivity tolerance from the recording
+        duration; the local-MATLAB path consumes it via the
+        ``inactivity_timeout_s`` argument, and the Docker path picks
+        it up via the ContextVar published by
+        :func:`set_active_inactivity_timeout_s` so
+        ``patched_container_client`` can install a container-aware
+        :class:`LogInactivityWatchdog`.
         """
+        from ..guards import set_active_inactivity_timeout_s
         from ..ks2_runner import spike_sort
 
-        return spike_sort(
-            rec_cache=recording,
-            rec_path=rec_path,
-            recording_dat_path=recording_dat_path,
-            output_folder=output_folder,
+        inactivity_timeout_s = self._resolve_inactivity_timeout_s(recording)
+
+        with set_active_inactivity_timeout_s(inactivity_timeout_s):
+            return spike_sort(
+                rec_cache=recording,
+                rec_path=rec_path,
+                recording_dat_path=recording_dat_path,
+                output_folder=output_folder,
+                inactivity_timeout_s=inactivity_timeout_s,
+            )
+
+    def scale_oom_params(self, factor: float) -> bool:
+        """Halve (or scale) Kilosort2's ``NT`` to reduce GPU memory.
+
+        ``NT`` is the per-batch sample count consumed by the KS2
+        template-matching CUDA kernel; halving it roughly halves
+        per-batch VRAM. The new value is rounded to a multiple of 32
+        (KS2 kernel constraint, also enforced by ``format_params``).
+
+        Parameters:
+            factor (float): Multiplicative factor in ``(0, 1]``.
+
+        Returns:
+            scaled (bool): True when ``NT`` was reduced. False when
+                the existing ``NT`` is too small to halve safely
+                (below 1024) — at which point further reduction is
+                unlikely to help.
+        """
+        if factor <= 0.0 or factor >= 1.0:
+            return False
+
+        params = dict(self.config.sorter.sorter_params or {})
+        # ``format_params`` resolves NT=None to (64*1024 + ntbuff)
+        # before the first sort. After that the value is concrete in
+        # _globals.KILOSORT_PARAMS, but we want to mutate the
+        # config's representation so subsequent sorts persist the
+        # scaled value rather than reverting to the default.
+        nt = params.get("NT")
+        if nt is None:
+            ntbuff = params.get("ntbuff", 64)
+            nt = 64 * 1024 + int(ntbuff)
+        new_nt = int(int(nt) * float(factor))
+        # KS2 mex requires NT to be a multiple of 32; round down.
+        new_nt = (new_nt // 32) * 32
+        if new_nt < 1024:
+            print(
+                f"[oom retry] kilosort2: NT would drop to {new_nt} "
+                "after scaling — refusing to scale further."
+            )
+            return False
+        params["NT"] = new_nt
+        self.config.sorter.sorter_params = params
+        # Re-sync globals so the runner sees the scaled NT.
+        self._sync_globals()
+        print(
+            f"[oom retry] kilosort2: scaled NT {nt} -> {new_nt} " f"(factor={factor})."
         )
+        return True
+
+    def snapshot_oom_params(self) -> dict:
+        """Snapshot ``sorter_params`` (which carries ``NT``)."""
+        params = self.config.sorter.sorter_params
+        return {
+            "sorter_params": dict(params) if params is not None else None,
+        }
+
+    def restore_oom_params(self, snapshot: dict) -> None:
+        """Restore ``sorter_params`` from a snapshot and re-sync globals."""
+        if not snapshot:
+            return
+        self.config.sorter.sorter_params = snapshot.get("sorter_params")
+        self._sync_globals()
 
     def extract_waveforms(
         self,

@@ -232,15 +232,38 @@ class RTSortBackend(SorterBackend):
         ``spike_clusters.npy``, ``templates.npy``, ``channel_map.npy``,
         ``params.py``) to the output folder and returning a
         ``KilosortSortingExtractor`` that reads them.
+
+        RT-Sort runs in-process (no subprocess to terminate). The
+        in-process inactivity watchdog watches the per-recording Tee
+        log and falls back to ``os._exit`` if Python cannot recover
+        cleanly from ``_thread.interrupt_main``.
         """
         from ..rt_sort_runner import spike_sort
 
-        result = spike_sort(
-            rec_cache=recording,
-            rec_path=rec_path,
-            recording_dat_path=recording_dat_path,
-            output_folder=output_folder,
+        watchdog = self._make_in_process_inactivity_watchdog(
+            recording, sorter="rt_sort"
         )
+
+        def _do_sort():
+            return spike_sort(
+                rec_cache=recording,
+                rec_path=rec_path,
+                recording_dat_path=recording_dat_path,
+                output_folder=output_folder,
+            )
+
+        if watchdog is None:
+            result = _do_sort()
+        else:
+            try:
+                with watchdog:
+                    result = _do_sort()
+            except KeyboardInterrupt:
+                if watchdog.tripped():
+                    return watchdog.make_error()
+                raise
+            if watchdog.tripped():
+                return watchdog.make_error()
 
         if isinstance(result, BaseException):
             return result
@@ -253,6 +276,71 @@ class RTSortBackend(SorterBackend):
             output_folder,
             root_elecs=root_elecs,
         )
+
+    def scale_oom_params(self, factor: float) -> bool:
+        """Halve (or scale) RT-Sort's ``num_processes`` to reduce memory.
+
+        RT-Sort does not expose a single per-batch sample-count knob
+        comparable to KS2 ``NT`` or KS4 ``batch_size``. The closest
+        memory-pressure lever is ``num_processes``, which controls
+        the number of parallel inference workers; halving it cuts
+        peak combined RSS roughly in half.
+
+        Parameters:
+            factor (float): Multiplicative factor in ``(0, 1]``.
+
+        Returns:
+            scaled (bool): True when ``num_processes`` was reduced.
+                False when it is already ``1`` (or below) and cannot
+                be further halved.
+
+        Notes:
+            - For GPU OOM specifically, this is a best-effort fallback;
+              RT-Sort's deep-learning detection model is small (~740 KB
+              of weights) and processes channels in fixed-size chunks,
+              so GPU OOM is rare in practice. Host-RAM pressure is the
+              more common failure mode and is already covered by the
+              host-memory watchdog.
+        """
+        if factor <= 0.0 or factor >= 1.0:
+            return False
+
+        rt = self.config.rt_sort
+        current = rt.num_processes
+        if current is None:
+            try:
+                import os
+
+                current = max(1, round(os.cpu_count() * 2 / 3))
+            except Exception:
+                current = 4
+        if current <= 1:
+            print(
+                "[oom retry] rt_sort: num_processes already at 1 — "
+                "no further scaling possible."
+            )
+            return False
+        new_n = max(1, int(current * float(factor)))
+        if new_n >= current:
+            return False
+        rt.num_processes = new_n
+        self._sync_globals()
+        print(
+            f"[oom retry] rt_sort: scaled num_processes {current} -> "
+            f"{new_n} (factor={factor})."
+        )
+        return True
+
+    def snapshot_oom_params(self) -> dict:
+        """Snapshot ``rt_sort.num_processes`` for per-recording restore."""
+        return {"num_processes": self.config.rt_sort.num_processes}
+
+    def restore_oom_params(self, snapshot: dict) -> None:
+        """Restore ``rt_sort.num_processes`` from a snapshot."""
+        if not snapshot:
+            return
+        self.config.rt_sort.num_processes = snapshot.get("num_processes")
+        self._sync_globals()
 
     def extract_waveforms(
         self,

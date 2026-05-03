@@ -8,7 +8,7 @@ without manual image selection.
 
 import subprocess
 from contextlib import contextmanager
-from typing import Dict, Iterator, Optional
+from typing import Any, Dict, Iterator, Optional
 
 # ---------------------------------------------------------------------------
 # CUDA driver → maximum supported toolkit version mapping
@@ -136,6 +136,63 @@ def get_docker_image(sorter: str, cuda_tag: str | None = None) -> str:
     )
 
 
+def get_local_image_digest(image_tag: str) -> Optional[str]:
+    """Return the locally-cached image's digest (``sha256:...``), or None.
+
+    Used by the Markdown sorting report and the optional
+    ``ExecutionConfig.docker_image_expected_digest`` mismatch check
+    so two sorts months apart can be compared at the bit level rather
+    than only by the mutable image tag.
+
+    Tries the python ``docker`` client first (``images.get(...).id``)
+    and falls back to ``docker inspect --format={{.Id}}``. Returns
+    ``None`` on any failure — caller should treat the absence as
+    "digest unknown" rather than a hard error.
+
+    Parameters:
+        image_tag (str): Docker image tag, e.g.
+            ``"spikeinterface/kilosort4-base:py311-si0.104"``.
+
+    Returns:
+        digest (str or None): Image ID string (typically
+            ``"sha256:..."``), or ``None`` when the image is not in
+            the local cache, the daemon is unreachable, or the
+            ``docker`` CLI is missing.
+    """
+    if not image_tag:
+        return None
+
+    try:
+        import docker as _docker  # type: ignore[import-not-found]
+
+        try:
+            image = _docker.from_env().images.get(image_tag)
+            digest = getattr(image, "id", None)
+            if isinstance(digest, str) and digest:
+                return digest
+        except Exception:
+            pass
+    except ImportError:
+        pass
+
+    try:
+        out = subprocess.run(
+            ["docker", "inspect", "--format={{.Id}}", image_tag],
+            check=True,
+            timeout=5,
+            capture_output=True,
+            text=True,
+        )
+    except (
+        subprocess.SubprocessError,
+        FileNotFoundError,
+        subprocess.TimeoutExpired,
+    ):
+        return None
+    digest = out.stdout.strip()
+    return digest or None
+
+
 @contextmanager
 def patched_container_client(
     extra_env: Optional[Dict[str, str]] = None,
@@ -143,10 +200,24 @@ def patched_container_client(
 ) -> Iterator[None]:
     """Patch SpikeInterface's ``ContainerClient`` for Docker sorter runs.
 
-    Injects extra environment variables and an optional memory cap into
-    every Docker container started by SpikeInterface for the duration
-    of the context. On exit, the original ``ContainerClient.__init__``
-    is restored unconditionally.
+    Injects extra environment variables, an optional memory cap, and
+    a host-memory-watchdog kill callback into every Docker container
+    started by SpikeInterface for the duration of the context. On
+    exit, the original ``ContainerClient.__init__`` is restored
+    unconditionally.
+
+    Three layers of host protection are applied to each container:
+
+    1. ``extra_env`` — environment variables (e.g. KS2's
+       ``MW_CUDA_FORWARD_COMPATIBILITY``).
+    2. ``mem_limit`` — Docker-enforced container memory cap at
+       ``mem_limit_frac`` of host RAM.
+    3. **Host-memory watchdog kill hook** (new) — when an active
+       :class:`spikelab.spike_sorting.guards.HostMemoryWatchdog`
+       trips, the container is ``stop()``-and-``kill()``-ed
+       alongside any registered subprocesses. Closes the gap on
+       Windows-Docker where the WSL2 VM can drag the host into
+       thrash even with ``mem_limit`` set.
 
     Parameters:
         extra_env (dict[str, str] or None): Environment variables to
@@ -161,7 +232,10 @@ def patched_container_client(
     Notes:
         - No-op when SpikeInterface is not installed.
         - Only the ``"docker"`` mode is patched; ``"singularity"`` runs
-          are unaffected.
+          are unaffected by both the memory cap and the kill hook.
+        - The kill hook uses a weak reference to the container so SI's
+          normal teardown can garbage-collect it; the registration is
+          auto-cleaned via ``weakref.finalize`` when that happens.
     """
     try:
         from spikeinterface.sorters.container_tools import ContainerClient
@@ -184,8 +258,145 @@ def patched_container_client(
                     extra_kwargs["mem_limit"] = int(ram_bytes * mem_limit_frac)
         _orig_init(self, mode, container_image, volumes, py_user_base, extra_kwargs)
 
+        # Register a kill callback with the active host-memory
+        # watchdog so the container is terminated promptly on host
+        # RAM pressure. Uses weakrefs to avoid keeping the container
+        # alive past SI's normal teardown.
+        if mode == "docker":
+            _try_register_container_kill(self)
+
     ContainerClient.__init__ = _patched_init
     try:
         yield
     finally:
         ContainerClient.__init__ = _orig_init
+
+
+def _try_register_container_kill(client: Any) -> None:
+    """Best-effort: register kill hooks for *client*'s container.
+
+    Two hooks are installed when applicable:
+
+    1. **Host-memory watchdog kill callback** — when an active
+       :class:`HostMemoryWatchdog` trips, the container is
+       ``stop()``-and-``kill()``-ed alongside any registered
+       subprocesses.
+    2. **Container-aware log inactivity watchdog** — when both an
+       active log path and an active inactivity tolerance are
+       published (typically by the backend's ``sort()`` method via
+       :func:`set_active_inactivity_timeout_s`), a
+       :class:`LogInactivityWatchdog` is started that watches the
+       Tee log; on trip it stops the container directly. Closes
+       the gap on Docker-backed sorts that hang without consuming
+       memory.
+
+    Both hooks are auto-unregistered via ``weakref.finalize`` when
+    the container is garbage-collected (i.e. when SI's normal
+    teardown releases it).
+
+    Failures during registration are swallowed so a guards-side
+    bug never breaks the sort.
+
+    Parameters:
+        client: The patched ``ContainerClient`` instance whose
+            ``docker_container`` was just created.
+    """
+    try:
+        import weakref
+
+        from .guards import (
+            LogInactivityWatchdog,
+            get_active_inactivity_timeout_s,
+            get_active_log_path,
+            get_active_watchdog,
+        )
+
+        container = getattr(client, "docker_container", None)
+        if container is None:
+            return
+
+        # Use a weakref so closures do not keep the container alive
+        # once SI releases it. Callbacks no-op gracefully when the
+        # referent is already gone.
+        container_ref = weakref.ref(container)
+
+        def _kill_container() -> None:
+            c = container_ref()
+            if c is None:
+                return
+            try:
+                c.stop(timeout=2)
+            except Exception as exc:
+                print(f"[container kill] container.stop() failed: {exc!r}")
+            try:
+                # ``stop`` should have done it; ``kill`` is the
+                # belt-and-braces path for hung containers that
+                # ignored SIGTERM.
+                if hasattr(c, "kill"):
+                    c.kill()
+            except Exception:
+                # Container almost certainly already exited; this is
+                # the expected path. Swallow.
+                pass
+
+        # ---- Hook 1: host-memory watchdog kill callback ----
+        watchdog = get_active_watchdog()
+        if watchdog is not None:
+            watchdog.register_kill_callback(_kill_container)
+            weakref.finalize(
+                container, watchdog.unregister_kill_callback, _kill_container
+            )
+
+        # ---- Hook 2: container-aware inactivity watchdog ----
+        log_path = get_active_log_path()
+        inactivity_s = get_active_inactivity_timeout_s()
+        if log_path is not None and inactivity_s and inactivity_s > 0:
+            # Scale the poll interval with the inactivity tolerance so
+            # short timeouts (test scenarios; very short recordings)
+            # don't pay the full default poll cadence. For typical
+            # production timeouts (≥ 600 s), poll_interval stays at
+            # the default 5 s.
+            poll_interval_s = min(5.0, max(0.1, float(inactivity_s) / 4.0))
+            inactivity_wd = LogInactivityWatchdog(
+                log_path=log_path,
+                popen=None,
+                inactivity_s=inactivity_s,
+                sorter="docker_container",
+                poll_interval_s=poll_interval_s,
+                kill_callback=_kill_container,
+            )
+            try:
+                inactivity_wd.__enter__()
+            except Exception as exc:
+                print(
+                    f"[container kill] failed to start container "
+                    f"inactivity watchdog: {exc!r}"
+                )
+            else:
+                # Auto-stop the watchdog when the container is GC'd
+                # so the polling thread joins and we don't leak it.
+                weakref.finalize(
+                    container,
+                    _safe_exit_inactivity_watchdog,
+                    inactivity_wd,
+                )
+    except Exception as exc:
+        print(
+            f"[container kill] failed to register kill hooks: {exc!r}; "
+            "container will rely on Docker's mem_limit and SI's teardown only."
+        )
+
+
+def _safe_exit_inactivity_watchdog(watchdog: Any) -> None:
+    """Best-effort ``__exit__`` for a finalizer-driven cleanup.
+
+    Used by ``weakref.finalize`` to stop a container-aware
+    ``LogInactivityWatchdog`` when SI releases the container.
+    Failures are swallowed because the finalizer runs from a
+    GC-driven context where re-raising would lose the original
+    error path.
+    """
+    try:
+        watchdog.__exit__(None, None, None)
+    except Exception as exc:
+        print(f"[container kill] inactivity watchdog __exit__ failed: {exc!r}")

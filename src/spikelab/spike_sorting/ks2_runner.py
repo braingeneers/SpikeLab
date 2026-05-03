@@ -60,12 +60,24 @@ class RunKilosort:
         RunKilosort.format_params()
 
     # Run kilosort
-    def run(self, recording, recording_dat_path, output_folder):
+    def run(
+        self,
+        recording,
+        recording_dat_path,
+        output_folder,
+        *,
+        inactivity_timeout_s: Optional[float] = None,
+    ):
         # STEP 1) Creates kilosort and recording files needed to run kilosort
         self.setup_recording_files(recording, recording_dat_path, output_folder)
 
         # STEP 2) Actually run kilosort
-        self.start_sorting(output_folder, raise_error=True, verbose=True)
+        self.start_sorting(
+            output_folder,
+            raise_error=True,
+            verbose=True,
+            inactivity_timeout_s=inactivity_timeout_s,
+        )
 
         # STEP 3) Return results of Kilosort as Python object for auto curation
         return RunKilosort.get_result_from_folder(output_folder)
@@ -367,13 +379,24 @@ end"""
             with (output_folder / fname).open("w") as f:
                 f.write(txt)
 
-    def start_sorting(self, output_folder, raise_error, verbose):
+    def start_sorting(
+        self,
+        output_folder,
+        raise_error,
+        verbose,
+        *,
+        inactivity_timeout_s: Optional[float] = None,
+    ):
         output_folder = Path(output_folder)
 
         t0 = time.perf_counter()
         caught_exception: Optional[BaseException] = None
         try:
-            self.execute_kilosort_file(output_folder, verbose)
+            self.execute_kilosort_file(
+                output_folder,
+                verbose,
+                inactivity_timeout_s=inactivity_timeout_s,
+            )
             t1 = time.perf_counter()
             run_time = float(t1 - t0)
             has_error = False
@@ -411,7 +434,12 @@ end"""
         return run_time
 
     @staticmethod
-    def execute_kilosort_file(output_folder, verbose):
+    def execute_kilosort_file(
+        output_folder,
+        verbose,
+        *,
+        inactivity_timeout_s: Optional[float] = None,
+    ):
         print("Running kilosort file")
 
         if "win" in sys.platform and sys.platform != "darwin":
@@ -431,7 +459,40 @@ end"""
             verbose=verbose,
         )
         shell_script.start()
-        retcode = shell_script.wait()
+
+        # Two watchdogs cover the MATLAB child:
+        #   * Host-memory watchdog (if active in the surrounding
+        #     ``sort_recording`` context) terminates MATLAB when host
+        #     RAM crosses the abort threshold.
+        #   * Log-inactivity watchdog kills MATLAB when the
+        #     ``kilosort2.log`` file stops being updated for the
+        #     configured tolerance (typically a CUDA hang or stuck JVM).
+        # Detection for both is free — psutil's system-wide percent
+        # already reflects MATLAB's RSS, and the log mtime check is a
+        # cheap stat() per poll.
+        from .guards import LogInactivityWatchdog, get_active_watchdog
+
+        host_watchdog = get_active_watchdog()
+        matlab_popen = getattr(shell_script, "_process", None)
+        if host_watchdog is not None and matlab_popen is not None:
+            host_watchdog.register_subprocess(matlab_popen)
+
+        inactivity_watchdog = LogInactivityWatchdog(
+            log_path=output_folder / "kilosort2.log",
+            popen=matlab_popen,
+            inactivity_s=inactivity_timeout_s,
+            sorter="kilosort2",
+        )
+
+        try:
+            with inactivity_watchdog:
+                retcode = shell_script.wait()
+        finally:
+            if host_watchdog is not None and matlab_popen is not None:
+                host_watchdog.unregister_subprocess(matlab_popen)
+
+        if inactivity_watchdog.tripped():
+            raise inactivity_watchdog.make_error()
 
         if retcode != 0:
             raise Exception("kilosort2 returned a non-zero exit code")
@@ -894,6 +955,8 @@ def spike_sort(
     rec_path: Any,
     recording_dat_path: Path,
     output_folder: Path,
+    *,
+    inactivity_timeout_s: Optional[float] = None,
 ) -> Any:
     """Run Kilosort2 on a single recording and return the sorting result.
 
@@ -907,6 +970,14 @@ def spike_sort(
         rec_path (str or Path): Original recording path (for logging).
         recording_dat_path (Path): Path to the binary ``.dat`` file.
         output_folder (Path): Kilosort2 output directory.
+        inactivity_timeout_s (float or None): Sorter inactivity
+            tolerance forwarded to the MATLAB runner. When ``None``,
+            the inactivity watchdog is disabled. Computed by the
+            backend via
+            :meth:`SorterBackend._resolve_inactivity_timeout_s`. Only
+            takes effect on the local MATLAB path; the Docker path
+            relies on the host-memory watchdog and Docker's own
+            ``mem_limit``.
 
     Returns:
         sorting (KilosortSortingExtractor or Exception): The sorting
@@ -949,6 +1020,7 @@ def spike_sort(
                 recording=rec_cache,
                 recording_dat_path=recording_dat_path,
                 output_folder=output_folder,
+                inactivity_timeout_s=inactivity_timeout_s,
             )
 
     except SpikeSortingClassifiedError:

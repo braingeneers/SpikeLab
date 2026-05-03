@@ -97,15 +97,108 @@ class Kilosort4Backend(SorterBackend):
         recording_dat_path: Any,
         output_folder: Any,
     ) -> Any:
-        """Run Kilosort4 spike sorting via ks4_runner."""
+        """Run Kilosort4 spike sorting via ks4_runner.
+
+        KS4 (host path) runs in-process — there is no subprocess for
+        the host-memory watchdog or a popen-based inactivity watchdog
+        to terminate. Instead we install an in-process inactivity
+        watchdog whose kill path is :func:`_thread.interrupt_main`
+        followed by ``os._exit`` if Python is unresponsive. The
+        watchdog watches the per-recording Tee log file (set by
+        ``sort_recording``); since SpikeInterface mirrors KS4's
+        per-stage progress through stdout, the log-mtime signal is
+        a reliable progress indicator.
+
+        For the Docker path, we additionally publish the inactivity
+        tolerance via :func:`set_active_inactivity_timeout_s` so
+        ``patched_container_client`` can install a container-aware
+        :class:`LogInactivityWatchdog` whose kill callback stops the
+        Docker container directly.
+        """
+        from ..guards import set_active_inactivity_timeout_s
         from ..ks4_runner import spike_sort
 
-        return spike_sort(
-            rec_cache=recording,
-            rec_path=rec_path,
-            recording_dat_path=recording_dat_path,
-            output_folder=output_folder,
+        inactivity_timeout_s = self._resolve_inactivity_timeout_s(recording)
+        watchdog = self._make_in_process_inactivity_watchdog(
+            recording, sorter="kilosort4"
         )
+
+        def _do_sort():
+            with set_active_inactivity_timeout_s(inactivity_timeout_s):
+                return spike_sort(
+                    rec_cache=recording,
+                    rec_path=rec_path,
+                    recording_dat_path=recording_dat_path,
+                    output_folder=output_folder,
+                )
+
+        if watchdog is None:
+            return _do_sort()
+
+        try:
+            with watchdog:
+                result = _do_sort()
+        except KeyboardInterrupt:
+            if watchdog.tripped():
+                return watchdog.make_error()
+            raise
+
+        if watchdog.tripped():
+            return watchdog.make_error()
+        return result
+
+    def scale_oom_params(self, factor: float) -> bool:
+        """Halve (or scale) Kilosort4's ``batch_size`` to reduce GPU memory.
+
+        ``batch_size`` is the per-batch sample count used by KS4's
+        preprocessing → spike-detection → clustering pipeline; it is
+        the canonical memory-bound knob, equivalent to KS2's ``NT``.
+        Halving roughly halves per-batch VRAM at the cost of
+        throughput.
+
+        Parameters:
+            factor (float): Multiplicative factor in ``(0, 1]``.
+
+        Returns:
+            scaled (bool): True when ``batch_size`` was reduced. False
+                when the existing batch is too small to halve safely
+                (below 1024 samples).
+        """
+        if factor <= 0.0 or factor >= 1.0:
+            return False
+
+        params = dict(self.config.sorter.sorter_params or {})
+        # Kilosort4's internal default is 60000 when the key is unset.
+        batch = params.get("batch_size", 60000)
+        new_batch = int(int(batch) * float(factor))
+        if new_batch < 1024:
+            print(
+                f"[oom retry] kilosort4: batch_size would drop to "
+                f"{new_batch} after scaling — refusing to scale further."
+            )
+            return False
+        params["batch_size"] = new_batch
+        self.config.sorter.sorter_params = params
+        self._sync_globals()
+        print(
+            f"[oom retry] kilosort4: scaled batch_size {batch} -> "
+            f"{new_batch} (factor={factor})."
+        )
+        return True
+
+    def snapshot_oom_params(self) -> dict:
+        """Snapshot ``sorter_params`` (which carries ``batch_size``)."""
+        params = self.config.sorter.sorter_params
+        return {
+            "sorter_params": dict(params) if params is not None else None,
+        }
+
+    def restore_oom_params(self, snapshot: dict) -> None:
+        """Restore ``sorter_params`` from a snapshot and re-sync globals."""
+        if not snapshot:
+            return
+        self.config.sorter.sorter_params = snapshot.get("sorter_params")
+        self._sync_globals()
 
     def extract_waveforms(
         self,

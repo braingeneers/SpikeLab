@@ -181,6 +181,10 @@ See `RTSortConfig` in `REPO_MAP_DETAILED.md` for the full parameter list (`rt_so
 - `create_figures` — generate QC figures: quality distributions (pre-curation), curation bar, STD scatter, all templates, raster + pop rate (default: False)
 - `create_unit_figures` — generate per-unit figures: ISI histogram, waveform footprint, max-channel overlay with individual traces; sorted into `curated/` and `failed/` subdirs after curation (default: False, requires `create_figures=True`)
 
+**Pipeline safeguards (opt-in):**
+- `canary_first_n_s` — when > 0, run the configured backend on the first N seconds of each recording before launching the full sort, catching MEX-compile / model-load / Docker-image / preprocessing failures in seconds rather than hours. Default: `0.0` (disabled). Recommended for long sorts on flaky configs (e.g. 30 s).
+- `docker_image_expected_digest` — optional `sha256:...` digest the operator expects the local Docker image to match. The actual digest is always recorded in `config_used.json` and the sorting report; this knob only emits a **warning** (no failure) when the local digest differs. Default: `None`. Use to pin reproducibility against mutable image tags.
+
 ---
 
 ## Running a Sorting Job
@@ -553,13 +557,31 @@ For further analysis (correlations, burst detection, event alignment, population
 
 ### Post-sorting report
 
-**Always generate a Markdown report after every sorting run** and write it to `<results_folder>/sorting_report.md`. Do not wait for the user to ask.
+**The pipeline auto-generates `<results_folder>/sorting_report.md` after every recording.** No manual report writing is required. The report bundles the curation outcome, environment, pipeline timing, non-default settings, unit quality stats, output file listing, warnings, and (on failure) the full traceback + last-200-lines context.
 
-**Data sources:** (1) the sorting script — list every parameter explicitly passed, (2) the log file (`sorting_*.log`) — environment, pipeline stage timestamps, curation line, wall time, (3) the results pickle — unit counts, spike counts, SNR/FR/ISI distributions.
+To inspect a run, point the user at the per-recording results folder. The artefacts written there are:
 
-**Structure:** Put **Curation Outcome** (raw → curated unit counts, total spikes, mean FR, mean SNR) at the top so it's the first thing the user sees. Then: Overview (recording info, sorter, status, wall time, log path), Script Settings (explicitly set params only), Environment table, Pipeline Timing table (parse `[YYYY-MM-DD HH:MM:SS]` banners), Unit Quality Distributions, Resources at Finish, Output Files.
+- `sorting_report.md` — **primary human-readable report.** Auto-generated after every recording; safe to delete the Tee log once it's written.
+- `recording_report.json` — machine-readable per-recording status (status, error class, retries, log path, peak resource usage).
+- `config_used.json` — full snapshot of the `SortingPipelineConfig` used; diff against defaults for reproducibility.
+- `watchdog_events.jsonl` — only present when any watchdog crossed warn/abort. Timestamped JSONL of pressure events.
+- `disk_exhaustion_report.json` — only present when the disk watchdog tripped. Includes free space, projection, and top consumers.
+- `gpu_snapshot_at_trip.txt` — only present when the host-RAM or GPU watchdog tripped. `nvidia-smi` + `torch.cuda.memory_summary` per device.
+- `sorting_<YYMMDD_HHMMSS>.log` — full Tee-mirrored stdout. Lifecycle governed by `tee_log_policy` (see below).
 
-Keep the report factual. Don't interpret quality unless specific thresholds were clearly violated (zero curated units, extreme ISI violations). Reference the full log path so the user can dig into raw output.
+The full artefact inventory and lifecycle table is in **Pipeline Resource Management → Output artefacts** below.
+
+The Tee log lifecycle is governed by `ExecutionConfig.tee_log_policy` (defaults to `"delete_on_success"` — the log is removed only **after** the Markdown report writes successfully). **Failed sorts always preserve the Tee log** regardless of policy, so the traceback is never lost.
+
+If a user wants to regenerate or update a report manually (e.g. after editing `recording_report.json` by hand, or to refresh the report against a more recent log):
+
+```python
+from spikelab.spike_sorting.report import generate_sorting_report
+
+generate_sorting_report("data/sorted/recording_a")
+```
+
+This re-reads the log + JSON + pickle and rewrites the Markdown file. It does **not** trigger the `tee_log_policy` deletion — that only happens during the live `sort_recording` flow.
 
 ---
 
@@ -643,28 +665,174 @@ from spikelab.spike_sorting.docker_utils import (
     get_host_cuda_driver_version,
     get_host_cuda_tag,
     get_docker_image,
+    get_local_image_digest,
 )
 
 print(get_host_cuda_driver_version())  # e.g. 590
 print(get_host_cuda_tag())             # e.g. "cu130"
 print(get_docker_image("kilosort4"))   # e.g. "spikeinterface/kilosort4-base:py311-si0.104"
+print(get_local_image_digest("spikeinterface/kilosort4-base:py311-si0.104"))
+# e.g. "sha256:9f1c..."
 ```
+
+**Image digest pinning (warn-only).** The pipeline auto-records the local image's digest (`get_local_image_digest(image_tag)`) into `config_used.json` and `sorting_report.md` whenever `use_docker=True`, so two sorts months apart can be diffed at the bit level instead of only by mutable image tag. To enforce a specific digest, set `docker_image_expected_digest="sha256:..."`. When the local digest differs the pipeline emits a one-line **warning** (it does **not** fail) — the recorded digest is the source of truth, the expected-digest knob is a tripwire for unintentional drift. Returns `None` if the digest cannot be resolved (image absent, daemon down, neither `docker` python lib nor the `docker` CLI available); pinning is then silently skipped.
 
 ---
 
 ## Pipeline Resource Management
 
-`sort_recording` automatically applies the following safeguards. They are sorter-agnostic — KS2, KS4, and RT-Sort all benefit identically.
+`sort_recording` applies an extensive set of automatic safeguards. They are sorter-agnostic except where noted — KS2, KS4, and RT-Sort all benefit. Every safeguard is configurable via `ExecutionConfig`; defaults are sensible for a 32–64 GB workstation.
 
-**Per-recording log file.** Every sorted recording gets a `<results_folder>/sorting_<YYMMDD_HHMMSS>.log` capturing the full pipeline stdout: environment banner (Python / SI / SpikeLab versions, host, RAM, GPU), every stage's progress, exception traceback (on failure), and a closing summary with status, wall time, and resources at finish. This file is the canonical input for the post-sorting Markdown report.
+### Pre-loop preflight checks
 
-**Container memory cap (Docker sorters only).** When `use_docker=True`, the container is launched with `mem_limit` set to 80% of host RAM. Applies to both Kilosort2 and Kilosort4. Implemented via `spikelab.spike_sorting.docker_utils.patched_container_client`.
+Run before any recording is sorted. Findings are printed; `preflight_strict=True` flips warnings into hard failures.
 
-**Host process heap cap (local sorters and host orchestration).** On Linux/macOS, the pipeline calls `resource.setrlimit(RLIMIT_DATA, ...)` to cap anonymous heap allocations (numpy / torch tensors) at 80% of host RAM. File-backed mmap regions are *not* capped, so loading large recordings is unaffected. The original limit is restored on exit. **On Windows, this is a no-op** (`RLIMIT_DATA` unavailable) — the pipeline prints a notice at startup; users should monitor RAM manually or rely on Docker's `mem_limit`.
+| Check | Protects against | Adjustable knob |
+|---|---|---|
+| Free disk on intermediate / results folders | Sort filling the volume mid-run | `preflight_min_free_inter_gb=20.0`, `preflight_min_free_results_gb=2.0` |
+| Available host RAM | Starting a sort that immediately swaps | `preflight_min_available_ram_gb=4.0` |
+| Free GPU VRAM (when sorter uses GPU) | Starting on a GPU another process owns | `preflight_min_free_vram_gb=2.0` |
+| `HDF5_PLUGIN_PATH` directory exists when configured | Maxwell decoder plugin load failures | `RecordingConfig.hdf5_plugin_path` |
+| `.wslconfig` memory ceiling (Windows + Docker) | WSL2 VM growing beyond host capacity | n/a (warns operator to set `[wsl2] memory=`) |
+| RT-Sort intermediate-disk projection | Multi-hundred-GB intermediate files filling the volume | n/a (computed from recording dims) |
+| Recording path existence + extension | Typos / missing files | n/a (warn / fail) |
+| `RLIMIT_NOFILE` / `RLIMIT_NPROC` (POSIX) | Sort running out of FDs / fork slots mid-run | n/a (warn — operator must `ulimit` higher) |
+| SpikeInterface version inside tested range | Surprise SI API changes | n/a (warn) |
+| Sorter runtime dependencies | Wrong env / missing install / Docker daemon down — fails fast in milliseconds rather than seconds-to-minutes into the sort. Probes per backend: KS2 host (matlab on PATH + `master_kilosort.m`), KS4 host (`import kilosort` + version inside [4.0, 5.0)), RT-Sort (`torch` + `torch.cuda.is_available()` when device=cuda, plus `diptest`/`sklearn`/`h5py`/`tqdm`), KS2/KS4 Docker (daemon ping + image cached locally) | n/a — fail-level finding `sorter_dependency_missing`; KS4 out-of-range version emits `kilosort4_version_outside_tested_range` (warn) |
+| GPU device exists | Configured `cuda:N` not present on the host (typo or dev box swap) — surfaced upfront instead of as an opaque CUDA invalid-device error mid-sort | n/a — fail-level finding `gpu_device_not_present`; only runs when the sorter is GPU-backed |
+| Recording sample rate inside sorter window | Rate that puts the sorter out-of-distribution. KS2/KS4 window is `[10, 50] kHz`; **RT-Sort is rate-locked** — bundled MEA model trained at 20 kHz, Neuropixels at 30 kHz, ±0.5% tolerance. Only inspects pre-loaded recordings (path-only inputs are skipped) | n/a — warn-level finding `sample_rate_out_of_window`; flips to fail under `preflight_strict=True` |
 
-The active heap cap is documented in each `sorting_*.log` banner under `Heap cap:`.
+The whole preflight subsystem can be disabled via `preflight=False`.
 
-**Override.** If the heap cap interferes with a workload (rare, since file mmaps are excluded), call `resource.setrlimit(resource.RLIMIT_DATA, (resource.RLIM_INFINITY, hard))` after `sort_recording` returns — the pipeline already restores the prior limit, but the original soft limit may still be lower than infinite.
+### Live watchdogs (run alongside the sort)
+
+Five daemon-thread monitors wrap the per-recording sort. Each emits warn / abort events to `<results_folder>/watchdog_events.jsonl`. On abort, each writes a diagnostic artefact and either kills a registered subprocess (KS2 MATLAB, Docker container) or invokes a kill callback (`_thread.interrupt_main` → `os._exit` for in-process KS4 / RT-Sort).
+
+| Watchdog | Trip condition | Defaults | Adjustable knobs |
+|---|---|---|---|
+| Host memory | system-wide `psutil.virtual_memory().percent` | warn 85%, abort 92% | `host_ram_watchdog`, `host_ram_warn_pct`, `host_ram_abort_pct`, `host_ram_poll_interval_s` |
+| GPU memory | per-device VRAM used % (only the in-use device) | warn 85%, abort 95% | `gpu_watchdog`, `gpu_warn_pct`, `gpu_abort_pct`, `gpu_poll_interval_s` |
+| Disk usage | free GB on intermediate-folder volume | warn ≤ 5 GB, abort ≤ 1 GB | `disk_watchdog`, `disk_warn_free_gb`, `disk_abort_free_gb`, `disk_poll_interval_s` |
+| Log inactivity | Tee log mtime stagnation, recording-aware tolerance | base 600 s + 30 s/min, max 7200 s, in-process kill grace 10 s | `sorter_inactivity_timeout`, `sorter_inactivity_base_s`, `sorter_inactivity_per_min_s`, `sorter_inactivity_max_s`, `sorter_inactivity_in_process_grace_s` |
+| I/O stall | volume read+write byte counter stagnation | stall 300 s, poll 10 s | `io_stall_watchdog`, `io_stall_s`, `io_stall_poll_interval_s` |
+
+### Pipeline canary (opt-in)
+
+When `ExecutionConfig.canary_first_n_s > 0`, the pipeline clones the live config, restricts the recording window to `[0, canary_first_n_s]` seconds, disables curation / exporters / figures / the post-sort report, and runs the same backend on the same recording into `<inter_path>/_canary/` **before** committing to the full sort. The MEX compile (KS2), model load (KS4 / RT-Sort), Docker container start, and the sorter's first preprocessing pass all execute under realistic conditions — that is the point. A multi-hour sort that would have failed at minute 1 fails at second 30 instead.
+
+Failure handling is asymmetric on purpose:
+- **Classified failure** in the canary (`InsufficientActivityError`, `BiologicalSortFailure`, `EnvironmentSortFailure`, `ResourceSortFailure`) — propagated as the recording's classified result; the full sort is **never launched**.
+- **Unexpected / non-classified failure** in the canary (e.g. canary itself OOMing on a tiny window) — logged but **not** propagated; the full sort proceeds and the live watchdogs handle resource shape at runtime.
+
+Recommend enabling it (`canary_first_n_s=30`) for long sorts on potentially-flaky configurations: first-time Docker images, freshly compiled MEX binaries, new CUDA drivers, untried sorter param overrides. Off by default because the smoke test adds ~30 s of startup overhead per recording. Recordings shorter than `canary_first_n_s` are silently skipped.
+
+### Memory enforcement
+
+| Layer | Where | What it does | Adjustable |
+|---|---|---|---|
+| `RLIMIT_DATA` | Linux / macOS | Kernel-enforced heap cap at 80% of host RAM | hard-coded 80% |
+| Windows Job Object | Windows + pywin32 installed | Kernel-enforced process memory cap (mirrors `RLIMIT_DATA`) | tracks `host_ram_abort_pct` |
+| Userspace watchdog | All platforms | Warn + graceful abort with diagnostic capture | see Host memory watchdog above |
+| Docker `mem_limit` | Docker sorters | Container kernel limit at 80% of host RAM | hard-coded 80% |
+
+### Subprocess / container kills
+
+Lifecycle of registered kill targets:
+
+- **KS2 MATLAB Popen** — registered with both the host-memory watchdog and the inactivity watchdog; killed via `Popen.terminate()` → `Popen.kill()` after a 5 s grace.
+- **Docker container** (KS2 / KS4 with `use_docker=True`) — registered with the host-memory watchdog and a container-aware inactivity watchdog; killed via `container.stop(timeout=2)` → `container.kill()`. Auto-unregistered via `weakref.finalize` when SI releases the container.
+- **In-process KS4 / RT-Sort** — kill path is `_thread.interrupt_main()` first, then `os._exit(1)` after `sorter_inactivity_in_process_grace_s` (default 10 s). The graceful interrupt covers Python-level pauses; the `os._exit` fallback covers stuck CUDA kernels and numba `@njit(parallel=True)` deadlocks that don't return to Python.
+
+### Per-recording sort lock
+
+`<inter_path>/.spikelab_sort.lock` is created atomically at sort start and removed at end. Two `sort_recording` calls against the same intermediate folder cannot proceed simultaneously — the second raises `ConcurrentSortError` with a clear message. Stale locks from crashed sorts (PID no longer alive) are reclaimed automatically.
+
+### OOM auto-retry
+
+When a sort fails with `GPUOutOfMemoryError`, the pipeline scales the relevant per-sorter knob and retries:
+
+| Sorter | Knob halved on retry |
+|---|---|
+| KS2 | `NT` (rounded down to a multiple of 32; refuses below 1024) |
+| KS4 | `batch_size` (refuses below 1024) |
+| RT-Sort | `num_processes` (refuses at 1) |
+
+Adjustable via `oom_retry_max=1` and `oom_retry_factor=0.5`. The scaled config is reset after the recording so subsequent recordings start fresh.
+
+### Atomic writes
+
+All result files (`sorted_spikedata_curated.pkl`, `sorted_spikedata.pkl`, `recording_report.json`, `disk_exhaustion_report.json`, `sorting_report.md`) are written via the `<file>.tmp` + `os.replace` pattern, so an `os._exit` mid-write cannot corrupt them.
+
+### Quality-of-life
+
+- `prevent_system_sleep` (Windows-only) — calls `SetThreadExecutionState` to prevent sleep / hibernation during a sort. On by default; `prevent_system_sleep=False` to disable.
+- `cleanup_temp_files` — sweeps marker-prefixed temp files in `$TMPDIR` / `%TEMP%` on **clean** exit. Failed sorts leave temp files behind for diagnosis. On by default; `cleanup_temp_files=False` to disable.
+
+### Output artefacts (always check these for diagnostics)
+
+Every per-recording results folder contains:
+
+| File | When written | Purpose |
+|---|---|---|
+| `sorting_report.md` | Always (auto-generated post-sort) | **Primary human-readable report.** Curation outcome, environment, pipeline timing, non-default settings, unit quality stats, output files, warnings, and (on failure) full traceback + last-200-lines context. |
+| `recording_report.json` | Always | Machine-readable status: status, error class, wall time, retries, log path, peak resource usage. |
+| `config_used.json` | Always | Snapshot of the full `SortingPipelineConfig` used, for diff against defaults / reproducibility. When `use_docker=True`, also includes the resolved `docker_image_digest` field — the actual `sha256:...` of the local image at sort time, so a sort can be replayed bit-for-bit even if the image tag drifts. |
+| `watchdog_events.jsonl` | When any watchdog crossed warn / abort | Timestamped audit log of pressure events. |
+| `sorting_<YYMMDD_HHMMSS>.log` | Always (subject to `tee_log_policy`) | Full pipeline stdout — environment banner, per-stage progress, traceback on failure, closing summary. |
+| `disk_exhaustion_report.json` | Only when disk watchdog tripped | Free space, projection, top consumers, suggested actions. |
+| `gpu_snapshot_at_trip.txt` | Only when host-RAM or GPU watchdog tripped | `nvidia-smi` output + `torch.cuda.memory_summary` for each device. |
+
+`tee_log_policy` controls the Tee log lifecycle on **success**:
+- `"keep"` — leave the log untouched.
+- `"gzip_on_success"` — compress to `.log.gz`.
+- `"delete_on_success"` (default) — remove. The condensed `sorting_report.md` carries the full failure context for failed sorts, so deletion only fires after a successful post-sort report has been generated. **Failed sorts always preserve the log.**
+
+### Disabling / overriding safeguards
+
+Every safeguard is independently togglable via `ExecutionConfig`. To pass through `sort_recording` directly, use the same name as a kwarg:
+
+```python
+sort_recording(
+    recording_files=[...],
+    sorter="kilosort4",
+    use_docker=True,
+    # turn down the host-RAM watchdog for an undersized box
+    host_ram_warn_pct=70.0,
+    host_ram_abort_pct=80.0,
+    # silence the Windows sleep prevention
+    prevent_system_sleep=False,
+    # keep all Tee logs even on success
+    tee_log_policy="keep",
+)
+```
+
+Or with a preset config:
+
+```python
+from spikelab.spike_sorting.config import KILOSORT4
+cfg = KILOSORT4.override(
+    gpu_abort_pct=98.0,
+    oom_retry_max=2,
+    sorter_inactivity_max_s=14400.0,  # raise to 4h cap for very long sorts
+)
+sort_recording(recording_files=[...], config=cfg)
+```
+
+### Inspecting watchdog history
+
+After a sort, parse `<results_folder>/watchdog_events.jsonl`:
+
+```python
+import json
+events = [
+    json.loads(line)
+    for line in open("data/sorted/rec1/watchdog_events.jsonl")
+]
+host_warns = [e for e in events if e["watchdog"] == "host_memory" and e["event"] == "warn"]
+peak_used = max((e["used_pct"] for e in host_warns), default=None)
+```
+
+Each `RecordingResult` in the `SortRunReport` returned by `sort_recording` already includes `peak_host_ram_pct` / `peak_gpu_used_pct` / `min_disk_free_gb` derived from this file.
 
 ---
 
@@ -686,6 +854,22 @@ The active heap cap is documented in each `sorting_*.log` banner under `Heap cap
 | Host RAM-bound on RT-Sort with long recordings | Detection holds the full filtered recording + model state | Use `rt_sort_detection_window_s=180` (detect once on 3 min, sort_offline still covers full recording). Keep `streaming_waveforms=True` (default). On Linux/macOS the pipeline's `RLIMIT_DATA` cap will surface a clean `MemoryError` before the kernel OOM killer; on Windows monitor RAM manually since the cap is not enforced. |
 | OOM during waveform extraction with many units | High-unit-count sorts without streaming | Ensure `streaming_waveforms=True` (default). For extreme cases also set `save_waveform_files=False` so only templates are persisted. The pipeline's heap cap (POSIX only) raises `MemoryError` rather than letting the OS kill the process. |
 | `MemoryError` during local sort | Heap cap reached 80% of host RAM (POSIX `RLIMIT_DATA`) | Reduce concurrency (`n_jobs`), shorten the time window (`first_n_mins`, `rt_sort_detection_window_s`), or run a smaller chunk per call. The cap is a guard against runaway numpy/torch allocations; hitting it indicates the workload genuinely needs more RAM. |
+| `HostMemoryWatchdogError` (status `oom_host_ram`) | Userspace watchdog tripped because system memory crossed `host_ram_abort_pct` (default 92%) | Same remediation as `MemoryError`. The trip wrote `gpu_snapshot_at_trip.txt` next to the recording report — inspect it to identify whether the sort or another process owned the memory. To raise the abort threshold, set `host_ram_abort_pct=95.0`. |
+| `GpuMemoryWatchdogError` (status `oom_gpu`) | GPU VRAM crossed `gpu_abort_pct` (default 95%) | OOM-retry handles the simple case automatically (halves `NT` / `batch_size` / `num_processes`). If retries are exhausted, reduce the per-batch knob manually or use a larger-memory GPU. The trip wrote a `gpu_snapshot_at_trip.txt`. |
+| `SorterTimeoutError` (status `sorter_timeout`) | Tee log mtime stagnant beyond the recording-aware tolerance | Inspect the log up to the trip moment for the proximate cause (CUDA hang, MATLAB JVM deadlock, mex kernel failure). To increase tolerance for unusually quiet sorts, raise `sorter_inactivity_base_s` and/or `sorter_inactivity_max_s`. |
+| `DiskExhaustionError` (status `disk_exhausted`) | Disk watchdog tripped — free disk dropped below `disk_abort_free_gb` (default 1 GB) | Inspect `<results_folder>/disk_exhaustion_report.json` for top file consumers and projected need. Free disk and rerun. To run from a larger volume: set `intermediate_folders` explicitly. |
+| `IOStallError` (status `io_stall`) | Volume's read+write byte counter stagnant for `io_stall_s` (default 300 s) | Likely a hung NFS / SMB / S3-fuse mount. Verify the storage is responding (`ls`, `df`). To extend tolerance for slow but live mounts: raise `io_stall_s`. To disable: `io_stall_watchdog=False`. |
+| `ConcurrentSortError` (status `concurrent_sort`) | Another `sort_recording` call holds the lock at `<inter_path>/.spikelab_sort.lock` | Wait for the running sort to finish or use a different `intermediate_folders` path. If the lock is stale (e.g. holder PID is dead but the file lingered after a crash), the next acquire will reclaim automatically; if it doesn't, delete the lock file manually and rerun. |
+| `[host memory watchdog] WARNING: system memory at 87.x%` printed repeatedly | System memory creeping up but not yet at abort threshold | Expected behaviour — the warning is the watchdog asking you to free memory. If it consistently warns without ever aborting, lower `host_ram_warn_pct` to silence the noise, or raise `host_ram_abort_pct` to give more headroom. |
+| `[inactivity watchdog] active: ... tolerance=600.0s` printed at sort start with concern | Some buffered Python sorters (KS4 in-process, RT-Sort) can have multi-second silent stretches | The default 600 s base + 30 s/min recording-aware scaling already absorbs realistic buffered pauses. If you genuinely need more tolerance for an unusually quiet workflow, raise `sorter_inactivity_base_s`. |
+| `[sort lock] reclaiming stale lock at ...` printed at sort start | Previous sort crashed without releasing its lock; the holder PID is no longer alive | Informational — the new sort proceeds normally after reclaim. No action needed. |
+| Preflight: `low_rlimit_nofile` warning | POSIX `ulimit -n` is below 4096 — RT-Sort and KS4 worker pools may exhaust FDs | Raise the limit before launching: `ulimit -n 65536`. For systemd services, set `LimitNOFILE=65536` in the unit file. |
+| Preflight: `wslconfig_missing` / `wslconfig_no_memory` (Windows + Docker only) | WSL2 VM has no host-side memory ceiling | Create / edit `%USERPROFILE%\.wslconfig` with a `[wsl2]` section and `memory=<N>GB` (~75% of physical RAM), then run `wsl --shutdown` and restart Docker Desktop. |
+| Preflight: `sorter_dependency_missing` (fail) | Wrong env / missing install / Docker daemon down. Fires for: KS2 host (no `matlab` on PATH or `KILOSORT_PATH` not pointing at a directory containing `master_kilosort.m`), KS4 host (`import kilosort` fails), RT-Sort (any of `torch`/`diptest`/`sklearn`/`h5py`/`tqdm` not importable, or `device='cuda'` with `torch.cuda.is_available()=False`), KS2/KS4 Docker (daemon ping fails). Warn variant `sorter_dependency_missing` (Docker-only) for a missing locally-cached image. | Activate the right conda env or `pip install` the missing package. For KS2 host, set `KILOSORT_PATH` (or `SorterConfig.sorter_path`) to a Kilosort2 checkout. For Docker, start Docker Desktop / `systemctl start docker`, or pre-pull the image with `docker pull <tag>`. As a fallback, switch to a host-path sorter via `use_docker=False`, or to Docker via `use_docker=True`. |
+| Preflight: `gpu_device_not_present` (fail) | `torch_device="cuda:N"` (KS4) or `RTSortConfig.device="cuda:N"` (RT-Sort) names an index not present on the host (typo or dev box swap) | List available indices via `python -c "import torch; print(torch.cuda.device_count())"` and pick one in range. Most workstations only have `cuda:0`. |
+| Preflight: `sample_rate_out_of_window` (warn) | Recording sample rate is outside the sorter's tested window. KS2/KS4 window is `[10, 50] kHz` — most clinical/research MEAs are inside it. **For RT-Sort this is the loud one:** the bundled detection model is rate-locked (MEA at 20 kHz, Neuropixels at 30 kHz, ±0.5% jitter). Feeding any other rate puts the model out of distribution and silently degrades quality even when nothing crashes. | Resample the recording to within the supported window, or pick a sorter whose window matches the recording's native rate. KS2/KS4 are the rate-flexible choices. To suppress for an unusual but-known-safe rate, run with `preflight_strict=False` (default) — the warning prints but the sort proceeds. |
+| `Canary aborted full sort due to <ClassifiedError>` printed at sort start | The opt-in canary (`canary_first_n_s > 0`) ran the configured backend on the first N seconds and surfaced a classified failure (`InsufficientActivityError`, `BiologicalSortFailure`, `EnvironmentSortFailure`, or `ResourceSortFailure`). The full sort was **never launched** — the recording's result reflects the canary's exception. | Address the underlying classified failure (same remediation as if the full sort had hit it). Once fixed, rerun. To bypass the canary for a quick retry without disabling it globally, pass `canary_first_n_s=0`. Non-classified canary failures (e.g. canary-itself OOM) are logged but do **not** abort the full sort. |
+| `[docker image] expected digest sha256:... but local is sha256:...` warning | `docker_image_expected_digest` was set and the local image's digest differs from the configured expected value. Warn-only by design — recorded digest is the source of truth. | Either re-pull the image to match the expected digest (`docker pull <tag>`) or update `docker_image_expected_digest` to the new digest if the change is intentional. Inspect `config_used.json` for the recorded `docker_image_digest` field. |
 | Pickling error during RT-Sort parallel clustering | Windows multiprocessing (spawn vs fork) | Set `rt_sort_num_processes=1` to use sequential processing |
 | Stim peri-event alignment looks offset for biphasic pulses | Default `peak_mode="abs_max"` lands on the largest-amplitude phase, not the current-reversal moment | For biphasic anodic-first pulses pass `peak_mode="down_edge"` (or `"up_edge"` for cathodic-first). Aligns to the + → − zero crossing between the two phases — the AP trigger point. |
 | `remove_stim_artifacts` blanks zero samples despite large artifacts | New gain-anchored threshold returns `+inf` when no ADC clipping is detected (< 10 samples pinned at max) | Expected behavior when artifacts stay below the ADC rail — polynomial detrend handles them. If you genuinely need to blank, pass an explicit `saturation_threshold=<µV>` or lower `min_clip_samples` in `_saturation_threshold_from_recording`. |
