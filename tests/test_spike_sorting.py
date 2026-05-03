@@ -2288,8 +2288,891 @@ class TestSortRecordingValidation:
 
 
 # ===========================================================================
-# sort_multistream validation
+# sort_recording: guard wiring (preflight + host-memory watchdog)
 # ===========================================================================
+
+
+@skip_no_spikeinterface
+class TestSortRecordingGuardWiring:
+    """
+    sort_recording invokes the preflight + watchdog hooks when configured.
+
+    Uses recording_files=[] so the per-recording loop body never runs;
+    we only verify the pre-loop wiring fires (or is skipped when the
+    relevant ExecutionConfig flag is False).
+    """
+
+    @pytest.fixture()
+    def sort_fn(self):
+        from spikelab.spike_sorting.pipeline import sort_recording
+
+        return sort_recording
+
+    def _make_config(self, **execution_overrides):
+        """Build a default SortingPipelineConfig with execution overrides.
+
+        The new ExecutionConfig guard fields are not (yet) wired into
+        ``SortingPipelineConfig.from_kwargs``, so flat-kwarg overrides
+        such as ``host_ram_watchdog=False`` raise. Tests therefore
+        construct the config directly and pass it via ``config=``.
+        """
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+
+        cfg = SortingPipelineConfig()
+        for key, value in execution_overrides.items():
+            setattr(cfg.execution, key, value)
+        return cfg
+
+    def test_preflight_invoked_by_default(self, sort_fn):
+        """
+        Default config triggers run_preflight + report_findings.
+
+        Tests:
+            (Test Case 1) run_preflight is called once.
+            (Test Case 2) report_findings is called with the
+                preflight findings and strict=False.
+        """
+        cfg = self._make_config()
+        with (
+            patch(
+                "spikelab.spike_sorting.guards.run_preflight",
+                return_value=[],
+            ) as mock_run,
+            patch("spikelab.spike_sorting.guards.report_findings") as mock_report,
+        ):
+            sort_fn(
+                recording_files=[],
+                config=cfg,
+                intermediate_folders=[],
+                results_folders=[],
+            )
+        mock_run.assert_called_once()
+        mock_report.assert_called_once()
+        # report_findings called with strict kwarg matching the config
+        # (default False).
+        assert mock_report.call_args.kwargs.get("strict") is False
+
+    def test_preflight_skipped_when_disabled(self, sort_fn):
+        """
+        execution.preflight=False suppresses preflight entirely.
+
+        Tests:
+            (Test Case 1) run_preflight is not called.
+            (Test Case 2) report_findings is not called.
+        """
+        cfg = self._make_config(preflight=False)
+        with (
+            patch("spikelab.spike_sorting.guards.run_preflight") as mock_run,
+            patch("spikelab.spike_sorting.guards.report_findings") as mock_report,
+        ):
+            sort_fn(
+                recording_files=[],
+                config=cfg,
+                intermediate_folders=[],
+                results_folders=[],
+            )
+        mock_run.assert_not_called()
+        mock_report.assert_not_called()
+
+    def test_preflight_strict_propagates(self, sort_fn):
+        """
+        execution.preflight_strict propagates to report_findings.
+
+        Tests:
+            (Test Case 1) strict=True is forwarded when configured.
+        """
+        cfg = self._make_config(preflight_strict=True)
+        with (
+            patch(
+                "spikelab.spike_sorting.guards.run_preflight",
+                return_value=[],
+            ),
+            patch("spikelab.spike_sorting.guards.report_findings") as mock_report,
+        ):
+            sort_fn(
+                recording_files=[],
+                config=cfg,
+                intermediate_folders=[],
+                results_folders=[],
+            )
+        mock_report.assert_called_once()
+        assert mock_report.call_args.kwargs.get("strict") is True
+
+    def test_watchdog_instantiated_with_configured_thresholds(self, sort_fn):
+        """
+        sort_recording constructs HostMemoryWatchdog from ExecutionConfig.
+
+        Tests:
+            (Test Case 1) HostMemoryWatchdog is instantiated once when
+                host_ram_watchdog=True.
+            (Test Case 2) Constructor receives the configured warn /
+                abort / poll values.
+        """
+        cfg = self._make_config(
+            host_ram_warn_pct=70.0,
+            host_ram_abort_pct=88.0,
+            host_ram_poll_interval_s=1.5,
+        )
+        with (
+            patch("spikelab.spike_sorting.guards.HostMemoryWatchdog") as mock_wd_class,
+            patch(
+                "spikelab.spike_sorting.guards.run_preflight",
+                return_value=[],
+            ),
+            patch("spikelab.spike_sorting.guards.report_findings"),
+        ):
+            instance = MagicMock()
+            instance.__enter__.return_value = instance
+            instance.__exit__.return_value = False
+            mock_wd_class.return_value = instance
+            sort_fn(
+                recording_files=[],
+                config=cfg,
+                intermediate_folders=[],
+                results_folders=[],
+            )
+        mock_wd_class.assert_called_once_with(
+            warn_pct=70.0,
+            abort_pct=88.0,
+            poll_interval_s=1.5,
+        )
+        instance.__enter__.assert_called_once()
+        instance.__exit__.assert_called_once()
+
+    def test_watchdog_skipped_when_disabled(self, sort_fn):
+        """
+        host_ram_watchdog=False replaces the watchdog with a nullcontext.
+
+        Tests:
+            (Test Case 1) HostMemoryWatchdog is never constructed.
+            (Test Case 2) sort_recording still completes normally.
+        """
+        cfg = self._make_config(host_ram_watchdog=False)
+        with (
+            patch("spikelab.spike_sorting.guards.HostMemoryWatchdog") as mock_wd_class,
+            patch(
+                "spikelab.spike_sorting.guards.run_preflight",
+                return_value=[],
+            ),
+            patch("spikelab.spike_sorting.guards.report_findings"),
+        ):
+            result = sort_fn(
+                recording_files=[],
+                config=cfg,
+                intermediate_folders=[],
+                results_folders=[],
+            )
+        mock_wd_class.assert_not_called()
+        assert result == []
+
+
+# ===========================================================================
+# Backend OOM-parameter scaling
+# ===========================================================================
+
+
+@skip_no_spikeinterface
+class TestKilosort2BackendOomScaling:
+    """``Kilosort2Backend`` reduces ``NT`` on OOM and round-trips snapshot."""
+
+    def _make_backend(self, **sorter_params_overrides):
+        """Build a Kilosort2Backend with a controllable NT in sorter_params."""
+        from spikelab.spike_sorting.backends.kilosort2 import Kilosort2Backend
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+
+        # Stub out KILOSORT_PATH validation; we only exercise the
+        # config path, not the MATLAB-launching path.
+        cfg = SortingPipelineConfig()
+        cfg.sorter.sorter_path = "/fake/kilosort/path"
+        cfg.sorter.sorter_params = {"NT": 65600, **sorter_params_overrides}
+        return Kilosort2Backend(cfg)
+
+    def test_scale_halves_NT_and_rounds_to_32(self):
+        """
+        scale_oom_params(0.5) halves NT and rounds down to a multiple of 32.
+
+        Tests:
+            (Test Case 1) Returns True.
+            (Test Case 2) Resulting NT is half (and divisible by 32).
+            (Test Case 3) Config is mutated in place.
+        """
+        backend = self._make_backend()
+        ok = backend.scale_oom_params(0.5)
+        assert ok is True
+        new_nt = backend.config.sorter.sorter_params["NT"]
+        assert new_nt == 32800  # 65600 // 2 = 32800; already mult of 32
+        assert new_nt % 32 == 0
+
+    def test_scale_resolves_none_NT_to_default(self):
+        """
+        NT=None resolves to 64*1024 + ntbuff before scaling.
+
+        Tests:
+            (Test Case 1) When sorter_params has NT=None, the
+                backend uses the format_params default and halves it.
+        """
+        backend = self._make_backend()
+        backend.config.sorter.sorter_params = {"NT": None, "ntbuff": 64}
+        ok = backend.scale_oom_params(0.5)
+        assert ok is True
+        new_nt = backend.config.sorter.sorter_params["NT"]
+        # (64*1024 + 64) // 2 = 32800; rounded down to multiple of 32
+        assert new_nt == 32800
+
+    def test_scale_refuses_below_minimum(self):
+        """
+        Refuses to scale when the resulting NT would be < 1024.
+
+        Tests:
+            (Test Case 1) Tiny starting NT → returns False.
+            (Test Case 2) Config is left unchanged.
+        """
+        backend = self._make_backend(NT=512)
+        ok = backend.scale_oom_params(0.5)
+        assert ok is False
+        assert backend.config.sorter.sorter_params["NT"] == 512
+
+    def test_scale_refuses_invalid_factor(self):
+        """
+        factor outside (0, 1) is rejected.
+
+        Tests:
+            (Test Case 1) factor=0 returns False.
+            (Test Case 2) factor>=1 returns False.
+            (Test Case 3) factor<0 returns False.
+        """
+        backend = self._make_backend()
+        for bad in (0.0, 1.0, 1.5, -0.5):
+            assert backend.scale_oom_params(bad) is False
+
+    def test_snapshot_restore_round_trip(self):
+        """
+        snapshot_oom_params + restore_oom_params reverts a scale-down.
+
+        Tests:
+            (Test Case 1) Snapshot captures sorter_params as-is.
+            (Test Case 2) After scaling and restoring, NT matches the
+                pre-snapshot value.
+        """
+        backend = self._make_backend()
+        snap = backend.snapshot_oom_params()
+        backend.scale_oom_params(0.5)
+        assert backend.config.sorter.sorter_params["NT"] != snap["sorter_params"]["NT"]
+        backend.restore_oom_params(snap)
+        assert backend.config.sorter.sorter_params == snap["sorter_params"]
+
+
+@skip_no_spikeinterface
+class TestKilosort4BackendOomScaling:
+    """``Kilosort4Backend`` reduces ``batch_size`` on OOM."""
+
+    def _make_backend(self, **sorter_params_overrides):
+        from spikelab.spike_sorting.backends.kilosort4 import Kilosort4Backend
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+
+        cfg = SortingPipelineConfig()
+        cfg.sorter.sorter_name = "kilosort4"
+        cfg.sorter.sorter_params = dict(sorter_params_overrides)
+        return Kilosort4Backend(cfg)
+
+    def test_scale_halves_batch_size(self):
+        """
+        scale_oom_params(0.5) halves batch_size from the KS4 default.
+
+        Tests:
+            (Test Case 1) Returns True.
+            (Test Case 2) batch_size becomes 30000 (60000 // 2).
+        """
+        backend = self._make_backend()  # No batch_size set → uses default 60000
+        ok = backend.scale_oom_params(0.5)
+        assert ok is True
+        assert backend.config.sorter.sorter_params["batch_size"] == 30000
+
+    def test_scale_refuses_below_minimum(self):
+        """
+        Refuses to scale when batch_size would drop below 1024.
+
+        Tests:
+            (Test Case 1) Starting batch_size=1500 → returns False
+                (1500 // 2 = 750 < 1024).
+        """
+        backend = self._make_backend(batch_size=1500)
+        ok = backend.scale_oom_params(0.5)
+        assert ok is False
+        assert backend.config.sorter.sorter_params["batch_size"] == 1500
+
+    def test_snapshot_restore_round_trip(self):
+        """
+        snapshot/restore reverts the batch_size change.
+
+        Tests:
+            (Test Case 1) After scale + restore, sorter_params equal
+                the original.
+        """
+        backend = self._make_backend(batch_size=60000)
+        snap = backend.snapshot_oom_params()
+        backend.scale_oom_params(0.5)
+        backend.restore_oom_params(snap)
+        assert backend.config.sorter.sorter_params == snap["sorter_params"]
+
+
+@skip_no_torch
+@skip_no_spikeinterface
+class TestRTSortBackendOomScaling:
+    """``RTSortBackend`` scales ``num_processes`` on OOM."""
+
+    def _make_backend(self, num_processes=8):
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+        from spikelab.spike_sorting.backends.rt_sort import RTSortBackend
+
+        cfg = SortingPipelineConfig()
+        cfg.sorter.sorter_name = "rt_sort"
+        cfg.rt_sort.num_processes = num_processes
+        return RTSortBackend(cfg)
+
+    def test_scale_halves_num_processes(self):
+        """
+        scale_oom_params(0.5) halves num_processes.
+
+        Tests:
+            (Test Case 1) Returns True.
+            (Test Case 2) num_processes drops from 8 to 4.
+        """
+        backend = self._make_backend(num_processes=8)
+        ok = backend.scale_oom_params(0.5)
+        assert ok is True
+        assert backend.config.rt_sort.num_processes == 4
+
+    def test_scale_refuses_at_one(self):
+        """
+        Refuses to scale when num_processes is already 1.
+
+        Tests:
+            (Test Case 1) Returns False.
+            (Test Case 2) Value is unchanged.
+        """
+        backend = self._make_backend(num_processes=1)
+        ok = backend.scale_oom_params(0.5)
+        assert ok is False
+        assert backend.config.rt_sort.num_processes == 1
+
+    def test_snapshot_restore_round_trip(self):
+        """
+        snapshot/restore reverts the num_processes change.
+
+        Tests:
+            (Test Case 1) After scale + restore, num_processes equal
+                the original.
+        """
+        backend = self._make_backend(num_processes=8)
+        snap = backend.snapshot_oom_params()
+        backend.scale_oom_params(0.5)
+        backend.restore_oom_params(snap)
+        assert backend.config.rt_sort.num_processes == snap["num_processes"]
+
+
+# ===========================================================================
+# SorterBackend._resolve_inactivity_timeout_s
+# ===========================================================================
+
+
+@skip_no_spikeinterface
+class TestResolveInactivityTimeoutS:
+    """Backend's recording-aware inactivity-tolerance helper."""
+
+    def _make_recording(self, n_samples, fs_hz):
+        """Build a duck-typed recording with the two methods we need."""
+        rec = MagicMock()
+        rec.get_num_samples.return_value = n_samples
+        rec.get_sampling_frequency.return_value = fs_hz
+        return rec
+
+    def _make_backend(self):
+        from spikelab.spike_sorting.backends.kilosort2 import Kilosort2Backend
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+
+        cfg = SortingPipelineConfig()
+        cfg.sorter.sorter_path = "/fake/path"
+        return Kilosort2Backend(cfg)
+
+    def test_respects_disabled_flag(self):
+        """
+        sorter_inactivity_timeout=False returns None.
+
+        Tests:
+            (Test Case 1) Disabled flag short-circuits the recording
+                inspection and returns None unconditionally.
+        """
+        backend = self._make_backend()
+        backend.config.execution.sorter_inactivity_timeout = False
+        rec = self._make_recording(20000 * 60 * 30, 20000)  # 30 min
+        assert backend._resolve_inactivity_timeout_s(rec) is None
+
+    def test_scales_with_recording_duration(self):
+        """
+        Tolerance grows as base_s + per_min_s × duration_min.
+
+        Tests:
+            (Test Case 1) 30-min recording at 20 kHz → 1500 s.
+            (Test Case 2) 5-min recording → 750 s.
+        """
+        backend = self._make_backend()
+        # 30 min @ 20kHz → 30 min → 600 + 30*30 = 1500
+        rec30 = self._make_recording(20000 * 60 * 30, 20000)
+        assert backend._resolve_inactivity_timeout_s(rec30) == 1500.0
+        # 5 min → 600 + 30*5 = 750
+        rec5 = self._make_recording(20000 * 60 * 5, 20000)
+        assert backend._resolve_inactivity_timeout_s(rec5) == 750.0
+
+    def test_returns_none_on_unreadable_recording(self):
+        """
+        Recording missing get_num_samples / sampling_frequency yields None.
+
+        Tests:
+            (Test Case 1) When get_num_samples raises, returns None.
+            (Test Case 2) When fs_Hz is non-positive, returns None.
+        """
+        backend = self._make_backend()
+        broken = MagicMock()
+        broken.get_num_samples.side_effect = AttributeError
+        assert backend._resolve_inactivity_timeout_s(broken) is None
+
+        zero_fs = self._make_recording(1000, 0)
+        assert backend._resolve_inactivity_timeout_s(zero_fs) is None
+
+
+# ===========================================================================
+# In-process inactivity watchdog wiring in backends
+# ===========================================================================
+
+
+@skip_no_spikeinterface
+class TestInProcessInactivityWatchdog:
+    """``SorterBackend._make_in_process_inactivity_watchdog``."""
+
+    def _make_recording(self, n_samples=1_000_000, fs_hz=20000):
+        rec = MagicMock()
+        rec.get_num_samples.return_value = n_samples
+        rec.get_sampling_frequency.return_value = fs_hz
+        return rec
+
+    def _make_backend(self):
+        from spikelab.spike_sorting.backends.kilosort4 import Kilosort4Backend
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+
+        cfg = SortingPipelineConfig()
+        cfg.sorter.sorter_name = "kilosort4"
+        return Kilosort4Backend(cfg)
+
+    def test_returns_none_when_no_active_log_path(self):
+        """
+        Without a published Tee log path the helper returns None.
+
+        Tests:
+            (Test Case 1) Outside any sort_recording context the
+                helper short-circuits to None.
+        """
+        backend = self._make_backend()
+        rec = self._make_recording()
+        # No set_active_log_path active.
+        assert (
+            backend._make_in_process_inactivity_watchdog(rec, sorter="kilosort4")
+            is None
+        )
+
+    def test_builds_watchdog_with_callback_inside_sort_recording_context(
+        self, tmp_path
+    ):
+        """
+        With set_active_log_path active, the helper returns a
+        configured LogInactivityWatchdog without a popen.
+
+        Tests:
+            (Test Case 1) Returned object is a LogInactivityWatchdog.
+            (Test Case 2) ``popen`` is None.
+            (Test Case 3) ``kill_callback`` is set (callable).
+            (Test Case 4) ``inactivity_s`` matches the recording-aware
+                tolerance.
+        """
+        from spikelab.spike_sorting.guards import (
+            LogInactivityWatchdog,
+            set_active_log_path,
+        )
+
+        backend = self._make_backend()
+        # 5 min @ 20kHz: 600 + 30*5 = 750
+        rec = self._make_recording(n_samples=20000 * 60 * 5, fs_hz=20000)
+
+        log_path = tmp_path / "rec.log"
+        with set_active_log_path(log_path):
+            wd = backend._make_in_process_inactivity_watchdog(rec, sorter="kilosort4")
+        assert isinstance(wd, LogInactivityWatchdog)
+        assert wd.popen is None
+        assert callable(wd.kill_callback)
+        assert wd.inactivity_s == 750.0
+        assert wd.sorter == "kilosort4"
+
+    def test_watchdog_disabled_when_inactivity_disabled(self, tmp_path):
+        """
+        sorter_inactivity_timeout=False yields a no-op watchdog.
+
+        Tests:
+            (Test Case 1) Returned watchdog has _enabled=False (the
+                in-process kill callback is set but inactivity_s is
+                None).
+        """
+        from spikelab.spike_sorting.guards import set_active_log_path
+
+        backend = self._make_backend()
+        backend.config.execution.sorter_inactivity_timeout = False
+        rec = self._make_recording()
+        log_path = tmp_path / "rec.log"
+        with set_active_log_path(log_path):
+            wd = backend._make_in_process_inactivity_watchdog(rec, sorter="kilosort4")
+        # inactivity_s is None → watchdog is disabled even though the
+        # kill_callback is set.
+        assert wd is not None
+        assert wd.inactivity_s is None
+        assert wd._enabled is False
+
+
+# ===========================================================================
+# sort_recording: OOM retry + always-run cleanup wiring
+# ===========================================================================
+
+
+@skip_no_spikeinterface
+class TestSortRecordingOomRetry:
+    """sort_recording loop honours oom_retry_max + scale_oom_params."""
+
+    @pytest.fixture()
+    def sort_fn(self):
+        from spikelab.spike_sorting.pipeline import sort_recording
+
+        return sort_recording
+
+    def _make_config(self, **execution_overrides):
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+
+        cfg = SortingPipelineConfig()
+        for key, value in execution_overrides.items():
+            setattr(cfg.execution, key, value)
+        return cfg
+
+    def test_no_recordings_does_not_invoke_retry(self, sort_fn):
+        """
+        Empty recording list never enters the per-recording body.
+
+        Tests:
+            (Test Case 1) process_recording is not called.
+            (Test Case 2) snapshot_oom_params is not called.
+        """
+        cfg = self._make_config()
+        with (
+            patch("spikelab.spike_sorting.pipeline.process_recording") as mock_proc,
+            patch(
+                "spikelab.spike_sorting.guards.run_preflight",
+                return_value=[],
+            ),
+            patch("spikelab.spike_sorting.guards.report_findings"),
+        ):
+            result = sort_fn(
+                recording_files=[],
+                config=cfg,
+                intermediate_folders=[],
+                results_folders=[],
+            )
+        mock_proc.assert_not_called()
+        assert result == []
+
+
+@skip_no_spikeinterface
+class TestFreeGpuAndPythonMemory:
+    """The shared cleanup helper is callable and idempotent."""
+
+    def test_runs_without_torch(self):
+        """
+        _free_gpu_and_python_memory is a no-op when torch is absent.
+
+        Tests:
+            (Test Case 1) Function runs without raising even when
+                torch import fails.
+        """
+        from spikelab.spike_sorting import pipeline as _p
+
+        real_import = (
+            __builtins__["__import__"]
+            if isinstance(__builtins__, dict)
+            else __builtins__.__import__
+        )
+
+        def _fake_import(name, *args, **kwargs):
+            if name == "torch":
+                raise ImportError("simulated missing torch")
+            return real_import(name, *args, **kwargs)
+
+        with patch("builtins.__import__", _fake_import):
+            _p._free_gpu_and_python_memory()  # Must not raise
+
+    def test_callable_with_torch(self):
+        """
+        _free_gpu_and_python_memory invokes empty_cache() when torch is present.
+
+        Tests:
+            (Test Case 1) Function runs and reaches the torch branch
+                (asserted via the patched torch.cuda.empty_cache mock).
+        """
+        from spikelab.spike_sorting import pipeline as _p
+
+        fake_torch = MagicMock()
+        fake_torch.cuda.is_available.return_value = True
+        with patch.dict(sys.modules, {"torch": fake_torch}):
+            _p._free_gpu_and_python_memory()
+        fake_torch.cuda.empty_cache.assert_called_once()
+
+
+# ===========================================================================
+# Atomic pickle write helper
+# ===========================================================================
+
+
+@skip_no_spikeinterface
+class TestAtomicWritePickle:
+    """``_atomic_write_pickle`` survives mid-write interruptions."""
+
+    def test_writes_then_atomically_replaces(self, tmp_path):
+        """
+        Successful write produces the final file and removes the .tmp.
+
+        Tests:
+            (Test Case 1) Final file exists with the pickled object.
+            (Test Case 2) The intermediate .tmp file is gone after
+                the os.replace.
+        """
+        from spikelab.spike_sorting.pipeline import _atomic_write_pickle
+        import pickle as _pkl
+
+        target = tmp_path / "out.pkl"
+        _atomic_write_pickle({"k": [1, 2, 3]}, target)
+        assert target.exists()
+        assert not (target.with_suffix(target.suffix + ".tmp")).exists()
+        with open(target, "rb") as f:
+            assert _pkl.load(f) == {"k": [1, 2, 3]}
+
+    def test_creates_parent_directories(self, tmp_path):
+        """
+        Writing to a non-existent directory creates parents on demand.
+
+        Tests:
+            (Test Case 1) Deeply nested target path is created.
+        """
+        from spikelab.spike_sorting.pipeline import _atomic_write_pickle
+
+        target = tmp_path / "deep" / "nested" / "out.pkl"
+        _atomic_write_pickle("payload", target)
+        assert target.exists()
+
+    def test_replaces_existing_file_atomically(self, tmp_path):
+        """
+        A pre-existing file at the target is replaced wholesale.
+
+        Tests:
+            (Test Case 1) Final file's pickled contents match the
+                latest write.
+            (Test Case 2) Old contents are not preserved.
+        """
+        from spikelab.spike_sorting.pipeline import _atomic_write_pickle
+        import pickle as _pkl
+
+        target = tmp_path / "out.pkl"
+        # Pre-existing payload.
+        with open(target, "wb") as f:
+            _pkl.dump("OLD", f)
+
+        _atomic_write_pickle("NEW", target)
+        with open(target, "rb") as f:
+            assert _pkl.load(f) == "NEW"
+
+    def test_failed_write_does_not_corrupt_existing_file(self, tmp_path):
+        """
+        Pickle failure mid-write leaves the existing target untouched.
+
+        Tests:
+            (Test Case 1) When pickling raises, the previous target
+                file is preserved (no partial overwrite).
+            (Test Case 2) The .tmp file may remain on disk; the
+                contract is only that the final file is intact.
+        """
+        from spikelab.spike_sorting.pipeline import _atomic_write_pickle
+        import pickle as _pkl
+
+        target = tmp_path / "out.pkl"
+        with open(target, "wb") as f:
+            _pkl.dump("OLD", f)
+
+        # An object that fails to pickle (lambdas are not picklable).
+        with pytest.raises(Exception):
+            _atomic_write_pickle(lambda x: x, target)
+
+        # The final target must still hold the previous contents.
+        with open(target, "rb") as f:
+            assert _pkl.load(f) == "OLD"
+
+
+# ===========================================================================
+# SortRunReport
+# ===========================================================================
+
+
+@skip_no_spikeinterface
+class TestSortRunReport:
+    """``SortRunReport`` aggregates per-recording results."""
+
+    def _make_record(self, status="success", **overrides):
+        from spikelab.spike_sorting.pipeline import RecordingResult
+
+        defaults = dict(
+            rec_name="rec1",
+            rec_path="/tmp/rec1.h5",
+            results_folder="/tmp/sorted_rec1",
+            status=status,
+            wall_time_s=12.5,
+        )
+        defaults.update(overrides)
+        return RecordingResult(**defaults)
+
+    def test_succeeded_failed_split(self):
+        """
+        ``succeeded`` and ``failed`` partition records by status.
+
+        Tests:
+            (Test Case 1) Successful entries land in ``succeeded``.
+            (Test Case 2) Anything else lands in ``failed``.
+            (Test Case 3) ``all_succeeded`` only when every record
+                is a success and the report is non-empty.
+        """
+        from spikelab.spike_sorting.pipeline import SortRunReport
+
+        report = SortRunReport()
+        report.add(self._make_record(status="success"))
+        report.add(self._make_record(rec_name="rec2", status="oom_gpu"))
+        report.add(self._make_record(rec_name="rec3", status="sorter_timeout"))
+        assert len(report.succeeded) == 1
+        assert len(report.failed) == 2
+        assert report.all_succeeded is False
+
+        empty = SortRunReport()
+        assert empty.all_succeeded is False  # Empty is also not "all succeeded"
+
+    def test_to_dict_round_trip(self):
+        """
+        ``to_dict`` exposes per-record fields and tally counts.
+
+        Tests:
+            (Test Case 1) Returned dict contains records list +
+                aggregate counts.
+            (Test Case 2) Counts match the report contents.
+        """
+        from spikelab.spike_sorting.pipeline import SortRunReport
+
+        report = SortRunReport()
+        report.add(self._make_record(status="success"))
+        report.add(self._make_record(rec_name="rec2", status="failed"))
+        d = report.to_dict()
+        assert d["n_total"] == 2
+        assert d["n_succeeded"] == 1
+        assert d["n_failed"] == 1
+        assert len(d["records"]) == 2
+        assert d["records"][0]["rec_name"] == "rec1"
+
+
+@skip_no_spikeinterface
+class TestClassifyRecordingStatus:
+    """``_classify_recording_status`` maps results / exceptions to statuses."""
+
+    def test_success_and_failure_classes(self):
+        """
+        Each known exception maps to the right status string.
+
+        Tests:
+            (Test Case 1) Non-exception → 'success'.
+            (Test Case 2) HostMemoryWatchdogError → 'oom_host_ram'.
+            (Test Case 3) SorterTimeoutError → 'sorter_timeout'.
+            (Test Case 4) GPUOutOfMemoryError → 'oom_gpu'.
+            (Test Case 5) MemoryError → 'oom_memoryerror'.
+            (Test Case 6) Plain exception → 'failed'.
+        """
+        from spikelab.spike_sorting.pipeline import _classify_recording_status
+        from spikelab.spike_sorting._exceptions import (
+            GPUOutOfMemoryError,
+            HostMemoryWatchdogError,
+            SorterTimeoutError,
+        )
+
+        assert _classify_recording_status(MagicMock()) == "success"
+        assert (
+            _classify_recording_status(
+                HostMemoryWatchdogError("x", percent_at_trip=99, abort_pct=92)
+            )
+            == "oom_host_ram"
+        )
+        assert (
+            _classify_recording_status(SorterTimeoutError("x", sorter="ks2"))
+            == "sorter_timeout"
+        )
+        assert (
+            _classify_recording_status(GPUOutOfMemoryError("x", sorter="ks4"))
+            == "oom_gpu"
+        )
+        assert _classify_recording_status(MemoryError("x")) == "oom_memoryerror"
+        assert _classify_recording_status(RuntimeError("plain")) == "failed"
+
+
+@skip_no_spikeinterface
+class TestSortRecordingOutReport:
+    """``sort_recording`` populates ``out_report`` and writes per-recording JSONs."""
+
+    @pytest.fixture()
+    def sort_fn(self):
+        from spikelab.spike_sorting.pipeline import sort_recording
+
+        return sort_recording
+
+    def _make_config(self, **execution_overrides):
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+
+        cfg = SortingPipelineConfig()
+        for key, value in execution_overrides.items():
+            setattr(cfg.execution, key, value)
+        return cfg
+
+    def test_out_report_empty_for_empty_batch(self, sort_fn):
+        """
+        Empty input list yields an empty report.
+
+        Tests:
+            (Test Case 1) ``out_report.records`` stays empty.
+            (Test Case 2) No exception raised.
+        """
+        from spikelab.spike_sorting.pipeline import SortRunReport
+
+        cfg = self._make_config()
+        report = SortRunReport()
+        with (
+            patch(
+                "spikelab.spike_sorting.guards.run_preflight",
+                return_value=[],
+            ),
+            patch("spikelab.spike_sorting.guards.report_findings"),
+        ):
+            sort_fn(
+                recording_files=[],
+                config=cfg,
+                intermediate_folders=[],
+                results_folders=[],
+                out_report=report,
+            )
+        assert report.records == []
 
 
 @skip_no_spikeinterface

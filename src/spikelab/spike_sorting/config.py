@@ -200,7 +200,13 @@ class FigureConfig:
 
 @dataclass
 class ExecutionConfig:
-    """Parameters for pipeline execution control."""
+    """Parameters for pipeline execution control.
+
+    Includes safety knobs for the host-memory watchdog and the
+    pre-loop preflight checks under
+    ``spikelab.spike_sorting.guards``. Defaults are tuned for a
+    32–64 GB workstation; bump the GB thresholds on smaller hosts.
+    """
 
     n_jobs: int = 8
     total_memory: str = "16G"
@@ -216,6 +222,113 @@ class ExecutionConfig:
     recompile_single_recording: bool = False
 
     delete_inter: bool = True
+
+    # ------------------------------------------------------------------
+    # Host-memory watchdog (guards/_watchdog.py)
+    # ------------------------------------------------------------------
+    host_ram_watchdog: bool = True
+    host_ram_warn_pct: float = 85.0
+    host_ram_abort_pct: float = 92.0
+    host_ram_poll_interval_s: float = 2.0
+
+    # ------------------------------------------------------------------
+    # Preflight checks (guards/_preflight.py)
+    # ------------------------------------------------------------------
+    preflight: bool = True
+    preflight_strict: bool = False
+    preflight_min_free_inter_gb: float = 20.0
+    preflight_min_free_results_gb: float = 2.0
+    preflight_min_available_ram_gb: float = 4.0
+    preflight_min_free_vram_gb: float = 2.0
+
+    # ------------------------------------------------------------------
+    # Sorter inactivity timeout (guards/_inactivity.py)
+    # ------------------------------------------------------------------
+    sorter_inactivity_timeout: bool = True
+    sorter_inactivity_base_s: float = 600.0
+    sorter_inactivity_per_min_s: float = 30.0
+    sorter_inactivity_max_s: Optional[float] = 7200.0
+    # Grace period (seconds) between ``_thread.interrupt_main`` and
+    # the ``os._exit`` fallback when an in-process sorter (KS4 host,
+    # RT-Sort) hangs. Short enough to keep the workstation
+    # responsive, long enough that a Python-level recovery can finish
+    # an in-flight pickle write.
+    sorter_inactivity_in_process_grace_s: float = 10.0
+
+    # ------------------------------------------------------------------
+    # OOM auto-retry
+    # ------------------------------------------------------------------
+    oom_retry_max: int = 1
+    oom_retry_factor: float = 0.5
+
+    # ------------------------------------------------------------------
+    # Pipeline canary (canary.py)
+    # ------------------------------------------------------------------
+    # When > 0, run the configured backend on the first
+    # ``canary_first_n_s`` seconds of each recording before launching
+    # the full sort. Catches MEX / preprocessing / environment
+    # failures in seconds rather than hours. Disabled by default
+    # because the smoke test adds ~30 s of startup overhead per
+    # recording.
+    canary_first_n_s: float = 0.0
+
+    # ------------------------------------------------------------------
+    # Docker image digest pinning (docker_utils.get_local_image_digest)
+    # ------------------------------------------------------------------
+    # Optional ``sha256:...`` digest the operator expects the local
+    # Docker image to match. The actual digest is always recorded in
+    # ``config_used.json`` and the sorting report. When this field is
+    # set and the local digest differs, the pipeline emits a warning
+    # (no failure) so two sorts months apart can be compared at the
+    # bit level rather than only by mutable image tag.
+    docker_image_expected_digest: Optional[str] = None
+
+    # ------------------------------------------------------------------
+    # Disk-usage watchdog (guards/_disk_watchdog.py)
+    # ------------------------------------------------------------------
+    disk_watchdog: bool = True
+    disk_warn_free_gb: float = 5.0
+    disk_abort_free_gb: float = 1.0
+    disk_poll_interval_s: float = 10.0
+
+    # ------------------------------------------------------------------
+    # I/O stall watchdog (guards/_io_stall.py)
+    # ------------------------------------------------------------------
+    io_stall_watchdog: bool = True
+    io_stall_s: float = 300.0
+    io_stall_poll_interval_s: float = 10.0
+
+    # ------------------------------------------------------------------
+    # Temp-file cleanup at sort end (guards/_tempfile_cleanup.py)
+    # ------------------------------------------------------------------
+    cleanup_temp_files: bool = True
+
+    # ------------------------------------------------------------------
+    # Windows: prevent system sleep during sort (guards/_power_state.py)
+    # ------------------------------------------------------------------
+    prevent_system_sleep: bool = True
+
+    # ------------------------------------------------------------------
+    # GPU memory watchdog (guards/_gpu_watchdog.py)
+    # ------------------------------------------------------------------
+    gpu_watchdog: bool = True
+    gpu_warn_pct: float = 85.0
+    gpu_abort_pct: float = 95.0
+    gpu_poll_interval_s: float = 2.0
+
+    # ------------------------------------------------------------------
+    # Post-sorting Markdown report + Tee log lifecycle (report.py)
+    # ------------------------------------------------------------------
+    # ``tee_log_policy`` controls what happens to the per-recording
+    # Tee log file after the Markdown sorting report is successfully
+    # generated. Only applied on the success path; failures always
+    # keep the log so tracebacks are preserved for diagnosis.
+    #
+    #   * "keep"               — leave the Tee log untouched
+    #   * "gzip_on_success"    — compress to ``.log.gz`` on success
+    #   * "delete_on_success"  — remove the Tee log on success
+    tee_log_policy: str = "delete_on_success"
+    generate_sorting_report: bool = True
 
 
 @dataclass
@@ -450,6 +563,82 @@ class SortingPipelineConfig:
                 "recompile_single_recording",
             ),
             "delete_inter": ("execution", "delete_inter"),
+            # ExecutionConfig — guards (host-memory watchdog)
+            "host_ram_watchdog": ("execution", "host_ram_watchdog"),
+            "host_ram_warn_pct": ("execution", "host_ram_warn_pct"),
+            "host_ram_abort_pct": ("execution", "host_ram_abort_pct"),
+            "host_ram_poll_interval_s": ("execution", "host_ram_poll_interval_s"),
+            # ExecutionConfig — guards (preflight)
+            "preflight": ("execution", "preflight"),
+            "preflight_strict": ("execution", "preflight_strict"),
+            "preflight_min_free_inter_gb": (
+                "execution",
+                "preflight_min_free_inter_gb",
+            ),
+            "preflight_min_free_results_gb": (
+                "execution",
+                "preflight_min_free_results_gb",
+            ),
+            "preflight_min_available_ram_gb": (
+                "execution",
+                "preflight_min_available_ram_gb",
+            ),
+            "preflight_min_free_vram_gb": (
+                "execution",
+                "preflight_min_free_vram_gb",
+            ),
+            # ExecutionConfig — guards (sorter inactivity timeout)
+            "sorter_inactivity_timeout": (
+                "execution",
+                "sorter_inactivity_timeout",
+            ),
+            "sorter_inactivity_base_s": (
+                "execution",
+                "sorter_inactivity_base_s",
+            ),
+            "sorter_inactivity_per_min_s": (
+                "execution",
+                "sorter_inactivity_per_min_s",
+            ),
+            "sorter_inactivity_max_s": (
+                "execution",
+                "sorter_inactivity_max_s",
+            ),
+            "sorter_inactivity_in_process_grace_s": (
+                "execution",
+                "sorter_inactivity_in_process_grace_s",
+            ),
+            # ExecutionConfig — OOM auto-retry
+            "oom_retry_max": ("execution", "oom_retry_max"),
+            "oom_retry_factor": ("execution", "oom_retry_factor"),
+            # ExecutionConfig — pipeline canary
+            "canary_first_n_s": ("execution", "canary_first_n_s"),
+            # ExecutionConfig — Docker image digest pinning
+            "docker_image_expected_digest": (
+                "execution",
+                "docker_image_expected_digest",
+            ),
+            # ExecutionConfig — disk watchdog
+            "disk_watchdog": ("execution", "disk_watchdog"),
+            "disk_warn_free_gb": ("execution", "disk_warn_free_gb"),
+            "disk_abort_free_gb": ("execution", "disk_abort_free_gb"),
+            "disk_poll_interval_s": ("execution", "disk_poll_interval_s"),
+            # ExecutionConfig — I/O stall watchdog
+            "io_stall_watchdog": ("execution", "io_stall_watchdog"),
+            "io_stall_s": ("execution", "io_stall_s"),
+            "io_stall_poll_interval_s": ("execution", "io_stall_poll_interval_s"),
+            # ExecutionConfig — temp-file cleanup
+            "cleanup_temp_files": ("execution", "cleanup_temp_files"),
+            # ExecutionConfig — Windows sleep prevention
+            "prevent_system_sleep": ("execution", "prevent_system_sleep"),
+            # ExecutionConfig — GPU watchdog
+            "gpu_watchdog": ("execution", "gpu_watchdog"),
+            "gpu_warn_pct": ("execution", "gpu_warn_pct"),
+            "gpu_abort_pct": ("execution", "gpu_abort_pct"),
+            "gpu_poll_interval_s": ("execution", "gpu_poll_interval_s"),
+            # ExecutionConfig — sorting report + tee log lifecycle
+            "tee_log_policy": ("execution", "tee_log_policy"),
+            "generate_sorting_report": ("execution", "generate_sorting_report"),
         }
 
 
