@@ -2188,6 +2188,7 @@ class TestSortingPipelineConfig:
             config=KILOSORT2,
             intermediate_folders=[],
             results_folders=[],
+            preflight=False,
         )
         assert result == []
 
@@ -2283,6 +2284,7 @@ class TestSortRecordingValidation:
             recording_files=[],
             intermediate_folders=[],
             results_folders=[],
+            preflight=False,
         )
         assert result == []
 

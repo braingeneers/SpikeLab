@@ -315,6 +315,12 @@ class ExecutionConfig:
     gpu_warn_pct: float = 85.0
     gpu_abort_pct: float = 95.0
     gpu_poll_interval_s: float = 2.0
+    # Thermal sub-thresholds (degrees Celsius). Set either to None to
+    # disable that stage. Throttle-reason warnings are surfaced
+    # whenever ``gpu_watchdog`` is on and pynvml is available.
+    gpu_warn_temp_c: Optional[float] = 85.0
+    gpu_abort_temp_c: Optional[float] = 92.0
+    gpu_monitor_throttle_reasons: bool = True
 
     # ------------------------------------------------------------------
     # Post-sorting Markdown report + Tee log lifecycle (report.py)
@@ -636,6 +642,12 @@ class SortingPipelineConfig:
             "gpu_warn_pct": ("execution", "gpu_warn_pct"),
             "gpu_abort_pct": ("execution", "gpu_abort_pct"),
             "gpu_poll_interval_s": ("execution", "gpu_poll_interval_s"),
+            "gpu_warn_temp_c": ("execution", "gpu_warn_temp_c"),
+            "gpu_abort_temp_c": ("execution", "gpu_abort_temp_c"),
+            "gpu_monitor_throttle_reasons": (
+                "execution",
+                "gpu_monitor_throttle_reasons",
+            ),
             # ExecutionConfig — sorting report + tee log lifecycle
             "tee_log_policy": ("execution", "tee_log_policy"),
             "generate_sorting_report": ("execution", "generate_sorting_report"),

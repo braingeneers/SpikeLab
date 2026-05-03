@@ -728,11 +728,11 @@ def _process_recording_body(
         # waveform extraction, build_spikedata, curation, figure
         # generation, or compile cannot kill the surrounding batch
         # loop. KeyboardInterrupt is caught specifically because the
-        # host-memory watchdog uses ``_thread.interrupt_main`` to
-        # abort the run; we re-raise it as a classified
-        # ``HostMemoryWatchdogError`` so the caller can route it as
-        # a resource failure.
-        from .guards import get_active_watchdog
+        # host-memory, GPU, and I/O stall watchdogs all abort via
+        # ``_thread.interrupt_main``; we re-raise as the matching
+        # classified error so the caller can route it as a
+        # resource failure.
+        from .guards import find_tripped_global_watchdog
 
         try:
             # Spike sorting
@@ -937,14 +937,17 @@ def _process_recording_body(
                 return sd, sd_curated
             return sd_curated
         except KeyboardInterrupt:
-            # The host-memory watchdog uses ``_thread.interrupt_main``
-            # to abort the run. Re-raise as a classified resource
-            # failure so the per-recording loop can route it the same
-            # way as a GPU OOM.
-            wd = get_active_watchdog()
-            if wd is not None and wd.tripped():
+            # Any of the global-scope watchdogs (host RAM, GPU
+            # memory + thermal, I/O stall) may have triggered the
+            # interrupt via ``_thread.interrupt_main``. Resolve the
+            # tripped one and convert to its classified error so
+            # the per-recording loop can route it the same way as
+            # a GPU OOM. If no watchdog has tripped, the
+            # interrupt is a real Ctrl-C and is re-raised.
+            wd = find_tripped_global_watchdog()
+            if wd is not None:
                 err = wd.make_error()
-                print(f"Recording aborted by host-memory watchdog: {err}")
+                print(f"Recording aborted by watchdog: {err}")
                 return err
             raise
         except MemoryError as e:
@@ -1428,6 +1431,11 @@ def sort_recording(
             warn_pct=exe_cfg.gpu_warn_pct,
             abort_pct=exe_cfg.gpu_abort_pct,
             poll_interval_s=exe_cfg.gpu_poll_interval_s,
+            warn_temp_c=getattr(exe_cfg, "gpu_warn_temp_c", 85.0),
+            abort_temp_c=getattr(exe_cfg, "gpu_abort_temp_c", 92.0),
+            monitor_throttle_reasons=getattr(
+                exe_cfg, "gpu_monitor_throttle_reasons", True
+            ),
         )
     else:
         gpu_watchdog_ctx = nullcontext()
@@ -1444,11 +1452,22 @@ def sort_recording(
     # pywin32 is missing.
     from .guards import (
         cleanup_temp_files,
+        linux_cgroup_v2_memory_cap,
         prevent_system_sleep,
         windows_job_object_cap,
     )
 
     job_object_cap = windows_job_object_cap(
+        frac=float(exe_cfg.host_ram_abort_pct) / 100.0
+    )
+
+    # Linux cgroup v2 kernel-enforced memory cap. Active only when
+    # the process is in a writable cgroup v2 (typical with
+    # ``systemd-run --user --scope``). Complements RLIMIT_DATA,
+    # which only bounds the data segment — cgroup memory.max bounds
+    # all anonymous and shared memory the kernel charges to the
+    # process. No-op on non-Linux or without a writable cgroup.
+    cgroup_cap = linux_cgroup_v2_memory_cap(
         frac=float(exe_cfg.host_ram_abort_pct) / 100.0
     )
 
@@ -1469,6 +1488,7 @@ def sort_recording(
     with (
         _bounded_host_memory(0.8),
         job_object_cap,
+        cgroup_cap,
         sleep_lock_ctx,
         temp_cleanup_ctx,
         watchdog_ctx,
@@ -1730,10 +1750,14 @@ def sort_recording(
                         result = disk_wd.make_error()
 
                     if isinstance(result, BaseException):
+                        from ._exceptions import GpuThermalWatchdogError
+
                         if isinstance(result, HostMemoryWatchdogError):
                             status = "ABORTED (host RAM watchdog)"
                         elif isinstance(result, GpuMemoryWatchdogError):
                             status = "ABORTED (GPU VRAM watchdog)"
+                        elif isinstance(result, GpuThermalWatchdogError):
+                            status = "ABORTED (GPU thermal watchdog)"
                         elif isinstance(result, SorterTimeoutError):
                             status = "ABORTED (sorter inactivity timeout)"
                         elif isinstance(result, DiskExhaustionError):
@@ -1782,9 +1806,14 @@ def sort_recording(
 
                     _print_pipeline_summary("SUCCESS", time.time() - t_start)
                 except KeyboardInterrupt:
-                    # If the disk watchdog tripped (interrupt_main
-                    # delivered, but no inner handler caught it),
-                    # convert to a clean DiskExhaustionError result.
+                    # An interrupt that escapes ``process_recording``'s
+                    # inner catch can have come from any per-recording
+                    # or global-scope watchdog. Check disk first
+                    # (most local), then the global registry. If
+                    # nothing tripped, the interrupt is a real Ctrl-C
+                    # and is re-raised.
+                    from .guards import find_tripped_global_watchdog
+
                     if disk_wd.tripped():
                         result = disk_wd.make_error()
                         _print_pipeline_summary(
@@ -1793,7 +1822,16 @@ def sort_recording(
                             error=result,
                         )
                     else:
-                        raise
+                        wd = find_tripped_global_watchdog()
+                        if wd is not None:
+                            result = wd.make_error()
+                            _print_pipeline_summary(
+                                "ABORTED (watchdog)",
+                                time.time() - t_start,
+                                error=result,
+                            )
+                        else:
+                            raise
                 finally:
                     # Close the per-recording watchdogs before
                     # reading their trip state for the report.
@@ -1918,7 +1956,8 @@ class RecordingResult:
         results_folder (str): Per-recording results folder.
         status (str): One of ``"success"``, ``"failed"``,
             ``"oom_gpu"``, ``"oom_host_ram"``, ``"oom_memoryerror"``,
-            ``"sorter_timeout"``, ``"disk_exhausted"``.
+            ``"sorter_timeout"``, ``"disk_exhausted"``,
+            ``"gpu_thermal"``, ``"io_stall"``, ``"concurrent_sort"``.
         wall_time_s (float): Wall-clock time spent on this recording
             (including OOM retries).
         n_curated_units (int or None): Number of curated units when
@@ -1964,7 +2003,7 @@ class SortRunReport:
     * Per-batch: optional, see ``out_report`` parameter on
       :func:`sort_recording`.
 
-    Attributes:
+    Parameters:
         records (list[RecordingResult]): Per-recording outcomes in
             the order they were processed. Use the convenience
             properties for filtered views.
@@ -2012,6 +2051,7 @@ def _classify_recording_status(result: Any) -> str:
         DiskExhaustionError,
         GpuMemoryWatchdogError,
         GPUOutOfMemoryError,
+        GpuThermalWatchdogError,
         HostMemoryWatchdogError,
         IOStallError,
         SorterTimeoutError,
@@ -2023,6 +2063,8 @@ def _classify_recording_status(result: Any) -> str:
         return "oom_host_ram"
     if isinstance(result, GpuMemoryWatchdogError):
         return "oom_gpu"
+    if isinstance(result, GpuThermalWatchdogError):
+        return "gpu_thermal"
     if isinstance(result, SorterTimeoutError):
         return "sorter_timeout"
     if isinstance(result, DiskExhaustionError):

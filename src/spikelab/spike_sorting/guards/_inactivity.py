@@ -9,12 +9,19 @@ holding its GPU and the parent ``shell_script.wait()`` blocks
 indefinitely.
 
 :class:`LogInactivityWatchdog` is a daemon-thread context manager
-that polls the sorter's log file and trips when the file's mtime has
-not advanced for the configured tolerance. When the sort is making
-progress — KS2 prints per-batch lines, KS4 prints per-stage banners,
-RT-Sort writes per-chunk diagnostics — the file mtime keeps moving
-and the watchdog never fires. When the sort hangs, the file goes
-silent and the watchdog terminates the registered subprocess.
+that polls the sorter's log file and trips when neither the file's
+mtime *nor* its byte size has advanced for the configured tolerance.
+When the sort is making progress — KS2 prints per-batch lines, KS4
+prints per-stage banners, RT-Sort writes per-chunk diagnostics — at
+least one of the two signals keeps moving and the watchdog never
+fires. When the sort hangs, both signals stay flat and the watchdog
+terminates the registered subprocess.
+
+Tracking size as well as mtime avoids two false-positive failure
+modes: NTFS lazy-mtime updates (Windows can defer mtime stamping
+on long-held file handles), and ``relatime``-style filesystems with
+delayed metadata flushes. In both cases the file content keeps
+growing while mtime appears static.
 
 The tolerance scales with recording duration so a long sort that
 takes minutes between log writes doesn't get killed by a watchdog
@@ -35,7 +42,7 @@ import subprocess
 import threading
 import time
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, Optional, Tuple
 
 from .._exceptions import SorterTimeoutError
 
@@ -293,6 +300,7 @@ class LogInactivityWatchdog:
         self._thread: Optional[threading.Thread] = None
         self._tripped = False
         self._last_seen_mtime: Optional[float] = None
+        self._last_seen_size: Optional[int] = None
         self._inactivity_at_trip: Optional[float] = None
         # Disabled when there is no timeout to enforce, or when there
         # is no kill target at all (neither a subprocess nor a
@@ -340,9 +348,14 @@ class LogInactivityWatchdog:
     def __enter__(self) -> "LogInactivityWatchdog":
         if not self._enabled:
             return self
-        # Capture the pre-existing mtime so a stale log from a
-        # previous run does not register as a fresh trip.
-        self._last_seen_mtime = self._read_mtime()
+        # Capture the pre-existing mtime + size so a stale log from
+        # a previous run does not register as a fresh trip.
+        signals = self._read_signals()
+        if signals is not None:
+            self._last_seen_mtime, self._last_seen_size = signals
+        else:
+            self._last_seen_mtime = None
+            self._last_seen_size = None
         print(
             f"[inactivity watchdog] active: sorter={self.sorter} "
             f"tolerance={self.inactivity_s:.1f}s "
@@ -368,37 +381,46 @@ class LogInactivityWatchdog:
     # Internals
     # ------------------------------------------------------------------
 
-    def _read_mtime(self) -> Optional[float]:
-        """Return the log file's mtime, or None if it does not exist."""
+    def _read_signals(self) -> Optional[Tuple[float, int]]:
+        """Return ``(mtime, size)`` for the log file, or None if absent."""
         try:
-            return float(os.stat(self.log_path).st_mtime)
+            st = os.stat(self.log_path)
+            return float(st.st_mtime), int(st.st_size)
         except (OSError, FileNotFoundError):
             return None
 
     def _poll_loop(self) -> None:
-        """Polling loop: track mtime, trip on inactivity, exit on stop."""
+        """Polling loop: track mtime + size, trip on inactivity, exit on stop."""
         # Defer the first measurement so __enter__ has time to return.
         if self._stop_event.wait(self.poll_interval_s):
             return
 
-        # Time of the most recent mtime change observed by the
-        # watchdog (or watchdog start if the file never moves).
+        # Time of the most recent progress signal (mtime change or
+        # size change) observed by the watchdog. Initialised to
+        # watchdog start so a file that never appears still trips
+        # after the configured tolerance.
         last_progress_t = time.time()
-        first_seen_mtime: Optional[float] = self._last_seen_mtime
+        seen_any = self._last_seen_mtime is not None
 
         while not self._stop_event.is_set():
-            current_mtime = self._read_mtime()
+            signals = self._read_signals()
             now = time.time()
 
-            if current_mtime is not None:
-                if first_seen_mtime is None:
+            if signals is not None:
+                cur_mtime, cur_size = signals
+                if not seen_any:
                     # File just appeared.
-                    first_seen_mtime = current_mtime
-                    self._last_seen_mtime = current_mtime
+                    seen_any = True
+                    self._last_seen_mtime = cur_mtime
+                    self._last_seen_size = cur_size
                     last_progress_t = now
-                elif current_mtime != self._last_seen_mtime:
-                    # Log advanced — reset the inactivity clock.
-                    self._last_seen_mtime = current_mtime
+                elif (
+                    cur_mtime != self._last_seen_mtime
+                    or cur_size != self._last_seen_size
+                ):
+                    # Either signal advanced — reset the inactivity clock.
+                    self._last_seen_mtime = cur_mtime
+                    self._last_seen_size = cur_size
                     last_progress_t = now
 
             inactivity = now - last_progress_t

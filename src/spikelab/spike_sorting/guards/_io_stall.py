@@ -19,12 +19,34 @@ device, the watchdog reports as disabled and yields a no-op.
 
 from __future__ import annotations
 
+import contextvars
 import threading
 import time
 from pathlib import Path
 from typing import Callable, List, Optional, Tuple
 
 from .._exceptions import IOStallError
+
+_active_io_stall_watchdog: contextvars.ContextVar[Optional["IOStallWatchdog"]] = (
+    contextvars.ContextVar("active_io_stall_watchdog", default=None)
+)
+
+
+def get_active_io_stall_watchdog() -> Optional["IOStallWatchdog"]:
+    """Return the I/O stall watchdog active for the current context, or None.
+
+    Mirror of :func:`._watchdog.get_active_watchdog`. Lets the
+    per-recording :class:`KeyboardInterrupt` catch site discover a
+    tripped I/O stall watchdog and convert the interrupt into the
+    appropriate :class:`IOStallError` rather than letting the raw
+    interrupt bubble up.
+
+    Returns:
+        watchdog (IOStallWatchdog or None): The active instance, or
+            ``None`` when no I/O stall watchdog is currently
+            running.
+    """
+    return _active_io_stall_watchdog.get()
 
 
 def _resolve_device_for_path(path: Path) -> Optional[str]:
@@ -157,6 +179,7 @@ class IOStallWatchdog:
         self._stall_at_trip: Optional[float] = None
         self._device: Optional[str] = None
         self._enabled = False
+        self._token: Optional[contextvars.Token] = None
 
     # ------------------------------------------------------------------
     # Trip-state queries
@@ -211,14 +234,33 @@ class IOStallWatchdog:
             return self
         device = _resolve_device_for_path(self.folder)
         if device is None:
+            print(
+                f"[io stall watchdog] could not resolve a block device "
+                f"for {self.folder} (psutil missing or no matching "
+                "mountpoint) — disabled. The log inactivity watchdog "
+                "still covers most stall cases."
+            )
             self._enabled = False
             return self
         # Probe once to confirm we can read counters for the device.
         if _read_io_bytes(device) is None:
+            print(
+                f"[io stall watchdog] device {device!r} is not exposed "
+                f"by psutil.disk_io_counters(perdisk=True) — disabled. "
+                "Common on Linux NVMe setups where only the parent disk "
+                "is reported; consider monitoring at the parent device "
+                "instead."
+            )
             self._enabled = False
             return self
         self._device = device
         self._enabled = True
+        # Publish the active watchdog so the per-recording
+        # ``KeyboardInterrupt`` catch site can convert a
+        # ``_thread.interrupt_main`` from this watchdog into a
+        # classified ``IOStallError`` rather than letting it
+        # bubble up raw.
+        self._token = _active_io_stall_watchdog.set(self)
         print(
             f"[io stall watchdog] active: device={device} "
             f"folder={self.folder} stall_s={self.stall_s:.1f} "
@@ -238,6 +280,12 @@ class IOStallWatchdog:
         if self._thread is not None:
             self._thread.join(timeout=self.poll_interval_s + 1.0)
             self._thread = None
+        if self._token is not None:
+            try:
+                _active_io_stall_watchdog.reset(self._token)
+            except (LookupError, ValueError):
+                pass
+            self._token = None
 
     # ------------------------------------------------------------------
     # Internals

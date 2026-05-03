@@ -1237,6 +1237,65 @@ def _check_resource_rlimits(config: Any) -> List[PreflightFinding]:
     return findings
 
 
+def _check_filesystem_writable(
+    folders: Sequence[Any],
+    *,
+    label: str,
+    code_prefix: str,
+) -> List[PreflightFinding]:
+    """Verify that *folders* live on writable filesystems.
+
+    A read-only mount (e.g. an NFS export that flipped to RO after a
+    storage event, or a mistakenly-mounted snapshot) passes the
+    free-disk check but fails on the first write. Catching this in
+    preflight surfaces the misconfiguration in milliseconds rather
+    than seconds-to-minutes into a sort.
+
+    For folders that do not yet exist, the nearest existing parent
+    is checked instead — the sort will create the folder later.
+
+    Parameters:
+        folders (sequence of path-like): Folders to validate.
+        label (str): Human-readable folder kind (``"intermediate"``
+            or ``"results"``) used in the message.
+        code_prefix (str): Stable prefix for the finding code
+            (``"intermediate"`` → ``"intermediate_readonly"``).
+
+    Returns:
+        findings (list[PreflightFinding]): One ``fail``-level
+            finding per folder whose nearest existing parent is not
+            writable.
+    """
+    findings: List[PreflightFinding] = []
+    for folder in folders:
+        p = Path(folder)
+        while not p.exists() and p.parent != p:
+            p = p.parent
+        if not p.exists():
+            continue
+        if os.access(p, os.W_OK):
+            continue
+        findings.append(
+            PreflightFinding(
+                level="fail",
+                code=f"{code_prefix}_readonly",
+                category="environment",
+                message=(
+                    f"{label.capitalize()} folder {folder!s} is on a "
+                    f"non-writable filesystem (nearest existing "
+                    f"parent {p!s} fails W_OK)."
+                ),
+                remediation=(
+                    "Pick a writable path or remount the volume "
+                    "read-write. Common causes: NFS export flipped "
+                    "to RO after a storage event, mounted snapshot, "
+                    "or insufficient permissions on a shared drive."
+                ),
+            )
+        )
+    return findings
+
+
 def _hdf5_plugin_finding(config: Any) -> Optional[PreflightFinding]:
     """Validate ``HDF5_PLUGIN_PATH`` when configured.
 
@@ -1434,6 +1493,18 @@ def run_preflight(
     si_finding = _check_spikeinterface_version()
     if si_finding is not None:
         findings.append(si_finding)
+
+    # ---------- Filesystem writability -----------------------------------
+    findings.extend(
+        _check_filesystem_writable(
+            intermediate_folders, label="intermediate", code_prefix="intermediate"
+        )
+    )
+    findings.extend(
+        _check_filesystem_writable(
+            results_folders, label="results", code_prefix="results"
+        )
+    )
 
     # ---------- HDF5 plugin path -----------------------------------------
     hdf5 = _hdf5_plugin_finding(config)

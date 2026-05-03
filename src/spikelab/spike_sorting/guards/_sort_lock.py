@@ -81,6 +81,76 @@ def _pid_alive(pid: int) -> bool:
         return True
 
 
+# Allow a small skew between the lock's recorded ``started_at`` and the
+# OS-reported process start time before we treat the live PID as a
+# reused one. Five seconds is well under what NTP / monotonic-clock
+# wobble produces on a healthy system.
+_PID_REUSE_SKEW_S = 5.0
+
+
+def _pid_holds_lock(pid: int, started_at: Optional[str]) -> bool:
+    """Return True if *pid* is the original lock holder (not a PID reuse).
+
+    Distinct from :func:`_pid_alive`: when psutil is available, this
+    additionally compares the lock's recorded ``started_at`` against
+    ``psutil.Process(pid).create_time()``. If the live process
+    started materially *after* the lock was acquired, it is almost
+    certainly a different process that happened to inherit the
+    holder's PID — common on Linux after the holder crashed and the
+    PID counter wrapped — and the lock is treated as stale.
+
+    Falls back to :func:`_pid_alive` semantics when psutil is
+    missing, when ``started_at`` is unparseable, or when process
+    metadata cannot be read.
+
+    Parameters:
+        pid (int): PID recorded in the lock file.
+        started_at (str or None): ISO-8601 timestamp recorded in the
+            lock file at acquire time.
+
+    Returns:
+        held (bool): ``True`` when the live PID is plausibly the
+            original holder, ``False`` when the lock is stale.
+    """
+    if pid <= 0:
+        return False
+    try:
+        import psutil
+    except ImportError:
+        return _pid_alive(pid)
+
+    try:
+        if not psutil.pid_exists(int(pid)):
+            return False
+    except Exception:
+        return _pid_alive(pid)
+
+    if started_at is None:
+        return _pid_alive(pid)
+
+    try:
+        from datetime import datetime
+
+        lock_t = datetime.fromisoformat(started_at).timestamp()
+    except (TypeError, ValueError):
+        return _pid_alive(pid)
+
+    try:
+        proc = psutil.Process(int(pid))
+        create_t = float(proc.create_time())
+    except (psutil.NoSuchProcess, psutil.AccessDenied, Exception):
+        # Process disappeared mid-check, or we cannot inspect it —
+        # fall back to existence check.
+        return _pid_alive(pid)
+
+    # If the live process began after the lock was written (with a
+    # small skew tolerance), it is a PID reuse. Otherwise it is the
+    # original holder (or close enough that we cannot tell).
+    if create_t > lock_t + _PID_REUSE_SKEW_S:
+        return False
+    return True
+
+
 def _read_lock_info(lock_path: Path) -> Optional[dict]:
     """Read and parse a lock file, returning ``None`` on any error."""
     try:
@@ -164,7 +234,7 @@ def acquire_sort_lock(folder: Path) -> Iterator[Path]:
                     started_at=started_at,
                 )
 
-            if _pid_alive(holder_pid):
+            if _pid_holds_lock(holder_pid, started_at):
                 raise ConcurrentSortError(
                     f"Another sort is already running on {folder} "
                     f"(PID {holder_pid}, started {started_at}). Wait for "
@@ -197,14 +267,40 @@ def acquire_sort_lock(folder: Path) -> Iterator[Path]:
 
     assert fd is not None
     try:
-        payload = {
-            "pid": os.getpid(),
-            "hostname": this_host,
-            "started_at": datetime.now().isoformat(timespec="seconds"),
-        }
-        os.write(fd, json.dumps(payload, indent=2).encode("utf-8"))
+        try:
+            payload = {
+                "pid": os.getpid(),
+                "hostname": this_host,
+                "started_at": datetime.now().isoformat(timespec="seconds"),
+            }
+            os.write(fd, json.dumps(payload, indent=2).encode("utf-8"))
+            # fsync so a crash between write and the next sort cannot
+            # leave behind an unparseable empty/partial lock file
+            # (which would force a manual cleanup).
+            try:
+                os.fsync(fd)
+            except OSError:
+                # Some filesystems (e.g. tmpfs on macOS) reject fsync
+                # on a regular fd; best-effort.
+                pass
+        except BaseException:
+            # Write failed mid-flight (disk full, signal, etc.). The
+            # O_EXCL create succeeded, so the lock file exists but is
+            # empty/partial — unlink it so the next sort sees a clean
+            # slate rather than an unparseable lock requiring manual
+            # cleanup.
+            try:
+                os.close(fd)
+            finally:
+                fd = None
+                try:
+                    lock_path.unlink()
+                except OSError:
+                    pass
+            raise
     finally:
-        os.close(fd)
+        if fd is not None:
+            os.close(fd)
 
     try:
         yield lock_path

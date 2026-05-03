@@ -38,7 +38,7 @@ from .._exceptions import DiskExhaustionError
 class DiskExhaustionReport:
     """Diagnostic payload built when the disk watchdog trips.
 
-    Attributes:
+    Parameters:
         folder (str): The folder whose free space crossed the
             abort threshold.
         free_gb_at_trip (float): Free disk space (GB) at the trip
@@ -239,6 +239,7 @@ class DiskUsageWatchdog:
         self._last_warn_t = 0.0
         self._free_at_trip: Optional[float] = None
         self._initial_folder_size: Optional[float] = None
+        self._initial_top_consumers: List[Tuple[str, float]] = []
         self._report: Optional[DiskExhaustionReport] = None
         has_kill_target = (self.popen is not None) or (self.kill_callback is not None)
         self._enabled = self.abort_free_gb > 0 and has_kill_target
@@ -290,6 +291,13 @@ class DiskUsageWatchdog:
         # Snapshot the baseline folder size so we can later report
         # how much THIS sort consumed (vs starting near-full).
         self._initial_folder_size = _folder_size_bytes(self.folder)
+        # Snapshot the initial top consumers so we have a fallback
+        # ready if the trip-time walk on a near-full disk is too
+        # slow (millions-of-files trees can stall the os.walk).
+        try:
+            self._initial_top_consumers = _top_consumers(self.folder)
+        except Exception:
+            self._initial_top_consumers = []
         print(
             f"[disk watchdog] active: folder={self.folder} "
             f"warn<={self.warn_free_gb:.1f}GB "
@@ -420,6 +428,36 @@ class DiskUsageWatchdog:
             except Exception as exc:
                 print(f"[disk watchdog] kill_callback raised: {exc!r}; continuing.")
 
+    def _top_consumers_with_timeout(
+        self, timeout_s: float
+    ) -> Optional[List[Tuple[str, float]]]:
+        """Run :func:`_top_consumers` on a worker thread with a timeout.
+
+        Returns the fresh result when the walk completes inside
+        *timeout_s*, ``None`` when the walk is still running. The
+        caller is expected to fall back to the entry-time snapshot
+        in the ``None`` case so a hung os.walk does not block the
+        kill path on a stalled filesystem.
+        """
+        result: List[Optional[List[Tuple[str, float]]]] = [None]
+
+        def _worker() -> None:
+            try:
+                result[0] = _top_consumers(self.folder)
+            except Exception:
+                result[0] = []
+
+        t = threading.Thread(
+            target=_worker,
+            name=f"DiskUsageWatchdog[{self.folder.name}]:walk",
+            daemon=True,
+        )
+        t.start()
+        t.join(timeout_s)
+        if t.is_alive():
+            return None
+        return result[0]
+
     def _build_report(self, free_gb: float) -> DiskExhaustionReport:
         """Snapshot folder state into a :class:`DiskExhaustionReport`."""
         try:
@@ -429,7 +467,16 @@ class DiskUsageWatchdog:
         baseline = self._initial_folder_size or 0.0
         consumed = max(0.0, current_size_bytes - baseline)
 
-        top = _top_consumers(self.folder)
+        # Bounded fresh walk, with the entry-time snapshot as the
+        # fallback when the filesystem is too slow to enumerate.
+        top = self._top_consumers_with_timeout(timeout_s=5.0)
+        if top is None:
+            top = list(self._initial_top_consumers)
+            if top:
+                print(
+                    "[disk watchdog] live top-consumer walk timed out; "
+                    "falling back to entry-time snapshot."
+                )
 
         suggestions: List[str] = []
         if self.projected_need_gb is not None and self.projected_need_gb > free_gb:

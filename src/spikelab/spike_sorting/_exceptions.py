@@ -472,6 +472,43 @@ class GpuMemoryWatchdogError(ResourceSortFailure):
         self.abort_pct = abort_pct
 
 
+class GpuThermalWatchdogError(ResourceSortFailure):
+    """GPU temperature crossed the watchdog abort threshold mid-sort.
+
+    Raised by :class:`spikelab.spike_sorting.guards.GpuMemoryWatchdog`
+    when the device's reported temperature crosses the configured
+    abort threshold. Sustained operation above the GPU's thermal
+    junction limit risks driver-level throttling that produces
+    silently degraded output, or in extreme cases a hardware
+    shutdown that loses the in-progress sort.
+
+    Recommended remediation: pause the batch until the GPU cools
+    (check airflow, ambient temperature, dust on the heatsink), then
+    rerun. A persistent thermal trip across reboots indicates a
+    cooling failure that needs operator attention.
+
+    Attributes:
+        device_index: Index of the GPU device that crossed the
+            threshold.
+        temperature_c_at_trip: Reported device temperature in degrees
+            Celsius at the moment of the trip.
+        abort_temp_c: Configured abort temperature threshold.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        device_index: Optional[int] = None,
+        temperature_c_at_trip: Optional[float] = None,
+        abort_temp_c: Optional[float] = None,
+    ):
+        super().__init__(message)
+        self.device_index = device_index
+        self.temperature_c_at_trip = temperature_c_at_trip
+        self.abort_temp_c = abort_temp_c
+
+
 class IOStallError(ResourceSortFailure):
     """Disk I/O stalled mid-sort.
 

@@ -155,6 +155,61 @@ waveforms). Control which stages are re-run with the ``recompute_*`` flags:
 See the :doc:`API reference </api/spike_sorting>` for the full configuration
 options.
 
+When the same recording is targeted by two sorts at once, the second
+raises
+:class:`~spikelab.spike_sorting._exceptions.ConcurrentSortError` thanks
+to a per-recording lock file in the intermediate folder; stale locks
+left behind by a crashed previous run are reclaimed automatically.
+
+
+Built-in safeguards
+^^^^^^^^^^^^^^^^^^^
+
+The pipeline runs a set of preflight checks before each sort and live
+resource watchdogs during it — for free disk, host RAM, GPU memory, sorter
+log inactivity, and kernel I/O stalls. These are on by default and rarely
+need attention: a successful sort produces no extra noise, and a failure
+surfaces as one of the classified exceptions described in
+:ref:`sort-failures` (e.g.
+:class:`~spikelab.spike_sorting._exceptions.HostMemoryWatchdogError`).
+
+After a successful sort, a human-readable ``sorting_report.md`` is
+written next to the results, summarising configuration, timings, curation
+outcome, and per-unit quality stats. A machine-readable
+``recording_report.json`` is written alongside it.
+
+To tune thresholds (e.g. raise the GPU watchdog's abort percentage,
+disable the sleep blocker on a workstation that genuinely needs to
+suspend), pass overrides via the
+:class:`~spikelab.spike_sorting.config.ExecutionConfig` sub-config of
+``SortingPipelineConfig`` — see the autodoc for the full list of knobs.
+
+
+Pipeline canary
+^^^^^^^^^^^^^^^
+
+For long sorts, you can opt-in to a short smoke test that runs the
+configured backend on the first N seconds of each recording before
+committing to the full sort. This catches "first-time" failures —
+broken Docker image, missing CUDA kernel, MEX compile errors — in
+seconds rather than hours.
+
+.. code-block:: python
+
+   from spikelab.spike_sorting.config import KILOSORT4
+
+   config = KILOSORT4.override(canary_first_n_s=30.0)
+   results = sort_recording(["session1.raw.h5"], config=config)
+
+A canary failure that maps to a
+:class:`~spikelab.spike_sorting._exceptions.SpikeSortingClassifiedError`
+short-circuits the full sort with that classified exception. Unexpected
+canary failures (e.g. canary OOM in a tiny window) are logged but **not**
+propagated — the live watchdogs handle resource-shaped issues during the
+real run. Recordings shorter than ``canary_first_n_s`` skip the canary.
+
+The canary is off by default (``canary_first_n_s=0.0``).
+
 
 Stimulation Artifact Removal
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -353,6 +408,8 @@ epoch to start at t=0:
        print(f"Epoch {i}: {epoch_sd.N} units, {epoch_sd.length:.0f} ms")
 
 
+.. _sort-failures:
+
 Handling Sort Failures
 ----------------------
 
@@ -419,3 +476,51 @@ from sorter logs. RT-Sort additionally raises
 :class:`~spikelab.spike_sorting._exceptions.ModelLoadingError` when the
 detection model cannot be loaded. See the
 :doc:`API reference </api/spike_sorting>` for the full exception hierarchy.
+
+Watchdog and lock failures
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The classified-error hierarchy includes additional subclasses raised by
+the resource watchdogs and the per-recording sort lock. They surface
+through ``sort_recording`` like any other classified failure and carry
+a ``RecordingResult.status`` string for batch scripts to dispatch on:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 20 50
+
+   * - Exception
+     - ``status``
+     - Recommended remediation
+   * - :class:`~spikelab.spike_sorting._exceptions.HostMemoryWatchdogError`
+     - ``oom_host_ram``
+     - Reduce ``n_jobs`` / ``total_memory``, or raise
+       ``host_ram_abort_pct``.
+   * - :class:`~spikelab.spike_sorting._exceptions.GpuMemoryWatchdogError`
+     - ``oom_gpu``
+     - Halve the sorter's per-batch knob (``NT`` for KS2, ``batch_size``
+       for KS4, ``num_processes`` for RT-Sort) and retry. The pipeline
+       does this automatically up to ``oom_retry_max`` times.
+   * - :class:`~spikelab.spike_sorting._exceptions.GpuThermalWatchdogError`
+     - ``gpu_thermal``
+     - GPU temperature crossed the abort threshold. Pause until the
+       device cools; check airflow, ambient temperature, and heatsink
+       dust. A persistent trip indicates a cooling failure.
+   * - :class:`~spikelab.spike_sorting._exceptions.SorterTimeoutError`
+     - ``sorter_timeout``
+     - Sorter log went silent past the inactivity tolerance. Raise
+       ``sorter_inactivity_max_s`` for unusually long preprocessing,
+       or investigate a hung subprocess.
+   * - :class:`~spikelab.spike_sorting._exceptions.DiskExhaustionError`
+     - ``disk_exhausted``
+     - Free space on the intermediate / results volume. Inspect
+       ``disk_exhaustion_report.json`` next to the results.
+   * - :class:`~spikelab.spike_sorting._exceptions.IOStallError`
+     - ``io_stall``
+     - The kernel I/O byte counters stopped advancing. Usually a hung
+       network share or failing disk; investigate before retrying.
+   * - :class:`~spikelab.spike_sorting._exceptions.ConcurrentSortError`
+     - ``concurrent_sort``
+     - Another process is already sorting this recording (per-recording
+       lock file). Wait for it to finish, or remove the stale lock if
+       the previous sort crashed.

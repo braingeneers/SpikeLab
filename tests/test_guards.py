@@ -636,6 +636,19 @@ class TestRunPreflight:
     the relevant detection function in ``_preflight``.
     """
 
+    @pytest.fixture(autouse=True)
+    def _silence_v2_helpers(self, monkeypatch):
+        """Mute the FEAT-001..003 dispatchers added in the safeguarding
+        round so the disk / RAM / VRAM / HDF5 assertions in this class
+        keep their pre-FEAT semantics. Each FEAT-001..003 helper is
+        covered separately in test_safeguards_v2.py.
+        """
+        monkeypatch.setattr(preflight_mod, "_check_sorter_dependencies", lambda c: [])
+        monkeypatch.setattr(preflight_mod, "_check_gpu_device_present", lambda c: None)
+        monkeypatch.setattr(
+            preflight_mod, "_check_recording_sample_rate", lambda c, recs: []
+        )
+
     def test_no_findings_when_host_healthy(self, monkeypatch):
         """
         Plenty of disk / RAM / VRAM and a valid sorter yields no findings.
