@@ -37,6 +37,7 @@ from __future__ import annotations
 import _thread
 import contextlib
 import contextvars
+import math
 import os
 import subprocess
 import threading
@@ -220,7 +221,16 @@ def compute_inactivity_timeout_s(
     Returns:
         timeout_s (float): Resolved inactivity tolerance in seconds.
     """
-    duration = max(0.0, float(recording_duration_min or 0.0))
+    # NaN is truthy in Python, so ``recording_duration_min or 0.0``
+    # leaves NaN intact. ``max(0.0, NaN)`` returns NaN on CPython.
+    # Coerce NaN/None to 0 before arithmetic so a malfunctioning
+    # upstream never produces a NaN timeout (NaN comparisons would
+    # silently disable the watchdog).
+    raw = recording_duration_min
+    if raw is None or (isinstance(raw, float) and math.isnan(raw)):
+        duration = 0.0
+    else:
+        duration = max(0.0, float(raw))
     timeout = float(base_s) + float(per_min_s) * duration
     if max_s is not None:
         timeout = min(timeout, float(max_s))
@@ -478,10 +488,11 @@ class LogInactivityWatchdog:
         if self.kill_callback is not None:
             try:
                 self.kill_callback()
-            except SystemExit:
-                # ``os._exit`` does not raise SystemExit, but if a
-                # custom callback uses ``sys.exit`` we let it propagate
-                # so the caller observes the requested exit code.
+            except (SystemExit, KeyboardInterrupt):
+                # ``os._exit`` does not raise SystemExit, but a custom
+                # callback using ``sys.exit`` should propagate, and an
+                # in-process kill callback's ``_thread.interrupt_main``
+                # surfaces here as KeyboardInterrupt — both must propagate.
                 raise
             except Exception as exc:
                 print(

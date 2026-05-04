@@ -34,13 +34,19 @@ Failure handling
 
 Edge cases
 ----------
-* Recording shorter than ``canary_first_n_s`` → skipped, with a notice.
+* Recording shorter than ``canary_first_n_s`` → skip is performed by
+  the call site in :mod:`spikelab.spike_sorting.pipeline` (where the
+  recording duration is known), not inside :func:`run_canary`. If the
+  caller invokes :func:`run_canary` on a too-short recording, the
+  backend's slicing clamps to the actual duration and the canary
+  effectively runs against the whole recording.
 * Canary leaves a small amount of intermediate state under
   ``<inter_path>/_canary/``; cleanup is best-effort on success.
 """
 
 from __future__ import annotations
 
+import math
 import shutil
 from pathlib import Path
 from typing import Any, Optional
@@ -90,6 +96,8 @@ def _build_canary_config(config: Any, canary_window_s: float) -> Any:
         # would otherwise force the loader into a multi-segment path.
         "start_time_s": 0.0,
         "end_time_s": float(canary_window_s),
+        "rec_chunks": [],
+        "rec_chunks_s": [],
         # Skip curation — too few units in a 30 s window is normal.
         "curate_first": False,
         "curate_second": False,
@@ -114,12 +122,7 @@ def _build_canary_config(config: Any, canary_window_s: float) -> Any:
         # any non-pathological smoke test needs.
         "sorter_inactivity_base_s": 300.0,
     }
-    canary_config = config.override(**overrides)
-    # ``rec_chunks`` is a non-flat field, so override() can't reach
-    # it. Clear it directly on the deep-copied recording sub-config.
-    canary_config.recording.rec_chunks = []
-    canary_config.recording.rec_chunks_s = []
-    return canary_config
+    return config.override(**overrides)
 
 
 def _wipe_canary_folder(folder: Path) -> None:
@@ -174,7 +177,10 @@ def run_canary(
             during the real run).
     """
     canary_window_s = float(getattr(config.execution, "canary_first_n_s", 0.0))
-    if canary_window_s <= 0:
+    # NaN comparisons are always False, so a NaN window would skip the
+    # ``<= 0`` guard and proceed to build a meaningless canary with
+    # ``end_time_s=NaN``. Treat NaN the same as "disabled".
+    if math.isnan(canary_window_s) or canary_window_s <= 0:
         return None
 
     canary_config = _build_canary_config(config, canary_window_s)
@@ -213,7 +219,13 @@ def run_canary(
         print(f"[canary] classified failure: {type(exc).__name__}: {exc}")
         _wipe_canary_folder(canary_root)
         return exc
-    except BaseException as exc:
+    except (KeyboardInterrupt, SystemExit):
+        # User abort or watchdog interrupt — never swallow. Clean up
+        # the canary folder and let the interrupt propagate so the
+        # outer pipeline tears down promptly.
+        _wipe_canary_folder(canary_root)
+        raise
+    except Exception as exc:
         # Unexpected failure — the canary is a smoke test, not a
         # hard gate. Log and let the full sort proceed; live
         # watchdogs handle resource-shaped issues at runtime.
@@ -228,6 +240,11 @@ def run_canary(
         print(f"[canary] classified failure: {type(result).__name__}: {result}")
         _wipe_canary_folder(canary_root)
         return result
+    if isinstance(result, (KeyboardInterrupt, SystemExit)):
+        # process_recording returned the interrupt as a value rather
+        # than raising; surface it the same way as the raised path.
+        _wipe_canary_folder(canary_root)
+        raise result
     if isinstance(result, BaseException):
         print(
             f"[canary] non-classified failure "

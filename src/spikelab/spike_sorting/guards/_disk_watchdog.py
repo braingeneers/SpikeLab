@@ -392,10 +392,12 @@ class DiskUsageWatchdog:
         # anything — once the kill_callback fires (os._exit) we lose
         # the chance.
         self._report = self._build_report(free_gb)
-        print(
-            f"[disk watchdog] report: top consumer = "
-            f"{(self._report.top_consumers[0][0] + ' (' + str(round(self._report.top_consumers[0][1], 2)) + ' GB)') if self._report.top_consumers else '(none found)'}"
-        )
+        if self._report.top_consumers:
+            top_path, top_gb = self._report.top_consumers[0]
+            top_summary = f"{top_path} ({round(top_gb, 2)} GB)"
+        else:
+            top_summary = "(none found)"
+        print(f"[disk watchdog] report: top consumer = {top_summary}")
 
         if self.popen is not None:
             try:
@@ -423,7 +425,10 @@ class DiskUsageWatchdog:
         if self.kill_callback is not None:
             try:
                 self.kill_callback()
-            except SystemExit:
+            except (SystemExit, KeyboardInterrupt):
+                # KeyboardInterrupt is exactly what an in-process kill
+                # callback delivers via _thread.interrupt_main(); never
+                # swallow either kind of intentional interrupt.
                 raise
             except Exception as exc:
                 print(f"[disk watchdog] kill_callback raised: {exc!r}; continuing.")

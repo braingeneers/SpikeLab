@@ -17,6 +17,7 @@ flips ``"warn"`` findings into ``"fail"`` for stricter deployments.
 
 from __future__ import annotations
 
+import math
 import os
 import re
 import shutil
@@ -1067,13 +1068,22 @@ def _check_recording_sample_rate(
             fs_hz = float(get_fs())
         except Exception:
             continue
+        # NaN comparisons are always False, so without an explicit
+        # check a NaN sampling rate would silently fall into the
+        # warn branch with a "nan kHz" message.
+        if math.isnan(fs_hz):
+            continue
         if low_hz <= fs_hz <= high_hz:
             continue
+        # Category is ``environment`` (not ``resource``) because a
+        # sample-rate mismatch is a recording-vs-model misconfiguration,
+        # not a transient resource shortage. Under preflight_strict
+        # the categorical exception drives retry policy at the caller.
         findings.append(
             PreflightFinding(
                 level="warn",
                 code="sample_rate_out_of_window",
-                category="resource",
+                category="environment",
                 message=(
                     f"Recording sampling rate {fs_hz / 1000.0:.2f} kHz "
                     f"is outside the {label} window "
@@ -1091,12 +1101,21 @@ def _check_recording_sample_rate(
 
 
 def _parse_version_tuple(version: str) -> Optional[Tuple[int, ...]]:
-    """Parse a dotted version string to a comparable tuple of ints."""
+    """Parse a dotted version string to a comparable 3-tuple of ints.
+
+    The tuple is always padded to length 3 with zeros so single- or
+    two-component versions ("4", "4.0") compare correctly against
+    three-component pins. Without padding, Python's tuple ordering
+    treats ``(4,) < (4, 0, 0)`` as True and a bare "4" would falsely
+    report as below a [4.0.0, 5.0.0) tested range.
+    """
     try:
         parts = version.strip().split(".")
-        return tuple(int("".join(c for c in p if c.isdigit())) for p in parts[:3])
+        nums = [int("".join(c for c in p if c.isdigit())) for p in parts[:3]]
     except Exception:
         return None
+    nums.extend([0] * (3 - len(nums)))
+    return tuple(nums)
 
 
 def _check_spikeinterface_version() -> Optional[PreflightFinding]:

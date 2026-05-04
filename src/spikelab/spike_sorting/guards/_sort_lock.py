@@ -138,9 +138,11 @@ def _pid_holds_lock(pid: int, started_at: Optional[str]) -> bool:
     try:
         proc = psutil.Process(int(pid))
         create_t = float(proc.create_time())
-    except (psutil.NoSuchProcess, psutil.AccessDenied, Exception):
-        # Process disappeared mid-check, or we cannot inspect it —
-        # fall back to existence check.
+    except Exception:
+        # Process disappeared mid-check, we cannot inspect it, or
+        # psutil raised some other unexpected error — fall back to
+        # the existence check (NoSuchProcess and AccessDenied are
+        # both Exception subclasses, so this catch covers them).
         return _pid_alive(pid)
 
     # If the live process began after the lock was written (with a

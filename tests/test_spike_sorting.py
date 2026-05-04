@@ -7838,3 +7838,236 @@ class TestGlobalPolynomialDetrend:
             ch_idx=0,
         )
         # Should complete without crash
+
+
+# ===========================================================================
+# FEAT-005 — Docker image digest pinning (docker_utils + ExecutionConfig +
+# pipeline banner). Tests live here rather than under guards/ because the
+# concerns touch docker_utils.get_local_image_digest, ExecutionConfig new
+# fields, and _print_pipeline_banner — none of which are guards.
+# ===========================================================================
+
+
+def _block_imports_for_digest(monkeypatch, *names):
+    """Patch ``builtins.__import__`` to raise ImportError for *names*.
+
+    Used by the FEAT-005 tests below to force the ``docker`` Python
+    client into the subprocess fallback. Module-local mirror of the
+    same helper in ``test_preflight.py`` so the two test files stay
+    independent.
+    """
+    import builtins
+
+    real_import = builtins.__import__
+    blocked = set(names)
+
+    def _patched_import(name, *args, **kwargs):
+        if name in blocked:
+            raise ImportError(f"blocked-by-test: {name}")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", _patched_import)
+
+
+class TestGetLocalImageDigest:
+    """``docker_utils.get_local_image_digest`` returns sha256 or None."""
+
+    def test_empty_tag_returns_none(self):
+        """
+        Empty / falsy tag short-circuits to None.
+
+        Tests:
+            (Test Case 1) tag='' → None.
+        """
+        from spikelab.spike_sorting.docker_utils import get_local_image_digest
+
+        assert get_local_image_digest("") is None
+
+    def test_docker_py_path_used_when_available(self, monkeypatch):
+        """
+        Python ``docker`` client returns the digest via images.get().id.
+
+        Tests:
+            (Test Case 1) Inject a fake docker module with
+                from_env().images.get(tag).id == 'sha256:abc'.
+        """
+        fake_image = SimpleNamespace(id="sha256:abc")
+        fake_client = SimpleNamespace(
+            images=SimpleNamespace(get=lambda tag: fake_image)
+        )
+        fake_docker = SimpleNamespace(from_env=lambda: fake_client)
+        monkeypatch.setitem(sys.modules, "docker", fake_docker)
+
+        from spikelab.spike_sorting.docker_utils import get_local_image_digest
+
+        assert get_local_image_digest("foo:bar") == "sha256:abc"
+
+    def test_subprocess_fallback_when_docker_py_missing(self, monkeypatch):
+        """
+        Without docker-py, ``docker inspect --format={{.Id}}`` is used.
+
+        Tests:
+            (Test Case 1) docker-py import patched to raise; subprocess
+                stub returns 'sha256:def\\n' → trimmed to 'sha256:def'.
+        """
+        import subprocess as _subprocess
+
+        monkeypatch.delitem(sys.modules, "docker", raising=False)
+        _block_imports_for_digest(monkeypatch, "docker")
+
+        from spikelab.spike_sorting import docker_utils as docker_utils_mod
+
+        def _fake_run(args, **_kwargs):
+            return _subprocess.CompletedProcess(args, 0, "sha256:def\n", "")
+
+        monkeypatch.setattr(docker_utils_mod.subprocess, "run", _fake_run)
+        assert docker_utils_mod.get_local_image_digest("foo:bar") == "sha256:def"
+
+    def test_both_paths_fail_returns_none(self, monkeypatch):
+        """
+        docker-py absent and ``docker inspect`` failing → None.
+
+        Tests:
+            (Test Case 1) Import-fail + subprocess raises → None.
+        """
+        monkeypatch.delitem(sys.modules, "docker", raising=False)
+        _block_imports_for_digest(monkeypatch, "docker")
+
+        from spikelab.spike_sorting import docker_utils as docker_utils_mod
+
+        def _fake_run(*_a, **_k):
+            raise FileNotFoundError("no docker cli")
+
+        monkeypatch.setattr(docker_utils_mod.subprocess, "run", _fake_run)
+        assert docker_utils_mod.get_local_image_digest("foo:bar") is None
+
+    def test_docker_py_get_failure_falls_back_to_subprocess(self, monkeypatch):
+        """
+        When docker-py is importable but ``images.get(tag)`` raises,
+        the function falls back to the ``docker inspect`` subprocess
+        path rather than returning None outright.
+
+        Tests:
+            (Test Case 1) docker.from_env().images.get raises → CLI
+                fallback returns sha256:cli.
+        """
+        import subprocess as _subprocess
+        from unittest import mock as _mock
+
+        fake_client = SimpleNamespace(
+            images=SimpleNamespace(
+                get=_mock.Mock(side_effect=RuntimeError("not found"))
+            )
+        )
+        fake_docker = SimpleNamespace(from_env=lambda: fake_client)
+        monkeypatch.setitem(sys.modules, "docker", fake_docker)
+
+        from spikelab.spike_sorting import docker_utils as docker_utils_mod
+
+        def _fake_run(args, **_kwargs):
+            return _subprocess.CompletedProcess(args, 0, "sha256:cli\n", "")
+
+        monkeypatch.setattr(docker_utils_mod.subprocess, "run", _fake_run)
+        assert docker_utils_mod.get_local_image_digest("foo:bar") == "sha256:cli"
+
+
+class TestNewExecutionConfigFields:
+    """``ExecutionConfig`` exposes the new canary + digest fields."""
+
+    def test_defaults(self):
+        """
+        New fields default to disabled / unset.
+
+        Tests:
+            (Test Case 1) canary_first_n_s defaults to 0.0.
+            (Test Case 2) docker_image_expected_digest defaults to None.
+        """
+        from spikelab.spike_sorting.config import ExecutionConfig
+
+        cfg = ExecutionConfig()
+        assert cfg.canary_first_n_s == 0.0
+        assert cfg.docker_image_expected_digest is None
+
+    def test_flat_map_round_trip(self):
+        """
+        Both fields can be set via SortingPipelineConfig.from_kwargs()
+        and survive ``override``.
+
+        Tests:
+            (Test Case 1) from_kwargs accepts canary_first_n_s and
+                docker_image_expected_digest.
+            (Test Case 2) override re-sets them.
+        """
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+
+        cfg = SortingPipelineConfig.from_kwargs(
+            canary_first_n_s=12.5,
+            docker_image_expected_digest="sha256:abc",
+        )
+        assert cfg.execution.canary_first_n_s == 12.5
+        assert cfg.execution.docker_image_expected_digest == "sha256:abc"
+        cfg2 = cfg.override(canary_first_n_s=0.0)
+        assert cfg2.execution.canary_first_n_s == 0.0
+        # Other field preserved.
+        assert cfg2.execution.docker_image_expected_digest == "sha256:abc"
+
+
+class TestPrintPipelineBannerDockerLines:
+    """``_print_pipeline_banner`` surfaces Docker image + digest."""
+
+    def test_lines_emitted_when_use_docker(self, capsys, tmp_path):
+        """
+        With use_docker=True and both kwargs supplied, the banner
+        prints 'Docker image:' and 'Docker image digest:' lines under
+        the Environment section so the report parser picks them up.
+
+        Tests:
+            (Test Case 1) Both lines present in stdout.
+            (Test Case 2) Image tag + digest values appear verbatim.
+        """
+        from spikelab.spike_sorting.config import SorterConfig, SortingPipelineConfig
+        from spikelab.spike_sorting.pipeline import _print_pipeline_banner
+
+        cfg = SortingPipelineConfig(
+            sorter=SorterConfig(sorter_name="kilosort4", use_docker=True)
+        )
+        _print_pipeline_banner(
+            "kilosort4",
+            "/data/rec.h5",
+            cfg,
+            log_path=tmp_path / "log.log",
+            recording=None,
+            docker_image_tag="spikeinterface/kilosort4-base:py311-si0.104",
+            docker_image_digest="sha256:deadbeef",
+        )
+        out = capsys.readouterr().out
+        assert "Docker image:" in out
+        assert "spikeinterface/kilosort4-base:py311-si0.104" in out
+        assert "Docker image digest: sha256:deadbeef" in out
+
+    def test_lines_suppressed_when_use_docker_false(self, capsys, tmp_path):
+        """
+        Without use_docker the Docker lines are not printed even when
+        the kwargs are supplied.
+
+        Tests:
+            (Test Case 1) use_docker=False suppresses both lines.
+        """
+        from spikelab.spike_sorting.config import SorterConfig, SortingPipelineConfig
+        from spikelab.spike_sorting.pipeline import _print_pipeline_banner
+
+        cfg = SortingPipelineConfig(
+            sorter=SorterConfig(sorter_name="kilosort4", use_docker=False)
+        )
+        _print_pipeline_banner(
+            "kilosort4",
+            "/data/rec.h5",
+            cfg,
+            log_path=tmp_path / "log.log",
+            recording=None,
+            docker_image_tag="spikeinterface/kilosort4-base:py311-si0.104",
+            docker_image_digest="sha256:deadbeef",
+        )
+        out = capsys.readouterr().out
+        assert "Docker image:" not in out
+        assert "Docker image digest:" not in out

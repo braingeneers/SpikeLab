@@ -23,7 +23,6 @@ swallowed so audit-side bugs never break a sort.
 from __future__ import annotations
 
 import json
-import os
 import threading
 from datetime import datetime
 from pathlib import Path

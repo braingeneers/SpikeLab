@@ -25,7 +25,6 @@ from __future__ import annotations
 
 import _thread
 import contextvars
-import re
 import subprocess
 import threading
 import time
@@ -928,6 +927,11 @@ class GpuMemoryWatchdog:
         for cb in callbacks:
             try:
                 cb()
+            except (SystemExit, KeyboardInterrupt):
+                # An in-process kill callback delivers KeyboardInterrupt
+                # via _thread.interrupt_main(); SystemExit signals
+                # operator-requested abort. Both must propagate.
+                raise
             except Exception as exc:
                 print(
                     f"[gpu memory watchdog] kill_callback raised: {exc!r}; "

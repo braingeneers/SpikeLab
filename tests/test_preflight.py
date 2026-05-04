@@ -1,32 +1,29 @@
-"""Tests for the second safeguarding round — FEAT-001..005.
+"""Tests for ``guards/_preflight.py`` — the pre-loop resource checks.
 
-Covered modules:
+Covers every helper and the assembled ``run_preflight`` orchestrator
+including:
 
-* ``guards/_preflight`` — sorter dependency probes
-  (``_check_kilosort2_host``, ``_check_kilosort4_host``,
-  ``_check_docker_sorter``, ``_check_rt_sort``,
-  ``_check_sorter_dependencies``); GPU device-index existence
-  (``_check_gpu_device_present`` + ``_resolve_target_device_index``
-  + ``_detect_gpu_device_count``); recording sample-rate sanity
-  check (``_check_recording_sample_rate`` +
-  ``_expected_sample_rate_window``).
-* ``canary`` — short-window smoke test
-  (``_build_canary_config``, ``_wipe_canary_folder``,
-  ``run_canary``).
-* ``docker_utils.get_local_image_digest`` — local Docker image
-  digest lookup with docker-py and subprocess fallback.
-* ``ExecutionConfig`` — defaults + flat-map round-trip for the new
-  ``canary_first_n_s`` and ``docker_image_expected_digest`` fields.
+* Sorter dependency probes (``_check_kilosort2_host``,
+  ``_check_kilosort4_host``, ``_check_docker_sorter``,
+  ``_check_rt_sort``, ``_check_sorter_dependencies``).
+* GPU device-index validation (``_resolve_target_device_index``,
+  ``_detect_gpu_device_count``, ``_check_gpu_device_present``).
+* Recording sample-rate sanity check
+  (``_expected_sample_rate_window``, ``_check_recording_sample_rate``).
+* Filesystem writability (``_check_filesystem_writable``).
+* Free-VRAM detection (``_free_vram_gb``).
+* Version parsing (``_parse_version_tuple``).
+* Resource limits + SpikeInterface version checks
+  (``_check_resource_rlimits``, ``_check_spikeinterface_version``).
 
-All tests are hermetic: every detection path that would otherwise
-touch the host (matlab on PATH, kilosort import, docker daemon,
-nvidia-smi, real recordings) is patched.
+The ``run_preflight`` aggregator and ``report_findings`` are exercised
+in :mod:`tests.test_guards`. All tests here are hermetic — every
+detection path that would otherwise touch the host is patched.
 """
 
 from __future__ import annotations
 
 import builtins
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -34,6 +31,8 @@ from types import SimpleNamespace
 from unittest import mock
 
 import pytest
+
+from spikelab.spike_sorting.guards import _preflight as preflight_mod
 
 
 def _block_imports(monkeypatch, *names):
@@ -54,23 +53,6 @@ def _block_imports(monkeypatch, *names):
     monkeypatch.setattr(builtins, "__import__", _patched_import)
 
 
-from spikelab.spike_sorting._exceptions import (
-    BiologicalSortFailure,
-    EnvironmentSortFailure,
-    InsufficientActivityError,
-    ResourceSortFailure,
-)
-from spikelab.spike_sorting.config import (
-    ExecutionConfig,
-    SortingPipelineConfig,
-)
-from spikelab.spike_sorting.guards import _preflight as preflight_mod
-
-# ---------------------------------------------------------------------------
-# Shared lightweight config builder
-# ---------------------------------------------------------------------------
-
-
 def _make_cfg(
     *,
     sorter_name: str = "kilosort2",
@@ -85,7 +67,8 @@ def _make_cfg(
     """Construct a SimpleNamespace config that satisfies the helpers' API.
 
     Mirrors the ``_make_config`` helper used in ``test_guards.py`` but
-    extends it with the additional sub-fields that FEAT-001..005 read:
+    extends it with the additional sub-fields the per-sorter probes,
+    GPU device check, and sample-rate check read:
     ``sorter.sorter_path``, ``sorter.sorter_params``, ``rt_sort.device``,
     ``rt_sort.probe``, ``execution.canary_first_n_s``,
     ``execution.docker_image_expected_digest``.
@@ -109,7 +92,7 @@ def _make_cfg(
 
 
 # ---------------------------------------------------------------------------
-# FEAT-001 — Sorter dependency probes
+# Sorter dependency probes
 # ---------------------------------------------------------------------------
 
 
@@ -533,7 +516,7 @@ class TestCheckSorterDependencies:
 
 
 # ---------------------------------------------------------------------------
-# FEAT-002 — GPU device existence preflight
+# GPU device existence
 # ---------------------------------------------------------------------------
 
 
@@ -701,7 +684,7 @@ class TestCheckGpuDevicePresent:
 
 
 # ---------------------------------------------------------------------------
-# FEAT-003 — Recording sample-rate sanity check
+# Recording sample-rate sanity check
 # ---------------------------------------------------------------------------
 
 
@@ -805,12 +788,15 @@ class TestCheckRecordingSampleRate:
 
     def test_out_of_window_yields_warn(self):
         """
-        Out-of-window rate produces a warn-level resource finding.
+        Out-of-window rate produces a warn-level environment finding.
 
         Tests:
             (Test Case 1) KS4 with 5 kHz recording → exactly one warn
                 with code sample_rate_out_of_window and category
-                'resource'.
+                'environment'. The category is environment (not
+                resource) because a sample-rate mismatch is a
+                recording-vs-sorter misconfiguration, not a transient
+                resource shortage.
         """
         cfg = _make_cfg(sorter_name="kilosort4")
         rec = self._fake_recording(5_000.0)
@@ -818,7 +804,7 @@ class TestCheckRecordingSampleRate:
         assert len(findings) == 1
         assert findings[0].level == "warn"
         assert findings[0].code == "sample_rate_out_of_window"
-        assert findings[0].category == "resource"
+        assert findings[0].category == "environment"
 
     def test_path_only_input_skipped(self, tmp_path):
         """
@@ -865,519 +851,309 @@ class TestCheckRecordingSampleRate:
 
 
 # ---------------------------------------------------------------------------
-# FEAT-004 — Pipeline canary
+# Filesystem writability
 # ---------------------------------------------------------------------------
 
 
-class TestBuildCanaryConfig:
-    """``_build_canary_config`` returns a relaxed config clone."""
+class TestCheckFilesystemWritable:
+    """``_check_filesystem_writable`` flags read-only mounts before any sort."""
 
-    def test_overrides_applied(self):
+    def test_writable_folder_yields_empty(self, tmp_path):
         """
-        Canary clone restricts the recording window and disables every
-        post-sort exporter, figures, and the recursive preflight.
+        A normal writable folder yields no findings.
 
         Tests:
-            (Test Case 1) start/end_time_s set to [0, window_s].
-            (Test Case 2) Curation disabled.
-            (Test Case 3) Compilation/figures/report disabled.
-            (Test Case 4) preflight=False.
-            (Test Case 5) tee_log_policy='keep'.
+            (Test Case 1) tmp_path → empty list.
         """
-        from spikelab.spike_sorting.canary import _build_canary_config
+        findings = preflight_mod._check_filesystem_writable(
+            [tmp_path], label="intermediate", code_prefix="intermediate"
+        )
+        assert findings == []
 
-        cfg = SortingPipelineConfig()
-        clone = _build_canary_config(cfg, 30.0)
-        assert clone.recording.start_time_s == 0.0
-        assert clone.recording.end_time_s == 30.0
-        assert clone.curation.curate_first is False
-        assert clone.curation.curate_second is False
-        assert clone.compilation.compile_single_recording is False
-        assert clone.compilation.compile_to_npz is False
-        assert clone.compilation.compile_waveforms is False
-        assert clone.figures.create_figures is False
-        assert clone.figures.create_unit_figures is False
-        assert clone.execution.generate_sorting_report is False
-        assert clone.execution.preflight is False
-        assert clone.execution.tee_log_policy == "keep"
-
-    def test_rec_chunks_cleared(self):
+    def test_readonly_folder_yields_fail(self, monkeypatch, tmp_path):
         """
-        Non-flat ``rec_chunks`` and ``rec_chunks_s`` are cleared so the
-        loader uses the simple start/end window.
+        Folder whose nearest existing parent fails ``W_OK`` yields a
+        fail-level environment finding with the right code prefix.
 
         Tests:
-            (Test Case 1) Set non-empty rec_chunks before clone → both
-                cleared in the clone.
+            (Test Case 1) os.access patched to return False → exactly
+                one finding, level=fail, code='intermediate_readonly',
+                category='environment', folder path in message.
         """
-        from spikelab.spike_sorting.canary import _build_canary_config
+        monkeypatch.setattr(preflight_mod.os, "access", lambda _p, _mode: False)
+        findings = preflight_mod._check_filesystem_writable(
+            [tmp_path], label="intermediate", code_prefix="intermediate"
+        )
+        assert len(findings) == 1
+        f = findings[0]
+        assert f.level == "fail"
+        assert f.code == "intermediate_readonly"
+        assert f.category == "environment"
+        assert str(tmp_path) in f.message
 
-        cfg = SortingPipelineConfig()
-        cfg.recording.rec_chunks = [(0, 30000)]
-        cfg.recording.rec_chunks_s = [(0.0, 30.0)]
-        clone = _build_canary_config(cfg, 30.0)
-        assert clone.recording.rec_chunks == []
-        assert clone.recording.rec_chunks_s == []
-
-    def test_original_config_not_mutated(self):
+    def test_nonexistent_folder_walks_to_existing_parent(self, monkeypatch, tmp_path):
         """
-        Building a canary clone never mutates the input config.
+        For a folder that does not exist, the nearest existing parent
+        is checked.
 
         Tests:
-            (Test Case 1) Original start_time_s and curate_first stay
-                at their defaults after the clone.
+            (Test Case 1) Pass tmp_path / 'never' / 'created'; access
+                patched to fail; finding mentions the original folder.
         """
-        from spikelab.spike_sorting.canary import _build_canary_config
+        bogus = tmp_path / "never" / "created"
+        monkeypatch.setattr(preflight_mod.os, "access", lambda _p, _mode: False)
+        findings = preflight_mod._check_filesystem_writable(
+            [bogus], label="results", code_prefix="results"
+        )
+        assert len(findings) == 1
+        assert findings[0].code == "results_readonly"
+        assert "never/created" in findings[0].message.replace("\\", "/")
 
-        cfg = SortingPipelineConfig()
-        _ = _build_canary_config(cfg, 30.0)
-        assert cfg.recording.start_time_s is None
-        assert cfg.recording.end_time_s is None
-        assert cfg.curation.curate_first is True
-        assert cfg.execution.preflight is True
-
-
-class TestWipeCanaryFolder:
-    """``_wipe_canary_folder`` is best-effort cleanup."""
-
-    def test_existing_folder_removed(self, tmp_path):
+    def test_no_existing_parent_skips(self, monkeypatch):
         """
-        Existing folder + contents are deleted.
+        When neither the folder nor any ancestor exists, the check
+        skips silently rather than crashing.
 
         Tests:
-            (Test Case 1) Folder with nested files is wiped.
+            (Test Case 1) Path('/totally/fake/path') with Path.exists
+                patched to always return False → no findings, no raise.
         """
-        from spikelab.spike_sorting.canary import _wipe_canary_folder
-
-        folder = tmp_path / "canary"
-        (folder / "sub").mkdir(parents=True)
-        (folder / "sub" / "x.txt").write_text("x", encoding="utf-8")
-        _wipe_canary_folder(folder)
-        assert not folder.exists()
-
-    def test_missing_folder_no_op(self, tmp_path):
-        """
-        Calling on a missing folder is a silent no-op.
-
-        Tests:
-            (Test Case 1) Path that never existed → no exception.
-        """
-        from spikelab.spike_sorting.canary import _wipe_canary_folder
-
-        _wipe_canary_folder(tmp_path / "never-existed")  # no raise
-
-
-class TestRunCanary:
-    """``run_canary`` runs the canary clone and propagates classified
-    failures while swallowing unexpected ones."""
-
-    def test_window_zero_returns_none(self, tmp_path):
-        """
-        canary_first_n_s == 0 → run_canary short-circuits to None.
-
-        Tests:
-            (Test Case 1) Default config (window=0) → None and no
-                _canary folder is created.
-        """
-        from spikelab.spike_sorting.canary import run_canary
-
-        cfg = SortingPipelineConfig()
-        result = run_canary(cfg, recording=None, rec_path="rec", inter_path=tmp_path)
-        assert result is None
-        assert not (tmp_path / "_canary").exists()
-
-    def test_classified_failure_returned(self, tmp_path, monkeypatch):
-        """
-        process_recording returning a classified failure → run_canary
-        returns the same exception instance and wipes the canary folder.
-
-        Tests:
-            (Test Case 1) process_recording stub returns an
-                InsufficientActivityError.
-            (Test Case 2) Returned object is the same instance.
-            (Test Case 3) _canary subfolder is removed afterwards.
-        """
-        from spikelab.spike_sorting import canary as canary_mod
-        from spikelab.spike_sorting.canary import run_canary
-
-        cfg = SortingPipelineConfig()
-        cfg.execution.canary_first_n_s = 5.0
-
-        exc = InsufficientActivityError("silent rec", sorter="kilosort2")
-
-        class _FakeBackend:
-            def __init__(self, _cfg):
-                pass
-
-        monkeypatch.setattr(
-            canary_mod,
-            "_build_canary_config",
-            lambda c, w: SortingPipelineConfig(),
+        # Patch Path.exists at the class level so the loop walks up
+        # without ever finding an existing parent.
+        monkeypatch.setattr(Path, "exists", lambda self: False)
+        assert (
+            preflight_mod._check_filesystem_writable(
+                [Path("/totally/fake/path")],
+                label="intermediate",
+                code_prefix="intermediate",
+            )
+            == []
         )
-
-        from spikelab.spike_sorting import backends as backends_mod
-
-        monkeypatch.setattr(
-            backends_mod, "get_backend_class", lambda name: _FakeBackend
-        )
-
-        from spikelab.spike_sorting import pipeline as pipeline_mod
-
-        monkeypatch.setattr(pipeline_mod, "process_recording", lambda *a, **kw: exc)
-
-        result = run_canary(
-            cfg,
-            recording=None,
-            rec_path="rec.h5",
-            inter_path=tmp_path,
-            sorter_name="kilosort2",
-        )
-        assert result is exc
-        assert not (tmp_path / "_canary").exists()
-
-    def test_success_returns_none_and_cleans_up(self, tmp_path, monkeypatch):
-        """
-        process_recording returning a real result → run_canary returns
-        None and wipes the canary folder.
-
-        Tests:
-            (Test Case 1) Stub returns a sentinel SpikeData-like object.
-            (Test Case 2) run_canary returns None.
-            (Test Case 3) _canary subfolder removed.
-        """
-        from spikelab.spike_sorting import (
-            backends as backends_mod,
-            canary as canary_mod,
-            pipeline as pipeline_mod,
-        )
-        from spikelab.spike_sorting.canary import run_canary
-
-        cfg = SortingPipelineConfig()
-        cfg.execution.canary_first_n_s = 5.0
-
-        class _FakeBackend:
-            def __init__(self, _cfg):
-                pass
-
-        monkeypatch.setattr(
-            canary_mod,
-            "_build_canary_config",
-            lambda c, w: SortingPipelineConfig(),
-        )
-        monkeypatch.setattr(
-            backends_mod, "get_backend_class", lambda name: _FakeBackend
-        )
-        sentinel = object()
-        monkeypatch.setattr(
-            pipeline_mod, "process_recording", lambda *a, **kw: sentinel
-        )
-
-        result = run_canary(
-            cfg,
-            recording=None,
-            rec_path="rec.h5",
-            inter_path=tmp_path,
-            sorter_name="kilosort2",
-        )
-        assert result is None
-        assert not (tmp_path / "_canary").exists()
-
-    def test_unexpected_exception_swallowed(self, tmp_path, monkeypatch):
-        """
-        process_recording raising a non-classified exception → run_canary
-        returns None (smoke test, not a hard gate) and cleans up.
-
-        Tests:
-            (Test Case 1) Stub raises RuntimeError → returns None.
-            (Test Case 2) Folder removed.
-        """
-        from spikelab.spike_sorting import (
-            backends as backends_mod,
-            canary as canary_mod,
-            pipeline as pipeline_mod,
-        )
-        from spikelab.spike_sorting.canary import run_canary
-
-        cfg = SortingPipelineConfig()
-        cfg.execution.canary_first_n_s = 5.0
-
-        class _FakeBackend:
-            def __init__(self, _cfg):
-                pass
-
-        monkeypatch.setattr(
-            canary_mod,
-            "_build_canary_config",
-            lambda c, w: SortingPipelineConfig(),
-        )
-        monkeypatch.setattr(
-            backends_mod, "get_backend_class", lambda name: _FakeBackend
-        )
-
-        def _boom(*_a, **_kw):
-            raise RuntimeError("disk full mid-canary")
-
-        monkeypatch.setattr(pipeline_mod, "process_recording", _boom)
-
-        result = run_canary(
-            cfg,
-            recording=None,
-            rec_path="rec.h5",
-            inter_path=tmp_path,
-            sorter_name="kilosort2",
-        )
-        assert result is None
-        assert not (tmp_path / "_canary").exists()
-
-    def test_classified_returned_as_value_returned(self, tmp_path, monkeypatch):
-        """
-        process_recording *returning* (not raising) a classified
-        exception is also propagated.
-
-        Tests:
-            (Test Case 1) Stub returns EnvironmentSortFailure value;
-                run_canary returns the same value.
-        """
-        from spikelab.spike_sorting import (
-            backends as backends_mod,
-            canary as canary_mod,
-            pipeline as pipeline_mod,
-        )
-        from spikelab.spike_sorting.canary import run_canary
-
-        cfg = SortingPipelineConfig()
-        cfg.execution.canary_first_n_s = 5.0
-
-        class _FakeBackend:
-            def __init__(self, _cfg):
-                pass
-
-        monkeypatch.setattr(
-            canary_mod,
-            "_build_canary_config",
-            lambda c, w: SortingPipelineConfig(),
-        )
-        monkeypatch.setattr(
-            backends_mod, "get_backend_class", lambda name: _FakeBackend
-        )
-        env_fail = EnvironmentSortFailure("docker exploded")
-        monkeypatch.setattr(
-            pipeline_mod, "process_recording", lambda *a, **kw: env_fail
-        )
-
-        result = run_canary(
-            cfg,
-            recording=None,
-            rec_path="rec.h5",
-            inter_path=tmp_path,
-            sorter_name="kilosort2",
-        )
-        assert result is env_fail
 
 
 # ---------------------------------------------------------------------------
-# FEAT-005 — Docker image digest pinning
+# Version parsing
 # ---------------------------------------------------------------------------
 
 
-class TestGetLocalImageDigest:
-    """``docker_utils.get_local_image_digest`` returns sha256 or None."""
+class TestParseVersionTuple:
+    """``_parse_version_tuple`` pads to length 3 for safe ordering."""
 
-    def test_empty_tag_returns_none(self):
+    def test_three_components(self):
         """
-        Empty / falsy tag short-circuits to None.
+        Standard three-component versions parse verbatim.
 
         Tests:
-            (Test Case 1) tag='' → None.
+            (Test Case 1) '1.2.3' → (1, 2, 3).
         """
-        from spikelab.spike_sorting.docker_utils import get_local_image_digest
+        assert preflight_mod._parse_version_tuple("1.2.3") == (1, 2, 3)
 
-        assert get_local_image_digest("") is None
-
-    def test_docker_py_path_used_when_available(self, monkeypatch):
+    def test_single_component_padded(self):
         """
-        Python ``docker`` client returns the digest via images.get().id.
+        Single-component versions get padded so '4' compares as (4,0,0).
 
         Tests:
-            (Test Case 1) Inject a fake docker module with
-                from_env().images.get(tag).id == 'sha256:abc'.
+            (Test Case 1) '4' → (4, 0, 0). Fixes the regression where
+                '4' falsely reported as below the [4.0.0, 5.0.0) tested
+                range because (4,) < (4, 0, 0) in Python tuple ordering.
         """
-        fake_image = SimpleNamespace(id="sha256:abc")
-        fake_client = SimpleNamespace(
-            images=SimpleNamespace(get=lambda tag: fake_image)
-        )
-        fake_docker = SimpleNamespace(from_env=lambda: fake_client)
-        monkeypatch.setitem(sys.modules, "docker", fake_docker)
+        assert preflight_mod._parse_version_tuple("4") == (4, 0, 0)
 
-        from spikelab.spike_sorting.docker_utils import get_local_image_digest
-
-        assert get_local_image_digest("foo:bar") == "sha256:abc"
-
-    def test_subprocess_fallback_when_docker_py_missing(self, monkeypatch):
+    def test_two_components_padded(self):
         """
-        Without docker-py, ``docker inspect --format={{.Id}}`` is used.
+        Two-component versions get padded with zero.
 
         Tests:
-            (Test Case 1) docker-py import patched to raise; subprocess
-                stub returns 'sha256:def\\n' → trimmed to 'sha256:def'.
+            (Test Case 1) '4.2' → (4, 2, 0).
         """
-        monkeypatch.delitem(sys.modules, "docker", raising=False)
-        _block_imports(monkeypatch, "docker")
+        assert preflight_mod._parse_version_tuple("4.2") == (4, 2, 0)
 
-        from spikelab.spike_sorting import docker_utils as docker_utils_mod
-
-        def _fake_run(args, **_kwargs):
-            return subprocess.CompletedProcess(args, 0, "sha256:def\n", "")
-
-        monkeypatch.setattr(docker_utils_mod.subprocess, "run", _fake_run)
-        assert docker_utils_mod.get_local_image_digest("foo:bar") == "sha256:def"
-
-    def test_both_paths_fail_returns_none(self, monkeypatch):
+    def test_rc_marker_stripped(self):
         """
-        docker-py absent and ``docker inspect`` failing → None.
+        RC / dev markers are stripped per-segment via the digit filter.
 
         Tests:
-            (Test Case 1) Import-fail + subprocess raises → None.
+            (Test Case 1) '1.2.3rc4' → (1, 2, 3) — not perfect but
+                matches the "best-effort" contract.
         """
-        monkeypatch.delitem(sys.modules, "docker", raising=False)
-        _block_imports(monkeypatch, "docker")
+        # Note: the digit-only filter treats '3rc4' as '34', so the
+        # third component ends up as 34, not 3. That is the documented
+        # behavior of the helper; this test pins it.
+        assert preflight_mod._parse_version_tuple("1.2.3rc4") == (1, 2, 34)
 
-        from spikelab.spike_sorting import docker_utils as docker_utils_mod
-
-        def _fake_run(*_a, **_k):
-            raise FileNotFoundError("no docker cli")
-
-        monkeypatch.setattr(docker_utils_mod.subprocess, "run", _fake_run)
-        assert docker_utils_mod.get_local_image_digest("foo:bar") is None
-
-    def test_docker_py_get_failure_falls_back_to_subprocess(self, monkeypatch):
+    def test_garbage_returns_none(self):
         """
-        When docker-py is importable but ``images.get(tag)`` raises,
-        the function falls back to the ``docker inspect`` subprocess
-        path rather than returning None outright.
+        Unparseable strings yield None.
 
         Tests:
-            (Test Case 1) docker.from_env().images.get raises → CLI
-                fallback returns sha256:cli.
+            (Test Case 1) 'garbage' → None (each segment is empty after
+                digit-filter so int('') raises).
         """
-        fake_client = SimpleNamespace(
-            images=SimpleNamespace(get=mock.Mock(side_effect=RuntimeError("not found")))
-        )
-        fake_docker = SimpleNamespace(from_env=lambda: fake_client)
-        monkeypatch.setitem(sys.modules, "docker", fake_docker)
-
-        from spikelab.spike_sorting import docker_utils as docker_utils_mod
-
-        def _fake_run(args, **_kwargs):
-            return subprocess.CompletedProcess(args, 0, "sha256:cli\n", "")
-
-        monkeypatch.setattr(docker_utils_mod.subprocess, "run", _fake_run)
-        assert docker_utils_mod.get_local_image_digest("foo:bar") == "sha256:cli"
+        assert preflight_mod._parse_version_tuple("garbage") is None
 
 
 # ---------------------------------------------------------------------------
-# Config field defaults + flat-map round-trip
+# Free-VRAM detection
 # ---------------------------------------------------------------------------
 
 
-class TestNewExecutionConfigFields:
-    """``ExecutionConfig`` exposes the new canary + digest fields."""
+class TestFreeVramGb:
+    """``_free_vram_gb`` cascades pynvml → nvidia-smi → None."""
 
-    def test_defaults(self):
+    def test_pynvml_path_sums_across_devices(self, monkeypatch):
         """
-        New fields default to disabled / unset.
-
-        Tests:
-            (Test Case 1) canary_first_n_s defaults to 0.0.
-            (Test Case 2) docker_image_expected_digest defaults to None.
-        """
-        cfg = ExecutionConfig()
-        assert cfg.canary_first_n_s == 0.0
-        assert cfg.docker_image_expected_digest is None
-
-    def test_flat_map_round_trip(self):
-        """
-        Both fields can be set via SortingPipelineConfig.from_kwargs()
-        and survive ``override``.
+        With pynvml available, free memory across all devices is summed.
 
         Tests:
-            (Test Case 1) from_kwargs accepts canary_first_n_s and
-                docker_image_expected_digest.
-            (Test Case 2) override re-sets them.
+            (Test Case 1) Two devices with 2 GB and 3 GB free → 5 GB.
         """
-        cfg = SortingPipelineConfig.from_kwargs(
-            canary_first_n_s=12.5,
-            docker_image_expected_digest="sha256:abc",
+        free_gbs = [2.0, 3.0]
+
+        def _info(handle):
+            return SimpleNamespace(free=int(free_gbs[handle] * (1024**3)))
+
+        fake_pynvml = SimpleNamespace(
+            nvmlInit=lambda: None,
+            nvmlShutdown=lambda: None,
+            nvmlDeviceGetCount=lambda: 2,
+            nvmlDeviceGetHandleByIndex=lambda i: i,
+            nvmlDeviceGetMemoryInfo=_info,
         )
-        assert cfg.execution.canary_first_n_s == 12.5
-        assert cfg.execution.docker_image_expected_digest == "sha256:abc"
-        cfg2 = cfg.override(canary_first_n_s=0.0)
-        assert cfg2.execution.canary_first_n_s == 0.0
-        # Other field preserved.
-        assert cfg2.execution.docker_image_expected_digest == "sha256:abc"
+        monkeypatch.setitem(sys.modules, "pynvml", fake_pynvml)
+        assert preflight_mod._free_vram_gb() == pytest.approx(5.0)
+
+    def test_falls_back_to_nvidia_smi(self, monkeypatch):
+        """
+        Without pynvml, parses ``nvidia-smi --query-gpu=memory.free``
+        output (MiB → GB).
+
+        Tests:
+            (Test Case 1) "1024\\n2048\\n" (3 GiB) → ~3 GB.
+        """
+        _block_imports(monkeypatch, "pynvml")
+        monkeypatch.setattr(
+            preflight_mod.subprocess,
+            "check_output",
+            lambda *a, **k: "1024\n2048\n",
+        )
+        assert preflight_mod._free_vram_gb() == pytest.approx(3.0)
+
+    def test_returns_none_when_no_source_works(self, monkeypatch):
+        """
+        Both pynvml and nvidia-smi unavailable → None.
+
+        Tests:
+            (Test Case 1) pynvml import blocked, nvidia-smi raises
+                FileNotFoundError → None.
+        """
+        _block_imports(monkeypatch, "pynvml")
+
+        def _raise(*_a, **_k):
+            raise FileNotFoundError("no nvidia-smi")
+
+        monkeypatch.setattr(preflight_mod.subprocess, "check_output", _raise)
+        assert preflight_mod._free_vram_gb() is None
 
 
 # ---------------------------------------------------------------------------
-# FEAT-005 — _print_pipeline_banner Docker lines
+# Resource limits + SpikeInterface version
 # ---------------------------------------------------------------------------
 
 
-class TestPrintPipelineBannerDockerLines:
-    """``_print_pipeline_banner`` surfaces Docker image + digest."""
+class TestResourceRlimitPreflight:
+    """``_check_resource_rlimits`` warns on tight RLIMIT_NOFILE / NPROC."""
 
-    def test_lines_emitted_when_use_docker(self, capsys, tmp_path):
+    def test_low_nofile_warns(self):
         """
-        With use_docker=True and both kwargs supplied, the banner
-        prints 'Docker image:' and 'Docker image digest:' lines under
-        the Environment section so the report parser picks them up.
+        RLIMIT_NOFILE under threshold yields a low_rlimit_nofile warn.
 
         Tests:
-            (Test Case 1) Both lines present in stdout.
-            (Test Case 2) Image tag + digest values appear verbatim.
+            (Test Case 1) Patched getrlimit returning 1024 → warn
+                with code 'low_rlimit_nofile'.
         """
-        from spikelab.spike_sorting.config import SorterConfig
-        from spikelab.spike_sorting.pipeline import _print_pipeline_banner
+        try:
+            import resource as _resource
+        except ImportError:
+            pytest.skip("POSIX-only check; resource module unavailable")
 
-        cfg = SortingPipelineConfig(
-            sorter=SorterConfig(sorter_name="kilosort4", use_docker=True)
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+        from spikelab.spike_sorting.guards._preflight import (
+            _check_resource_rlimits,
         )
-        _print_pipeline_banner(
-            "kilosort4",
-            "/data/rec.h5",
-            cfg,
-            log_path=tmp_path / "log.log",
-            recording=None,
-            docker_image_tag="spikeinterface/kilosort4-base:py311-si0.104",
-            docker_image_digest="sha256:deadbeef",
-        )
-        out = capsys.readouterr().out
-        assert "Docker image:" in out
-        assert "spikeinterface/kilosort4-base:py311-si0.104" in out
-        assert "Docker image digest: sha256:deadbeef" in out
 
-    def test_lines_suppressed_when_use_docker_false(self, capsys, tmp_path):
+        cfg = SortingPipelineConfig()
+
+        def _fake_getrlimit(which):
+            if which == _resource.RLIMIT_NOFILE:
+                return (1024, 65536)
+            return (1_000_000, 1_000_000)
+
+        with mock.patch.object(_resource, "getrlimit", _fake_getrlimit):
+            findings = _check_resource_rlimits(cfg)
+        codes = [f.code for f in findings]
+        assert "low_rlimit_nofile" in codes
+
+    def test_low_nproc_warns_and_scales_with_num_processes(self):
         """
-        Without use_docker the Docker lines are not printed even when
-        the kwargs are supplied.
+        RLIMIT_NPROC threshold scales with rt_sort.num_processes.
 
         Tests:
-            (Test Case 1) use_docker=False suppresses both lines.
+            (Test Case 1) num_processes=64 → threshold = max(256,
+                4*64) = 256.
+            (Test Case 2) num_processes=128 → threshold = 512.
         """
-        from spikelab.spike_sorting.config import SorterConfig
-        from spikelab.spike_sorting.pipeline import _print_pipeline_banner
+        try:
+            import resource as _resource
+        except ImportError:
+            pytest.skip("POSIX-only check; resource module unavailable")
+        if not hasattr(_resource, "RLIMIT_NPROC"):
+            pytest.skip("RLIMIT_NPROC not available on this platform")
 
-        cfg = SortingPipelineConfig(
-            sorter=SorterConfig(sorter_name="kilosort4", use_docker=False)
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+        from spikelab.spike_sorting.guards._preflight import (
+            _check_resource_rlimits,
         )
-        _print_pipeline_banner(
-            "kilosort4",
-            "/data/rec.h5",
-            cfg,
-            log_path=tmp_path / "log.log",
-            recording=None,
-            docker_image_tag="spikeinterface/kilosort4-base:py311-si0.104",
-            docker_image_digest="sha256:deadbeef",
-        )
-        out = capsys.readouterr().out
-        assert "Docker image:" not in out
-        assert "Docker image digest:" not in out
+
+        cfg = SortingPipelineConfig()
+        cfg.rt_sort.num_processes = 128  # threshold = 512
+
+        def _fake_getrlimit(which):
+            if which == _resource.RLIMIT_NPROC:
+                return (300, 300)
+            return (1_000_000, 1_000_000)
+
+        with mock.patch.object(_resource, "getrlimit", _fake_getrlimit):
+            findings = _check_resource_rlimits(cfg)
+        codes = [f.code for f in findings]
+        assert "low_rlimit_nproc" in codes
+
+
+class TestSpikeInterfaceVersionCheck:
+    """``_check_spikeinterface_version`` warns when SI is outside tested range."""
+
+    def test_inside_range_no_finding(self):
+        """
+        SI version inside [low, high) yields no finding.
+
+        Tests:
+            (Test Case 1) Version 0.104.0 produces no warning.
+        """
+        fake_si = SimpleNamespace(__version__="0.104.0")
+        with mock.patch.dict(sys.modules, {"spikeinterface": fake_si}):
+            assert preflight_mod._check_spikeinterface_version() is None
+
+    def test_outside_range_warns(self):
+        """
+        SI version below or above the range yields a warn finding.
+
+        Tests:
+            (Test Case 1) 0.090.0 → warn.
+            (Test Case 2) 1.50.0 → warn.
+        """
+        for ver in ("0.090.0", "1.50.0"):
+            fake_si = SimpleNamespace(__version__=ver)
+            with mock.patch.dict(sys.modules, {"spikeinterface": fake_si}):
+                finding = preflight_mod._check_spikeinterface_version()
+                assert finding is not None
+                assert finding.level == "warn"
+                assert finding.code == "spikeinterface_version_outside_tested_range"

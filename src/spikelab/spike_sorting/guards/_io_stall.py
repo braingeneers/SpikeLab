@@ -20,6 +20,7 @@ device, the watchdog reports as disabled and yields a no-op.
 from __future__ import annotations
 
 import contextvars
+import sys
 import threading
 import time
 from pathlib import Path
@@ -77,12 +78,17 @@ def _resolve_device_for_path(path: Path) -> Optional[str]:
                 best = (length, part.device)
     if best is None:
         return None
-    # Strip path prefix so it matches disk_io_counters keys.
     dev = best[1]
-    # Linux: ``/dev/sda1`` → ``sda1``. Windows: ``C:\`` → ``C:``.
-    return dev.rsplit("/", 1)[-1].rsplit("\\", 1)[-1].rstrip(":\\") + (
-        ":" if dev.endswith(":\\") or dev.endswith(":") else ""
-    )
+    # Map ``part.device`` to the key shape psutil's
+    # ``disk_io_counters(perdisk=True)`` uses on each platform.
+    # Windows: ``part.device`` is ``"C:\\"`` and the perdisk keys are
+    # things like ``"C:"`` or ``"PhysicalDrive0"``. Strip the trailing
+    # ``\\`` so the colon-suffixed drive form matches.
+    # POSIX: ``part.device`` is ``"/dev/sda1"`` and the perdisk keys
+    # are the basename (``"sda1"``).
+    if sys.platform == "win32":
+        return dev.rstrip("\\") if dev.endswith(":\\") else dev
+    return dev.rsplit("/", 1)[-1]
 
 
 def _read_io_bytes(device: str) -> Optional[int]:
@@ -366,6 +372,11 @@ class IOStallWatchdog:
         for cb in callbacks:
             try:
                 cb()
+            except (SystemExit, KeyboardInterrupt):
+                # An in-process kill callback delivers KeyboardInterrupt
+                # via _thread.interrupt_main(); SystemExit signals
+                # operator-requested abort. Both must propagate.
+                raise
             except Exception as exc:
                 print(
                     f"[io stall watchdog] kill_callback raised: {exc!r}; " "continuing."

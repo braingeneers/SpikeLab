@@ -49,6 +49,7 @@ from __future__ import annotations
 
 import _thread
 import contextvars
+import math
 import subprocess
 import threading
 import time
@@ -336,6 +337,13 @@ class HostMemoryWatchdog:
             except Exception:
                 # psutil on some platforms can transiently fail; skip
                 # this tick rather than tearing down the watchdog.
+                self._stop_event.wait(self.poll_interval_s)
+                continue
+
+            # NaN comparisons are always False, so a NaN reading would
+            # silently disable the watchdog. Skip the tick rather than
+            # treating it as either a healthy or unhealthy reading.
+            if math.isnan(pct):
                 self._stop_event.wait(self.poll_interval_s)
                 continue
 

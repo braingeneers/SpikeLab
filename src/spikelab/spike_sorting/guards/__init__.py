@@ -1,19 +1,36 @@
 """System-crash safeguards for the spike-sorting pipeline.
 
 This subpackage contains the pre-loop and live guards that protect the
-host workstation from being taken down by a sort. The two main pieces:
+host workstation from being taken down by a sort. Major pieces:
 
-* :class:`HostMemoryWatchdog` — daemon-thread monitor that polls
-  system memory and aborts the run (and any registered subprocesses)
-  before the OS starts thrashing.
-* :func:`run_preflight` — pre-loop checks for free disk, available
-  RAM, free GPU memory, and HDF5 plugin path validity.
+Live watchdogs (daemon threads that poll a resource and abort on
+threshold breach):
+* :class:`HostMemoryWatchdog` — host RAM percentage.
+* :class:`GpuMemoryWatchdog` — GPU VRAM + thermal + throttle reasons.
+* :class:`DiskUsageWatchdog` — free disk on the intermediate volume.
+* :class:`IOStallWatchdog` — read+write byte counter inactivity.
+* :class:`LogInactivityWatchdog` — sorter log file inactivity.
 
-The associated exception type
-(:class:`spikelab.spike_sorting._exceptions.HostMemoryWatchdogError`)
-is intentionally kept in the spike-sorting top-level
-``_exceptions`` module so the full classified-error hierarchy stays in
-one place.
+Pre-loop checks:
+* :func:`run_preflight` — free disk, RAM, VRAM, HDF5 plugin path,
+  WSL2 config, RT-Sort projected disk, recording inputs, sorter
+  dependency probes (KS2 / KS4 / Docker / RT-Sort), GPU device index,
+  recording sample-rate window.
+
+Lifecycle helpers:
+* :func:`acquire_sort_lock` — concurrent-sort prevention.
+* :func:`windows_job_object_cap` — kernel-level Windows memory cap.
+* :func:`linux_cgroup_v2_memory_cap` — kernel-level Linux memory cap.
+* :func:`prevent_system_sleep` — Windows / macOS / Linux sleep
+  inhibitors.
+* :func:`cleanup_temp_files` — sorter temp-file sweep on clean exit.
+* :func:`append_audit_event` — JSONL events log.
+* :func:`find_tripped_global_watchdog` — classified-error router for
+  the per-recording catch site.
+
+All associated exception types live in
+:mod:`spikelab.spike_sorting._exceptions` so the full classified-error
+hierarchy stays in one place.
 """
 
 from ._audit import append_audit_event

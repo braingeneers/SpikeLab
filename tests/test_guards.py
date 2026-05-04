@@ -18,22 +18,28 @@ does not depend on the host's actual resource state.
 from __future__ import annotations
 
 import _thread  # noqa: F401  (used via mock.patch.object in tests)
+import json
+import os
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from dataclasses import asdict
+from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
 import pytest
 
 from spikelab.spike_sorting._exceptions import (
+    ConcurrentSortError,
     DiskExhaustionError,
     EnvironmentSortFailure,
     GpuMemoryWatchdogError,
     HDF5PluginMissingError,
     HostMemoryWatchdogError,
+    IOStallError,
     ResourceSortFailure,
     SorterTimeoutError,
     SpikeSortingClassifiedError,
@@ -44,12 +50,18 @@ from spikelab.spike_sorting.guards import (
     DiskUsageWatchdog,
     GpuMemoryWatchdog,
     HostMemoryWatchdog,
+    IOStallWatchdog,
     LogInactivityWatchdog,
     PreflightFinding,
+    acquire_sort_lock,
+    append_audit_event,
+    cleanup_temp_files,
     compute_inactivity_timeout_s,
     get_active_watchdog,
+    prevent_system_sleep,
     report_findings,
     run_preflight,
+    windows_job_object_cap,
 )
 from spikelab.spike_sorting.guards import _preflight as preflight_mod
 from spikelab.spike_sorting.guards import _watchdog as watchdog_mod
@@ -3229,3 +3241,952 @@ class TestRecordingResultLogPath:
             log_path="/tmp/sorted_rec1/sorting_250502_120000.log",
         )
         assert r.log_path == "/tmp/sorted_rec1/sorting_250502_120000.log"
+
+
+# ===========================================================================
+# Concurrent-sort lock (`_sort_lock`)
+# ===========================================================================
+
+
+class TestConcurrentSortLock:
+    """``acquire_sort_lock`` blocks concurrent sorts and reclaims stale locks."""
+
+    def test_writes_lock_file_on_entry(self, tmp_path):
+        """
+        Entry creates a JSON lock file recording PID / hostname /
+        start time.
+
+        Tests:
+            (Test Case 1) The lock file appears at .spikelab_sort.lock.
+            (Test Case 2) PID matches the current process.
+            (Test Case 3) hostname and started_at fields are populated.
+        """
+        with acquire_sort_lock(tmp_path) as lock_path:
+            assert lock_path.exists()
+            data = json.loads(lock_path.read_text(encoding="utf-8"))
+            assert data["pid"] == os.getpid()
+            assert isinstance(data.get("hostname"), str) and data["hostname"]
+            assert isinstance(data.get("started_at"), str)
+
+    def test_lock_removed_on_exit(self, tmp_path):
+        """
+        The lock file is deleted on normal exit.
+
+        Tests:
+            (Test Case 1) After the with-block exits, the lock
+                file no longer exists.
+        """
+        with acquire_sort_lock(tmp_path) as lock_path:
+            pass
+        assert not lock_path.exists()
+
+    def test_concurrent_acquire_raises(self, tmp_path):
+        """
+        Acquiring while another live holder owns the lock raises.
+
+        Tests:
+            (Test Case 1) Second acquire inside the first raises
+                ConcurrentSortError.
+            (Test Case 2) Exception carries holder PID and lock_path.
+        """
+        with acquire_sort_lock(tmp_path):
+            with pytest.raises(ConcurrentSortError) as exc_info:
+                with acquire_sort_lock(tmp_path):
+                    pass
+        err = exc_info.value
+        assert err.holder_pid == os.getpid()
+        assert err.lock_path is not None
+        assert "Another sort" in str(err)
+
+    def test_stale_lock_reclaimed(self, tmp_path):
+        """
+        A lock file pointing at a dead PID is reclaimed.
+
+        Tests:
+            (Test Case 1) After writing a lock file with a dead PID,
+                a fresh acquire succeeds (after reclaim).
+            (Test Case 2) The new lock file records the current PID.
+        """
+        from spikelab.spike_sorting.guards import _sort_lock as lock_mod
+
+        # Drop a synthetic stale lock claiming PID 99999 on this host.
+        lock_path = tmp_path / ".spikelab_sort.lock"
+        lock_path.write_text(
+            json.dumps(
+                {
+                    "pid": 99999,
+                    "hostname": lock_mod.socket.gethostname(),
+                    "started_at": "1970-01-01T00:00:00",
+                }
+            )
+        )
+
+        # Patch _pid_alive so our synthetic PID looks dead.
+        with mock.patch.object(lock_mod, "_pid_alive", return_value=False):
+            with acquire_sort_lock(tmp_path) as new_lock:
+                data = json.loads(new_lock.read_text(encoding="utf-8"))
+                assert data["pid"] == os.getpid()
+
+    def test_unparseable_lock_raises(self, tmp_path):
+        """
+        Malformed lock file is treated as live (cannot reclaim safely).
+
+        Tests:
+            (Test Case 1) Raises ConcurrentSortError when the lock
+                file is not valid JSON.
+        """
+        lock_path = tmp_path / ".spikelab_sort.lock"
+        lock_path.write_text("not json {")
+        with pytest.raises(ConcurrentSortError) as exc_info:
+            with acquire_sort_lock(tmp_path):
+                pass
+        assert "unparseable" in str(exc_info.value).lower()
+
+    def test_other_host_raises(self, tmp_path):
+        """
+        Lock from a different host cannot be liveness-checked.
+
+        Tests:
+            (Test Case 1) Lock file with a foreign hostname raises
+                ConcurrentSortError; we do not attempt cross-host
+                PID liveness checks.
+        """
+        lock_path = tmp_path / ".spikelab_sort.lock"
+        lock_path.write_text(
+            json.dumps(
+                {
+                    "pid": 1234,
+                    "hostname": "some-other-host-not-this-one",
+                    "started_at": "1970-01-01T00:00:00",
+                }
+            )
+        )
+        with pytest.raises(ConcurrentSortError) as exc_info:
+            with acquire_sort_lock(tmp_path):
+                pass
+        assert exc_info.value.holder_hostname == "some-other-host-not-this-one"
+
+
+class TestSortLockHelpers:
+    """``_pid_alive``, ``_pid_holds_lock``, ``_read_lock_info``."""
+
+    def test_pid_alive_zero_or_negative_returns_false(self):
+        """
+        PID <= 0 short-circuits to False without touching the OS.
+
+        Tests:
+            (Test Case 1) pid=0 → False.
+            (Test Case 2) pid=-5 → False.
+        """
+        from spikelab.spike_sorting.guards._sort_lock import _pid_alive
+
+        assert _pid_alive(0) is False
+        assert _pid_alive(-5) is False
+
+    def test_pid_alive_returns_psutil_result(self, monkeypatch):
+        """
+        With psutil available, ``psutil.pid_exists`` drives the answer.
+
+        Tests:
+            (Test Case 1) Patched psutil.pid_exists returns True → True.
+            (Test Case 2) Returns False → False.
+        """
+        from spikelab.spike_sorting.guards._sort_lock import _pid_alive
+
+        fake_psutil = SimpleNamespace(pid_exists=lambda pid: True)
+        monkeypatch.setitem(sys.modules, "psutil", fake_psutil)
+        assert _pid_alive(123) is True
+        fake_psutil.pid_exists = lambda pid: False
+        assert _pid_alive(123) is False
+
+    def test_read_lock_info_returns_dict_for_valid_json(self, tmp_path):
+        """
+        Valid JSON is parsed and returned as a dict.
+
+        Tests:
+            (Test Case 1) Lock file with {pid: 1, hostname: 'h'} →
+                same dict back.
+        """
+        from spikelab.spike_sorting.guards._sort_lock import _read_lock_info
+
+        lock = tmp_path / "lock.json"
+        lock.write_text(json.dumps({"pid": 1, "hostname": "h"}), encoding="utf-8")
+        assert _read_lock_info(lock) == {"pid": 1, "hostname": "h"}
+
+    def test_read_lock_info_returns_none_for_missing_file(self, tmp_path):
+        """
+        Non-existent lock path returns None instead of raising.
+
+        Tests:
+            (Test Case 1) Path that was never created → None.
+        """
+        from spikelab.spike_sorting.guards._sort_lock import _read_lock_info
+
+        assert _read_lock_info(tmp_path / "never") is None
+
+    def test_read_lock_info_returns_none_for_invalid_json(self, tmp_path):
+        """
+        Garbage in the lock file yields None instead of crashing.
+
+        Tests:
+            (Test Case 1) Non-JSON file → None.
+        """
+        from spikelab.spike_sorting.guards._sort_lock import _read_lock_info
+
+        lock = tmp_path / "lock.json"
+        lock.write_text("this is not json at all {{", encoding="utf-8")
+        assert _read_lock_info(lock) is None
+
+    def test_pid_holds_lock_zero_returns_false(self):
+        """
+        PID <= 0 returns False before any psutil work.
+
+        Tests:
+            (Test Case 1) pid=0, started_at='2026-01-01T00:00:00' → False.
+        """
+        from spikelab.spike_sorting.guards._sort_lock import _pid_holds_lock
+
+        assert _pid_holds_lock(0, "2026-01-01T00:00:00") is False
+
+    def test_pid_holds_lock_falls_back_to_alive_without_started_at(self, monkeypatch):
+        """
+        With ``started_at=None``, behaves identically to ``_pid_alive``.
+
+        Tests:
+            (Test Case 1) Live PID, started_at=None → True (matches
+                _pid_alive's return).
+        """
+        from spikelab.spike_sorting.guards import _sort_lock
+
+        fake_psutil = SimpleNamespace(
+            pid_exists=lambda pid: True,
+        )
+        monkeypatch.setitem(sys.modules, "psutil", fake_psutil)
+        assert _sort_lock._pid_holds_lock(123, None) is True
+
+    def test_pid_holds_lock_detects_pid_reuse(self, monkeypatch):
+        """
+        When the live PID's create_time is meaningfully after the
+        lock's started_at, treat the live process as a PID reuse.
+
+        Tests:
+            (Test Case 1) Lock started_at 60 s ago; live process
+                create_time 100 s in the future of that → returns
+                False (stale).
+            (Test Case 2) Same setup with create_time within 5 s skew
+                → returns True (original holder).
+        """
+        from datetime import datetime
+
+        from spikelab.spike_sorting.guards import _sort_lock
+
+        # Use a recent timestamp (Windows can't fromtimestamp(100.0))
+        # so the round-trip through fromisoformat / .timestamp()
+        # works on every platform.
+        lock_t = time.time() - 60.0
+        lock_iso = datetime.fromtimestamp(lock_t).isoformat()
+
+        class _FakeProc:
+            def __init__(self, ct):
+                self._ct = ct
+
+            def create_time(self):
+                return self._ct
+
+        # Reused: create_time well after lock_t + skew.
+        fake_psutil = SimpleNamespace(
+            pid_exists=lambda pid: True,
+            Process=lambda pid: _FakeProc(lock_t + 100.0),
+        )
+        monkeypatch.setitem(sys.modules, "psutil", fake_psutil)
+        assert _sort_lock._pid_holds_lock(42, lock_iso) is False
+
+        # Original holder: create_time within skew.
+        fake_psutil.Process = lambda pid: _FakeProc(lock_t + 2.0)
+        assert _sort_lock._pid_holds_lock(42, lock_iso) is True
+
+
+# ===========================================================================
+# Windows Job Object cap (`_job_object`)
+# ===========================================================================
+
+
+class TestWindowsJobObjectCap:
+    """``windows_job_object_cap`` is a no-op off Windows or w/o pywin32."""
+
+    def test_noop_on_non_windows(self):
+        """
+        Off Windows, the context manager yields False without
+        raising.
+
+        Tests:
+            (Test Case 1) Yields False on the current platform when
+                ``sys.platform != 'win32'``.
+
+        Notes:
+            - The test patches sys.platform to simulate a non-Windows
+              host even when running on Windows.
+        """
+        from spikelab.spike_sorting.guards import _job_object as job_mod
+
+        with mock.patch.object(job_mod.sys, "platform", "linux"):
+            with windows_job_object_cap(0.8) as active:
+                assert active is False
+
+    def test_noop_when_pywin32_missing(self):
+        """
+        On Windows with pywin32 missing, yields False.
+
+        Tests:
+            (Test Case 1) When the win32job/win32api imports fail,
+                the helper yields False and does not raise.
+        """
+        from spikelab.spike_sorting.guards import _job_object as job_mod
+
+        real_import = (
+            __builtins__["__import__"]
+            if isinstance(__builtins__, dict)
+            else __builtins__.__import__
+        )
+
+        def _fake_import(name, *args, **kwargs):
+            if name in ("win32job", "win32api", "win32con"):
+                raise ImportError("simulated missing pywin32")
+            return real_import(name, *args, **kwargs)
+
+        with (
+            mock.patch.object(job_mod.sys, "platform", "win32"),
+            mock.patch("builtins.__import__", _fake_import),
+        ):
+            with windows_job_object_cap(0.8) as active:
+                assert active is False
+
+    def test_noop_when_ram_undetectable(self):
+        """
+        Without a host-RAM total, returns False.
+
+        Tests:
+            (Test Case 1) When the underlying ``get_system_ram_bytes``
+                returns None, the helper yields False.
+        """
+        from spikelab.spike_sorting.guards import _job_object as job_mod
+
+        with (
+            mock.patch.object(job_mod.sys, "platform", "win32"),
+            mock.patch.object(job_mod, "_get_total_ram_bytes", return_value=None),
+        ):
+            with windows_job_object_cap(0.8) as active:
+                assert active is False
+
+
+# ===========================================================================
+# Audit log (`_audit`)
+# ===========================================================================
+
+
+class TestAuditLog:
+    """``append_audit_event`` writes JSONL events next to the log."""
+
+    def test_writes_event_with_explicit_path(self, tmp_path):
+        """
+        Explicit log_path argument controls the audit file location.
+
+        Tests:
+            (Test Case 1) Audit file appears next to the supplied
+                log_path with one event line.
+            (Test Case 2) Event JSON contains watchdog and event
+                fields plus the supplied payload.
+        """
+        log_path = tmp_path / "rec.log"
+        log_path.touch()
+        append_audit_event(
+            watchdog="host_memory",
+            event="warn",
+            log_path=log_path,
+            used_pct=87.4,
+            warn_pct=85.0,
+        )
+        audit = tmp_path / "watchdog_events.jsonl"
+        assert audit.is_file()
+        line = audit.read_text(encoding="utf-8").strip()
+        entry = json.loads(line)
+        assert entry["watchdog"] == "host_memory"
+        assert entry["event"] == "warn"
+        assert entry["used_pct"] == 87.4
+        assert "timestamp" in entry
+
+    def test_silent_noop_when_no_log_path(self):
+        """
+        Without an explicit or active log path, the call is a silent
+        no-op.
+
+        Tests:
+            (Test Case 1) Calling without log_path or active
+                ContextVar does not raise and does not crash.
+        """
+        # No active log path set; should silently skip.
+        append_audit_event(watchdog="x", event="y")
+
+    def test_appends_multiple_events(self, tmp_path):
+        """
+        Multiple events accumulate as JSONL.
+
+        Tests:
+            (Test Case 1) Three calls produce three lines.
+        """
+        log_path = tmp_path / "rec.log"
+        log_path.touch()
+        for i in range(3):
+            append_audit_event(
+                watchdog="disk", event="warn", log_path=log_path, free_gb=float(i)
+            )
+        audit = tmp_path / "watchdog_events.jsonl"
+        lines = audit.read_text(encoding="utf-8").strip().splitlines()
+        assert len(lines) == 3
+
+
+class TestPeakReadingFromAudit:
+    """``_read_peaks_from_audit`` extracts peak resource values."""
+
+    def test_no_audit_yields_none_peaks(self, tmp_path):
+        """
+        Missing audit file yields None for every peak field.
+
+        Tests:
+            (Test Case 1) All three peaks are None when the audit
+                file does not exist.
+        """
+        from spikelab.spike_sorting.pipeline import _read_peaks_from_audit
+
+        peaks = _read_peaks_from_audit(tmp_path)
+        assert peaks["peak_host_ram_pct"] is None
+        assert peaks["peak_gpu_used_pct"] is None
+        assert peaks["min_disk_free_gb"] is None
+
+    def test_extracts_max_for_memory_min_for_disk(self, tmp_path):
+        """
+        Peaks pick max for memory percent and min for disk free GB.
+
+        Tests:
+            (Test Case 1) Two host_memory events at 88% and 91% →
+                peak = 91%.
+            (Test Case 2) Two disk events at 4 GB and 1.5 GB →
+                min = 1.5 GB.
+        """
+        from spikelab.spike_sorting.pipeline import _read_peaks_from_audit
+
+        audit = tmp_path / "watchdog_events.jsonl"
+        events = [
+            {"watchdog": "host_memory", "event": "warn", "used_pct": 88.0},
+            {"watchdog": "host_memory", "event": "warn", "used_pct": 91.0},
+            {"watchdog": "disk", "event": "warn", "free_gb": 4.0},
+            {"watchdog": "disk", "event": "warn", "free_gb": 1.5},
+            {"watchdog": "gpu_memory", "event": "warn", "used_pct": 92.0},
+        ]
+        audit.write_text(
+            "\n".join(json.dumps(e) for e in events) + "\n",
+            encoding="utf-8",
+        )
+        peaks = _read_peaks_from_audit(tmp_path)
+        assert peaks["peak_host_ram_pct"] == 91.0
+        assert peaks["peak_gpu_used_pct"] == 92.0
+        assert peaks["min_disk_free_gb"] == 1.5
+
+
+# ===========================================================================
+# I/O stall watchdog (`_io_stall`)
+# ===========================================================================
+
+
+class TestIOStallWatchdog:
+    """The I/O stall watchdog trips on stagnant byte counters."""
+
+    def test_disabled_when_psutil_cannot_resolve_device(self, tmp_path):
+        """
+        Without a resolvable device, the watchdog is a no-op.
+
+        Tests:
+            (Test Case 1) When ``_resolve_device_for_path`` returns
+                None, the watchdog reports as disabled.
+        """
+        from spikelab.spike_sorting.guards import _io_stall as iom
+
+        with mock.patch.object(iom, "_resolve_device_for_path", return_value=None):
+            wd = IOStallWatchdog(tmp_path, stall_s=1.0, poll_interval_s=0.1)
+            with wd:
+                assert wd._enabled is False
+
+    def test_trip_on_stagnant_bytes(self, tmp_path):
+        """
+        Constant byte counter for stall_s seconds trips the watchdog.
+
+        Tests:
+            (Test Case 1) Patched ``_read_io_bytes`` returns the same
+                value across polls; after stall_s seconds, tripped()
+                is True.
+            (Test Case 2) make_error returns IOStallError with the
+                resolved device.
+
+        Notes:
+            - The watchdog calls ``_thread.interrupt_main`` on trip,
+              which raises KeyboardInterrupt into this test thread.
+              We catch it and verify the trip via ``tripped()``.
+        """
+        from spikelab.spike_sorting.guards import _io_stall as iom
+
+        with (
+            mock.patch.object(iom, "_resolve_device_for_path", return_value="sda1"),
+            mock.patch.object(iom, "_read_io_bytes", return_value=100),
+        ):
+            wd = IOStallWatchdog(tmp_path, stall_s=0.5, poll_interval_s=0.1)
+            try:
+                with wd:
+                    deadline = time.time() + 3.0
+                    while time.time() < deadline and not wd.tripped():
+                        time.sleep(0.05)
+            except KeyboardInterrupt:
+                pass
+        assert wd.tripped()
+        err = wd.make_error()
+        assert isinstance(err, IOStallError)
+        assert err.device == "sda1"
+
+    def test_no_trip_when_bytes_advance(self, tmp_path):
+        """
+        Steadily increasing byte counter never trips the watchdog.
+
+        Tests:
+            (Test Case 1) After several polls with monotonically
+                increasing reads, tripped() is False.
+        """
+        from spikelab.spike_sorting.guards import _io_stall as iom
+
+        counter = {"value": 0}
+
+        def _advance(_dev):
+            counter["value"] += 1024
+            return counter["value"]
+
+        with (
+            mock.patch.object(iom, "_resolve_device_for_path", return_value="sda1"),
+            mock.patch.object(iom, "_read_io_bytes", side_effect=_advance),
+        ):
+            wd = IOStallWatchdog(tmp_path, stall_s=1.0, poll_interval_s=0.05)
+            with wd:
+                time.sleep(0.6)
+                assert not wd.tripped()
+
+
+class TestIoStallDeviceNormalization:
+    """``_resolve_device_for_path`` produces a usable disk_io_counters key."""
+
+    def test_windows_drive_letter_strips_trailing_backslash(self, monkeypatch):
+        """
+        On Windows, ``part.device`` is ``"C:\\"`` and the normaliser
+        must produce ``"C:"`` so it matches psutil's
+        ``disk_io_counters(perdisk=True)`` keys (which look like
+        ``"C:"`` or ``"PhysicalDrive0"``).
+
+        Tests:
+            (Test Case 1) Patched sys.platform='win32' + patched
+                psutil returning a single C:\\ partition → returns 'C:'.
+        """
+        from spikelab.spike_sorting.guards import _io_stall as io_stall_mod
+
+        monkeypatch.setattr(io_stall_mod.sys, "platform", "win32")
+
+        fake_part = SimpleNamespace(mountpoint="C:\\", device="C:\\")
+        fake_psutil = SimpleNamespace(disk_partitions=lambda all=False: [fake_part])
+        monkeypatch.setitem(sys.modules, "psutil", fake_psutil)
+
+        # Resolve a path that lives under C:\, with the resolution
+        # mocked to mirror the platform check above.
+        monkeypatch.setattr(
+            io_stall_mod.Path,
+            "resolve",
+            lambda self: Path("C:\\some\\folder"),
+        )
+        assert io_stall_mod._resolve_device_for_path(Path("C:\\")) == "C:"
+
+    def test_posix_path_strips_to_basename(self, monkeypatch):
+        """
+        On POSIX, ``/dev/sda1`` is normalised to ``sda1``.
+
+        Tests:
+            (Test Case 1) Patched sys.platform='linux' with a single
+                ``/dev/sda1`` partition → returns 'sda1'.
+        """
+        from spikelab.spike_sorting.guards import _io_stall as io_stall_mod
+
+        monkeypatch.setattr(io_stall_mod.sys, "platform", "linux")
+
+        fake_part = SimpleNamespace(mountpoint="/", device="/dev/sda1")
+        fake_psutil = SimpleNamespace(disk_partitions=lambda all=False: [fake_part])
+        monkeypatch.setitem(sys.modules, "psutil", fake_psutil)
+
+        monkeypatch.setattr(
+            io_stall_mod.Path, "resolve", lambda self: Path("/var/data/x")
+        )
+        assert io_stall_mod._resolve_device_for_path(Path("/var/data")) == "sda1"
+
+
+# ===========================================================================
+# Temp-file cleanup (`_tempfile_cleanup`)
+# ===========================================================================
+
+
+class TestTempFileCleanup:
+    """``cleanup_temp_files`` sweeps marker-prefixed temp files on clean exit."""
+
+    def test_removes_new_marker_files(self, tmp_path, monkeypatch):
+        """
+        Files created during the context that match a known marker
+        are deleted on clean exit.
+
+        Tests:
+            (Test Case 1) ``spikelab_*`` and ``kilosort_*`` files
+                created during the context are gone after exit.
+            (Test Case 2) Files without a marker prefix are kept.
+        """
+        monkeypatch.setattr(tempfile, "gettempdir", lambda: str(tmp_path))
+
+        # Pre-existing files (should NOT be removed).
+        keep1 = tmp_path / "unrelated.txt"
+        keep1.write_text("keep")
+        keep2 = tmp_path / "spikelab_pre_existing.tmp"
+        keep2.write_text("keep")
+
+        # Create marker files inside the context.
+        with cleanup_temp_files(enabled=True):
+            (tmp_path / "spikelab_runtime.tmp").write_text("x")
+            (tmp_path / "kilosort_temp.dat").write_text("x")
+            (tmp_path / "still_unrelated.dat").write_text("x")
+
+        # Pre-existing marker file is preserved (it was there before
+        # the sort started).
+        assert keep1.exists()
+        assert keep2.exists()
+        # Created marker files removed.
+        assert not (tmp_path / "spikelab_runtime.tmp").exists()
+        assert not (tmp_path / "kilosort_temp.dat").exists()
+        # Created non-marker file preserved.
+        assert (tmp_path / "still_unrelated.dat").exists()
+
+    def test_disabled_is_noop(self, tmp_path, monkeypatch):
+        """
+        ``enabled=False`` keeps every file regardless of marker.
+
+        Tests:
+            (Test Case 1) Marker files created during the context
+                survive.
+        """
+        monkeypatch.setattr(tempfile, "gettempdir", lambda: str(tmp_path))
+
+        with cleanup_temp_files(enabled=False):
+            (tmp_path / "spikelab_x.tmp").write_text("x")
+        assert (tmp_path / "spikelab_x.tmp").exists()
+
+    def test_files_kept_on_exception(self, tmp_path, monkeypatch):
+        """
+        Exceptions in the context propagate and leave temp files alone.
+
+        Tests:
+            (Test Case 1) Marker files created before the raise
+                survive (the exception triggers the no-sweep path).
+        """
+        monkeypatch.setattr(tempfile, "gettempdir", lambda: str(tmp_path))
+
+        with pytest.raises(RuntimeError):
+            with cleanup_temp_files(enabled=True):
+                (tmp_path / "spikelab_diag.tmp").write_text("x")
+                raise RuntimeError("simulated failure")
+        assert (tmp_path / "spikelab_diag.tmp").exists()
+
+
+# ===========================================================================
+# Power state (`_power_state`)
+# ===========================================================================
+
+
+class TestPowerStateLock:
+    """``prevent_system_sleep`` is a no-op off Windows."""
+
+    def test_noop_on_non_windows(self):
+        """
+        Off Windows, prevent_system_sleep yields False without raising.
+
+        Tests:
+            (Test Case 1) Non-Windows platform → yields False.
+        """
+        from spikelab.spike_sorting.guards import _power_state as ps
+
+        with mock.patch.object(ps.sys, "platform", "linux"):
+            with prevent_system_sleep() as active:
+                assert active is False
+
+    def test_yields_false_when_platform_simulated_non_windows(self):
+        """
+        Patching sys.platform to a non-Windows value yields False.
+
+        Tests:
+            (Test Case 1) When the helper sees a non-Windows
+                platform, it yields False without touching any
+                ctypes APIs — even on a real Windows host.
+
+        Notes:
+            - The Windows-API-call path (``SetThreadExecutionState``)
+              is exercised in production rather than tested here —
+              mocking ``ctypes.windll`` reliably across platforms
+              is fragile and the live call interacts with the OS
+              in ways that can stall a test process.
+        """
+        from spikelab.spike_sorting.guards import _power_state as ps
+
+        for fake_platform in ("linux", "darwin"):
+            with mock.patch.object(ps.sys, "platform", fake_platform):
+                with prevent_system_sleep() as active:
+                    assert active is False
+
+
+# ===========================================================================
+# Tripped-watchdog router (`__init__.find_tripped_global_watchdog`)
+# ===========================================================================
+
+
+class TestFindTrippedGlobalWatchdog:
+    """``find_tripped_global_watchdog`` walks watchdog priority order."""
+
+    def test_returns_none_when_nothing_active(self, monkeypatch):
+        """
+        With no active watchdogs in any ContextVar, returns None.
+
+        Tests:
+            (Test Case 1) All three get_active_* return None → None.
+        """
+        from spikelab.spike_sorting import guards as guards_mod
+
+        monkeypatch.setattr(guards_mod, "get_active_watchdog", lambda: None)
+        monkeypatch.setattr(guards_mod, "get_active_gpu_watchdog", lambda: None)
+        monkeypatch.setattr(guards_mod, "get_active_io_stall_watchdog", lambda: None)
+        assert guards_mod.find_tripped_global_watchdog() is None
+
+    def test_returns_host_when_only_host_tripped(self, monkeypatch):
+        """
+        Host watchdog tripped, GPU and IO not active → returns host.
+
+        Tests:
+            (Test Case 1) get_active_watchdog returns a tripped stub.
+        """
+        from spikelab.spike_sorting import guards as guards_mod
+
+        host = SimpleNamespace(tripped=lambda: True)
+        monkeypatch.setattr(guards_mod, "get_active_watchdog", lambda: host)
+        monkeypatch.setattr(guards_mod, "get_active_gpu_watchdog", lambda: None)
+        monkeypatch.setattr(guards_mod, "get_active_io_stall_watchdog", lambda: None)
+        assert guards_mod.find_tripped_global_watchdog() is host
+
+    def test_priority_order_host_before_gpu_before_io(self, monkeypatch):
+        """
+        With every watchdog tripped, host wins over GPU which wins over IO.
+
+        Tests:
+            (Test Case 1) All three tripped → returns host.
+        """
+        from spikelab.spike_sorting import guards as guards_mod
+
+        host = SimpleNamespace(tripped=lambda: True, name="host")
+        gpu = SimpleNamespace(tripped=lambda: True, name="gpu")
+        io = SimpleNamespace(tripped=lambda: True, name="io")
+        monkeypatch.setattr(guards_mod, "get_active_watchdog", lambda: host)
+        monkeypatch.setattr(guards_mod, "get_active_gpu_watchdog", lambda: gpu)
+        monkeypatch.setattr(guards_mod, "get_active_io_stall_watchdog", lambda: io)
+        assert guards_mod.find_tripped_global_watchdog().name == "host"
+
+    def test_skips_untripped_watchdogs(self, monkeypatch):
+        """
+        Active but untripped watchdogs are skipped in priority order.
+
+        Tests:
+            (Test Case 1) Host active+untripped, GPU active+tripped → GPU.
+            (Test Case 2) Only IO tripped → IO returned.
+        """
+        from spikelab.spike_sorting import guards as guards_mod
+
+        host = SimpleNamespace(tripped=lambda: False, name="host")
+        gpu = SimpleNamespace(tripped=lambda: True, name="gpu")
+        io = SimpleNamespace(tripped=lambda: True, name="io")
+        monkeypatch.setattr(guards_mod, "get_active_watchdog", lambda: host)
+        monkeypatch.setattr(guards_mod, "get_active_gpu_watchdog", lambda: gpu)
+        monkeypatch.setattr(guards_mod, "get_active_io_stall_watchdog", lambda: io)
+        assert guards_mod.find_tripped_global_watchdog().name == "gpu"
+
+        gpu_only_io = SimpleNamespace(tripped=lambda: False, name="gpu")
+        monkeypatch.setattr(guards_mod, "get_active_gpu_watchdog", lambda: gpu_only_io)
+        assert guards_mod.find_tripped_global_watchdog().name == "io"
+
+
+# ===========================================================================
+# NaN guards across the watchdog stack
+# ===========================================================================
+
+
+class TestComputeInactivityNanGuard:
+    """``compute_inactivity_timeout_s`` coerces NaN/None to 0."""
+
+    def test_nan_duration_treated_as_zero(self):
+        """
+        NaN ``recording_duration_min`` → returns ``base_s`` (no scaling).
+
+        Tests:
+            (Test Case 1) NaN → 600.0 (default base_s, no per-min added).
+        """
+        from spikelab.spike_sorting.guards._inactivity import (
+            compute_inactivity_timeout_s,
+        )
+
+        result = compute_inactivity_timeout_s(
+            recording_duration_min=float("nan"),
+            base_s=600.0,
+            per_min_s=30.0,
+            max_s=None,
+        )
+        assert result == 600.0
+
+    def test_none_duration_treated_as_zero(self):
+        """
+        None ``recording_duration_min`` → returns ``base_s``.
+
+        Tests:
+            (Test Case 1) None → 600.0.
+        """
+        from spikelab.spike_sorting.guards._inactivity import (
+            compute_inactivity_timeout_s,
+        )
+
+        # Type-wise we declare the param as float, but in practice
+        # callers may pass None when the duration is unknown.
+        result = compute_inactivity_timeout_s(
+            recording_duration_min=None,  # type: ignore[arg-type]
+            base_s=600.0,
+            per_min_s=30.0,
+            max_s=None,
+        )
+        assert result == 600.0
+
+
+class TestHostMemoryWatchdogNanGuard:
+    """``HostMemoryWatchdog._poll_loop`` skips NaN psutil readings."""
+
+    def test_nan_reading_does_not_trip(self, monkeypatch):
+        """
+        A NaN ``virtual_memory().percent`` reading is skipped rather
+        than treated as either healthy or unhealthy.
+
+        Tests:
+            (Test Case 1) Patch psutil to return NaN; watchdog runs a
+                short window and never trips.
+        """
+        readings = iter([float("nan")] * 10)
+
+        class _FakePsutil:
+            class _VM:
+                @property
+                def percent(self):
+                    try:
+                        return next(readings)
+                    except StopIteration:
+                        return 0.0
+
+            @staticmethod
+            def virtual_memory():
+                return _FakePsutil._VM()
+
+        # Inject a fake psutil so the watchdog loop runs without the
+        # real OS readings, and use a tiny poll interval for speed.
+        wd = HostMemoryWatchdog(warn_pct=85.0, abort_pct=92.0, poll_interval_s=0.02)
+        wd._psutil = _FakePsutil
+        with wd:
+            time.sleep(0.15)
+        assert wd.tripped() is False
+
+
+# ===========================================================================
+# Kill-callback interrupt re-raise across watchdogs
+# ===========================================================================
+
+
+class TestKillCallbackInterruptReraise:
+    """All watchdog kill paths re-raise SystemExit/KeyboardInterrupt."""
+
+    def test_disk_watchdog_reraises_keyboard_interrupt(self):
+        """
+        DiskUsageWatchdog._on_trip lets KeyboardInterrupt from the
+        kill_callback propagate (an in-process kill callback delivers
+        it via _thread.interrupt_main).
+
+        Tests:
+            (Test Case 1) kill_callback raises KeyboardInterrupt;
+                _on_trip re-raises.
+        """
+
+        def _raises_kbi():
+            raise KeyboardInterrupt("delivered")
+
+        wd = DiskUsageWatchdog(
+            folder=Path("."),
+            warn_free_gb=10.0,
+            abort_free_gb=5.0,
+            kill_callback=_raises_kbi,
+        )
+        # Stub the report build so we don't walk a real folder.
+        wd._build_report = lambda free: SimpleNamespace(top_consumers=[])
+        with pytest.raises(KeyboardInterrupt):
+            wd._on_trip(0.5)
+
+    def test_inactivity_watchdog_reraises_system_exit(self, tmp_path):
+        """
+        LogInactivityWatchdog._on_trip lets SystemExit propagate.
+
+        Tests:
+            (Test Case 1) kill_callback raises SystemExit; _on_trip
+                re-raises.
+        """
+
+        def _raises_se():
+            raise SystemExit(7)
+
+        wd = LogInactivityWatchdog(
+            log_path=tmp_path / "log",
+            popen=None,
+            inactivity_s=10.0,
+            sorter="test",
+            kill_callback=_raises_se,
+        )
+        with pytest.raises(SystemExit):
+            wd._on_trip(15.0)
+
+
+# ===========================================================================
+# ExecutionConfig defaults for guard fields
+# ===========================================================================
+
+
+class TestExtraSafeguardConfigDefaults:
+    """The new ExecutionConfig fields have the documented defaults."""
+
+    def test_defaults(self):
+        """
+        Defaults match the documented values for items 6, 7, 9.
+
+        Tests:
+            (Test Case 1) io_stall_watchdog defaults True with
+                300s stall window and 10s poll.
+            (Test Case 2) cleanup_temp_files defaults True.
+            (Test Case 3) prevent_system_sleep defaults True.
+        """
+        cfg = ExecutionConfig()
+        assert cfg.io_stall_watchdog is True
+        assert cfg.io_stall_s == 300.0
+        assert cfg.io_stall_poll_interval_s == 10.0
+        assert cfg.cleanup_temp_files is True
+        assert cfg.prevent_system_sleep is True

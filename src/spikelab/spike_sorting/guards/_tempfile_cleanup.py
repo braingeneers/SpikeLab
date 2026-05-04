@@ -100,12 +100,10 @@ def cleanup_temp_files(enabled: bool = True) -> Iterator[None]:
 
     pre_existing = _list_marker_files(temp_dir)
 
-    try:
-        yield
-    except Exception:
-        # On failure, leave temp files alone so the operator can
-        # inspect them.
-        raise
+    # Failures inside the with-block propagate naturally; the post-yield
+    # sweep below only runs on a clean exit, leaving temp files in
+    # place after a failure so the operator can inspect them.
+    yield
 
     # Clean exit — sweep any new marker files.
     try:
