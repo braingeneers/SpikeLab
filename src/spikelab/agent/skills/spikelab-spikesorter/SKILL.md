@@ -181,6 +181,15 @@ See `RTSortConfig` in `REPO_MAP_DETAILED.md` for the full parameter list (`rt_so
 - `create_figures` — generate QC figures: quality distributions (pre-curation), curation bar, STD scatter, all templates, raster + pop rate (default: False)
 - `create_unit_figures` — generate per-unit figures: ISI histogram, waveform footprint, max-channel overlay with individual traces; sorted into `curated/` and `failed/` subdirs after curation (default: False, requires `create_figures=True`)
 
+**Pipeline safeguards (automatic):**
+
+A set of preflight checks and live watchdogs run automatically — there is nothing to configure for the default-on path. They surface failures as `SpikeSortingClassifiedError` subclasses (see "Failure handling" below) rather than letting a sort hang or crash the host.
+
+- **Preflight (before each sort):** free disk on intermediate + results volumes, host RAM, GPU VRAM and device presence, HDF5 plugin path, sorter dependencies, recording sample rate, and writability of intermediate / results folders.
+- **Live watchdogs (during the sort):** host RAM (`HostMemoryWatchdogError`), GPU memory + thermals (`GpuMemoryWatchdogError`, `GpuThermalWatchdogError`), disk usage (`DiskExhaustionError`), sorter-log inactivity (`SorterTimeoutError`), kernel I/O stalls (`IOStallError`), and a per-recording sort lock (`ConcurrentSortError`).
+- **Tunable thresholds** live on `ExecutionConfig` (sub-config of `SortingPipelineConfig`); rare to need adjustment.
+- **Run artifacts:** every successful sort writes a human-readable `sorting_report.md` plus a machine-readable `recording_report.json` next to the results.
+
 **Pipeline safeguards (opt-in):**
 - `canary_first_n_s` — when > 0, run the configured backend on the first N seconds of each recording before launching the full sort, catching MEX-compile / model-load / Docker-image / preprocessing failures in seconds rather than hours. Default: `0.0` (disabled). Recommended for long sorts on flaky configs (e.g. 30 s).
 - `docker_image_expected_digest` — optional `sha256:...` digest the operator expects the local Docker image to match. The actual digest is always recorded in `config_used.json` and the sorting report; this knob only emits a **warning** (no failure) when the local digest differs. Default: `None`. Use to pin reproducibility against mutable image tags.
@@ -347,7 +356,7 @@ stim_slices = sort_stim_recording(
 # Returns SpikeSliceStack aligned to corrected stim times
 ```
 
-The pipeline recenters logged stim times to actual artifact peaks, removes artifacts using per-event polynomial detrend (preserves spikes — they're too fast for the smooth polynomial to capture), sorts with the pre-trained sequences, and aligns to corrected stim events. Sequential stim protocols (bursts, paired-pulse) are handled by dynamically extending the blanking region.
+The pipeline recenters logged stim times to actual artifact peaks, removes artifacts using per-event polynomial detrend (preserves spikes — they're too fast for the smooth polynomial to capture), sorts with the pre-trained sequences, and aligns to corrected stim events. Sequential stim protocols (bursts, paired-pulse) are handled in two layers: artifact removal dynamically extends the blanking region across the burst, and recentering can be told to lock onto a specific pulse via `multi_peak` (below).
 
 **Recentering alignment (`peak_mode`)** — pick the alignment target that matches your stim protocol:
 
@@ -360,6 +369,8 @@ The pipeline recenters logged stim times to actual artifact peaks, removes artif
 | `"up_edge"` | top-K summed | symmetric down-up crossing | Biphasic cathodic-first |
 
 `n_reference_channels` (default 8) controls how many highest-amplitude channels are summed to form the signed reference trace; summing preserves phase (coherent across artifact channels, cancels uncorrelated noise) and yields cleaner derivatives for the edge modes. `prewindow_ms` (default 5.0) is the radius of the opposite-polarity search before the primary peak.
+
+**Multi-pulse alignment (`multi_peak`)** — for stim trains where a single recentering window may contain several pulses (e.g. paired-pulse, burst), set `multi_peak=True` to lock onto a *specific* pulse rather than the strongest. Use `multi_peak_select="first"` (default) for first-pulse alignment or `"last"` for after-train rebound; `multi_peak_threshold` (default `0.6`) is the minimum amplitude relative to the strongest peak to count as a real pulse, and `multi_peak_min_separation_ms` (default `2.0`) prevents one peak being counted twice. Available on `recenter_stim_times`, `sort_stim_recording`, and `preprocess_stim_artifacts`.
 
 **Saturation threshold (`saturation_threshold`)** — when `None` and a recording object is available, a gain-anchored threshold is derived from `recording.get_channel_gains()` combined with the observed amplitude distribution. If no clipping is detected (< 100 samples pinned at the maximum), the threshold returns `+inf` — meaning **no samples get blanked**, and the polynomial detrend handles everything. This matches the "only blank completely saturated electrodes" semantics: high-amplitude artifacts that never hit the ADC rail are recoverable by detrend and should not be destroyed. To force a specific rail, pass the value explicitly (e.g. `saturation_threshold=5500.0`). To fall back to the legacy 99.9-quantile heuristic, call `remove_stim_artifacts` directly without `recording=`.
 

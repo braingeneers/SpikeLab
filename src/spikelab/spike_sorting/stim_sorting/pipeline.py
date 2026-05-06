@@ -65,7 +65,7 @@ def sort_stim_recording(
     prewindow_ms=5.0,
     multi_peak=False,
     multi_peak_select="first",
-    multi_peak_threshold=0.8,
+    multi_peak_threshold=0.6,
     multi_peak_min_separation_ms=2.0,
     model=None,
     model_path=None,
@@ -130,7 +130,7 @@ def sort_stim_recording(
             ``"last"``.
         multi_peak_threshold (float): When ``multi_peak=True``, peaks
             below this fraction of the largest peak in the search
-            window are ignored.  Default ``0.8``.
+            window are ignored.  Default ``0.6``.
         multi_peak_min_separation_ms (float): When ``multi_peak=True``,
             minimum spacing between candidate peaks.  Default ``2.0``.
         max_stim_offset_ms (float): Search window radius for stim

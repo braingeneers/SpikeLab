@@ -211,7 +211,7 @@ def recenter_stim_times(
     warn_offset_ms=3.0,
     multi_peak=False,
     multi_peak_select="first",
-    multi_peak_threshold=0.8,
+    multi_peak_threshold=0.6,
     multi_peak_min_separation_ms=2.0,
 ):
     """Find actual stimulation artifact times near logged stim times.
@@ -272,8 +272,8 @@ def recenter_stim_times(
         multi_peak_threshold (float): When ``multi_peak=True``, only
             peaks whose amplitude is at least this fraction of the
             largest peak in the search window are considered "real
-            pulses".  Default ``0.8`` — accepts pulses up to 20% weaker
-            than the strongest, rejects noise.
+            pulses".  Default ``0.6`` — accepts pulses up to 40% weaker
+            than the strongest while still rejecting noise.
         multi_peak_min_separation_ms (float): When ``multi_peak=True``,
             the minimum spacing between candidate peaks.  Prevents
             multi-sample peaks of a single pulse from being counted as
