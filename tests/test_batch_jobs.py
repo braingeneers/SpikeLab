@@ -3357,3 +3357,181 @@ class TestCredentialExtended:
         """AWS_ACCESS_KEY_ID should not be redacted (no SECRET/TOKEN/PASSWORD)."""
         redacted = redact_sensitive_map({"AWS_ACCESS_KEY_ID": "AKIAEXAMPLE"})
         assert redacted["AWS_ACCESS_KEY_ID"] == "AKIAEXAMPLE"
+
+
+class TestRetrieveSortingBareExceptSilencesErrors:
+    """
+    Edge case tests pinning current behavior of _retrieve_sorting when
+    pickle / JSON load fails: the bare `except Exception:` swallows the
+    error and the workspace ends up missing those entries.
+
+    Notes:
+        - documents bug — see REVIEW.md
+        - A corrupt sorting output produces an empty workspace with no
+          warning. The user cannot tell a "no output" job from a
+          "corrupt output" job.
+    """
+
+    def _make_session(self):
+        from spikelab.batch_jobs.backend_k8s import KubernetesBatchJobBackend
+        from spikelab.batch_jobs.models import ClusterProfile
+        from spikelab.batch_jobs.session import RunSession
+        from spikelab.batch_jobs.storage_s3 import S3StorageClient
+
+        profile = ClusterProfile(name="test")
+        backend = MagicMock(spec=KubernetesBatchJobBackend)
+        storage = MagicMock(spec=S3StorageClient)
+        storage.output_prefix_for_run.return_value = "s3://b/out/run/"
+        storage.logs_prefix_for_run.return_value = "s3://b/logs/run/"
+        session = RunSession(
+            profile=profile,
+            backend=backend,
+            storage_client=storage,
+            credentials=MagicMock(),
+        )
+        return session, storage
+
+    def test_corrupt_pickle_silently_skipped(self, tmp_path):
+        """
+        _retrieve_sorting silently skips a corrupt .pkl file, producing
+        an empty workspace.
+
+        Tests:
+            (Test Case 1) The output workspace is empty (no spikedata
+                stored) when the pickle is corrupt.
+
+        Notes:
+            - documents bug — see REVIEW.md
+        """
+        from spikelab.batch_jobs.models import SubmitResult
+        from spikelab.workspace.workspace import AnalysisWorkspace
+
+        session, storage = self._make_session()
+
+        # Write a corrupt pickle file.
+        bad_pkl = tmp_path / "bad.pkl"
+        bad_pkl.write_bytes(b"not a real pickle")
+
+        storage.list_output_files.return_value = ["pfx/out/run-1/bad.pkl"]
+        storage.output_prefix_for_run.return_value = "s3://b/pfx/out/run-1/"
+
+        def fake_download(*, s3_uri, local_path):
+            import shutil
+
+            shutil.copy2(str(bad_pkl), local_path)
+            return local_path
+
+        storage.download_file.side_effect = fake_download
+
+        submit_result = SubmitResult(
+            job_name="sort-job",
+            manifest_yaml="",
+            run_id="run-1",
+            uploaded_input_uri="s3://b/pfx/inputs/run-1/bundle.zip",
+            output_prefix="s3://b/pfx/out/run-1/",
+            logs_prefix="s3://b/pfx/logs/run-1/",
+            job_type="sorting",
+        )
+
+        # Should not raise; the bare except swallows the pickle error.
+        result_ws = session.retrieve_result(submit_result, str(tmp_path))
+        assert isinstance(result_ws, AnalysisWorkspace)
+        # The corrupt pickle was silently dropped: no namespaces stored.
+        assert len(result_ws._index) == 0
+
+    def test_corrupt_json_silently_skipped(self, tmp_path):
+        """
+        _retrieve_sorting silently skips a corrupt .json metadata file.
+
+        Tests:
+            (Test Case 1) Workspace ends empty when the only output is
+                an unparseable JSON file.
+
+        Notes:
+            - documents bug — see REVIEW.md
+        """
+        from spikelab.batch_jobs.models import SubmitResult
+        from spikelab.workspace.workspace import AnalysisWorkspace
+
+        session, storage = self._make_session()
+
+        bad_json = tmp_path / "metadata.json"
+        bad_json.write_text("not valid json {")
+
+        storage.list_output_files.return_value = ["pfx/out/run-1/metadata.json"]
+        storage.output_prefix_for_run.return_value = "s3://b/pfx/out/run-1/"
+
+        def fake_download(*, s3_uri, local_path):
+            import shutil
+
+            shutil.copy2(str(bad_json), local_path)
+            return local_path
+
+        storage.download_file.side_effect = fake_download
+
+        submit_result = SubmitResult(
+            job_name="sort-job",
+            manifest_yaml="",
+            run_id="run-1",
+            uploaded_input_uri="s3://b/pfx/inputs/run-1/bundle.zip",
+            output_prefix="s3://b/pfx/out/run-1/",
+            logs_prefix="s3://b/pfx/logs/run-1/",
+            job_type="sorting",
+        )
+
+        result_ws = session.retrieve_result(submit_result, str(tmp_path))
+        assert isinstance(result_ws, AnalysisWorkspace)
+        # The corrupt JSON was silently dropped.
+        assert len(result_ws._index) == 0
+
+
+class TestBuildJobNameRfc1123Compliance:
+    """
+    Edge case tests pinning current K8s-name compliance behavior of
+    _build_job_name.
+
+    Notes:
+        - documents bug — see REVIEW.md
+        - K8s job names must conform to RFC 1123: a sequence of
+          `[a-z0-9-]` starting with a letter and not ending with a
+          hyphen. Empty / all-hyphen prefixes currently produce names
+          that start with `-`.
+    """
+
+    def test_empty_prefix_produces_invalid_k8s_name(self):
+        """
+        _build_job_name("") currently returns a string starting with '-',
+        which is not RFC 1123 compliant.
+
+        Tests:
+            (Test Case 1) Resulting name starts with a hyphen.
+
+        Notes:
+            - documents bug — see REVIEW.md
+            - K8s would reject this name at apply time with an opaque
+              error.
+        """
+        from spikelab.batch_jobs.session import RunSession
+
+        name = RunSession._build_job_name("")
+        # Documents that the result starts with '-' (the truncated
+        # prefix is the empty string after rstrip).
+        assert name.startswith("-")
+        # Non-compliant: the leading char is not a letter [a-z].
+        assert not name[0].isalpha()
+
+    def test_all_hyphens_prefix_produces_invalid_k8s_name(self):
+        """
+        _build_job_name("---") currently returns '-<token>', not RFC 1123.
+
+        Tests:
+            (Test Case 1) Resulting name starts with a hyphen.
+
+        Notes:
+            - documents bug — see REVIEW.md
+        """
+        from spikelab.batch_jobs.session import RunSession
+
+        name = RunSession._build_job_name("---")
+        assert name.startswith("-")
+        assert not name[0].isalpha()

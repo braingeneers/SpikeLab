@@ -3174,3 +3174,41 @@ class TestSpikeSliceStackCoreReview:
         assert np.isnan(tm[1, 0])
         # Unit 1 has 1 spike in slice 1 → valid
         assert not np.isnan(tm[1, 1])
+
+
+class TestSSSSubtimeByIndexNonIntegerTruncation:
+    """
+    Edge case test pinning the int(round(slice_duration_ms)) truncation
+    in SpikeSliceStack.subtime_by_index.
+
+    Notes:
+        - documents bug — see REVIEW.md
+        - subtime_by_index assumes 1 index = 1 ms by computing
+          T = int(round(slice_duration_ms)). For slice durations that are
+          not integer ms (e.g. 12.4 ms with bin_size_ms=0.4), the true
+          number of bins is silently rounded.
+    """
+
+    def test_subtime_by_index_truncates_sub_ms_tail(self):
+        """
+        subtime_by_index with a 12.4 ms slice rounds T to 12 (the
+        sub-ms tail is silently dropped).
+
+        Tests:
+            (Test Case 1) Constructing SpikeSliceStack with a 12.4 ms
+                slice and calling subtime_by_index(0, 12) succeeds.
+            (Test Case 2) Calling subtime_by_index(0, 13) raises
+                because end_idx > T = round(12.4) = 12.
+
+        Notes:
+            - documents bug — see REVIEW.md
+        """
+        train = [np.array([1.0, 5.0, 10.0])]
+        sd = SpikeData(train, length=12.4)
+        sss = SpikeSliceStack(sd, times_start_to_end=[(0.0, 12.4)])
+        # T = int(round(12.4)) = 12; (0, 12) is the maximal valid range.
+        result = sss.subtime_by_index(0, 12)
+        assert len(result.spike_stack) == 1
+        # (0, 13) exceeds T=12 and should raise.
+        with pytest.raises(ValueError):
+            sss.subtime_by_index(0, 13)

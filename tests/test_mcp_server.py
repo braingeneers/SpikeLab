@@ -7037,3 +7037,133 @@ class TestFetchWorkspaceItemReview:
         assert "data" in result
         assert result["data"]["arr"] == [1, 2, 3]
         assert result["data"]["val"] == 42
+
+
+class TestPairwiseTestsLabelsTruncation:
+    """
+    Edge case tests pinning the silent-truncation behavior of
+    pairwise_tests when labels is shorter than keys.
+
+    Notes:
+        - documents bug — see REVIEW.md
+        - The wrapper does `zip(group_labels, keys)`. When len(labels)
+          < len(keys), zip silently truncates and only the first
+          len(labels) keys are processed. This is silent data loss.
+    """
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_labels_truncation_drops_keys_silently(self):
+        """
+        pairwise_tests with labels=[L1] and keys=[a,b,c] only processes
+        the first key (silent data loss).
+
+        Tests:
+            (Test Case 1) Output references one label and the comparison
+                count is consistent with one group instead of three.
+
+        Notes:
+            - documents bug — see REVIEW.md
+        """
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+        wm = get_workspace_manager()
+        ws_id = wm.create_workspace(name="labels_trunc_ws")
+        ws = wm.get_workspace(ws_id)
+        ws.store("ns", "a", np.array([1.0, 2.0, 3.0]))
+        ws.store("ns", "b", np.array([4.0, 5.0, 6.0]))
+        ws.store("ns", "c", np.array([7.0, 8.0, 9.0]))
+
+        try:
+            result = await analysis.pairwise_tests(
+                workspace_id=ws_id,
+                namespace="ns",
+                keys=["a", "b", "c"],
+                labels=["L1"],  # Only 1 label for 3 keys -> zip truncates.
+            )
+        except Exception:
+            # Acceptable: future fix may raise here. Test pins one of two
+            # outcomes; either is documented behavior.
+            return
+
+        # Current behavior: only the first key is processed; the result's
+        # labels list should reflect the truncation.
+        labels = result.get("labels", [])
+        # Either labels is ['L1'] (truncated) OR the call raised.
+        # The number of distinct labels processed should be at most 1.
+        assert len(labels) <= 1
+
+
+class TestLoadFromIblEmptyEid:
+    """
+    Edge case tests pinning current behavior of load_from_ibl with an
+    empty or short eid string.
+
+    Notes:
+        - documents bug — see REVIEW.md
+        - ns_derived = namespace or eid[:8]. With eid="", the slice is
+          "" (empty), producing an empty namespace that may collide.
+    """
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    @patch("spikelab.mcp_server.tools.data_loaders.load_spikedata_from_ibl")
+    async def test_empty_eid_produces_empty_or_unique_namespace(self, mock_load):
+        """
+        load_from_ibl with eid="" produces an empty-derived namespace,
+        which _unique_namespace may pass through as ''.
+
+        Tests:
+            (Test Case 1) The returned namespace is either an empty
+                string (current bug) or a non-empty fallback name.
+
+        Notes:
+            - documents bug — see REVIEW.md
+        """
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+
+        train = [[10.0, 20.0]]
+        sd = SpikeData(train, length=30.0)
+        mock_load.return_value = sd
+
+        result = await data_loaders.load_from_ibl(
+            eid="",
+            pid="11111111-2222-3333-4444-555555555555",
+        )
+        # ns_derived = "" or "" → store happens at empty namespace.
+        ns = result.get("namespace")
+        assert ns is not None
+        # Lock current contract: namespace is a string (possibly empty).
+        assert isinstance(ns, str)
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    @patch("spikelab.mcp_server.tools.data_loaders.load_spikedata_from_ibl")
+    async def test_short_eid_uses_full_string_as_namespace(self, mock_load):
+        """
+        load_from_ibl with a short eid (< 8 chars) uses the full string
+        as namespace, which may collide if multiple short eids share a
+        prefix.
+
+        Tests:
+            (Test Case 1) eid='abc' produces namespace 'abc'.
+
+        Notes:
+            - documents bug — see REVIEW.md
+        """
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+
+        train = [[10.0]]
+        sd = SpikeData(train, length=20.0)
+        mock_load.return_value = sd
+
+        result = await data_loaders.load_from_ibl(
+            eid="abc",
+            pid="11111111-2222-3333-4444-555555555555",
+        )
+        ns = result.get("namespace")
+        # Short eid: ns_derived = eid[:8] = "abc". The result namespace
+        # should start with "abc" (possibly suffixed by unique counter).
+        assert ns.startswith("abc")

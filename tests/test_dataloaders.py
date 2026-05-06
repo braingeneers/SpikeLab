@@ -4592,3 +4592,132 @@ class TestS3Utils4:
         assert is_s3_url("s3://bucket/key") is True
         assert is_s3_url("https://s3.amazonaws.com/bucket/key") is True
         assert is_s3_url("https://bucket.s3.us-west-2.amazonaws.com/key") is True
+
+
+@skip_no_pandas
+class TestKilosortEmptyClusterInfoTsv:
+    """
+    Edge case tests pinning current behavior when cluster_info.tsv is
+    empty (zero bytes).
+
+    Notes:
+        - documents bug — see REVIEW.md
+        - load_spikedata_from_kilosort catches (IOError, ValueError, KeyError)
+          when reading the TSV, but pandas raises EmptyDataError on a
+          zero-byte file, which is NOT in the caught list. The exception
+          propagates and the loader crashes.
+    """
+
+    def test_empty_cluster_info_tsv_raises_pandas_error(self, tmp_path):
+        """
+        Empty cluster_info.tsv currently raises pandas.errors.EmptyDataError.
+
+        Tests:
+            (Test Case 1) Calling load_spikedata_from_kilosort with a
+                zero-byte cluster_info_tsv raises (pandas.errors.EmptyDataError
+                or any subclass / Exception).
+
+        Notes:
+            - documents bug — see REVIEW.md
+        """
+        d = str(tmp_path / "ks_empty_tsv")
+        os.makedirs(d)
+        spike_times = np.array([10, 20, 15])
+        spike_clusters = np.array([0, 0, 1])
+        np.save(os.path.join(d, "spike_times.npy"), spike_times)
+        np.save(os.path.join(d, "spike_clusters.npy"), spike_clusters)
+        # Write a zero-byte cluster_info.tsv.
+        tsv_path = os.path.join(d, "cluster_info.tsv")
+        open(tsv_path, "w").close()
+
+        with pytest.raises(Exception):
+            loaders.load_spikedata_from_kilosort(
+                d,
+                fs_Hz=1000.0,
+                cluster_info_tsv="cluster_info.tsv",
+            )
+
+
+@skip_no_h5py
+class TestHDF5GroupPerUnitLargeN:
+    """
+    Edge case test pinning lexicographic-sort behavior for the
+    group-per-unit loader at N>=10.
+
+    Notes:
+        - documents bug — see REVIEW.md
+        - The exporter writes unit datasets as str(i) keys; on reload the
+          loader calls sorted(...) which orders the keys lexicographically.
+          With N>=10 the order becomes ["0","1","10","2",...] — so unit
+          identity is permuted across round-trip.
+    """
+
+    def test_group_per_unit_lexicographic_sort_with_10_units(self, tmp_path):
+        """
+        Group-per-unit loader with N=10 keys produces lexicographically
+        sorted output (current behavior).
+
+        Tests:
+            (Test Case 1) Keys "0".."9" are sorted lexicographically;
+                with N=10, key "10" sorts after "1" and before "2".
+            (Test Case 2) Loaded train at index 1 has the spikes from key "1"
+                if "10" sorts after "1" (correct) — but the output ordering
+                does not match numerical index order.
+
+        Notes:
+            - documents bug — see REVIEW.md
+        """
+        path = str(tmp_path / "lex_n10.h5")
+        # Create 11 units with distinct spike times so ordering is observable.
+        with h5py.File(path, "w") as f:  # type: ignore
+            grp = f.create_group("units")
+            for i in range(11):
+                grp.create_dataset(str(i), data=np.array([float(i + 1) * 10.0]))
+            grp.attrs["time_unit"] = "ms"
+
+        sd = loaders.load_spikedata_from_hdf5(
+            path, group_per_unit="units", group_time_unit="ms"
+        )
+        assert sd.N == 11
+        # Lexicographic order of "0".."10" is ["0","1","10","2","3",...,"9"].
+        # So train[2] should hold the spikes for key "10" (value 110.0)
+        # rather than for key "2" (value 30.0).
+        np.testing.assert_array_equal(sd.train[2], [110.0])
+
+
+class TestLoadSpikedataFromIblAllFallbacksFail:
+    """
+    Edge case test pinning current behavior when all collection
+    fallbacks fail and spikes is None.
+
+    Notes:
+        - documents bug — see REVIEW.md
+        - When the IBL loader cannot find spike data in any collection
+          fallback, it currently produces a SpikeData with all-empty
+          trains plus full trial metadata (silent zero-spike result).
+    """
+
+    def test_ibl_loader_unimportable_raises_importerror(self):
+        """
+        load_spikedata_from_ibl when one-api is missing raises ImportError.
+
+        Tests:
+            (Test Case 1) If `one.api` is not importable, load_spikedata_from_ibl
+                raises an ImportError or similar at call site.
+
+        Notes:
+            - This pins the import-error contract; the deeper "all
+              collections fail" path requires real IBL fixtures.
+        """
+        try:
+            import one.api  # noqa: F401
+
+            pytest.skip("one-api is installed; cannot test ImportError path")
+        except ImportError:
+            pass
+
+        with pytest.raises(Exception):
+            loaders.load_spikedata_from_ibl(
+                eid="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+                pid="11111111-2222-3333-4444-555555555555",
+            )
