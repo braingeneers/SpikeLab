@@ -627,7 +627,7 @@ async def list_neurons(
         neurons = [{"index": i} for i in range(sd.N)]
     else:
         neurons = [
-            {"index": i, **attrs} for i, attrs in enumerate(sd.neuron_attributes)
+            {**attrs, "index": i} for i, attrs in enumerate(sd.neuron_attributes)
         ]
     return {"neurons": neurons}
 

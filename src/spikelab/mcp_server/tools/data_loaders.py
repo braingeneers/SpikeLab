@@ -149,7 +149,7 @@ async def load_from_hdf5_raster(
         if is_temp:
             try:
                 os.unlink(local_path)
-            except Exception:
+            except OSError:
                 pass
 
 
@@ -236,7 +236,7 @@ async def load_from_hdf5_ragged(
         if is_temp:
             try:
                 os.unlink(local_path)
-            except Exception:
+            except OSError:
                 pass
 
 
@@ -320,7 +320,7 @@ async def load_from_hdf5_group(
         if is_temp:
             try:
                 os.unlink(local_path)
-            except Exception:
+            except OSError:
                 pass
 
 
@@ -407,7 +407,7 @@ async def load_from_hdf5_paired(
         if is_temp:
             try:
                 os.unlink(local_path)
-            except Exception:
+            except OSError:
                 pass
 
 
@@ -472,7 +472,7 @@ async def load_from_nwb(
         if is_temp:
             try:
                 os.unlink(local_path)
-            except Exception:
+            except OSError:
                 pass
 
 
@@ -685,7 +685,7 @@ async def load_from_hdf5_thresholded(
         if is_temp:
             try:
                 os.unlink(local_path)
-            except Exception:
+            except OSError:
                 pass
 
 

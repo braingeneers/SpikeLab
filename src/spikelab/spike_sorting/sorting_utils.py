@@ -143,7 +143,7 @@ class Tee:
             self._file.write = self._file.file_write
             print("Traceback (most recent call last):")
             traceback.print_tb(exc_tb, file=self._file)
-            print(f"{exc_type}: {exc_val}")
+            print(f"{exc_type.__name__}: {exc_val}")
         sys.stdout = self._file.stdout
         self._file.close()
 

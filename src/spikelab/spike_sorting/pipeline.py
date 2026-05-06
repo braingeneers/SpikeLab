@@ -221,7 +221,8 @@ def build_spikedata(
                     [
                         start_frame <= all_spike_samples[idx] < end_frame
                         for idx in sampled_indices
-                    ]
+                    ],
+                    dtype=bool,
                 )
                 if np.any(epoch_mask):
                     epoch_wfs = wfs[epoch_mask]
