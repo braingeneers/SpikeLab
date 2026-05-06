@@ -1,0 +1,1369 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>spikelab.spike_sorting.stim_sorting.artifact_removal &mdash; SpikeLab 0.1.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=a58bc63e"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            SpikeLab
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../getting_started/index.html">Getting Started</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../getting_started/installation.html">Installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../getting_started/installation.html#basic-install">Basic Install</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../getting_started/installation.html#optional-extras">Optional Extras</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../getting_started/installation.html#development-install">Development Install</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../getting_started/quickstart.html">Quick Start</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../getting_started/quickstart.html#creating-a-spikedata-object">Creating a SpikeData Object</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../getting_started/quickstart.html#loading-from-a-file">Loading from a File</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../getting_started/quickstart.html#plotting">Plotting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../getting_started/quickstart.html#basic-analysis">Basic Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../getting_started/quickstart.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guides/index.html">Guides</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/loading_data.html">Loading Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/loading_data.html#from-pickle-files">From pickle files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/loading_data.html#from-hdf5-files">From HDF5 files</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/loading_data.html#the-spike-times-unit-parameter">The <code class="docutils literal notranslate"><span class="pre">spike_times_unit</span></code> parameter</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/loading_data.html#from-nwb-files">From NWB files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/loading_data.html#from-kilosort-phy-output">From KiloSort/Phy output</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/loading_data.html#from-spikeinterface">From SpikeInterface</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/loading_data.html#from-spikelab-sorted-npz">From SpikeLab sorted .npz</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/loading_data.html#from-the-ibl-database">From the IBL database</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/loading_data.html#from-neo-spiketrains">From Neo SpikeTrains</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/loading_data.html#from-raw-data">From raw data</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/loading_data.html#from-threshold-detection">From threshold detection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/loading_data.html#from-a-spike-count-raster">From a spike count raster</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/spike_sorting.html">Spike Sorting and Curation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_sorting.html#spike-sorting">Spike Sorting</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#basic-usage">Basic usage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#configuration-and-presets">Configuration and presets</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#multi-stream-recordings">Multi-stream recordings</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#reusing-intermediate-results">Reusing intermediate results</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#built-in-safeguards">Built-in safeguards</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#pipeline-canary">Pipeline canary</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#stimulation-artifact-removal">Stimulation Artifact Removal</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_sorting.html#unit-curation">Unit Curation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#individual-criteria">Individual criteria</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#merge-based-deduplication">Merge-based deduplication</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#batch-curation">Batch curation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#curation-history">Curation history</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#visualising-sorted-units">Visualising sorted units</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_sorting.html#sorting-concatenated-recordings">Sorting Concatenated Recordings</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_sorting.html#handling-sort-failures">Handling Sort Failures</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#watchdog-and-lock-failures">Watchdog and lock failures</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/spike_analysis.html">Spike Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#population-rate">Population Rate</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#burst-detection">Burst Detection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#burst-widths">Burst Widths</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#burst-sensitivity-analysis">Burst Sensitivity Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#per-unit-metrics">Per-Unit Metrics</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_analysis.html#firing-rates">Firing rates</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_analysis.html#inter-spike-intervals">Inter-spike intervals</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_analysis.html#spike-triggered-population-rate">Spike-triggered population rate</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#burst-participation-per-unit">Burst Participation per Unit</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#fraction-of-spikes-in-bursts">Fraction of Spikes in Bursts</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#selecting-and-combining-data">Selecting and Combining Data</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_analysis.html#unit-selection">Unit selection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_analysis.html#time-selection">Time selection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_analysis.html#appending-recordings">Appending recordings</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_analysis.html#combining-units">Combining units</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#pairwise-metrics">Pairwise Metrics</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/firing_rates.html">Instantaneous Firing Rates</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/firing_rates.html#id1">Instantaneous Firing Rates</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/firing_rates.html#isi-interpolation">ISI interpolation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/firing_rates.html#sliding-window">Sliding window</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/firing_rates.html#working-with-ratedata">Working with RateData</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/firing_rates.html#dimensionality-reduction">Dimensionality Reduction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/firing_rates.html#pairwise-firing-rate-correlations">Pairwise Firing-Rate Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/firing_rates.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html">Event-Aligned Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#aligning-to-events">Aligning to Events</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#rateslicestack">RateSliceStack</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#spikeslicestack">SpikeSliceStack</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#applying-a-function-across-slices">Applying a function across slices</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#subsetting-slice-stacks">Subsetting slice stacks</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#slice-to-slice-unit-correlations">Slice-to-Slice Unit Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#slice-to-slice-time-correlations">Slice-to-Slice Time Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#unit-to-unit-pca">Unit-to-Unit PCA</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#rank-order-analysis">Rank-Order Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#temporal-trends-and-stability">Temporal Trends and Stability</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#shuffled-null-distributions">Shuffled Null Distributions</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/pairwise_analysis.html">Pairwise Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/pairwise_analysis.html#spike-time-tiling-coefficient-sttc">Spike Time Tiling Coefficient (STTC)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/pairwise_analysis.html#firing-rate-correlations">Firing-Rate Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/pairwise_analysis.html#fr-correlation-vs-sttc-scatter">FR Correlation vs STTC Scatter</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/pairwise_analysis.html#network-analysis">Network Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/pairwise_analysis.html#spatial-network-visualization">Spatial Network Visualization</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/shuffled_data.html">Shuffled Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/shuffled_data.html#single-shuffle">Single Shuffle</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/shuffled_data.html#shuffle-stacks">Shuffle Stacks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/shuffled_data.html#unit-subset-stacks">Unit Subset Stacks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/shuffled_data.html#comparing-to-the-null-distribution">Comparing to the Null Distribution</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/gplvm.html">GPLVM Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/gplvm.html#fitting-a-gplvm">Fitting a GPLVM</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/gplvm.html#post-fit-analysis">Post-fit Analysis</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/gplvm.html#state-entropy">State entropy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/gplvm.html#continuity-probability">Continuity probability</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/gplvm.html#average-state-probability">Average state probability</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/gplvm.html#consecutive-state-durations">Consecutive state durations</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/gplvm.html#visualisation">Visualisation</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/exporting_data.html">Exporting Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/exporting_data.html#to-hdf5">To HDF5</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/exporting_data.html#ragged-vs-raster-style">Ragged vs raster style</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/exporting_data.html#the-spike-times-unit-parameter">The <code class="docutils literal notranslate"><span class="pre">spike_times_unit</span></code> parameter</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/exporting_data.html#exporting-raw-data">Exporting raw data</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/exporting_data.html#to-nwb">To NWB</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/exporting_data.html#to-kilosort">To KiloSort</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/exporting_data.html#to-pickle">To pickle</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/workspace.html">Workspace Persistence</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/workspace.html#creating-a-workspace">Creating a Workspace</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/workspace.html#saving-and-loading">Saving and Loading</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/workspace.html#listing-and-retrieving">Listing and Retrieving</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/workspace.html#lazy-loading">Lazy Loading</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/workspace.html#merging-workspaces">Merging Workspaces</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/mcp_server.html#starting-the-server">Starting the server</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/mcp_server.html#tool-categories">Tool categories</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/mcp_server.html#data-loading-tools">Data loading tools</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/mcp_server.html#analysis-tools">Analysis tools</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/mcp_server.html#export-tools">Export tools</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/mcp_server.html#workspace-addressing">Workspace addressing</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/parallel_computing.html">Parallel Computing</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/parallel_computing.html#thread-pool-parallelism">Thread-Pool Parallelism</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/parallel_computing.html#numba-acceleration">Numba Acceleration</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/batch_jobs.html">Batch Jobs</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/batch_jobs.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/batch_jobs.html#setting-up-a-session">Setting Up a Session</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/batch_jobs.html#analysis-jobs">Analysis Jobs</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/batch_jobs.html#submitting">Submitting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/batch_jobs.html#writing-an-analysis-script">Writing an analysis script</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/batch_jobs.html#retrieving-results">Retrieving results</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/batch_jobs.html#sorting-jobs">Sorting Jobs</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/batch_jobs.html#id1">Submitting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/batch_jobs.html#id2">Retrieving results</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/batch_jobs.html#policy-guardrails">Policy Guardrails</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/batch_jobs.html#docker-images">Docker Images</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/batch_jobs.html#base-images">Base images</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/batch_jobs.html#temporary-images">Temporary images</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/batch_jobs.html#monitoring-jobs">Monitoring Jobs</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/index.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/index.html#core-data-structures">Core Data Structures</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/spikedata.html">SpikeData</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spikedata.html#spikelab.spikedata.SpikeData"><code class="docutils literal notranslate"><span class="pre">SpikeData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/ratedata.html">RateData</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/ratedata.html#spikelab.spikedata.ratedata.RateData"><code class="docutils literal notranslate"><span class="pre">RateData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/pairwise.html">Pairwise Comparisons</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/pairwise.html#pairwisecompmatrix">PairwiseCompMatrix</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/pairwise.html#pairwisecompmatrixstack">PairwiseCompMatrixStack</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/rateslicestack.html">RateSliceStack</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/rateslicestack.html#spikelab.spikedata.rateslicestack.RateSliceStack"><code class="docutils literal notranslate"><span class="pre">RateSliceStack</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/spikeslicestack.html">SpikeSliceStack</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack"><code class="docutils literal notranslate"><span class="pre">SpikeSliceStack</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/index.html#utilities">Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/utilities.html">Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.get_sttc"><code class="docutils literal notranslate"><span class="pre">get_sttc()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.swap"><code class="docutils literal notranslate"><span class="pre">swap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.randomize"><code class="docutils literal notranslate"><span class="pre">randomize()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.trough_between"><code class="docutils literal notranslate"><span class="pre">trough_between()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.ensure_h5py"><code class="docutils literal notranslate"><span class="pre">ensure_h5py()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.times_from_ms"><code class="docutils literal notranslate"><span class="pre">times_from_ms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.to_ms"><code class="docutils literal notranslate"><span class="pre">to_ms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.extract_waveforms"><code class="docutils literal notranslate"><span class="pre">extract_waveforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.check_neuron_attributes"><code class="docutils literal notranslate"><span class="pre">check_neuron_attributes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.get_channels_for_unit"><code class="docutils literal notranslate"><span class="pre">get_channels_for_unit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.compute_avg_waveform"><code class="docutils literal notranslate"><span class="pre">compute_avg_waveform()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.get_valid_spike_times"><code class="docutils literal notranslate"><span class="pre">get_valid_spike_times()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.waveforms_by_channel"><code class="docutils literal notranslate"><span class="pre">waveforms_by_channel()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.extract_unit_waveforms"><code class="docutils literal notranslate"><span class="pre">extract_unit_waveforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.consecutive_durations"><code class="docutils literal notranslate"><span class="pre">consecutive_durations()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.gplvm_state_entropy"><code class="docutils literal notranslate"><span class="pre">gplvm_state_entropy()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.gplvm_continuity_prob"><code class="docutils literal notranslate"><span class="pre">gplvm_continuity_prob()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.gplvm_average_state_probability"><code class="docutils literal notranslate"><span class="pre">gplvm_average_state_probability()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.shuffle_z_score"><code class="docutils literal notranslate"><span class="pre">shuffle_z_score()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.shuffle_percentile"><code class="docutils literal notranslate"><span class="pre">shuffle_percentile()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.slice_trend"><code class="docutils literal notranslate"><span class="pre">slice_trend()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.slice_stability"><code class="docutils literal notranslate"><span class="pre">slice_stability()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/stat_utils.html">Statistical Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/stat_utils.html#spikelab.spikedata.stat_utils.linear_regression"><code class="docutils literal notranslate"><span class="pre">linear_regression()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/stat_utils.html#spikelab.spikedata.stat_utils.pairwise_tests"><code class="docutils literal notranslate"><span class="pre">pairwise_tests()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/stat_utils.html#spikelab.spikedata.stat_utils.paired_test"><code class="docutils literal notranslate"><span class="pre">paired_test()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/stat_utils.html#spikelab.spikedata.stat_utils.omnibus_test"><code class="docutils literal notranslate"><span class="pre">omnibus_test()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/plot_utils.html">Plotting Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_distribution"><code class="docutils literal notranslate"><span class="pre">plot_distribution()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_pvalue_matrix"><code class="docutils literal notranslate"><span class="pre">plot_pvalue_matrix()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_scatter"><code class="docutils literal notranslate"><span class="pre">plot_scatter()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_scatter_with_marginals"><code class="docutils literal notranslate"><span class="pre">plot_scatter_with_marginals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_manifold"><code class="docutils literal notranslate"><span class="pre">plot_manifold()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_lines"><code class="docutils literal notranslate"><span class="pre">plot_lines()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_percentile_bands"><code class="docutils literal notranslate"><span class="pre">plot_percentile_bands()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_burst_sensitivity"><code class="docutils literal notranslate"><span class="pre">plot_burst_sensitivity()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_aligned_slice_single_unit"><code class="docutils literal notranslate"><span class="pre">plot_aligned_slice_single_unit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_heatmap"><code class="docutils literal notranslate"><span class="pre">plot_heatmap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_recording"><code class="docutils literal notranslate"><span class="pre">plot_recording()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_spatial_network"><code class="docutils literal notranslate"><span class="pre">plot_spatial_network()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_unit_footprints"><code class="docutils literal notranslate"><span class="pre">plot_unit_footprints()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/index.html#data-i-o">Data I/O</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/data_loaders.html">Data Loaders</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_hdf5"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_hdf5()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_hdf5_raw_thresholded"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_hdf5_raw_thresholded()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_nwb"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_nwb()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_kilosort"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_kilosort()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_spikeinterface"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikeinterface()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_spikeinterface_recording"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikeinterface_recording()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_pickle"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_pickle()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_ibl"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_ibl()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.query_ibl_probes"><code class="docutils literal notranslate"><span class="pre">query_ibl_probes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_spikelab_sorted_npz"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikelab_sorted_npz()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/data_exporters.html">Data Exporters</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_hdf5"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_hdf5()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_nwb"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_nwb()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_kilosort"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_kilosort()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_to_pickle"><code class="docutils literal notranslate"><span class="pre">export_to_pickle()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/s3_utils.html">S3 Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/s3_utils.html#spikelab.data_loaders.s3_utils.is_s3_url"><code class="docutils literal notranslate"><span class="pre">is_s3_url()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/s3_utils.html#spikelab.data_loaders.s3_utils.parse_s3_url"><code class="docutils literal notranslate"><span class="pre">parse_s3_url()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/s3_utils.html#spikelab.data_loaders.s3_utils.download_from_s3"><code class="docutils literal notranslate"><span class="pre">download_from_s3()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/s3_utils.html#spikelab.data_loaders.s3_utils.upload_to_s3"><code class="docutils literal notranslate"><span class="pre">upload_to_s3()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/s3_utils.html#spikelab.data_loaders.s3_utils.ensure_local_file"><code class="docutils literal notranslate"><span class="pre">ensure_local_file()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/index.html#persistence">Persistence</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/workspace.html">Workspace</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/workspace.html#spikelab.workspace.workspace.AnalysisWorkspace"><code class="docutils literal notranslate"><span class="pre">AnalysisWorkspace</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/workspace.html#spikelab.workspace.workspace.LazyAnalysisWorkspace"><code class="docutils literal notranslate"><span class="pre">LazyAnalysisWorkspace</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/workspace.html#spikelab.workspace.workspace.WorkspaceManager"><code class="docutils literal notranslate"><span class="pre">WorkspaceManager</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/workspace.html#spikelab.workspace.workspace.get_workspace_manager"><code class="docutils literal notranslate"><span class="pre">get_workspace_manager()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/index.html#spike-sorting-and-curation">Spike Sorting and Curation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/spike_sorting.html">Spike Sorting</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#entry-points">Entry Points</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#module-spikelab.spike_sorting.config">Configuration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#module-spikelab.spike_sorting.backends">Backend Registry</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#classified-exceptions">Classified Exceptions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#post-failure-classifiers">Post-Failure Classifiers</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#sort-run-reports">Sort Run Reports</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#resource-guards">Resource Guards</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#pipeline-canary">Pipeline Canary</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#stimulation-sorting">Stimulation Sorting</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/curation.html">Curation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/curation.html#spikelab.spikedata.curation.curate_by_min_spikes"><code class="docutils literal notranslate"><span class="pre">curate_by_min_spikes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/curation.html#spikelab.spikedata.curation.curate_by_firing_rate"><code class="docutils literal notranslate"><span class="pre">curate_by_firing_rate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/curation.html#spikelab.spikedata.curation.curate_by_isi_violations"><code class="docutils literal notranslate"><span class="pre">curate_by_isi_violations()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/curation.html#spikelab.spikedata.curation.curate_by_snr"><code class="docutils literal notranslate"><span class="pre">curate_by_snr()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/curation.html#spikelab.spikedata.curation.curate_by_std_norm"><code class="docutils literal notranslate"><span class="pre">curate_by_std_norm()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/curation.html#spikelab.spikedata.curation.compute_waveform_metrics"><code class="docutils literal notranslate"><span class="pre">compute_waveform_metrics()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/curation.html#spikelab.spikedata.curation.curate"><code class="docutils literal notranslate"><span class="pre">curate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/curation.html#spikelab.spikedata.curation.build_curation_history"><code class="docutils literal notranslate"><span class="pre">build_curation_history()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/curation.html#spikelab.spikedata.curation.curate_by_merge_duplicates"><code class="docutils literal notranslate"><span class="pre">curate_by_merge_duplicates()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/index.html#batch-jobs">Batch Jobs</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/batch_jobs.html">Batch Jobs</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/batch_jobs.html#models">Models</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/batch_jobs.html#policy-engine">Policy Engine</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/batch_jobs.html#module-spikelab.batch_jobs.profiles">Profile Loading</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/batch_jobs.html#run-session">Run Session</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/batch_jobs.html#module-spikelab.batch_jobs.backend_k8s">Kubernetes Backend</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/batch_jobs.html#module-spikelab.batch_jobs.storage_s3">S3 Storage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/batch_jobs.html#module-spikelab.batch_jobs.artifact_packager">Artifact Packager</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/batch_jobs.html#module-spikelab.batch_jobs.credentials">Credentials</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/batch_jobs.html#module-spikelab.batch_jobs.validation">Validation</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/index.html#server">Server</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">SpikeLab</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">spikelab.spike_sorting.stim_sorting.artifact_removal</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for spikelab.spike_sorting.stim_sorting.artifact_removal</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Stimulation artifact removal for offline electrophysiology recordings.</span>
+
+<span class="sd">Removes electrical stimulation artifacts from multi-electrode array</span>
+<span class="sd">(MEA) recordings while preserving neural spikes.  Two methods are</span>
+<span class="sd">provided:</span>
+
+<span class="sd">``&quot;polynomial&quot;`` (default)</span>
+<span class="sd">    Per-event, per-channel low-order polynomial detrend.  A polynomial</span>
+<span class="sd">    (default cubic) is fit to the non-saturated samples in the artifact</span>
+<span class="sd">    tail — after the electrode desaturates — and subtracted.  Because</span>
+<span class="sd">    the polynomial is far too smooth to capture spike waveforms</span>
+<span class="sd">    (~0.5-1 ms), spikes riding on the artifact tail are preserved in</span>
+<span class="sd">    the residual.  Saturated samples are blanked (set to zero).</span>
+
+<span class="sd">``&quot;blank&quot;``</span>
+<span class="sd">    Simply zeros out the entire artifact window.  Crude but useful as</span>
+<span class="sd">    a quick sanity check or when the artifact is too variable for a</span>
+<span class="sd">    good polynomial fit.</span>
+
+<span class="sd">The polynomial detrend approach is related to SALPA (Suprathreshold</span>
+<span class="sd">Artifact-Level Polynomial Approximation):</span>
+
+<span class="sd">    Wagenaar, D. A. &amp; Potter, S. M. (2002). Real-time multi-channel</span>
+<span class="sd">    stimulus artifact suppression by local curve fitting. J Neurosci</span>
+<span class="sd">    Methods, 120(2), 113-120.</span>
+
+<span class="sd">SALPA fits a local polynomial in a causal (backward-looking) sliding</span>
+<span class="sd">window and forward-extrapolates during the artifact, which is necessary</span>
+<span class="sd">for real-time operation.  This module is designed for offline use, so it</span>
+<span class="sd">instead looks ahead past saturation and fits the polynomial to the</span>
+<span class="sd">actual post-saturation recovery curve, yielding a more accurate fit</span>
+<span class="sd">without the extrapolation drift inherent in SALPA&#39;s forward prediction.</span>
+
+<span class="sd">Sequential stimulation handling</span>
+<span class="sd">    When multiple stim events occur in rapid succession (e.g. burst or</span>
+<span class="sd">    paired-pulse protocols), the signal may re-saturate before reaching</span>
+<span class="sd">    baseline after the previous stim.  This module dynamically detects</span>
+<span class="sd">    whether the signal has returned to baseline-like levels after each</span>
+<span class="sd">    desaturation.  If re-saturation occurs before baseline is reached,</span>
+<span class="sd">    the blanking region is extended and the polynomial fit is deferred</span>
+<span class="sd">    until after the final stim in the burst.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_auto_saturation_threshold</span><span class="p">(</span><span class="n">traces</span><span class="p">,</span> <span class="n">quantile</span><span class="o">=</span><span class="mf">0.999</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Estimate a saturation threshold from the trace amplitude distribution.</span>
+
+<span class="sd">    Uses a high quantile of the absolute voltage distribution as the</span>
+<span class="sd">    threshold.  Recordings with genuine saturation will have a hard</span>
+<span class="sd">    clip at the ADC rail, so the quantile lands just below that clip.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        traces (np.ndarray): ``(channels, samples)``.</span>
+<span class="sd">        quantile (float): Quantile of ``|traces|`` to use.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        threshold (float): Absolute voltage threshold.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">quantile</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">traces</span><span class="p">),</span> <span class="n">quantile</span><span class="p">))</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_saturation_threshold_from_recording</span><span class="p">(</span>
+    <span class="n">recording</span><span class="p">,</span> <span class="n">traces</span><span class="p">,</span> <span class="n">frac</span><span class="o">=</span><span class="mf">0.95</span><span class="p">,</span> <span class="n">min_clip_samples</span><span class="o">=</span><span class="mi">10</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Derive a saturation threshold (µV) from gain metadata + observed extremes.</span>
+
+<span class="sd">    Returns ``+inf`` (i.e. &quot;do not blank anything&quot;) when the recording</span>
+<span class="sd">    shows no evidence of ADC clipping.  Otherwise returns</span>
+<span class="sd">    ``frac * round(max_uV / gain_uV_per_bit) * gain_uV_per_bit`` — the</span>
+<span class="sd">    observed rail rounded to a whole number of raw ADC bits and pulled</span>
+<span class="sd">    in by ``frac``.</span>
+
+<span class="sd">    Saturation detection: a hard ADC clip produces many samples pinned</span>
+<span class="sd">    at the rail (a flat top in the amplitude histogram).  A single</span>
+<span class="sd">    large spike produces exactly one sample at the maximum.  We count</span>
+<span class="sd">    samples within one raw bit of ``max(|traces|)``; if fewer than</span>
+<span class="sd">    ``min_clip_samples``, we treat the recording as unsaturated and</span>
+<span class="sd">    return ``+inf``.  This means &quot;blank only completely saturated</span>
+<span class="sd">    electrodes&quot; semantics: high-amplitude artifacts that didn&#39;t reach</span>
+<span class="sd">    the rail are left intact for the polynomial detrend.</span>
+
+<span class="sd">    Why use the gain at all (vs. raw ``frac * max(|traces|)``):</span>
+<span class="sd">      * Read from the recording&#39;s ``get_channel_gains()``, which on a</span>
+<span class="sd">        SpikeInterface chain is propagated from the underlying integer</span>
+<span class="sd">        extractor (e.g. ``MaxwellRecordingExtractor``).</span>
+<span class="sd">      * Rounding the observed max to a whole number of raw bits anchors</span>
+<span class="sd">        the threshold to a hardware-meaningful value, not a</span>
+<span class="sd">        floating-point artefact of preprocessing arithmetic — two</span>
+<span class="sd">        recordings of the same probe at the same gain settings produce</span>
+<span class="sd">        the same threshold.</span>
+<span class="sd">      * The &quot;within one raw bit of max&quot; tolerance for the clip-detection</span>
+<span class="sd">        count is also gain-anchored, not arbitrary.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        recording (BaseRecording or None): SpikeInterface recording</span>
+<span class="sd">            exposing ``get_channel_gains()``.  When ``None`` or no</span>
+<span class="sd">            gains available, falls back to a 1.0 µV/bit assumption.</span>
+<span class="sd">        traces (np.ndarray): ``(channels, samples)`` already scaled to µV.</span>
+<span class="sd">        frac (float): Fraction of the rail to use as threshold.  Default</span>
+<span class="sd">            ``0.95`` — leaves ~5% margin so samples within the top bit</span>
+<span class="sd">            of the rail still count as saturated.</span>
+<span class="sd">        min_clip_samples (int): Minimum number of samples within one raw</span>
+<span class="sd">            bit of ``max(|traces|)`` required to consider the recording</span>
+<span class="sd">            saturated.  Below this, the recording is treated as</span>
+<span class="sd">            unsaturated and the function returns ``+inf``.  Default</span>
+<span class="sd">            ``10`` — high enough to ignore single-spike maxima and</span>
+<span class="sd">            small numbers of outlier samples, low enough to catch even</span>
+<span class="sd">            very sparse stimulation protocols.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        threshold (float, µV) — finite if saturation detected, ``+inf``</span>
+<span class="sd">        if not.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">abs_traces</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">traces</span><span class="p">)</span>
+    <span class="n">observed_max_uV</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">abs_traces</span><span class="p">))</span>
+
+    <span class="c1"># Resolve gain</span>
+    <span class="n">gain_uV_per_bit</span> <span class="o">=</span> <span class="mf">1.0</span>
+    <span class="k">if</span> <span class="n">recording</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">gains</span> <span class="o">=</span> <span class="n">recording</span><span class="o">.</span><span class="n">get_channel_gains</span><span class="p">()</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">AttributeError</span><span class="p">,</span> <span class="ne">NotImplementedError</span><span class="p">):</span>
+            <span class="n">gains</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">gains</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">gains</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">gain_uV_per_bit</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mf">1e-9</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">gains</span><span class="p">))))</span>
+
+    <span class="c1"># Saturation detection: how many samples sit at or just below the</span>
+    <span class="c1"># observed max?  A hard clip pins many samples there; a single big</span>
+    <span class="c1"># spike is just one sample.</span>
+    <span class="n">n_at_rail</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">abs_traces</span> <span class="o">&gt;=</span> <span class="n">observed_max_uV</span> <span class="o">-</span> <span class="n">gain_uV_per_bit</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">n_at_rail</span> <span class="o">&lt;</span> <span class="n">min_clip_samples</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span>
+
+    <span class="n">observed_rail_bits</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">observed_max_uV</span> <span class="o">/</span> <span class="n">gain_uV_per_bit</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">frac</span> <span class="o">*</span> <span class="n">observed_rail_bits</span> <span class="o">*</span> <span class="n">gain_uV_per_bit</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_auto_baseline_threshold</span><span class="p">(</span><span class="n">traces</span><span class="p">,</span> <span class="n">stim_times_ms</span><span class="p">,</span> <span class="n">fs_Hz</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mf">5.0</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Estimate a baseline envelope threshold from pre-stim signal.</span>
+
+<span class="sd">    Computes the median absolute deviation (MAD) of the signal in the</span>
+<span class="sd">    2 ms window before the first stim event (or the first 2 ms of the</span>
+<span class="sd">    recording if there&#39;s no pre-stim data), then returns</span>
+<span class="sd">    ``median + k * MAD`` as the threshold for &quot;signal has returned to</span>
+<span class="sd">    baseline-like levels.&quot;</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        traces (np.ndarray): ``(channels, samples)``.</span>
+<span class="sd">        stim_times_ms (np.ndarray): Corrected stim times in ms.</span>
+<span class="sd">        fs_Hz (float): Sampling frequency in Hz.</span>
+<span class="sd">        k (float): Multiplier on MAD.  Default 5.0.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        threshold (float): Baseline envelope threshold (absolute).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">baseline_ms</span> <span class="o">=</span> <span class="mf">2.0</span>
+    <span class="n">baseline_samples</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">baseline_ms</span> <span class="o">*</span> <span class="n">fs_Hz</span> <span class="o">/</span> <span class="mf">1000.0</span><span class="p">)))</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">stim_times_ms</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">first_stim_sample</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">stim_times_ms</span><span class="p">)</span> <span class="o">*</span> <span class="n">fs_Hz</span> <span class="o">/</span> <span class="mf">1000.0</span><span class="p">))</span>
+        <span class="n">end</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">first_stim_sample</span><span class="p">)</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">end</span> <span class="o">-</span> <span class="n">baseline_samples</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">end</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">baseline_samples</span><span class="p">,</span> <span class="n">traces</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+    <span class="n">segment</span> <span class="o">=</span> <span class="n">traces</span><span class="p">[:,</span> <span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">segment</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">traces</span><span class="p">))</span> <span class="o">*</span> <span class="n">k</span><span class="p">)</span>
+
+    <span class="n">med</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">segment</span><span class="p">))</span>
+    <span class="n">mad</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">segment</span><span class="p">)</span> <span class="o">-</span> <span class="n">med</span><span class="p">))</span>
+    <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">med</span> <span class="o">+</span> <span class="n">k</span> <span class="o">*</span> <span class="n">mad</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_find_saturation_end</span><span class="p">(</span><span class="n">channel_trace</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">saturation_threshold</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Find the first sample after *start* where the signal desaturates.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        channel_trace (np.ndarray): 1-D voltage trace for one channel.</span>
+<span class="sd">        start (int): Sample index to start searching from.</span>
+<span class="sd">        saturation_threshold (float): Absolute voltage threshold.</span>
+<span class="sd">        n_samples (int): Total number of samples in the trace.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        end (int): First sample index where</span>
+<span class="sd">            ``|voltage| &lt; saturation_threshold``, or ``n_samples`` if</span>
+<span class="sd">            the signal never desaturates.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">idx</span> <span class="o">=</span> <span class="n">start</span>
+    <span class="k">while</span> <span class="n">idx</span> <span class="o">&lt;</span> <span class="n">n_samples</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">channel_trace</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span> <span class="o">&gt;=</span> <span class="n">saturation_threshold</span><span class="p">:</span>
+        <span class="n">idx</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="k">return</span> <span class="n">idx</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_find_saturation_end_from_mask</span><span class="p">(</span><span class="n">mask_ch</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Variant of ``_find_saturation_end`` driven by a pre-computed</span>
+<span class="sd">    clip mask rather than an amplitude threshold.</span>
+
+<span class="sd">    When the caller has raw (pre-filter) traces available, it is more</span>
+<span class="sd">    correct to identify saturated samples from the raw signal and pass</span>
+<span class="sd">    a boolean mask here — bandpass filtering of a stim artifact</span>
+<span class="sd">    produces ringing whose amplitude can exceed the raw ADC rail even</span>
+<span class="sd">    on samples that weren&#39;t actually clipped.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">idx</span> <span class="o">=</span> <span class="n">start</span>
+    <span class="k">while</span> <span class="n">idx</span> <span class="o">&lt;</span> <span class="n">n_samples</span> <span class="ow">and</span> <span class="n">mask_ch</span><span class="p">[</span><span class="n">idx</span><span class="p">]:</span>
+        <span class="n">idx</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="k">return</span> <span class="n">idx</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_signal_reached_baseline</span><span class="p">(</span>
+    <span class="n">channel_trace</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">baseline_threshold</span><span class="p">,</span> <span class="n">window_samples</span><span class="p">,</span> <span class="n">n_samples</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Check whether the signal has returned to baseline-like levels.</span>
+
+<span class="sd">    The signal is considered at baseline when the rolling maximum</span>
+<span class="sd">    of ``|voltage|`` over *window_samples* consecutive samples drops</span>
+<span class="sd">    below *baseline_threshold*.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        channel_trace (np.ndarray): 1-D voltage trace.</span>
+<span class="sd">        start (int): Sample index to start checking from.</span>
+<span class="sd">        baseline_threshold (float): Absolute voltage threshold.</span>
+<span class="sd">        window_samples (int): Number of consecutive sub-threshold</span>
+<span class="sd">            samples required.</span>
+<span class="sd">        n_samples (int): Trace length.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        at_baseline (bool): True if the signal reached baseline before</span>
+<span class="sd">            the end of the trace.</span>
+<span class="sd">        end_idx (int): Sample index where baseline was reached, or</span>
+<span class="sd">            ``n_samples``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">consecutive</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">idx</span> <span class="o">=</span> <span class="n">start</span>
+    <span class="k">while</span> <span class="n">idx</span> <span class="o">&lt;</span> <span class="n">n_samples</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">channel_trace</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span> <span class="o">&lt;</span> <span class="n">baseline_threshold</span><span class="p">:</span>
+            <span class="n">consecutive</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">if</span> <span class="n">consecutive</span> <span class="o">&gt;=</span> <span class="n">window_samples</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">True</span><span class="p">,</span> <span class="n">idx</span> <span class="o">-</span> <span class="n">window_samples</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">consecutive</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">idx</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="k">return</span> <span class="kc">False</span><span class="p">,</span> <span class="n">n_samples</span>
+
+
+<span class="n">_MIN_DESCENT_SAMPLES</span> <span class="o">=</span> <span class="mi">2</span>  <span class="c1"># min samples between fit_start and neg-peak to split</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_polyfit_and_subtract</span><span class="p">(</span>
+    <span class="n">channel_trace</span><span class="p">,</span>
+    <span class="n">blanked</span><span class="p">,</span>
+    <span class="n">ch_idx</span><span class="p">,</span>
+    <span class="n">lo</span><span class="p">,</span>
+    <span class="n">hi</span><span class="p">,</span>
+    <span class="n">poly_order</span><span class="p">,</span>
+    <span class="n">clamp_threshold</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">clamp_counter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Fit a polynomial to ``channel_trace[lo:hi]`` (excluding blanked</span>
+<span class="sd">    samples) and subtract it in-place.</span>
+
+<span class="sd">    If too few non-blanked samples remain to support the fit (e.g.</span>
+<span class="sd">    because Fit 1 of the auto-split landed on a very short descent</span>
+<span class="sd">    window between the recentered stim time and the negative peak),</span>
+<span class="sd">    the region is left untouched rather than blanked — those samples</span>
+<span class="sd">    are not saturated, just covered by a window too small for a</span>
+<span class="sd">    reliable polynomial of this order.</span>
+
+<span class="sd">    When ``clamp_threshold`` is finite, the post-subtraction segment is</span>
+<span class="sd">    sanity-checked: if any sample exceeds ``clamp_threshold`` in</span>
+<span class="sd">    absolute value, the polynomial fit is treated as having diverged</span>
+<span class="sd">    (e.g. extrapolating wildly across saturated tails at high stim</span>
+<span class="sd">    amplitudes), the segment is blanked instead of left in place, and</span>
+<span class="sd">    ``clamp_counter[0]`` is incremented for caller-side reporting.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">hi</span> <span class="o">&lt;=</span> <span class="n">lo</span><span class="p">:</span>
+        <span class="k">return</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">hi</span> <span class="o">-</span> <span class="n">lo</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">channel_trace</span><span class="p">[</span><span class="n">lo</span><span class="p">:</span><span class="n">hi</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="n">mask</span> <span class="o">=</span> <span class="o">~</span><span class="n">blanked</span><span class="p">[</span><span class="n">ch_idx</span><span class="p">,</span> <span class="n">lo</span><span class="p">:</span><span class="n">hi</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">mask</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">poly_order</span><span class="p">:</span>
+        <span class="k">return</span>
+    <span class="n">coeffs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">polyfit</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">mask</span><span class="p">],</span> <span class="n">y</span><span class="p">[</span><span class="n">mask</span><span class="p">],</span> <span class="n">poly_order</span><span class="p">)</span>
+    <span class="n">channel_trace</span><span class="p">[</span><span class="n">lo</span><span class="p">:</span><span class="n">hi</span><span class="p">]</span> <span class="o">-=</span> <span class="n">np</span><span class="o">.</span><span class="n">polyval</span><span class="p">(</span><span class="n">coeffs</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">clamp_threshold</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">clamp_threshold</span><span class="p">):</span>
+        <span class="n">seg</span> <span class="o">=</span> <span class="n">channel_trace</span><span class="p">[</span><span class="n">lo</span><span class="p">:</span><span class="n">hi</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">seg</span><span class="o">.</span><span class="n">size</span> <span class="ow">and</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">seg</span><span class="p">)))</span> <span class="o">&gt;</span> <span class="n">clamp_threshold</span><span class="p">:</span>
+            <span class="n">seg</span><span class="p">[:]</span> <span class="o">=</span> <span class="mf">0.0</span>
+            <span class="n">blanked</span><span class="p">[</span><span class="n">ch_idx</span><span class="p">,</span> <span class="n">lo</span><span class="p">:</span><span class="n">hi</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">if</span> <span class="n">clamp_counter</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">clamp_counter</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_process_stim_group_polynomial</span><span class="p">(</span>
+    <span class="n">channel_trace</span><span class="p">,</span>
+    <span class="n">group_start</span><span class="p">,</span>
+    <span class="n">last_desat</span><span class="p">,</span>
+    <span class="n">artifact_window_samples</span><span class="p">,</span>
+    <span class="n">baseline_threshold</span><span class="p">,</span>
+    <span class="n">baseline_window_samples</span><span class="p">,</span>
+    <span class="n">poly_order</span><span class="p">,</span>
+    <span class="n">n_samples</span><span class="p">,</span>
+    <span class="n">blanked</span><span class="p">,</span>
+    <span class="n">ch_idx</span><span class="p">,</span>
+    <span class="n">pre_artifact_samples</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>  <span class="c1"># accepted for API stability, currently unused</span>
+    <span class="n">clip_mask_ch</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>  <span class="c1"># accepted for API stability, currently unused</span>
+    <span class="n">clamp_threshold</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">clamp_counter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Polynomial detrend for one stim group on one channel.</span>
+
+<span class="sd">    Workflow per stim group:</span>
+<span class="sd">      1. Blank ``[group_start, last_desat)`` (any genuine ADC clip).</span>
+<span class="sd">      2. Determine the fit window</span>
+<span class="sd">         ``[fit_start = last_desat, fit_end = last_desat + artifact_window]``,</span>
+<span class="sd">         extending ``fit_end`` to where the signal returns to baseline.</span>
+<span class="sd">      3. Locate the negative peak (``argmin``) inside the window, and</span>
+<span class="sd">         the subsequent positive peak (``argmax`` after the negative</span>
+<span class="sd">         peak) inside the window.</span>
+<span class="sd">      4. Split the fit at the meaningful peaks and run an independent</span>
+<span class="sd">         polynomial on each segment:</span>
+
+<span class="sd">         * **3-fit split** (descent + ascent + decay) when both a</span>
+<span class="sd">           descent of ≥ ``_MIN_DESCENT_SAMPLES`` and an ascent of</span>
+<span class="sd">           ≥ ``_MIN_DESCENT_SAMPLES`` exist:</span>
+<span class="sd">              - Fit A: ``[fit_start, neg_peak]`` — descent.</span>
+<span class="sd">              - Fit B: ``[neg_peak, pos_peak]`` — ascent through zero</span>
+<span class="sd">                up to the post-artifact positive overshoot.</span>
+<span class="sd">              - Fit C: ``[pos_peak, fit_end]`` — decay back to</span>
+<span class="sd">                baseline (the original implementation).</span>
+<span class="sd">           This is the typical biphasic anodic-first case sorted with</span>
+<span class="sd">           ``peak_mode=&quot;down_edge&quot;``: the post-stim signal goes down,</span>
+<span class="sd">           up through zero, may overshoot, and decays.</span>
+
+<span class="sd">         * **2-fit split** (descent + tail) when there is a descent</span>
+<span class="sd">           but no meaningful ascent before ``fit_end``:</span>
+<span class="sd">              - Fit A: ``[fit_start, neg_peak]``</span>
+<span class="sd">              - Fit B+C: ``[neg_peak, fit_end]`` — single tail fit.</span>
+
+<span class="sd">         * **Single fit** when there&#39;s no descent (stim time is</span>
+<span class="sd">           already at or essentially at the negative peak — e.g.</span>
+<span class="sd">           ``peak_mode=&quot;abs_max&quot;`` or ``&quot;neg_peak&quot;``):</span>
+<span class="sd">              - Fit C: ``[fit_start, fit_end]``.</span>
+
+<span class="sd">      Each segment is monotonic-ish, so a low-order polynomial (cubic)</span>
+<span class="sd">      fits each well; one polynomial trying to fit the full</span>
+<span class="sd">      down-up-down shape would have to interpolate two inflection</span>
+<span class="sd">      points and leaves residuals.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Blank from group start through desaturation</span>
+    <span class="n">blank_end</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">last_desat</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">)</span>
+    <span class="n">channel_trace</span><span class="p">[</span><span class="n">group_start</span><span class="p">:</span><span class="n">blank_end</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="n">blanked</span><span class="p">[</span><span class="n">ch_idx</span><span class="p">,</span> <span class="n">group_start</span><span class="p">:</span><span class="n">blank_end</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="c1"># Determine the fit region: from desaturation through the artifact tail</span>
+    <span class="n">fit_start</span> <span class="o">=</span> <span class="n">last_desat</span>
+    <span class="n">fit_end</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">last_desat</span> <span class="o">+</span> <span class="n">artifact_window_samples</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">fit_start</span> <span class="o">&gt;=</span> <span class="n">n_samples</span> <span class="ow">or</span> <span class="n">fit_start</span> <span class="o">&gt;=</span> <span class="n">fit_end</span><span class="p">:</span>
+        <span class="k">return</span>
+
+    <span class="c1"># Extend fit_end to where the signal reaches baseline (if within window)</span>
+    <span class="n">reached</span><span class="p">,</span> <span class="n">baseline_idx</span> <span class="o">=</span> <span class="n">_signal_reached_baseline</span><span class="p">(</span>
+        <span class="n">channel_trace</span><span class="p">,</span>
+        <span class="n">fit_start</span><span class="p">,</span>
+        <span class="n">baseline_threshold</span><span class="p">,</span>
+        <span class="n">baseline_window_samples</span><span class="p">,</span>
+        <span class="nb">min</span><span class="p">(</span><span class="n">fit_end</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="n">reached</span><span class="p">:</span>
+        <span class="c1"># Anchor the fit polynomial to a span of clean baseline</span>
+        <span class="c1"># samples beyond the artifact tail.  Without this anchor the</span>
+        <span class="c1"># cubic had freedom to curl in the trailing region and left a</span>
+        <span class="c1"># small step at the boundary between the subtracted region</span>
+        <span class="c1"># and the un-touched baseline tail.  Extending 3 ms past</span>
+        <span class="c1"># ``baseline_idx`` (≈1 ms for the detection window + 2 ms of</span>
+        <span class="c1"># additional anchor) gives the polynomial enough &quot;known-</span>
+        <span class="c1"># baseline&quot; points to be pulled naturally toward zero at the</span>
+        <span class="c1"># boundary without over-extending the fit.</span>
+        <span class="n">fit_end</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">baseline_idx</span> <span class="o">+</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">baseline_window_samples</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">fit_end</span> <span class="o">&lt;=</span> <span class="n">fit_start</span><span class="p">:</span>
+        <span class="k">return</span>
+
+    <span class="c1"># Locate the negative peak in the fit window, then the subsequent</span>
+    <span class="c1"># positive peak.  Both indices are computed on the un-modified</span>
+    <span class="c1"># trace before any subtraction so the splits are stable.</span>
+    <span class="n">neg_peak_offset</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">channel_trace</span><span class="p">[</span><span class="n">fit_start</span><span class="p">:</span><span class="n">fit_end</span><span class="p">]))</span>
+    <span class="n">neg_peak_sample</span> <span class="o">=</span> <span class="n">fit_start</span> <span class="o">+</span> <span class="n">neg_peak_offset</span>
+
+    <span class="k">if</span> <span class="n">neg_peak_sample</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">&lt;</span> <span class="n">fit_end</span><span class="p">:</span>
+        <span class="n">pos_peak_offset_after</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">channel_trace</span><span class="p">[</span><span class="n">neg_peak_sample</span> <span class="o">+</span> <span class="mi">1</span> <span class="p">:</span> <span class="n">fit_end</span><span class="p">])</span>
+        <span class="p">)</span>
+        <span class="n">pos_peak_sample</span> <span class="o">=</span> <span class="n">neg_peak_sample</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">pos_peak_offset_after</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">pos_peak_sample</span> <span class="o">=</span> <span class="n">neg_peak_sample</span>  <span class="c1"># no room for a subsequent peak</span>
+
+    <span class="n">descent_samples</span> <span class="o">=</span> <span class="n">neg_peak_offset</span>
+    <span class="n">ascent_samples</span> <span class="o">=</span> <span class="n">pos_peak_sample</span> <span class="o">-</span> <span class="n">neg_peak_sample</span>
+
+    <span class="n">has_descent</span> <span class="o">=</span> <span class="n">descent_samples</span> <span class="o">&gt;=</span> <span class="n">_MIN_DESCENT_SAMPLES</span>
+    <span class="n">has_ascent</span> <span class="o">=</span> <span class="n">ascent_samples</span> <span class="o">&gt;=</span> <span class="n">_MIN_DESCENT_SAMPLES</span>
+
+    <span class="k">if</span> <span class="n">has_descent</span> <span class="ow">and</span> <span class="n">has_ascent</span><span class="p">:</span>
+        <span class="c1"># 3-fit split: descent + ascent + decay</span>
+        <span class="n">_polyfit_and_subtract</span><span class="p">(</span>
+            <span class="n">channel_trace</span><span class="p">,</span>
+            <span class="n">blanked</span><span class="p">,</span>
+            <span class="n">ch_idx</span><span class="p">,</span>
+            <span class="n">fit_start</span><span class="p">,</span>
+            <span class="n">neg_peak_sample</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span>
+            <span class="n">poly_order</span><span class="p">,</span>
+            <span class="n">clamp_threshold</span><span class="o">=</span><span class="n">clamp_threshold</span><span class="p">,</span>
+            <span class="n">clamp_counter</span><span class="o">=</span><span class="n">clamp_counter</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">_polyfit_and_subtract</span><span class="p">(</span>
+            <span class="n">channel_trace</span><span class="p">,</span>
+            <span class="n">blanked</span><span class="p">,</span>
+            <span class="n">ch_idx</span><span class="p">,</span>
+            <span class="n">neg_peak_sample</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span>
+            <span class="n">pos_peak_sample</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span>
+            <span class="n">poly_order</span><span class="p">,</span>
+            <span class="n">clamp_threshold</span><span class="o">=</span><span class="n">clamp_threshold</span><span class="p">,</span>
+            <span class="n">clamp_counter</span><span class="o">=</span><span class="n">clamp_counter</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">_polyfit_and_subtract</span><span class="p">(</span>
+            <span class="n">channel_trace</span><span class="p">,</span>
+            <span class="n">blanked</span><span class="p">,</span>
+            <span class="n">ch_idx</span><span class="p">,</span>
+            <span class="n">pos_peak_sample</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span>
+            <span class="n">fit_end</span><span class="p">,</span>
+            <span class="n">poly_order</span><span class="p">,</span>
+            <span class="n">clamp_threshold</span><span class="o">=</span><span class="n">clamp_threshold</span><span class="p">,</span>
+            <span class="n">clamp_counter</span><span class="o">=</span><span class="n">clamp_counter</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">elif</span> <span class="n">has_descent</span><span class="p">:</span>
+        <span class="c1"># 2-fit split: descent + tail (no positive overshoot found)</span>
+        <span class="n">_polyfit_and_subtract</span><span class="p">(</span>
+            <span class="n">channel_trace</span><span class="p">,</span>
+            <span class="n">blanked</span><span class="p">,</span>
+            <span class="n">ch_idx</span><span class="p">,</span>
+            <span class="n">fit_start</span><span class="p">,</span>
+            <span class="n">neg_peak_sample</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span>
+            <span class="n">poly_order</span><span class="p">,</span>
+            <span class="n">clamp_threshold</span><span class="o">=</span><span class="n">clamp_threshold</span><span class="p">,</span>
+            <span class="n">clamp_counter</span><span class="o">=</span><span class="n">clamp_counter</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">_polyfit_and_subtract</span><span class="p">(</span>
+            <span class="n">channel_trace</span><span class="p">,</span>
+            <span class="n">blanked</span><span class="p">,</span>
+            <span class="n">ch_idx</span><span class="p">,</span>
+            <span class="n">neg_peak_sample</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span>
+            <span class="n">fit_end</span><span class="p">,</span>
+            <span class="n">poly_order</span><span class="p">,</span>
+            <span class="n">clamp_threshold</span><span class="o">=</span><span class="n">clamp_threshold</span><span class="p">,</span>
+            <span class="n">clamp_counter</span><span class="o">=</span><span class="n">clamp_counter</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># No descent — stim already at neg peak; single fit.</span>
+        <span class="n">_polyfit_and_subtract</span><span class="p">(</span>
+            <span class="n">channel_trace</span><span class="p">,</span>
+            <span class="n">blanked</span><span class="p">,</span>
+            <span class="n">ch_idx</span><span class="p">,</span>
+            <span class="n">fit_start</span><span class="p">,</span>
+            <span class="n">fit_end</span><span class="p">,</span>
+            <span class="n">poly_order</span><span class="p">,</span>
+            <span class="n">clamp_threshold</span><span class="o">=</span><span class="n">clamp_threshold</span><span class="p">,</span>
+            <span class="n">clamp_counter</span><span class="o">=</span><span class="n">clamp_counter</span><span class="p">,</span>
+        <span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_global_polynomial_detrend</span><span class="p">(</span>
+    <span class="n">channel_trace</span><span class="p">,</span>
+    <span class="n">window_samples</span><span class="p">,</span>
+    <span class="n">overlap_samples</span><span class="p">,</span>
+    <span class="n">saturation_threshold</span><span class="p">,</span>
+    <span class="n">poly_order</span><span class="p">,</span>
+    <span class="n">n_samples</span><span class="p">,</span>
+    <span class="n">blanked</span><span class="p">,</span>
+    <span class="n">ch_idx</span><span class="p">,</span>
+    <span class="n">clamp_threshold</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">clamp_counter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Sliding-window polynomial detrend applied to an entire channel.</span>
+
+<span class="sd">    Divides the trace into overlapping windows, fits a polynomial to</span>
+<span class="sd">    the non-saturated samples in each window, and subtracts the fit.</span>
+<span class="sd">    Overlap regions are blended with a linear crossfade to avoid</span>
+<span class="sd">    discontinuities at window boundaries.  Saturated samples are</span>
+<span class="sd">    blanked.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        channel_trace (np.ndarray): 1-D trace (modified in-place).</span>
+<span class="sd">        window_samples (int): Window length in samples.</span>
+<span class="sd">        overlap_samples (int): Overlap between consecutive windows.</span>
+<span class="sd">        saturation_threshold (float): Absolute voltage saturation level.</span>
+<span class="sd">        poly_order (int): Polynomial order for the detrend.</span>
+<span class="sd">        n_samples (int): Trace length.</span>
+<span class="sd">        blanked (np.ndarray): 2-D boolean mask ``(channels, samples)``,</span>
+<span class="sd">            modified in-place.</span>
+<span class="sd">        ch_idx (int): Channel index for the blanked mask.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">step</span> <span class="o">=</span> <span class="n">window_samples</span> <span class="o">-</span> <span class="n">overlap_samples</span>
+    <span class="k">if</span> <span class="n">step</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">step</span> <span class="o">=</span> <span class="mi">1</span>
+
+    <span class="c1"># Pre-compute the output buffer so we can blend overlaps</span>
+    <span class="n">output</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_samples</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="n">weight</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_samples</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+
+    <span class="n">start</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">while</span> <span class="n">start</span> <span class="o">&lt;</span> <span class="n">n_samples</span><span class="p">:</span>
+        <span class="n">end</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">start</span> <span class="o">+</span> <span class="n">window_samples</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">)</span>
+        <span class="n">seg</span> <span class="o">=</span> <span class="n">channel_trace</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="n">seg_len</span> <span class="o">=</span> <span class="n">end</span> <span class="o">-</span> <span class="n">start</span>
+
+        <span class="c1"># Mark saturated samples</span>
+        <span class="n">sat_mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">seg</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">saturation_threshold</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">sat_mask</span><span class="p">):</span>
+            <span class="n">blanked</span><span class="p">[</span><span class="n">ch_idx</span><span class="p">,</span> <span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span> <span class="o">|=</span> <span class="n">sat_mask</span>
+
+        <span class="n">fit_mask</span> <span class="o">=</span> <span class="o">~</span><span class="n">sat_mask</span> <span class="o">&amp;</span> <span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">seg</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">fit_mask</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">poly_order</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">seg_len</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+            <span class="n">coeffs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">polyfit</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">fit_mask</span><span class="p">],</span> <span class="n">seg</span><span class="p">[</span><span class="n">fit_mask</span><span class="p">],</span> <span class="n">poly_order</span><span class="p">)</span>
+            <span class="n">artifact_estimate</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">polyval</span><span class="p">(</span><span class="n">coeffs</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+            <span class="n">detrended</span> <span class="o">=</span> <span class="n">seg</span> <span class="o">-</span> <span class="n">artifact_estimate</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Not enough non-saturated samples — zero out</span>
+            <span class="n">detrended</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">seg_len</span><span class="p">)</span>
+            <span class="n">blanked</span><span class="p">[</span><span class="n">ch_idx</span><span class="p">,</span> <span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+
+        <span class="c1"># Zero saturated samples in the detrended output</span>
+        <span class="n">detrended</span><span class="p">[</span><span class="n">sat_mask</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+
+        <span class="c1"># Sanity clamp: a polynomial fit that diverged across saturated</span>
+        <span class="c1"># samples can produce extra-physiological residuals.  Blank the</span>
+        <span class="c1"># whole window in that case rather than ship 10+ V &quot;neural&quot; data.</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">clamp_threshold</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">clamp_threshold</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="n">detrended</span><span class="o">.</span><span class="n">size</span>
+            <span class="ow">and</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">detrended</span><span class="p">)))</span> <span class="o">&gt;</span> <span class="n">clamp_threshold</span>
+        <span class="p">):</span>
+            <span class="n">detrended</span><span class="p">[:]</span> <span class="o">=</span> <span class="mf">0.0</span>
+            <span class="n">blanked</span><span class="p">[</span><span class="n">ch_idx</span><span class="p">,</span> <span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">if</span> <span class="n">clamp_counter</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">clamp_counter</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="c1"># Build a blending window (linear ramps in overlap regions)</span>
+        <span class="n">w</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">seg_len</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">start</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">overlap_samples</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">ramp_len</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">overlap_samples</span><span class="p">,</span> <span class="n">seg_len</span><span class="p">)</span>
+            <span class="n">w</span><span class="p">[:</span><span class="n">ramp_len</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">ramp_len</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">end</span> <span class="o">&lt;</span> <span class="n">n_samples</span> <span class="ow">and</span> <span class="n">overlap_samples</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">ramp_len</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">overlap_samples</span><span class="p">,</span> <span class="n">seg_len</span><span class="p">)</span>
+            <span class="n">w</span><span class="p">[</span><span class="o">-</span><span class="n">ramp_len</span><span class="p">:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">ramp_len</span><span class="p">)</span>
+
+        <span class="n">output</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span> <span class="o">+=</span> <span class="n">detrended</span> <span class="o">*</span> <span class="n">w</span>
+        <span class="n">weight</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span> <span class="o">+=</span> <span class="n">w</span>
+
+        <span class="n">start</span> <span class="o">+=</span> <span class="n">step</span>
+
+    <span class="c1"># Normalize by blending weights</span>
+    <span class="n">nonzero</span> <span class="o">=</span> <span class="n">weight</span> <span class="o">&gt;</span> <span class="mi">0</span>
+    <span class="n">channel_trace</span><span class="p">[</span><span class="n">nonzero</span><span class="p">]</span> <span class="o">=</span> <span class="n">output</span><span class="p">[</span><span class="n">nonzero</span><span class="p">]</span> <span class="o">/</span> <span class="n">weight</span><span class="p">[</span><span class="n">nonzero</span><span class="p">]</span>
+    <span class="n">channel_trace</span><span class="p">[</span><span class="o">~</span><span class="n">nonzero</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_maybe_warn_polynomial_clamp</span><span class="p">(</span><span class="n">counter</span><span class="p">,</span> <span class="n">clamp_threshold</span><span class="p">,</span> <span class="n">saturation_threshold</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Emit one warning per ``remove_stim_artifacts`` call when the</span>
+<span class="sd">    polynomial divergence sanity clamp fired one or more times.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">counter</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">counter</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">clamp_threshold</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span>
+    <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">&quot;remove_stim_artifacts: polynomial fit diverged on &quot;</span>
+        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">counter</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> segment(s) — exceeded clamp threshold &quot;</span>
+        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">clamp_threshold</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2"> (= poly_clamp_factor * &quot;</span>
+        <span class="sa">f</span><span class="s2">&quot;saturation_threshold = </span><span class="si">{</span><span class="n">saturation_threshold</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">).  Those &quot;</span>
+        <span class="sa">f</span><span class="s2">&quot;segments were blanked instead.  This usually indicates a stim &quot;</span>
+        <span class="sa">f</span><span class="s2">&quot;amplitude high enough to keep electrodes saturated through the &quot;</span>
+        <span class="sa">f</span><span class="s2">&quot;polynomial&#39;s fit window (e.g. &gt;500 mV on MaxOne); consider &quot;</span>
+        <span class="sa">f</span><span class="s2">&quot;method=&#39;blank&#39; for such recordings, or pass &quot;</span>
+        <span class="sa">f</span><span class="s2">&quot;poly_clamp_factor=None to disable this fallback.&quot;</span><span class="p">,</span>
+        <span class="ne">UserWarning</span><span class="p">,</span>
+        <span class="n">stacklevel</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+    <span class="p">)</span>
+
+
+<div class="viewcode-block" id="remove_stim_artifacts">
+<a class="viewcode-back" href="../../../../api/spike_sorting.html#spikelab.spike_sorting.stim_sorting.remove_stim_artifacts">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">remove_stim_artifacts</span><span class="p">(</span>
+    <span class="n">traces</span><span class="p">,</span>
+    <span class="n">stim_times_ms</span><span class="p">,</span>
+    <span class="n">fs_Hz</span><span class="p">,</span>
+    <span class="n">method</span><span class="o">=</span><span class="s2">&quot;polynomial&quot;</span><span class="p">,</span>
+    <span class="n">artifact_window_ms</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span>
+    <span class="n">saturation_threshold</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">baseline_threshold</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">poly_order</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+    <span class="n">artifact_window_only</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">copy</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">recording</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">raw_traces</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">poly_clamp_factor</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Remove stimulation artifacts from multi-channel voltage traces.</span>
+
+<span class="sd">    Processes each stim event independently per channel.  Saturated</span>
+<span class="sd">    samples are always blanked (zeroed).  For the ``&quot;polynomial&quot;``</span>
+<span class="sd">    method, a low-order polynomial is fit to the post-saturation</span>
+<span class="sd">    artifact tail and subtracted, preserving neural spikes (which are</span>
+<span class="sd">    too fast for the smooth polynomial to capture).</span>
+
+<span class="sd">    When multiple stim events occur in rapid succession and the signal</span>
+<span class="sd">    re-saturates before reaching baseline levels, the blanking region</span>
+<span class="sd">    is extended dynamically and the polynomial fit is deferred until</span>
+<span class="sd">    after the final desaturation in the burst.</span>
+
+<span class="sd">    The polynomial detrend is conceptually related to SALPA (Wagenaar</span>
+<span class="sd">    &amp; Potter 2002, J Neurosci Methods), adapted for offline processing</span>
+<span class="sd">    where look-ahead past saturation is available — see the module</span>
+<span class="sd">    docstring for details.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        traces (np.ndarray): Raw voltage traces, shape</span>
+<span class="sd">            ``(channels, samples)``.</span>
+<span class="sd">        stim_times_ms (array-like): Corrected stim times in</span>
+<span class="sd">            milliseconds (e.g. from ``recenter_stim_times``).</span>
+<span class="sd">        fs_Hz (float): Sampling frequency in Hz.</span>
+<span class="sd">        method (str): ``&quot;polynomial&quot;`` (default) or ``&quot;blank&quot;``.</span>
+<span class="sd">        artifact_window_ms (float): Maximum duration in milliseconds</span>
+<span class="sd">            of the artifact tail after the last desaturation point.</span>
+<span class="sd">            The polynomial is fit over this window.  Default 10.0.</span>
+
+<span class="sd">            Note: when the post-stim window contains a clear descent</span>
+<span class="sd">            from the recentered stim time to a subsequent negative</span>
+<span class="sd">            peak (typical for biphasic anodic-first pulses sorted with</span>
+<span class="sd">            ``peak_mode=&quot;down_edge&quot;``), the fit is automatically split</span>
+<span class="sd">            into two independent polynomials at the negative peak —</span>
+<span class="sd">            one for ``[stim_time, neg_peak]`` (the descent) and one</span>
+<span class="sd">            for ``[neg_peak, baseline_recovery]`` (the tail).  When</span>
+<span class="sd">            the recentered stim time IS the negative peak (e.g.</span>
+<span class="sd">            ``peak_mode=&quot;abs_max&quot;`` or ``&quot;neg_peak&quot;``), no descent</span>
+<span class="sd">            exists and a single fit is used.  This is automatic; no</span>
+<span class="sd">            user knob.</span>
+<span class="sd">        saturation_threshold (float or None): Absolute voltage value</span>
+<span class="sd">            above which a sample is considered saturated.  When None,</span>
+<span class="sd">            auto-detected — preferring gain-anchored detection from</span>
+<span class="sd">            ``recording`` metadata when supplied (see ``recording``</span>
+<span class="sd">            kwarg below), falling back to the 99.9th percentile of</span>
+<span class="sd">            ``|traces|`` otherwise.</span>
+<span class="sd">        raw_traces (np.ndarray or None): Optional pre-bandpass traces,</span>
+<span class="sd">            same shape as ``traces``, used as the source of truth for</span>
+<span class="sd">            saturation detection.  Bandpass filtering of a stim</span>
+<span class="sd">            artifact produces ringing whose filtered amplitude can</span>
+<span class="sd">            exceed the raw ADC rail even on unsaturated samples, so</span>
+<span class="sd">            auto-detection from ``traces`` (filtered) both over-</span>
+<span class="sd">            reports (ringing overshoot) and under-reports (group-delay</span>
+<span class="sd">            smoothing) clips.  When provided, the threshold is derived</span>
+<span class="sd">            from ``raw_traces`` and the clip mask is built from</span>
+<span class="sd">            ``np.abs(raw_traces) &gt;= threshold``; the filtered ``traces``</span>
+<span class="sd">            are blanked at those same sample indices and polynomial-</span>
+<span class="sd">            detrended around them.</span>
+<span class="sd">        baseline_threshold (float or None): Absolute voltage envelope</span>
+<span class="sd">            below which the signal is considered to have returned to</span>
+<span class="sd">            baseline.  When None, auto-detected from pre-stim MAD.</span>
+<span class="sd">        poly_order (int): Polynomial order for the detrend.  Default</span>
+<span class="sd">            3 (cubic).  Higher orders risk fitting spike-like features;</span>
+<span class="sd">            lower orders may not capture the artifact decay shape.</span>
+<span class="sd">        artifact_window_only (bool): If True (default), only process</span>
+<span class="sd">            windows around stim events.  If False, apply a global</span>
+<span class="sd">            polynomial detrend to the entire trace (for recordings</span>
+<span class="sd">            with very frequent stimulation).</span>
+<span class="sd">        copy (bool): If True (default), return a copy; if False,</span>
+<span class="sd">            modify ``traces`` in-place.</span>
+<span class="sd">        poly_clamp_factor (float or None): Sanity-clamp factor for the</span>
+<span class="sd">            ``&quot;polynomial&quot;`` method.  After each polynomial subtraction,</span>
+<span class="sd">            if any post-subtract sample exceeds</span>
+<span class="sd">            ``poly_clamp_factor * saturation_threshold`` in absolute</span>
+<span class="sd">            value, the segment is treated as a divergent fit</span>
+<span class="sd">            (extrapolated wildly across saturated samples), blanked</span>
+<span class="sd">            instead of left in place, and counted toward a one-shot</span>
+<span class="sd">            warning emitted at the end of the call.  Default ``10.0``</span>
+<span class="sd">            — well above any plausible neural amplitude (~100 µV) when</span>
+<span class="sd">            ``saturation_threshold`` is in the multi-thousand-µV range.</span>
+<span class="sd">            Set to ``None`` to disable.  Has no effect when</span>
+<span class="sd">            ``saturation_threshold`` is ``+inf`` (no clipping detected)</span>
+<span class="sd">            or ``method=&quot;blank&quot;``.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        cleaned (np.ndarray): Cleaned traces, shape</span>
+<span class="sd">            ``(channels, samples)``.</span>
+<span class="sd">        blanked_mask (np.ndarray): Boolean array, shape</span>
+<span class="sd">            ``(channels, samples)``.  True for samples that were</span>
+<span class="sd">            blanked (zeroed) because they fell within a saturation</span>
+<span class="sd">            region.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">stim_times_ms</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">stim_times_ms</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">copy</span><span class="p">:</span>
+        <span class="n">traces</span> <span class="o">=</span> <span class="n">traces</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="n">n_channels</span><span class="p">,</span> <span class="n">n_samples</span> <span class="o">=</span> <span class="n">traces</span><span class="o">.</span><span class="n">shape</span>
+    <span class="n">blanked</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n_channels</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">stim_times_ms</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">traces</span><span class="p">,</span> <span class="n">blanked</span>
+
+    <span class="k">if</span> <span class="n">method</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;polynomial&quot;</span><span class="p">,</span> <span class="s2">&quot;blank&quot;</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Unknown artifact removal method </span><span class="si">{</span><span class="n">method</span><span class="si">!r}</span><span class="s2">; &quot;</span>
+            <span class="s2">&quot;expected &#39;polynomial&#39; or &#39;blank&#39;.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">traces</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">traces</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;traces must have at least one channel and one sample, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;got shape </span><span class="si">{</span><span class="n">traces</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+
+    <span class="c1"># Pick the source of truth for saturation detection.  Prefer raw</span>
+    <span class="c1"># (pre-bandpass) traces when provided — filter ringing after a stim</span>
+    <span class="c1"># artifact can drive filtered samples past the raw ADC rail even</span>
+    <span class="c1"># when nothing was actually clipped, so detecting on the filtered</span>
+    <span class="c1"># signal both over-reports clips (filter overshoot) and under-</span>
+    <span class="c1"># reports them (group delay + smoothing).  ``raw_traces`` is</span>
+    <span class="c1"># typically the un-filtered ``ScaleRecording`` output extracted by</span>
+    <span class="c1"># the caller; for a filtered-only path pass nothing and the</span>
+    <span class="c1"># filtered ``traces`` will be used.</span>
+    <span class="n">detection_traces</span> <span class="o">=</span> <span class="n">raw_traces</span> <span class="k">if</span> <span class="n">raw_traces</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">traces</span>
+
+    <span class="c1"># Auto-detect thresholds.  Prefer gain-anchored detection when a</span>
+    <span class="c1"># recording object is provided — anchors the threshold to actual</span>
+    <span class="c1"># ADC bit boundaries and returns +inf when no clipping is detected,</span>
+    <span class="c1"># so non-saturated recordings are left alone.  Falls back to the</span>
+    <span class="c1"># quantile-based heuristic when no recording metadata is available.</span>
+    <span class="k">if</span> <span class="n">saturation_threshold</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">recording</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">saturation_threshold</span> <span class="o">=</span> <span class="n">_saturation_threshold_from_recording</span><span class="p">(</span>
+                <span class="n">recording</span><span class="p">,</span> <span class="n">detection_traces</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">saturation_threshold</span> <span class="o">=</span> <span class="n">_auto_saturation_threshold</span><span class="p">(</span><span class="n">detection_traces</span><span class="p">)</span>
+
+    <span class="c1"># Pre-compute the clip mask once, from detection_traces.  All</span>
+    <span class="c1"># downstream saturation checks read this mask instead of re-</span>
+    <span class="c1"># computing ``|trace| &gt;= threshold`` against the filtered signal.</span>
+    <span class="c1"># When ``saturation_threshold`` is ``+inf`` (no clipping detected)</span>
+    <span class="c1"># the mask is all-False and all blanking logic short-circuits.</span>
+    <span class="n">clip_mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">detection_traces</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">saturation_threshold</span>
+    <span class="k">if</span> <span class="n">baseline_threshold</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">baseline_threshold</span> <span class="o">=</span> <span class="n">_auto_baseline_threshold</span><span class="p">(</span><span class="n">traces</span><span class="p">,</span> <span class="n">stim_times_ms</span><span class="p">,</span> <span class="n">fs_Hz</span><span class="p">)</span>
+
+    <span class="n">artifact_window_samples</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">artifact_window_ms</span> <span class="o">*</span> <span class="n">fs_Hz</span> <span class="o">/</span> <span class="mf">1000.0</span><span class="p">))</span>
+    <span class="n">baseline_window_samples</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span>
+        <span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mf">1.0</span> <span class="o">*</span> <span class="n">fs_Hz</span> <span class="o">/</span> <span class="mf">1000.0</span><span class="p">))</span>  <span class="c1"># 1 ms of consecutive samples</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Sanity-clamp threshold for the polynomial fit.  Inactive when the</span>
+    <span class="c1"># caller disabled it, when no clipping was detected (saturation</span>
+    <span class="c1"># threshold = +inf), or when method != &quot;polynomial&quot;.</span>
+    <span class="k">if</span> <span class="p">(</span>
+        <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;polynomial&quot;</span>
+        <span class="ow">and</span> <span class="n">poly_clamp_factor</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">saturation_threshold</span><span class="p">)</span>
+    <span class="p">):</span>
+        <span class="n">poly_clamp_threshold</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">poly_clamp_factor</span><span class="p">)</span> <span class="o">*</span> <span class="nb">float</span><span class="p">(</span><span class="n">saturation_threshold</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">poly_clamp_threshold</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">poly_clamp_counter</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="c1"># Convert stim times to sample indices and sort</span>
+    <span class="n">stim_samples</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">stim_times_ms</span> <span class="o">*</span> <span class="n">fs_Hz</span> <span class="o">/</span> <span class="mf">1000.0</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+    <span class="n">stim_samples</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">stim_samples</span><span class="p">)</span>
+    <span class="n">stim_samples</span> <span class="o">=</span> <span class="n">stim_samples</span><span class="p">[(</span><span class="n">stim_samples</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">stim_samples</span> <span class="o">&lt;</span> <span class="n">n_samples</span><span class="p">)]</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">stim_samples</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">traces</span><span class="p">,</span> <span class="n">blanked</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">artifact_window_only</span><span class="p">:</span>
+        <span class="c1"># Global mode: apply a sliding-window polynomial detrend to the</span>
+        <span class="c1"># entire recording.  Useful when stimulation is so frequent that</span>
+        <span class="c1"># artifact windows overlap or cover most of the trace, or when</span>
+        <span class="c1"># stim timing information is unavailable.</span>
+        <span class="n">overlap_samples</span> <span class="o">=</span> <span class="n">artifact_window_samples</span> <span class="o">//</span> <span class="mi">2</span>
+        <span class="k">for</span> <span class="n">ch</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_channels</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;polynomial&quot;</span><span class="p">:</span>
+                <span class="n">_global_polynomial_detrend</span><span class="p">(</span>
+                    <span class="n">traces</span><span class="p">[</span><span class="n">ch</span><span class="p">],</span>
+                    <span class="n">artifact_window_samples</span><span class="p">,</span>
+                    <span class="n">overlap_samples</span><span class="p">,</span>
+                    <span class="n">saturation_threshold</span><span class="p">,</span>
+                    <span class="n">poly_order</span><span class="p">,</span>
+                    <span class="n">n_samples</span><span class="p">,</span>
+                    <span class="n">blanked</span><span class="p">,</span>
+                    <span class="n">ch</span><span class="p">,</span>
+                    <span class="n">clamp_threshold</span><span class="o">=</span><span class="n">poly_clamp_threshold</span><span class="p">,</span>
+                    <span class="n">clamp_counter</span><span class="o">=</span><span class="n">poly_clamp_counter</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">elif</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;blank&quot;</span><span class="p">:</span>
+                <span class="c1"># Global blank: blank only the saturated samples</span>
+                <span class="n">sat</span> <span class="o">=</span> <span class="n">clip_mask</span><span class="p">[</span><span class="n">ch</span><span class="p">]</span>
+                <span class="n">traces</span><span class="p">[</span><span class="n">ch</span><span class="p">,</span> <span class="n">sat</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+                <span class="n">blanked</span><span class="p">[</span><span class="n">ch</span><span class="p">,</span> <span class="n">sat</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">_maybe_warn_polynomial_clamp</span><span class="p">(</span>
+            <span class="n">poly_clamp_counter</span><span class="p">,</span> <span class="n">poly_clamp_threshold</span><span class="p">,</span> <span class="n">saturation_threshold</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">traces</span><span class="p">,</span> <span class="n">blanked</span>
+
+    <span class="c1"># Process each channel independently</span>
+    <span class="k">for</span> <span class="n">ch</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_channels</span><span class="p">):</span>
+        <span class="n">ch_trace</span> <span class="o">=</span> <span class="n">traces</span><span class="p">[</span><span class="n">ch</span><span class="p">]</span>
+
+        <span class="c1"># Group stim events that form a sequential burst.</span>
+        <span class="c1"># Walk through sorted stim samples; after each stim, find where</span>
+        <span class="c1"># saturation ends.  If the signal re-saturates or hasn&#39;t reached</span>
+        <span class="c1"># baseline before the next stim, merge into the same group.</span>
+        <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">while</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">stim_samples</span><span class="p">):</span>
+            <span class="n">group_start</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">stim_samples</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+
+            <span class="c1"># Walk forward through this stim and any sequential stims</span>
+            <span class="n">current_stim_idx</span> <span class="o">=</span> <span class="n">i</span>
+            <span class="n">last_desat</span> <span class="o">=</span> <span class="n">_find_saturation_end_from_mask</span><span class="p">(</span>
+                <span class="n">clip_mask</span><span class="p">[</span><span class="n">ch</span><span class="p">],</span> <span class="n">group_start</span><span class="p">,</span> <span class="n">n_samples</span>
+            <span class="p">)</span>
+
+            <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+                <span class="c1"># Check if the next stim event is before the signal</span>
+                <span class="c1"># reaches baseline</span>
+                <span class="n">next_idx</span> <span class="o">=</span> <span class="n">current_stim_idx</span> <span class="o">+</span> <span class="mi">1</span>
+                <span class="k">if</span> <span class="n">next_idx</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">stim_samples</span><span class="p">):</span>
+                    <span class="n">next_stim</span> <span class="o">=</span> <span class="n">stim_samples</span><span class="p">[</span><span class="n">next_idx</span><span class="p">]</span>
+
+                    <span class="c1"># Has signal reached baseline before the next stim?</span>
+                    <span class="n">reached</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">_signal_reached_baseline</span><span class="p">(</span>
+                        <span class="n">ch_trace</span><span class="p">,</span>
+                        <span class="n">last_desat</span><span class="p">,</span>
+                        <span class="n">baseline_threshold</span><span class="p">,</span>
+                        <span class="n">baseline_window_samples</span><span class="p">,</span>
+                        <span class="nb">min</span><span class="p">(</span><span class="n">next_stim</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">),</span>
+                    <span class="p">)</span>
+
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">reached</span><span class="p">:</span>
+                        <span class="c1"># Signal hasn&#39;t recovered — merge with next stim</span>
+                        <span class="n">current_stim_idx</span> <span class="o">=</span> <span class="n">next_idx</span>
+                        <span class="n">new_desat</span> <span class="o">=</span> <span class="n">_find_saturation_end_from_mask</span><span class="p">(</span>
+                            <span class="n">clip_mask</span><span class="p">[</span><span class="n">ch</span><span class="p">],</span>
+                            <span class="n">next_stim</span><span class="p">,</span>
+                            <span class="n">n_samples</span><span class="p">,</span>
+                        <span class="p">)</span>
+                        <span class="n">last_desat</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">last_desat</span><span class="p">,</span> <span class="n">new_desat</span><span class="p">)</span>
+                        <span class="k">continue</span>
+
+                <span class="c1"># Either no more stim events, or signal reached baseline</span>
+                <span class="k">break</span>
+
+            <span class="c1"># Now process this group</span>
+            <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;polynomial&quot;</span><span class="p">:</span>
+                <span class="n">_process_stim_group_polynomial</span><span class="p">(</span>
+                    <span class="n">ch_trace</span><span class="p">,</span>
+                    <span class="n">group_start</span><span class="p">,</span>
+                    <span class="n">last_desat</span><span class="p">,</span>
+                    <span class="n">artifact_window_samples</span><span class="p">,</span>
+                    <span class="n">baseline_threshold</span><span class="p">,</span>
+                    <span class="n">baseline_window_samples</span><span class="p">,</span>
+                    <span class="n">poly_order</span><span class="p">,</span>
+                    <span class="n">n_samples</span><span class="p">,</span>
+                    <span class="n">blanked</span><span class="p">,</span>
+                    <span class="n">ch</span><span class="p">,</span>
+                    <span class="n">clamp_threshold</span><span class="o">=</span><span class="n">poly_clamp_threshold</span><span class="p">,</span>
+                    <span class="n">clamp_counter</span><span class="o">=</span><span class="n">poly_clamp_counter</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">elif</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;blank&quot;</span><span class="p">:</span>
+                <span class="n">blank_end</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">last_desat</span> <span class="o">+</span> <span class="n">artifact_window_samples</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">)</span>
+                <span class="n">ch_trace</span><span class="p">[</span><span class="n">group_start</span><span class="p">:</span><span class="n">blank_end</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+                <span class="n">blanked</span><span class="p">[</span><span class="n">ch</span><span class="p">,</span> <span class="n">group_start</span><span class="p">:</span><span class="n">blank_end</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+
+            <span class="c1"># Advance past all stim events in this group</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="n">current_stim_idx</span> <span class="o">+</span> <span class="mi">1</span>
+
+    <span class="n">_maybe_warn_polynomial_clamp</span><span class="p">(</span>
+        <span class="n">poly_clamp_counter</span><span class="p">,</span> <span class="n">poly_clamp_threshold</span><span class="p">,</span> <span class="n">saturation_threshold</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">traces</span><span class="p">,</span> <span class="n">blanked</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Tjitse van der Molen.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

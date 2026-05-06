@@ -95,6 +95,7 @@
 <li class="toctree-l4"><a class="reference internal" href="guides/spike_sorting.html#merge-based-deduplication">Merge-based deduplication</a></li>
 <li class="toctree-l4"><a class="reference internal" href="guides/spike_sorting.html#batch-curation">Batch curation</a></li>
 <li class="toctree-l4"><a class="reference internal" href="guides/spike_sorting.html#curation-history">Curation history</a></li>
+<li class="toctree-l4"><a class="reference internal" href="guides/spike_sorting.html#visualising-sorted-units">Visualising sorted units</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="guides/spike_sorting.html#sorting-concatenated-recordings">Sorting Concatenated Recordings</a></li>
@@ -373,6 +374,7 @@
 <li class="toctree-l4"><a class="reference internal" href="api/spike_sorting.html#sort-run-reports">Sort Run Reports</a></li>
 <li class="toctree-l4"><a class="reference internal" href="api/spike_sorting.html#resource-guards">Resource Guards</a></li>
 <li class="toctree-l4"><a class="reference internal" href="api/spike_sorting.html#pipeline-canary">Pipeline Canary</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/spike_sorting.html#stimulation-sorting">Stimulation Sorting</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="api/curation.html">Curation</a><ul>
@@ -1570,10 +1572,10 @@
 </li>
       <li><a href="api/plot_utils.html#spikelab.spikedata.plot_utils.plot_percentile_bands">plot_percentile_bands() (in module spikelab.spikedata.plot_utils)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/plot_utils.html#spikelab.spikedata.plot_utils.plot_pvalue_matrix">plot_pvalue_matrix() (in module spikelab.spikedata.plot_utils)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/plot_utils.html#spikelab.spikedata.plot_utils.plot_recording">plot_recording() (in module spikelab.spikedata.plot_utils)</a>
 </li>
       <li><a href="api/plot_utils.html#spikelab.spikedata.plot_utils.plot_scatter">plot_scatter() (in module spikelab.spikedata.plot_utils)</a>
@@ -1615,6 +1617,8 @@
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.preflight_strict">preflight_strict (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.PreflightFinding">PreflightFinding (class in spikelab.spike_sorting.guards)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.stim_sorting.preprocess_stim_artifacts">preprocess_stim_artifacts() (in module spikelab.spike_sorting.stim_sorting)</a>
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.prevent_system_sleep">prevent_system_sleep (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
 </li>
@@ -1674,6 +1678,8 @@
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.pipeline.RecordingResult.rec_path">rec_path (spikelab.spike_sorting.pipeline.RecordingResult attribute)</a>
 </li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.stim_sorting.recenter_stim_times">recenter_stim_times() (in module spikelab.spike_sorting.stim_sorting)</a>
+</li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.recompile_single_recording">recompile_single_recording (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.recompute_recording">recompute_recording (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
@@ -1724,6 +1730,8 @@
         <li><a href="api/pairwise.html#spikelab.spikedata.pairwise.PairwiseCompMatrixStack.remove_by_condition">(spikelab.spikedata.pairwise.PairwiseCompMatrixStack method)</a>
 </li>
       </ul></li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.stim_sorting.remove_stim_artifacts">remove_stim_artifacts() (in module spikelab.spike_sorting.stim_sorting)</a>
+</li>
       <li><a href="api/workspace.html#spikelab.workspace.workspace.AnalysisWorkspace.rename">rename() (spikelab.workspace.workspace.AnalysisWorkspace method)</a>
 
       <ul>
@@ -1851,6 +1859,8 @@
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.sort_multistream">sort_multistream() (in module spikelab.spike_sorting)</a>
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.sort_recording">sort_recording() (in module spikelab.spike_sorting)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.stim_sorting.sort_stim_recording">sort_stim_recording() (in module spikelab.spike_sorting.stim_sorting)</a>
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.GPUOutOfMemoryError.sorter">sorter (spikelab.spike_sorting._exceptions.GPUOutOfMemoryError attribute)</a>
 

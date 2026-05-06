@@ -129,3 +129,21 @@ Pipeline Canary
 ---------------
 
 .. autofunction:: spikelab.spike_sorting.canary.run_canary
+
+
+Stimulation Sorting
+-------------------
+
+Helpers for spike-sorting recordings with electrical stimulation: artifact
+removal, alignment recentering (single-pulse and multi-pulse), and the
+end-to-end stim-aware pipeline. See the
+:ref:`Stimulation Artifact Removal <stim-artifact-removal>` section of the
+guide for usage examples.
+
+.. autofunction:: spikelab.spike_sorting.stim_sorting.sort_stim_recording
+
+.. autofunction:: spikelab.spike_sorting.stim_sorting.preprocess_stim_artifacts
+
+.. autofunction:: spikelab.spike_sorting.stim_sorting.recenter_stim_times
+
+.. autofunction:: spikelab.spike_sorting.stim_sorting.remove_stim_artifacts

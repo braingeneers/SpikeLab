@@ -1,0 +1,1156 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>spikelab.spike_sorting.stim_sorting.pipeline &mdash; SpikeLab 0.1.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=a58bc63e"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            SpikeLab
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../getting_started/index.html">Getting Started</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../getting_started/installation.html">Installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../getting_started/installation.html#basic-install">Basic Install</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../getting_started/installation.html#optional-extras">Optional Extras</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../getting_started/installation.html#development-install">Development Install</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../getting_started/quickstart.html">Quick Start</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../getting_started/quickstart.html#creating-a-spikedata-object">Creating a SpikeData Object</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../getting_started/quickstart.html#loading-from-a-file">Loading from a File</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../getting_started/quickstart.html#plotting">Plotting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../getting_started/quickstart.html#basic-analysis">Basic Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../getting_started/quickstart.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guides/index.html">Guides</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/loading_data.html">Loading Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/loading_data.html#from-pickle-files">From pickle files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/loading_data.html#from-hdf5-files">From HDF5 files</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/loading_data.html#the-spike-times-unit-parameter">The <code class="docutils literal notranslate"><span class="pre">spike_times_unit</span></code> parameter</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/loading_data.html#from-nwb-files">From NWB files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/loading_data.html#from-kilosort-phy-output">From KiloSort/Phy output</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/loading_data.html#from-spikeinterface">From SpikeInterface</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/loading_data.html#from-spikelab-sorted-npz">From SpikeLab sorted .npz</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/loading_data.html#from-the-ibl-database">From the IBL database</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/loading_data.html#from-neo-spiketrains">From Neo SpikeTrains</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/loading_data.html#from-raw-data">From raw data</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/loading_data.html#from-threshold-detection">From threshold detection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/loading_data.html#from-a-spike-count-raster">From a spike count raster</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/spike_sorting.html">Spike Sorting and Curation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_sorting.html#spike-sorting">Spike Sorting</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#basic-usage">Basic usage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#configuration-and-presets">Configuration and presets</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#multi-stream-recordings">Multi-stream recordings</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#reusing-intermediate-results">Reusing intermediate results</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#built-in-safeguards">Built-in safeguards</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#pipeline-canary">Pipeline canary</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#stimulation-artifact-removal">Stimulation Artifact Removal</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_sorting.html#unit-curation">Unit Curation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#individual-criteria">Individual criteria</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#merge-based-deduplication">Merge-based deduplication</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#batch-curation">Batch curation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#curation-history">Curation history</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#visualising-sorted-units">Visualising sorted units</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_sorting.html#sorting-concatenated-recordings">Sorting Concatenated Recordings</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_sorting.html#handling-sort-failures">Handling Sort Failures</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#watchdog-and-lock-failures">Watchdog and lock failures</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/spike_analysis.html">Spike Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#population-rate">Population Rate</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#burst-detection">Burst Detection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#burst-widths">Burst Widths</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#burst-sensitivity-analysis">Burst Sensitivity Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#per-unit-metrics">Per-Unit Metrics</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_analysis.html#firing-rates">Firing rates</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_analysis.html#inter-spike-intervals">Inter-spike intervals</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_analysis.html#spike-triggered-population-rate">Spike-triggered population rate</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#burst-participation-per-unit">Burst Participation per Unit</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#fraction-of-spikes-in-bursts">Fraction of Spikes in Bursts</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#selecting-and-combining-data">Selecting and Combining Data</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_analysis.html#unit-selection">Unit selection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_analysis.html#time-selection">Time selection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_analysis.html#appending-recordings">Appending recordings</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_analysis.html#combining-units">Combining units</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#pairwise-metrics">Pairwise Metrics</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/firing_rates.html">Instantaneous Firing Rates</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/firing_rates.html#id1">Instantaneous Firing Rates</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/firing_rates.html#isi-interpolation">ISI interpolation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/firing_rates.html#sliding-window">Sliding window</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/firing_rates.html#working-with-ratedata">Working with RateData</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/firing_rates.html#dimensionality-reduction">Dimensionality Reduction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/firing_rates.html#pairwise-firing-rate-correlations">Pairwise Firing-Rate Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/firing_rates.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html">Event-Aligned Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#aligning-to-events">Aligning to Events</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#rateslicestack">RateSliceStack</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#spikeslicestack">SpikeSliceStack</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#applying-a-function-across-slices">Applying a function across slices</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#subsetting-slice-stacks">Subsetting slice stacks</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#slice-to-slice-unit-correlations">Slice-to-Slice Unit Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#slice-to-slice-time-correlations">Slice-to-Slice Time Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#unit-to-unit-pca">Unit-to-Unit PCA</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#rank-order-analysis">Rank-Order Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#temporal-trends-and-stability">Temporal Trends and Stability</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#shuffled-null-distributions">Shuffled Null Distributions</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/pairwise_analysis.html">Pairwise Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/pairwise_analysis.html#spike-time-tiling-coefficient-sttc">Spike Time Tiling Coefficient (STTC)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/pairwise_analysis.html#firing-rate-correlations">Firing-Rate Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/pairwise_analysis.html#fr-correlation-vs-sttc-scatter">FR Correlation vs STTC Scatter</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/pairwise_analysis.html#network-analysis">Network Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/pairwise_analysis.html#spatial-network-visualization">Spatial Network Visualization</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/shuffled_data.html">Shuffled Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/shuffled_data.html#single-shuffle">Single Shuffle</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/shuffled_data.html#shuffle-stacks">Shuffle Stacks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/shuffled_data.html#unit-subset-stacks">Unit Subset Stacks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/shuffled_data.html#comparing-to-the-null-distribution">Comparing to the Null Distribution</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/gplvm.html">GPLVM Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/gplvm.html#fitting-a-gplvm">Fitting a GPLVM</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/gplvm.html#post-fit-analysis">Post-fit Analysis</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/gplvm.html#state-entropy">State entropy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/gplvm.html#continuity-probability">Continuity probability</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/gplvm.html#average-state-probability">Average state probability</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/gplvm.html#consecutive-state-durations">Consecutive state durations</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/gplvm.html#visualisation">Visualisation</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/exporting_data.html">Exporting Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/exporting_data.html#to-hdf5">To HDF5</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/exporting_data.html#ragged-vs-raster-style">Ragged vs raster style</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/exporting_data.html#the-spike-times-unit-parameter">The <code class="docutils literal notranslate"><span class="pre">spike_times_unit</span></code> parameter</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/exporting_data.html#exporting-raw-data">Exporting raw data</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/exporting_data.html#to-nwb">To NWB</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/exporting_data.html#to-kilosort">To KiloSort</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/exporting_data.html#to-pickle">To pickle</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/workspace.html">Workspace Persistence</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/workspace.html#creating-a-workspace">Creating a Workspace</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/workspace.html#saving-and-loading">Saving and Loading</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/workspace.html#listing-and-retrieving">Listing and Retrieving</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/workspace.html#lazy-loading">Lazy Loading</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/workspace.html#merging-workspaces">Merging Workspaces</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/mcp_server.html#starting-the-server">Starting the server</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/mcp_server.html#tool-categories">Tool categories</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/mcp_server.html#data-loading-tools">Data loading tools</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/mcp_server.html#analysis-tools">Analysis tools</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/mcp_server.html#export-tools">Export tools</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/mcp_server.html#workspace-addressing">Workspace addressing</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/parallel_computing.html">Parallel Computing</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/parallel_computing.html#thread-pool-parallelism">Thread-Pool Parallelism</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/parallel_computing.html#numba-acceleration">Numba Acceleration</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/batch_jobs.html">Batch Jobs</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/batch_jobs.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/batch_jobs.html#setting-up-a-session">Setting Up a Session</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/batch_jobs.html#analysis-jobs">Analysis Jobs</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/batch_jobs.html#submitting">Submitting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/batch_jobs.html#writing-an-analysis-script">Writing an analysis script</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/batch_jobs.html#retrieving-results">Retrieving results</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/batch_jobs.html#sorting-jobs">Sorting Jobs</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/batch_jobs.html#id1">Submitting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/batch_jobs.html#id2">Retrieving results</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/batch_jobs.html#policy-guardrails">Policy Guardrails</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/batch_jobs.html#docker-images">Docker Images</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/batch_jobs.html#base-images">Base images</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/batch_jobs.html#temporary-images">Temporary images</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/batch_jobs.html#monitoring-jobs">Monitoring Jobs</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/index.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/index.html#core-data-structures">Core Data Structures</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/spikedata.html">SpikeData</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spikedata.html#spikelab.spikedata.SpikeData"><code class="docutils literal notranslate"><span class="pre">SpikeData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/ratedata.html">RateData</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/ratedata.html#spikelab.spikedata.ratedata.RateData"><code class="docutils literal notranslate"><span class="pre">RateData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/pairwise.html">Pairwise Comparisons</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/pairwise.html#pairwisecompmatrix">PairwiseCompMatrix</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/pairwise.html#pairwisecompmatrixstack">PairwiseCompMatrixStack</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/rateslicestack.html">RateSliceStack</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/rateslicestack.html#spikelab.spikedata.rateslicestack.RateSliceStack"><code class="docutils literal notranslate"><span class="pre">RateSliceStack</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/spikeslicestack.html">SpikeSliceStack</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack"><code class="docutils literal notranslate"><span class="pre">SpikeSliceStack</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/index.html#utilities">Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/utilities.html">Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.get_sttc"><code class="docutils literal notranslate"><span class="pre">get_sttc()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.swap"><code class="docutils literal notranslate"><span class="pre">swap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.randomize"><code class="docutils literal notranslate"><span class="pre">randomize()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.trough_between"><code class="docutils literal notranslate"><span class="pre">trough_between()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.ensure_h5py"><code class="docutils literal notranslate"><span class="pre">ensure_h5py()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.times_from_ms"><code class="docutils literal notranslate"><span class="pre">times_from_ms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.to_ms"><code class="docutils literal notranslate"><span class="pre">to_ms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.extract_waveforms"><code class="docutils literal notranslate"><span class="pre">extract_waveforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.check_neuron_attributes"><code class="docutils literal notranslate"><span class="pre">check_neuron_attributes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.get_channels_for_unit"><code class="docutils literal notranslate"><span class="pre">get_channels_for_unit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.compute_avg_waveform"><code class="docutils literal notranslate"><span class="pre">compute_avg_waveform()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.get_valid_spike_times"><code class="docutils literal notranslate"><span class="pre">get_valid_spike_times()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.waveforms_by_channel"><code class="docutils literal notranslate"><span class="pre">waveforms_by_channel()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.extract_unit_waveforms"><code class="docutils literal notranslate"><span class="pre">extract_unit_waveforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.consecutive_durations"><code class="docutils literal notranslate"><span class="pre">consecutive_durations()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.gplvm_state_entropy"><code class="docutils literal notranslate"><span class="pre">gplvm_state_entropy()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.gplvm_continuity_prob"><code class="docutils literal notranslate"><span class="pre">gplvm_continuity_prob()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.gplvm_average_state_probability"><code class="docutils literal notranslate"><span class="pre">gplvm_average_state_probability()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.shuffle_z_score"><code class="docutils literal notranslate"><span class="pre">shuffle_z_score()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.shuffle_percentile"><code class="docutils literal notranslate"><span class="pre">shuffle_percentile()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.slice_trend"><code class="docutils literal notranslate"><span class="pre">slice_trend()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.slice_stability"><code class="docutils literal notranslate"><span class="pre">slice_stability()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/stat_utils.html">Statistical Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/stat_utils.html#spikelab.spikedata.stat_utils.linear_regression"><code class="docutils literal notranslate"><span class="pre">linear_regression()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/stat_utils.html#spikelab.spikedata.stat_utils.pairwise_tests"><code class="docutils literal notranslate"><span class="pre">pairwise_tests()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/stat_utils.html#spikelab.spikedata.stat_utils.paired_test"><code class="docutils literal notranslate"><span class="pre">paired_test()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/stat_utils.html#spikelab.spikedata.stat_utils.omnibus_test"><code class="docutils literal notranslate"><span class="pre">omnibus_test()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/plot_utils.html">Plotting Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_distribution"><code class="docutils literal notranslate"><span class="pre">plot_distribution()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_pvalue_matrix"><code class="docutils literal notranslate"><span class="pre">plot_pvalue_matrix()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_scatter"><code class="docutils literal notranslate"><span class="pre">plot_scatter()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_scatter_with_marginals"><code class="docutils literal notranslate"><span class="pre">plot_scatter_with_marginals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_manifold"><code class="docutils literal notranslate"><span class="pre">plot_manifold()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_lines"><code class="docutils literal notranslate"><span class="pre">plot_lines()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_percentile_bands"><code class="docutils literal notranslate"><span class="pre">plot_percentile_bands()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_burst_sensitivity"><code class="docutils literal notranslate"><span class="pre">plot_burst_sensitivity()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_aligned_slice_single_unit"><code class="docutils literal notranslate"><span class="pre">plot_aligned_slice_single_unit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_heatmap"><code class="docutils literal notranslate"><span class="pre">plot_heatmap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_recording"><code class="docutils literal notranslate"><span class="pre">plot_recording()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_spatial_network"><code class="docutils literal notranslate"><span class="pre">plot_spatial_network()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_unit_footprints"><code class="docutils literal notranslate"><span class="pre">plot_unit_footprints()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/index.html#data-i-o">Data I/O</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/data_loaders.html">Data Loaders</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_hdf5"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_hdf5()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_hdf5_raw_thresholded"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_hdf5_raw_thresholded()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_nwb"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_nwb()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_kilosort"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_kilosort()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_spikeinterface"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikeinterface()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_spikeinterface_recording"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikeinterface_recording()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_pickle"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_pickle()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_ibl"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_ibl()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.query_ibl_probes"><code class="docutils literal notranslate"><span class="pre">query_ibl_probes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_spikelab_sorted_npz"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikelab_sorted_npz()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/data_exporters.html">Data Exporters</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_hdf5"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_hdf5()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_nwb"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_nwb()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_kilosort"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_kilosort()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_to_pickle"><code class="docutils literal notranslate"><span class="pre">export_to_pickle()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/s3_utils.html">S3 Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/s3_utils.html#spikelab.data_loaders.s3_utils.is_s3_url"><code class="docutils literal notranslate"><span class="pre">is_s3_url()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/s3_utils.html#spikelab.data_loaders.s3_utils.parse_s3_url"><code class="docutils literal notranslate"><span class="pre">parse_s3_url()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/s3_utils.html#spikelab.data_loaders.s3_utils.download_from_s3"><code class="docutils literal notranslate"><span class="pre">download_from_s3()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/s3_utils.html#spikelab.data_loaders.s3_utils.upload_to_s3"><code class="docutils literal notranslate"><span class="pre">upload_to_s3()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/s3_utils.html#spikelab.data_loaders.s3_utils.ensure_local_file"><code class="docutils literal notranslate"><span class="pre">ensure_local_file()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/index.html#persistence">Persistence</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/workspace.html">Workspace</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/workspace.html#spikelab.workspace.workspace.AnalysisWorkspace"><code class="docutils literal notranslate"><span class="pre">AnalysisWorkspace</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/workspace.html#spikelab.workspace.workspace.LazyAnalysisWorkspace"><code class="docutils literal notranslate"><span class="pre">LazyAnalysisWorkspace</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/workspace.html#spikelab.workspace.workspace.WorkspaceManager"><code class="docutils literal notranslate"><span class="pre">WorkspaceManager</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/workspace.html#spikelab.workspace.workspace.get_workspace_manager"><code class="docutils literal notranslate"><span class="pre">get_workspace_manager()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/index.html#spike-sorting-and-curation">Spike Sorting and Curation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/spike_sorting.html">Spike Sorting</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#entry-points">Entry Points</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#module-spikelab.spike_sorting.config">Configuration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#module-spikelab.spike_sorting.backends">Backend Registry</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#classified-exceptions">Classified Exceptions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#post-failure-classifiers">Post-Failure Classifiers</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#sort-run-reports">Sort Run Reports</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#resource-guards">Resource Guards</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#pipeline-canary">Pipeline Canary</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#stimulation-sorting">Stimulation Sorting</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/curation.html">Curation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/curation.html#spikelab.spikedata.curation.curate_by_min_spikes"><code class="docutils literal notranslate"><span class="pre">curate_by_min_spikes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/curation.html#spikelab.spikedata.curation.curate_by_firing_rate"><code class="docutils literal notranslate"><span class="pre">curate_by_firing_rate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/curation.html#spikelab.spikedata.curation.curate_by_isi_violations"><code class="docutils literal notranslate"><span class="pre">curate_by_isi_violations()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/curation.html#spikelab.spikedata.curation.curate_by_snr"><code class="docutils literal notranslate"><span class="pre">curate_by_snr()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/curation.html#spikelab.spikedata.curation.curate_by_std_norm"><code class="docutils literal notranslate"><span class="pre">curate_by_std_norm()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/curation.html#spikelab.spikedata.curation.compute_waveform_metrics"><code class="docutils literal notranslate"><span class="pre">compute_waveform_metrics()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/curation.html#spikelab.spikedata.curation.curate"><code class="docutils literal notranslate"><span class="pre">curate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/curation.html#spikelab.spikedata.curation.build_curation_history"><code class="docutils literal notranslate"><span class="pre">build_curation_history()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/curation.html#spikelab.spikedata.curation.curate_by_merge_duplicates"><code class="docutils literal notranslate"><span class="pre">curate_by_merge_duplicates()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/index.html#batch-jobs">Batch Jobs</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/batch_jobs.html">Batch Jobs</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/batch_jobs.html#models">Models</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/batch_jobs.html#policy-engine">Policy Engine</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/batch_jobs.html#module-spikelab.batch_jobs.profiles">Profile Loading</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/batch_jobs.html#run-session">Run Session</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/batch_jobs.html#module-spikelab.batch_jobs.backend_k8s">Kubernetes Backend</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/batch_jobs.html#module-spikelab.batch_jobs.storage_s3">S3 Storage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/batch_jobs.html#module-spikelab.batch_jobs.artifact_packager">Artifact Packager</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/batch_jobs.html#module-spikelab.batch_jobs.credentials">Credentials</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/batch_jobs.html#module-spikelab.batch_jobs.validation">Validation</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/index.html#server">Server</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">SpikeLab</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">spikelab.spike_sorting.stim_sorting.pipeline</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for spikelab.spike_sorting.stim_sorting.pipeline</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Stimulation-aware spike sorting pipeline.</span>
+
+<span class="sd">Applies pre-trained RT-Sort sequences (from the Phase 1 vanilla sort)</span>
+<span class="sd">to a stimulation recording and returns per-event peri-stim</span>
+<span class="sd">``SpikeSliceStack``.</span>
+
+<span class="sd">The pipeline is **per-event-chunked** by default: only the peri-event</span>
+<span class="sd">time window around each stim event (with buffers for recentering and</span>
+<span class="sd">artifact removal) is ever materialised.  Peak RAM scales with a</span>
+<span class="sd">single chunk&#39;s working set (typically ~100-200 MB on a 1018-ch MaxOne</span>
+<span class="sd">recording) rather than with total recording duration.  The full</span>
+<span class="sd">chunked path is used whenever the caller passes a path or a lazy</span>
+<span class="sd">SpikeInterface recording.  Pre-materialised ``np.ndarray`` input</span>
+<span class="sd">falls back to the legacy full-recording path (caller controls memory).</span>
+
+<span class="sd">Per chunk, the pipeline:</span>
+<span class="sd">  1. Read the chunk&#39;s filtered traces (from the top-level lazy</span>
+<span class="sd">     recording) and the pre-filter traces (walking up to the first</span>
+<span class="sd">     non-filter parent), DC-centering the latter per channel.</span>
+<span class="sd">  2. Recenter the stim event time(s) within the chunk using the</span>
+<span class="sd">     configured ``peak_mode`` (``&quot;down_edge&quot;`` for biphasic anodic-</span>
+<span class="sd">     first pulses, etc.).</span>
+<span class="sd">  3. Remove artifacts (auto 2- or 3-way polynomial split at the</span>
+<span class="sd">     negative peak / subsequent positive peak, or single fit).</span>
+<span class="sd">  4. Run ``RTSort.sort_offline`` on the cleaned chunk.</span>
+<span class="sd">  5. Extract the peri-event ``[-pre_ms, +post_ms]`` slice per event.</span>
+<span class="sd">  6. Drop the chunk; accumulate the per-event ``SpikeData`` slices.</span>
+
+<span class="sd">Events whose chunks would overlap (e.g., burst / paired-pulse</span>
+<span class="sd">protocols) are grouped into a single chunk so sort_offline sees them</span>
+<span class="sd">together.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="c1"># Extra margin beyond the peri-event + recentering + artifact-removal</span>
+<span class="c1"># window.  Gives RT-Sort&#39;s detection model a few ms to warm up before</span>
+<span class="c1"># the peri-event region starts, so the first few samples after the</span>
+<span class="c1"># sort_offline reset are not in the output window.  The algorithm&#39;s</span>
+<span class="c1"># internal buffer_size is 100 samples (~5 ms at 20 kHz), so 30 ms is</span>
+<span class="c1"># a comfortable warmup — small enough that chunks for stim at 2 Hz</span>
+<span class="c1"># (500 ms apart) do not merge into one big chunk.</span>
+<span class="n">_CHUNK_WARMUP_MS</span> <span class="o">=</span> <span class="mf">30.0</span>
+
+
+<div class="viewcode-block" id="sort_stim_recording">
+<a class="viewcode-back" href="../../../../api/spike_sorting.html#spikelab.spike_sorting.stim_sorting.sort_stim_recording">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">sort_stim_recording</span><span class="p">(</span>
+    <span class="n">stim_recording</span><span class="p">,</span>
+    <span class="n">rt_sort</span><span class="p">,</span>
+    <span class="n">stim_times_ms</span><span class="p">,</span>
+    <span class="n">pre_ms</span><span class="p">,</span>
+    <span class="n">post_ms</span><span class="p">,</span>
+    <span class="n">fs_Hz</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">artifact_method</span><span class="o">=</span><span class="s2">&quot;polynomial&quot;</span><span class="p">,</span>
+    <span class="n">artifact_window_ms</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span>
+    <span class="n">saturation_threshold</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">baseline_threshold</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">poly_order</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+    <span class="n">artifact_window_only</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">max_stim_offset_ms</span><span class="o">=</span><span class="mf">50.0</span><span class="p">,</span>
+    <span class="n">peak_mode</span><span class="o">=</span><span class="s2">&quot;abs_max&quot;</span><span class="p">,</span>
+    <span class="n">n_reference_channels</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span>
+    <span class="n">prewindow_ms</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span>
+    <span class="n">multi_peak</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">multi_peak_select</span><span class="o">=</span><span class="s2">&quot;first&quot;</span><span class="p">,</span>
+    <span class="n">multi_peak_threshold</span><span class="o">=</span><span class="mf">0.6</span><span class="p">,</span>
+    <span class="n">multi_peak_min_separation_ms</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span>
+    <span class="n">model</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">model_path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">recording_window_ms</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Sort spikes in a stimulation recording using pre-trained RT-Sort sequences.</span>
+
+<span class="sd">    Takes a raw stimulation recording and a trained ``RTSort`` object</span>
+<span class="sd">    (or path to a saved one produced by</span>
+<span class="sd">    ``sort_recording(..., sorter=&quot;rt_sort&quot;)``), removes stimulation</span>
+<span class="sd">    artifacts, runs offline spike sorting, and returns a</span>
+<span class="sd">    ``SpikeSliceStack`` of sorted spikes aligned to the corrected</span>
+<span class="sd">    stimulation event times.</span>
+
+<span class="sd">    **Memory model.**  When ``stim_recording`` is a path or a lazy</span>
+<span class="sd">    SpikeInterface recording, the pipeline processes one *per-event</span>
+<span class="sd">    time chunk* at a time (peak RAM ≈ one chunk&#39;s working set,</span>
+<span class="sd">    typically 100-200 MB on MaxOne — independent of recording</span>
+<span class="sd">    duration).  When ``stim_recording`` is a pre-materialised</span>
+<span class="sd">    ``np.ndarray``, the full-recording path is used instead (caller</span>
+<span class="sd">    has already paid the memory cost).</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        stim_recording: The stimulation recording.  Can be:</span>
+<span class="sd">            - ``str`` or ``Path`` to a recording file (Maxwell .h5 or</span>
+<span class="sd">              NWB).  Chunked path.</span>
+<span class="sd">            - A SpikeInterface ``BaseRecording`` object.  Chunked path.</span>
+<span class="sd">            - ``np.ndarray`` of shape ``(channels, samples)``.</span>
+<span class="sd">              Full-recording path (no chunking possible).</span>
+<span class="sd">        rt_sort: The trained RT-Sort object or path to its pickle.</span>
+<span class="sd">        stim_times_ms (array-like): Logged stimulation event times in</span>
+<span class="sd">            milliseconds.</span>
+<span class="sd">        pre_ms (float): Output peri-event window radius before each</span>
+<span class="sd">            stim event, in milliseconds.</span>
+<span class="sd">        post_ms (float): Output peri-event window radius after each</span>
+<span class="sd">            stim event, in milliseconds.</span>
+<span class="sd">        fs_Hz (float or None): Sampling frequency in Hz.  Required</span>
+<span class="sd">            for ndarray input; inferred from the recording object</span>
+<span class="sd">            otherwise.</span>
+<span class="sd">        artifact_method (str): ``&quot;polynomial&quot;`` (default) or</span>
+<span class="sd">            ``&quot;blank&quot;``.  Passed to ``remove_stim_artifacts``.</span>
+<span class="sd">        artifact_window_ms (float): Max artifact tail duration after</span>
+<span class="sd">            the last desaturation.  Default 10.0.</span>
+<span class="sd">        saturation_threshold (float or None): Saturation voltage</span>
+<span class="sd">            threshold.  None auto-detects (gain-anchored from</span>
+<span class="sd">            recording metadata if available).</span>
+<span class="sd">        baseline_threshold (float or None): Baseline envelope</span>
+<span class="sd">            threshold.  None auto-detects from pre-stim MAD.</span>
+<span class="sd">        poly_order (int): Polynomial order for detrend.  Default 3.</span>
+<span class="sd">        artifact_window_only (bool): Only process around stim events.</span>
+<span class="sd">            Default True.</span>
+<span class="sd">        multi_peak (bool): When ``True``, enables multi-pulse-aware</span>
+<span class="sd">            recentering — the search window is interpreted as</span>
+<span class="sd">            potentially containing multiple pulses (a stim train), and</span>
+<span class="sd">            the alignment target is the first or last qualifying pulse</span>
+<span class="sd">            rather than the strongest. Default ``False``.  When</span>
+<span class="sd">            ``False``, behaviour is identical to the pre-multi-peak</span>
+<span class="sd">            implementation.  See :func:`recenter_stim_times` for details.</span>
+<span class="sd">        multi_peak_select (str): When ``multi_peak=True``, which</span>
+<span class="sd">            qualifying peak to lock onto.  ``&quot;first&quot;`` (default) /</span>
+<span class="sd">            ``&quot;last&quot;``.</span>
+<span class="sd">        multi_peak_threshold (float): When ``multi_peak=True``, peaks</span>
+<span class="sd">            below this fraction of the largest peak in the search</span>
+<span class="sd">            window are ignored.  Default ``0.6``.</span>
+<span class="sd">        multi_peak_min_separation_ms (float): When ``multi_peak=True``,</span>
+<span class="sd">            minimum spacing between candidate peaks.  Default ``2.0``.</span>
+<span class="sd">        max_stim_offset_ms (float): Search window radius for stim</span>
+<span class="sd">            time recentering.  Default 50.0.</span>
+<span class="sd">        peak_mode (str): Alignment target for ``recenter_stim_times``.</span>
+<span class="sd">            One of ``&quot;abs_max&quot;`` (default), ``&quot;pos_peak&quot;``,</span>
+<span class="sd">            ``&quot;neg_peak&quot;``, ``&quot;down_edge&quot;``, ``&quot;up_edge&quot;``.  For</span>
+<span class="sd">            biphasic anodic-first pulses where the AP is triggered at</span>
+<span class="sd">            the up→down current reversal, use ``&quot;down_edge&quot;``.</span>
+<span class="sd">        n_reference_channels (int): Top-K highest-amplitude channels</span>
+<span class="sd">            summed to form the signed reference trace for non-</span>
+<span class="sd">            ``abs_max`` peak modes.  Default 8.</span>
+<span class="sd">        prewindow_ms (float): For ``down_edge`` / ``up_edge``, radius</span>
+<span class="sd">            of the pre-window before the primary peak.  Default 5.0.</span>
+<span class="sd">        model (ModelSpikeSorter or None): Detection model instance for</span>
+<span class="sd">            ``load_rt_sort`` when ``rt_sort`` is a path.</span>
+<span class="sd">        model_path (str or Path or None): Path to a detection model</span>
+<span class="sd">            folder for ``load_rt_sort`` when ``rt_sort`` is a path.</span>
+<span class="sd">        recording_window_ms (tuple or None): ``(start_ms, end_ms)``</span>
+<span class="sd">            sub-window to restrict processing to.  Only events whose</span>
+<span class="sd">            peri-event window falls entirely within this range are</span>
+<span class="sd">            sorted.  ``None`` processes the full recording.</span>
+<span class="sd">        verbose (bool): Print progress messages.  Default True.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        stim_slices (SpikeSliceStack): Event-aligned spike slice stack</span>
+<span class="sd">            with one slice per (corrected) stim event.  Each slice</span>
+<span class="sd">            spans ``[-pre_ms, +post_ms]`` relative to the stim time.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">..rt_sort_runner</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_rt_sort</span>  <span class="c1"># noqa: F401  (validates install)</span>
+
+    <span class="n">stim_times_ms</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">stim_times_ms</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+
+    <span class="c1"># --- Load RTSort once --------------------------------------------</span>
+    <span class="n">rt_sort_obj</span> <span class="o">=</span> <span class="n">_load_rt_sort</span><span class="p">(</span><span class="n">rt_sort</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">model_path</span><span class="p">,</span> <span class="n">verbose</span><span class="p">)</span>
+
+    <span class="c1"># --- Dispatch on input type --------------------------------------</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">stim_recording</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">_sort_stim_full_recording</span><span class="p">(</span>
+            <span class="n">traces</span><span class="o">=</span><span class="n">stim_recording</span><span class="p">,</span>
+            <span class="n">recording_obj</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">fs_Hz</span><span class="o">=</span><span class="n">fs_Hz</span><span class="p">,</span>
+            <span class="n">rt_sort_obj</span><span class="o">=</span><span class="n">rt_sort_obj</span><span class="p">,</span>
+            <span class="n">stim_times_ms</span><span class="o">=</span><span class="n">stim_times_ms</span><span class="p">,</span>
+            <span class="n">pre_ms</span><span class="o">=</span><span class="n">pre_ms</span><span class="p">,</span>
+            <span class="n">post_ms</span><span class="o">=</span><span class="n">post_ms</span><span class="p">,</span>
+            <span class="n">artifact_method</span><span class="o">=</span><span class="n">artifact_method</span><span class="p">,</span>
+            <span class="n">artifact_window_ms</span><span class="o">=</span><span class="n">artifact_window_ms</span><span class="p">,</span>
+            <span class="n">saturation_threshold</span><span class="o">=</span><span class="n">saturation_threshold</span><span class="p">,</span>
+            <span class="n">baseline_threshold</span><span class="o">=</span><span class="n">baseline_threshold</span><span class="p">,</span>
+            <span class="n">poly_order</span><span class="o">=</span><span class="n">poly_order</span><span class="p">,</span>
+            <span class="n">artifact_window_only</span><span class="o">=</span><span class="n">artifact_window_only</span><span class="p">,</span>
+            <span class="n">max_stim_offset_ms</span><span class="o">=</span><span class="n">max_stim_offset_ms</span><span class="p">,</span>
+            <span class="n">peak_mode</span><span class="o">=</span><span class="n">peak_mode</span><span class="p">,</span>
+            <span class="n">n_reference_channels</span><span class="o">=</span><span class="n">n_reference_channels</span><span class="p">,</span>
+            <span class="n">prewindow_ms</span><span class="o">=</span><span class="n">prewindow_ms</span><span class="p">,</span>
+            <span class="n">multi_peak</span><span class="o">=</span><span class="n">multi_peak</span><span class="p">,</span>
+            <span class="n">multi_peak_select</span><span class="o">=</span><span class="n">multi_peak_select</span><span class="p">,</span>
+            <span class="n">multi_peak_threshold</span><span class="o">=</span><span class="n">multi_peak_threshold</span><span class="p">,</span>
+            <span class="n">multi_peak_min_separation_ms</span><span class="o">=</span><span class="n">multi_peak_min_separation_ms</span><span class="p">,</span>
+            <span class="n">recording_window_ms</span><span class="o">=</span><span class="n">recording_window_ms</span><span class="p">,</span>
+            <span class="n">verbose</span><span class="o">=</span><span class="n">verbose</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="c1"># Path or BaseRecording → chunked path.</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">stim_recording</span><span class="p">,</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">)):</span>
+        <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Opening recording </span><span class="si">{</span><span class="n">stim_recording</span><span class="si">}</span><span class="s2"> (lazy, for chunked reads)...&quot;</span><span class="p">)</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">..recording_io</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_single_recording</span>
+
+        <span class="n">rec</span> <span class="o">=</span> <span class="n">load_single_recording</span><span class="p">(</span><span class="n">stim_recording</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">rec</span> <span class="o">=</span> <span class="n">stim_recording</span>
+
+    <span class="k">return</span> <span class="n">_sort_stim_chunked</span><span class="p">(</span>
+        <span class="n">recording</span><span class="o">=</span><span class="n">rec</span><span class="p">,</span>
+        <span class="n">rt_sort_obj</span><span class="o">=</span><span class="n">rt_sort_obj</span><span class="p">,</span>
+        <span class="n">stim_times_ms</span><span class="o">=</span><span class="n">stim_times_ms</span><span class="p">,</span>
+        <span class="n">pre_ms</span><span class="o">=</span><span class="n">pre_ms</span><span class="p">,</span>
+        <span class="n">post_ms</span><span class="o">=</span><span class="n">post_ms</span><span class="p">,</span>
+        <span class="n">artifact_method</span><span class="o">=</span><span class="n">artifact_method</span><span class="p">,</span>
+        <span class="n">artifact_window_ms</span><span class="o">=</span><span class="n">artifact_window_ms</span><span class="p">,</span>
+        <span class="n">saturation_threshold</span><span class="o">=</span><span class="n">saturation_threshold</span><span class="p">,</span>
+        <span class="n">baseline_threshold</span><span class="o">=</span><span class="n">baseline_threshold</span><span class="p">,</span>
+        <span class="n">poly_order</span><span class="o">=</span><span class="n">poly_order</span><span class="p">,</span>
+        <span class="n">artifact_window_only</span><span class="o">=</span><span class="n">artifact_window_only</span><span class="p">,</span>
+        <span class="n">max_stim_offset_ms</span><span class="o">=</span><span class="n">max_stim_offset_ms</span><span class="p">,</span>
+        <span class="n">peak_mode</span><span class="o">=</span><span class="n">peak_mode</span><span class="p">,</span>
+        <span class="n">n_reference_channels</span><span class="o">=</span><span class="n">n_reference_channels</span><span class="p">,</span>
+        <span class="n">prewindow_ms</span><span class="o">=</span><span class="n">prewindow_ms</span><span class="p">,</span>
+        <span class="n">multi_peak</span><span class="o">=</span><span class="n">multi_peak</span><span class="p">,</span>
+        <span class="n">multi_peak_select</span><span class="o">=</span><span class="n">multi_peak_select</span><span class="p">,</span>
+        <span class="n">multi_peak_threshold</span><span class="o">=</span><span class="n">multi_peak_threshold</span><span class="p">,</span>
+        <span class="n">multi_peak_min_separation_ms</span><span class="o">=</span><span class="n">multi_peak_min_separation_ms</span><span class="p">,</span>
+        <span class="n">recording_window_ms</span><span class="o">=</span><span class="n">recording_window_ms</span><span class="p">,</span>
+        <span class="n">verbose</span><span class="o">=</span><span class="n">verbose</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Chunked path — the default when we have a lazy recording</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_sort_stim_chunked</span><span class="p">(</span>
+    <span class="n">recording</span><span class="p">,</span>
+    <span class="n">rt_sort_obj</span><span class="p">,</span>
+    <span class="n">stim_times_ms</span><span class="p">,</span>
+    <span class="n">pre_ms</span><span class="p">,</span>
+    <span class="n">post_ms</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">artifact_method</span><span class="p">,</span>
+    <span class="n">artifact_window_ms</span><span class="p">,</span>
+    <span class="n">saturation_threshold</span><span class="p">,</span>
+    <span class="n">baseline_threshold</span><span class="p">,</span>
+    <span class="n">poly_order</span><span class="p">,</span>
+    <span class="n">artifact_window_only</span><span class="p">,</span>
+    <span class="n">max_stim_offset_ms</span><span class="p">,</span>
+    <span class="n">peak_mode</span><span class="p">,</span>
+    <span class="n">n_reference_channels</span><span class="p">,</span>
+    <span class="n">prewindow_ms</span><span class="p">,</span>
+    <span class="n">multi_peak</span><span class="p">,</span>
+    <span class="n">multi_peak_select</span><span class="p">,</span>
+    <span class="n">multi_peak_threshold</span><span class="p">,</span>
+    <span class="n">multi_peak_min_separation_ms</span><span class="p">,</span>
+    <span class="n">recording_window_ms</span><span class="p">,</span>
+    <span class="n">verbose</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">...spikedata.spikedata</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpikeData</span>  <span class="c1"># noqa: F401</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">...spikedata.spikeslicestack</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpikeSliceStack</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">.artifact_removal</span><span class="w"> </span><span class="kn">import</span> <span class="n">remove_stim_artifacts</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">.recentering</span><span class="w"> </span><span class="kn">import</span> <span class="n">recenter_stim_times</span>
+
+    <span class="n">fs_Hz</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">recording</span><span class="o">.</span><span class="n">get_sampling_frequency</span><span class="p">())</span>
+    <span class="n">n_total_samples</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">recording</span><span class="o">.</span><span class="n">get_num_samples</span><span class="p">())</span>
+    <span class="n">raw_parent</span> <span class="o">=</span> <span class="n">_find_prefilter_parent</span><span class="p">(</span><span class="n">recording</span><span class="p">)</span>
+
+    <span class="c1"># Chunk window budget — each chunk must encompass:</span>
+    <span class="c1">#   pre_ms  + max_stim_offset_ms + _CHUNK_WARMUP_MS   (before each event)</span>
+    <span class="c1">#   post_ms + artifact_window_ms + _CHUNK_WARMUP_MS   (after each event)</span>
+    <span class="c1"># Note: ``max_stim_offset_ms`` is the search radius for *recentering*,</span>
+    <span class="c1"># which only applies before the logged stim time (we look in the</span>
+    <span class="c1"># recording to find where the artifact actually is).  It is NOT</span>
+    <span class="c1"># needed in the post-window.</span>
+    <span class="n">chunk_pre_ms</span> <span class="o">=</span> <span class="n">pre_ms</span> <span class="o">+</span> <span class="n">max_stim_offset_ms</span> <span class="o">+</span> <span class="n">_CHUNK_WARMUP_MS</span>
+    <span class="n">chunk_post_ms</span> <span class="o">=</span> <span class="n">post_ms</span> <span class="o">+</span> <span class="n">artifact_window_ms</span> <span class="o">+</span> <span class="n">_CHUNK_WARMUP_MS</span>
+
+    <span class="c1"># Filter events by the recording_window_ms + actual recording bounds.</span>
+    <span class="k">if</span> <span class="n">recording_window_ms</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">rwin_lo</span><span class="p">,</span> <span class="n">rwin_hi</span> <span class="o">=</span> <span class="n">recording_window_ms</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">rwin_lo</span><span class="p">,</span> <span class="n">rwin_hi</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">n_total_samples</span> <span class="o">/</span> <span class="n">fs_Hz</span> <span class="o">*</span> <span class="mf">1000.0</span>
+    <span class="n">rec_lo_ms</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="n">rec_hi_ms</span> <span class="o">=</span> <span class="n">n_total_samples</span> <span class="o">/</span> <span class="n">fs_Hz</span> <span class="o">*</span> <span class="mf">1000.0</span>
+
+    <span class="n">valid_mask</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="p">(</span><span class="n">stim_times_ms</span> <span class="o">-</span> <span class="n">pre_ms</span> <span class="o">&gt;=</span> <span class="n">rwin_lo</span><span class="p">)</span>
+        <span class="o">&amp;</span> <span class="p">(</span><span class="n">stim_times_ms</span> <span class="o">+</span> <span class="n">post_ms</span> <span class="o">&lt;=</span> <span class="n">rwin_hi</span><span class="p">)</span>
+        <span class="o">&amp;</span> <span class="p">(</span><span class="n">stim_times_ms</span> <span class="o">-</span> <span class="n">chunk_pre_ms</span> <span class="o">&gt;=</span> <span class="n">rec_lo_ms</span> <span class="o">-</span> <span class="mf">1e-6</span><span class="p">)</span>
+        <span class="o">&amp;</span> <span class="p">(</span><span class="n">stim_times_ms</span> <span class="o">+</span> <span class="n">chunk_post_ms</span> <span class="o">&lt;=</span> <span class="n">rec_hi_ms</span> <span class="o">+</span> <span class="mf">1e-6</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">n_dropped</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="o">~</span><span class="n">valid_mask</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">n_dropped</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">verbose</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;  Dropping </span><span class="si">{</span><span class="n">n_dropped</span><span class="si">}</span><span class="s2"> event(s) whose peri-event window would &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;extend outside the recording / recording_window_ms bounds&quot;</span>
+        <span class="p">)</span>
+    <span class="n">global_event_indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">flatnonzero</span><span class="p">(</span><span class="n">valid_mask</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">global_event_indices</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No stim events left after filtering for recording bounds.&quot;</span><span class="p">)</span>
+    <span class="n">kept_times_ms</span> <span class="o">=</span> <span class="n">stim_times_ms</span><span class="p">[</span><span class="n">global_event_indices</span><span class="p">]</span>
+
+    <span class="c1"># Group adjacent events into chunks.</span>
+    <span class="n">groups</span> <span class="o">=</span> <span class="n">_group_stim_events_into_chunks</span><span class="p">(</span><span class="n">kept_times_ms</span><span class="p">,</span> <span class="n">chunk_pre_ms</span><span class="p">,</span> <span class="n">chunk_post_ms</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Chunking </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">kept_times_ms</span><span class="p">)</span><span class="si">}</span><span class="s2"> stim events into </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">groups</span><span class="p">)</span><span class="si">}</span><span class="s2"> &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;time chunk(s)  (chunk window ≈ &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">chunk_pre_ms</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">chunk_post_ms</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2"> ms per event)&quot;</span>
+        <span class="p">)</span>
+
+    <span class="c1"># Process chunks in order; accumulate per-event results keyed by</span>
+    <span class="c1"># original stim_times_ms index so we can emit the final slice stack</span>
+    <span class="c1"># in the caller&#39;s event order.</span>
+    <span class="n">per_event_sd</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">kept_times_ms</span><span class="p">)</span>
+    <span class="n">per_event_global_corr_ms</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">kept_times_ms</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">chunk_idx</span><span class="p">,</span> <span class="n">group</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">groups</span><span class="p">):</span>
+        <span class="n">group_kept</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">group</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>  <span class="c1"># indices into kept_times_ms</span>
+        <span class="n">group_events_ms</span> <span class="o">=</span> <span class="n">kept_times_ms</span><span class="p">[</span><span class="n">group_kept</span><span class="p">]</span>
+
+        <span class="n">chunk_lo_ms</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">group_events_ms</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">chunk_pre_ms</span><span class="p">)</span>
+        <span class="n">chunk_hi_ms</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">group_events_ms</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">chunk_post_ms</span><span class="p">)</span>
+        <span class="n">start_frame</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">chunk_lo_ms</span> <span class="o">*</span> <span class="n">fs_Hz</span> <span class="o">/</span> <span class="mf">1000.0</span><span class="p">)))</span>
+        <span class="n">end_frame</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">n_total_samples</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">chunk_hi_ms</span> <span class="o">*</span> <span class="n">fs_Hz</span> <span class="o">/</span> <span class="mf">1000.0</span><span class="p">)))</span>
+        <span class="n">chunk_start_ms</span> <span class="o">=</span> <span class="n">start_frame</span> <span class="o">*</span> <span class="mf">1000.0</span> <span class="o">/</span> <span class="n">fs_Hz</span>
+        <span class="n">chunk_len_ms</span> <span class="o">=</span> <span class="p">(</span><span class="n">end_frame</span> <span class="o">-</span> <span class="n">start_frame</span><span class="p">)</span> <span class="o">*</span> <span class="mf">1000.0</span> <span class="o">/</span> <span class="n">fs_Hz</span>
+
+        <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;  chunk </span><span class="si">{</span><span class="n">chunk_idx</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">groups</span><span class="p">)</span><span class="si">}</span><span class="s2">: &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">group_events_ms</span><span class="p">)</span><span class="si">}</span><span class="s2"> event(s), &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">chunk_len_ms</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2"> ms (</span><span class="si">{</span><span class="n">end_frame</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">start_frame</span><span class="si">}</span><span class="s2"> samples)&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Load filtered chunk traces.</span>
+        <span class="n">chunk_traces</span> <span class="o">=</span> <span class="n">recording</span><span class="o">.</span><span class="n">get_traces</span><span class="p">(</span>
+            <span class="n">start_frame</span><span class="o">=</span><span class="n">start_frame</span><span class="p">,</span> <span class="n">end_frame</span><span class="o">=</span><span class="n">end_frame</span><span class="p">,</span> <span class="n">return_scaled</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="c1"># Load matching pre-filter raw chunk and DC-center per channel</span>
+        <span class="c1"># (in-place to avoid a transient duplicate allocation).</span>
+        <span class="n">chunk_raw</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">raw_parent</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">chunk_raw</span> <span class="o">=</span> <span class="n">raw_parent</span><span class="o">.</span><span class="n">get_traces</span><span class="p">(</span>
+                <span class="n">start_frame</span><span class="o">=</span><span class="n">start_frame</span><span class="p">,</span> <span class="n">end_frame</span><span class="o">=</span><span class="n">end_frame</span><span class="p">,</span> <span class="n">return_scaled</span><span class="o">=</span><span class="kc">True</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">chunk_raw</span> <span class="o">-=</span> <span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">chunk_raw</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="c1"># Recenter stim times within this chunk (event times in local</span>
+        <span class="c1"># chunk coordinates, ms from the chunk start).</span>
+        <span class="n">local_event_ms</span> <span class="o">=</span> <span class="n">group_events_ms</span> <span class="o">-</span> <span class="n">chunk_start_ms</span>
+        <span class="n">local_corrected_ms</span> <span class="o">=</span> <span class="n">recenter_stim_times</span><span class="p">(</span>
+            <span class="n">chunk_traces</span><span class="p">,</span>
+            <span class="n">local_event_ms</span><span class="p">,</span>
+            <span class="n">fs_Hz</span><span class="p">,</span>
+            <span class="n">max_offset_ms</span><span class="o">=</span><span class="n">max_stim_offset_ms</span><span class="p">,</span>
+            <span class="n">peak_mode</span><span class="o">=</span><span class="n">peak_mode</span><span class="p">,</span>
+            <span class="n">n_reference_channels</span><span class="o">=</span><span class="n">n_reference_channels</span><span class="p">,</span>
+            <span class="n">prewindow_ms</span><span class="o">=</span><span class="n">prewindow_ms</span><span class="p">,</span>
+            <span class="n">multi_peak</span><span class="o">=</span><span class="n">multi_peak</span><span class="p">,</span>
+            <span class="n">multi_peak_select</span><span class="o">=</span><span class="n">multi_peak_select</span><span class="p">,</span>
+            <span class="n">multi_peak_threshold</span><span class="o">=</span><span class="n">multi_peak_threshold</span><span class="p">,</span>
+            <span class="n">multi_peak_min_separation_ms</span><span class="o">=</span><span class="n">multi_peak_min_separation_ms</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Remove artifacts on the chunk (in-place — we don&#39;t need the</span>
+        <span class="c1"># pre-cleaning trace after this).</span>
+        <span class="n">chunk_cleaned</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">remove_stim_artifacts</span><span class="p">(</span>
+            <span class="n">chunk_traces</span><span class="p">,</span>
+            <span class="n">local_corrected_ms</span><span class="p">,</span>
+            <span class="n">fs_Hz</span><span class="p">,</span>
+            <span class="n">method</span><span class="o">=</span><span class="n">artifact_method</span><span class="p">,</span>
+            <span class="n">artifact_window_ms</span><span class="o">=</span><span class="n">artifact_window_ms</span><span class="p">,</span>
+            <span class="n">saturation_threshold</span><span class="o">=</span><span class="n">saturation_threshold</span><span class="p">,</span>
+            <span class="n">baseline_threshold</span><span class="o">=</span><span class="n">baseline_threshold</span><span class="p">,</span>
+            <span class="n">poly_order</span><span class="o">=</span><span class="n">poly_order</span><span class="p">,</span>
+            <span class="n">artifact_window_only</span><span class="o">=</span><span class="n">artifact_window_only</span><span class="p">,</span>
+            <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">recording</span><span class="o">=</span><span class="n">recording</span><span class="p">,</span>
+            <span class="n">raw_traces</span><span class="o">=</span><span class="n">chunk_raw</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">del</span> <span class="n">chunk_raw</span>
+
+        <span class="c1"># Sort offline on the cleaned chunk — reset is default True, so</span>
+        <span class="c1"># each chunk sort is independent.</span>
+        <span class="n">sorting</span> <span class="o">=</span> <span class="n">rt_sort_obj</span><span class="o">.</span><span class="n">sort_offline</span><span class="p">(</span>
+            <span class="n">recording</span><span class="o">=</span><span class="n">chunk_cleaned</span><span class="p">,</span>
+            <span class="n">recording_window_ms</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">return_spikeinterface_sorter</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="c1"># ``sort_offline`` on an ndarray returns a NumpySorting with</span>
+        <span class="c1"># no associated recording, so we must pass n_samples explicitly.</span>
+        <span class="n">chunk_n_samples</span> <span class="o">=</span> <span class="n">chunk_cleaned</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">chunk_sd</span> <span class="o">=</span> <span class="n">_sorting_to_spikedata</span><span class="p">(</span><span class="n">sorting</span><span class="p">,</span> <span class="n">fs_Hz</span><span class="p">,</span> <span class="n">n_samples</span><span class="o">=</span><span class="n">chunk_n_samples</span><span class="p">)</span>
+        <span class="k">del</span> <span class="n">chunk_cleaned</span><span class="p">,</span> <span class="n">chunk_traces</span><span class="p">,</span> <span class="n">sorting</span>
+
+        <span class="c1"># Extract peri-event SpikeData per event in this chunk.</span>
+        <span class="k">for</span> <span class="n">i_in_group</span><span class="p">,</span> <span class="n">kept_idx</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">group_kept</span><span class="p">):</span>
+            <span class="n">t_local_corr</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">local_corrected_ms</span><span class="p">[</span><span class="n">i_in_group</span><span class="p">])</span>
+            <span class="n">t_global_corr</span> <span class="o">=</span> <span class="n">chunk_start_ms</span> <span class="o">+</span> <span class="n">t_local_corr</span>
+            <span class="n">per_event_global_corr_ms</span><span class="p">[</span><span class="n">kept_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">t_global_corr</span>
+
+            <span class="n">slice_lo_ms</span> <span class="o">=</span> <span class="n">t_local_corr</span> <span class="o">-</span> <span class="n">pre_ms</span>
+            <span class="n">slice_hi_ms</span> <span class="o">=</span> <span class="n">t_local_corr</span> <span class="o">+</span> <span class="n">post_ms</span>
+
+            <span class="c1"># ``subtime(start, end, shift_to=peak)`` returns a SpikeData</span>
+            <span class="c1"># with spike times relative to ``peak`` — so spike times</span>
+            <span class="c1"># land in [-pre_ms, +post_ms] with start_time = -pre_ms.</span>
+            <span class="c1"># Matches the output of ``SpikeData.align_to_events``.</span>
+            <span class="n">ev_sd</span> <span class="o">=</span> <span class="n">chunk_sd</span><span class="o">.</span><span class="n">subtime</span><span class="p">(</span><span class="n">slice_lo_ms</span><span class="p">,</span> <span class="n">slice_hi_ms</span><span class="p">,</span> <span class="n">shift_to</span><span class="o">=</span><span class="n">t_local_corr</span><span class="p">)</span>
+            <span class="n">per_event_sd</span><span class="p">[</span><span class="n">kept_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">ev_sd</span>
+
+        <span class="k">del</span> <span class="n">chunk_sd</span>
+
+    <span class="c1"># Guard: all kept events must have produced a slice.</span>
+    <span class="n">missing</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">sd</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">per_event_sd</span><span class="p">)</span> <span class="k">if</span> <span class="n">sd</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">missing</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Internal error: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">missing</span><span class="p">)</span><span class="si">}</span><span class="s2"> kept events did not receive a &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;peri-event slice (indices into kept set: </span><span class="si">{</span><span class="n">missing</span><span class="p">[:</span><span class="mi">5</span><span class="p">]</span><span class="si">}</span><span class="s2">...)&quot;</span>
+        <span class="p">)</span>
+
+    <span class="c1"># Build the final SpikeSliceStack.  ``times_start_to_end`` is in</span>
+    <span class="c1"># absolute recording ms (using the chunked-recentered event times).</span>
+    <span class="n">times_start_to_end</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">t</span> <span class="o">-</span> <span class="n">pre_ms</span><span class="p">),</span> <span class="nb">float</span><span class="p">(</span><span class="n">t</span> <span class="o">+</span> <span class="n">post_ms</span><span class="p">))</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">per_event_global_corr_ms</span>
+    <span class="p">]</span>
+
+    <span class="c1"># Resolve neuron_attributes from the RTSort if available (so the</span>
+    <span class="c1"># stack exposes per-unit metadata without duplicating it across</span>
+    <span class="c1"># slices — ``SpikeSliceStack`` strips per-slice attrs by default).</span>
+    <span class="n">neuron_attributes</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">per_event_sd</span> <span class="ow">and</span> <span class="n">per_event_sd</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">neuron_attributes</span> <span class="o">=</span> <span class="n">per_event_sd</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">neuron_attributes</span>
+
+    <span class="n">stim_slices</span> <span class="o">=</span> <span class="n">SpikeSliceStack</span><span class="p">(</span>
+        <span class="n">spike_stack</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">per_event_sd</span><span class="p">),</span>
+        <span class="n">times_start_to_end</span><span class="o">=</span><span class="n">times_start_to_end</span><span class="p">,</span>
+        <span class="n">neuron_attributes</span><span class="o">=</span><span class="n">neuron_attributes</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+        <span class="n">n_slices</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">stim_slices</span><span class="o">.</span><span class="n">spike_stack</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Produced SpikeSliceStack with </span><span class="si">{</span><span class="n">n_slices</span><span class="si">}</span><span class="s2"> slices &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;(peri-event windows [-</span><span class="si">{</span><span class="n">pre_ms</span><span class="si">}</span><span class="s2">, +</span><span class="si">{</span><span class="n">post_ms</span><span class="si">}</span><span class="s2">] ms)&quot;</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">stim_slices</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_group_stim_events_into_chunks</span><span class="p">(</span><span class="n">times_ms</span><span class="p">,</span> <span class="n">chunk_pre_ms</span><span class="p">,</span> <span class="n">chunk_post_ms</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Group event indices whose peri-event chunk windows overlap.</span>
+
+<span class="sd">    Given sorted-or-unsorted event times, returns a list of lists of</span>
+<span class="sd">    indices (into the input array) such that:</span>
+
+<span class="sd">      * events within a group have overlapping chunk windows</span>
+<span class="sd">        ``[t - chunk_pre_ms, t + chunk_post_ms]`` — so they are</span>
+<span class="sd">        naturally processed together in one chunk;</span>
+<span class="sd">      * no two groups have overlapping chunk windows.</span>
+
+<span class="sd">    Group boundaries are decided by sorted times; within each group</span>
+<span class="sd">    indices are returned in time order (matching the sort-order of</span>
+<span class="sd">    ``times_ms``).  Input indices, not times, are returned — the</span>
+<span class="sd">    caller keeps its own mapping.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">times_ms</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">times_ms</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">times_ms</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[]</span>
+    <span class="n">order</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">times_ms</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;stable&quot;</span><span class="p">)</span>
+    <span class="n">gap_threshold</span> <span class="o">=</span> <span class="n">chunk_pre_ms</span> <span class="o">+</span> <span class="n">chunk_post_ms</span>
+    <span class="n">groups</span> <span class="o">=</span> <span class="p">[[</span><span class="nb">int</span><span class="p">(</span><span class="n">order</span><span class="p">[</span><span class="mi">0</span><span class="p">])]]</span>
+    <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">order</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
+        <span class="n">prev_idx</span> <span class="o">=</span> <span class="n">groups</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">times_ms</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">-</span> <span class="n">times_ms</span><span class="p">[</span><span class="n">prev_idx</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">gap_threshold</span><span class="p">:</span>
+            <span class="n">groups</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="nb">int</span><span class="p">(</span><span class="n">idx</span><span class="p">)])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">groups</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">idx</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">groups</span>
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Full-recording path — kept for ndarray inputs (caller has already</span>
+<span class="c1"># materialised the traces).</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_sort_stim_full_recording</span><span class="p">(</span>
+    <span class="n">traces</span><span class="p">,</span>
+    <span class="n">recording_obj</span><span class="p">,</span>
+    <span class="n">fs_Hz</span><span class="p">,</span>
+    <span class="n">rt_sort_obj</span><span class="p">,</span>
+    <span class="n">stim_times_ms</span><span class="p">,</span>
+    <span class="n">pre_ms</span><span class="p">,</span>
+    <span class="n">post_ms</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">artifact_method</span><span class="p">,</span>
+    <span class="n">artifact_window_ms</span><span class="p">,</span>
+    <span class="n">saturation_threshold</span><span class="p">,</span>
+    <span class="n">baseline_threshold</span><span class="p">,</span>
+    <span class="n">poly_order</span><span class="p">,</span>
+    <span class="n">artifact_window_only</span><span class="p">,</span>
+    <span class="n">max_stim_offset_ms</span><span class="p">,</span>
+    <span class="n">peak_mode</span><span class="p">,</span>
+    <span class="n">n_reference_channels</span><span class="p">,</span>
+    <span class="n">prewindow_ms</span><span class="p">,</span>
+    <span class="n">multi_peak</span><span class="p">,</span>
+    <span class="n">multi_peak_select</span><span class="p">,</span>
+    <span class="n">multi_peak_threshold</span><span class="p">,</span>
+    <span class="n">multi_peak_min_separation_ms</span><span class="p">,</span>
+    <span class="n">recording_window_ms</span><span class="p">,</span>
+    <span class="n">verbose</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Full-recording path — processes the entire recording in one go.</span>
+
+<span class="sd">    Used when the caller passed a pre-materialised ``np.ndarray``; for</span>
+<span class="sd">    lazy recordings the chunked path is preferred (much lower peak</span>
+<span class="sd">    RAM).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">.artifact_removal</span><span class="w"> </span><span class="kn">import</span> <span class="n">remove_stim_artifacts</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">.recentering</span><span class="w"> </span><span class="kn">import</span> <span class="n">recenter_stim_times</span>
+
+    <span class="k">if</span> <span class="n">traces</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Expected 2-D array (channels, samples), got shape </span><span class="si">{</span><span class="n">traces</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">.&quot;</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">fs_Hz</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;fs_Hz is required when stim_recording is a numpy array.&quot;</span><span class="p">)</span>
+    <span class="n">fs_Hz</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">fs_Hz</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Recentering stim times (full-recording path)...&quot;</span><span class="p">)</span>
+    <span class="n">corrected_stim_ms</span> <span class="o">=</span> <span class="n">recenter_stim_times</span><span class="p">(</span>
+        <span class="n">traces</span><span class="p">,</span>
+        <span class="n">stim_times_ms</span><span class="p">,</span>
+        <span class="n">fs_Hz</span><span class="p">,</span>
+        <span class="n">max_offset_ms</span><span class="o">=</span><span class="n">max_stim_offset_ms</span><span class="p">,</span>
+        <span class="n">peak_mode</span><span class="o">=</span><span class="n">peak_mode</span><span class="p">,</span>
+        <span class="n">n_reference_channels</span><span class="o">=</span><span class="n">n_reference_channels</span><span class="p">,</span>
+        <span class="n">prewindow_ms</span><span class="o">=</span><span class="n">prewindow_ms</span><span class="p">,</span>
+        <span class="n">multi_peak</span><span class="o">=</span><span class="n">multi_peak</span><span class="p">,</span>
+        <span class="n">multi_peak_select</span><span class="o">=</span><span class="n">multi_peak_select</span><span class="p">,</span>
+        <span class="n">multi_peak_threshold</span><span class="o">=</span><span class="n">multi_peak_threshold</span><span class="p">,</span>
+        <span class="n">multi_peak_min_separation_ms</span><span class="o">=</span><span class="n">multi_peak_min_separation_ms</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+        <span class="n">offsets</span> <span class="o">=</span> <span class="n">corrected_stim_ms</span> <span class="o">-</span> <span class="n">stim_times_ms</span>
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;  Stim time corrections: &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;mean=</span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">offsets</span><span class="p">)</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> ms  &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;max=</span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">offsets</span><span class="p">))</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> ms&quot;</span>
+        <span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Removing artifacts (method=</span><span class="si">{</span><span class="n">artifact_method</span><span class="si">!r}</span><span class="s2">)...&quot;</span><span class="p">)</span>
+
+    <span class="n">cleaned</span><span class="p">,</span> <span class="n">blanked_mask</span> <span class="o">=</span> <span class="n">remove_stim_artifacts</span><span class="p">(</span>
+        <span class="n">traces</span><span class="p">,</span>
+        <span class="n">corrected_stim_ms</span><span class="p">,</span>
+        <span class="n">fs_Hz</span><span class="p">,</span>
+        <span class="n">method</span><span class="o">=</span><span class="n">artifact_method</span><span class="p">,</span>
+        <span class="n">artifact_window_ms</span><span class="o">=</span><span class="n">artifact_window_ms</span><span class="p">,</span>
+        <span class="n">saturation_threshold</span><span class="o">=</span><span class="n">saturation_threshold</span><span class="p">,</span>
+        <span class="n">baseline_threshold</span><span class="o">=</span><span class="n">baseline_threshold</span><span class="p">,</span>
+        <span class="n">poly_order</span><span class="o">=</span><span class="n">poly_order</span><span class="p">,</span>
+        <span class="n">artifact_window_only</span><span class="o">=</span><span class="n">artifact_window_only</span><span class="p">,</span>
+        <span class="n">copy</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">recording</span><span class="o">=</span><span class="n">recording_obj</span><span class="p">,</span>
+        <span class="n">raw_traces</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="mf">100.0</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">blanked_mask</span><span class="p">)</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">% of samples blanked&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Running RT-Sort offline sorting on cleaned traces...&quot;</span><span class="p">)</span>
+
+    <span class="n">sorting</span> <span class="o">=</span> <span class="n">rt_sort_obj</span><span class="o">.</span><span class="n">sort_offline</span><span class="p">(</span>
+        <span class="n">recording</span><span class="o">=</span><span class="n">cleaned</span><span class="p">,</span>
+        <span class="n">recording_window_ms</span><span class="o">=</span><span class="n">recording_window_ms</span><span class="p">,</span>
+        <span class="n">return_spikeinterface_sorter</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">verbose</span><span class="o">=</span><span class="n">verbose</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="c1"># sort_offline on an ndarray produces a NumpySorting without an</span>
+    <span class="c1"># associated recording; pass n_samples explicitly.</span>
+    <span class="n">sd</span> <span class="o">=</span> <span class="n">_sorting_to_spikedata</span><span class="p">(</span><span class="n">sorting</span><span class="p">,</span> <span class="n">fs_Hz</span><span class="p">,</span> <span class="n">n_samples</span><span class="o">=</span><span class="n">cleaned</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="si">}</span><span class="s2"> units, </span><span class="si">{</span><span class="nb">sum</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">t</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">sd</span><span class="o">.</span><span class="n">train</span><span class="p">)</span><span class="si">}</span><span class="s2"> total spikes&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Aligning to </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">corrected_stim_ms</span><span class="p">)</span><span class="si">}</span><span class="s2"> stim events &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;(window: -</span><span class="si">{</span><span class="n">pre_ms</span><span class="si">}</span><span class="s2"> to +</span><span class="si">{</span><span class="n">post_ms</span><span class="si">}</span><span class="s2"> ms)...&quot;</span>
+        <span class="p">)</span>
+    <span class="n">stim_slices</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">align_to_events</span><span class="p">(</span><span class="n">corrected_stim_ms</span><span class="p">,</span> <span class="n">pre_ms</span><span class="p">,</span> <span class="n">post_ms</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;spike&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Produced SpikeSliceStack with </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">stim_slices</span><span class="o">.</span><span class="n">spike_stack</span><span class="p">)</span><span class="si">}</span><span class="s2"> slices&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">stim_slices</span>
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Internal helpers</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_find_prefilter_parent</span><span class="p">(</span><span class="n">recording</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Walk a SpikeInterface preprocessing chain upward until we leave</span>
+<span class="sd">    any bandpass/highpass/lowpass filter and return the first non-filter</span>
+<span class="sd">    parent.  For the standard SpikeLab chain</span>
+<span class="sd">    ``BandpassFilterRecording → ScaleRecording → …`` this returns the</span>
+<span class="sd">    ``ScaleRecording`` — float32 uV traces without filter ringing.</span>
+
+<span class="sd">    Returns ``None`` if the top-level recording is already non-filter</span>
+<span class="sd">    (nothing to walk) or if the chain cannot be traversed.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">recording</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="n">cls_name</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="n">recording</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span>
+    <span class="k">if</span> <span class="s2">&quot;Filter&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">cls_name</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="n">cur</span> <span class="o">=</span> <span class="n">recording</span>
+    <span class="n">visited</span><span class="p">:</span> <span class="nb">set</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+    <span class="k">while</span> <span class="n">cur</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">id</span><span class="p">(</span><span class="n">cur</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">visited</span><span class="p">:</span>
+        <span class="n">visited</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="nb">id</span><span class="p">(</span><span class="n">cur</span><span class="p">))</span>
+        <span class="k">if</span> <span class="s2">&quot;Filter&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="nb">type</span><span class="p">(</span><span class="n">cur</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">cur</span>
+        <span class="n">kwargs</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">cur</span><span class="p">,</span> <span class="s2">&quot;_kwargs&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">kwargs</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="n">parent</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;recording&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;parent_recording&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">parent</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="n">cur</span> <span class="o">=</span> <span class="n">parent</span>
+    <span class="k">return</span> <span class="kc">None</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_load_rt_sort</span><span class="p">(</span><span class="n">rt_sort</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">model_path</span><span class="p">,</span> <span class="n">verbose</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load or return an RTSort object.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">rt_sort</span><span class="p">,</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">)):</span>
+        <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Loading RTSort from </span><span class="si">{</span><span class="n">rt_sort</span><span class="si">}</span><span class="s2">...&quot;</span><span class="p">)</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">..rt_sort_runner</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_rt_sort</span> <span class="k">as</span> <span class="n">_load</span>
+
+        <span class="k">return</span> <span class="n">_load</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">rt_sort</span><span class="p">),</span> <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span> <span class="n">model_path</span><span class="o">=</span><span class="n">model_path</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">rt_sort</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_sorting_to_spikedata</span><span class="p">(</span><span class="n">sorting</span><span class="p">,</span> <span class="n">fs_Hz</span><span class="p">,</span> <span class="n">n_samples</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert a NumpySorting to a SpikeData (lightweight, no waveforms).</span>
+
+<span class="sd">    Converts spike times from samples to milliseconds and builds a</span>
+<span class="sd">    minimal SpikeData.  No waveform extraction or curation is</span>
+<span class="sd">    performed — the assumption is that the RTSort sequences were</span>
+<span class="sd">    already curated during the Phase 1 vanilla sorting.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        sorting: SpikeInterface ``NumpySorting``.</span>
+<span class="sd">        fs_Hz (float): Sampling frequency in Hz.</span>
+<span class="sd">        n_samples (int or None): Duration of the sort in samples.</span>
+<span class="sd">            When a sorting was produced by ``RTSort.sort_offline`` on</span>
+<span class="sd">            a bare ndarray (as in the chunked path), it has no</span>
+<span class="sd">            associated recording, so ``sorting.get_num_samples()``</span>
+<span class="sd">            raises.  Pass the chunk&#39;s sample count explicitly in that</span>
+<span class="sd">            case.  When None, falls back to ``sorting.get_num_samples()``</span>
+<span class="sd">            (which requires the sorting to have an associated</span>
+<span class="sd">            recording).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">...spikedata.spikedata</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpikeData</span>
+
+    <span class="n">unit_ids</span> <span class="o">=</span> <span class="n">sorting</span><span class="o">.</span><span class="n">get_unit_ids</span><span class="p">()</span>
+    <span class="n">train</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">uid</span> <span class="ow">in</span> <span class="n">unit_ids</span><span class="p">:</span>
+        <span class="n">spike_samples</span> <span class="o">=</span> <span class="n">sorting</span><span class="o">.</span><span class="n">get_unit_spike_train</span><span class="p">(</span><span class="n">uid</span><span class="p">)</span>
+        <span class="n">spike_ms</span> <span class="o">=</span> <span class="n">spike_samples</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span> <span class="o">/</span> <span class="n">fs_Hz</span> <span class="o">*</span> <span class="mf">1000.0</span>
+        <span class="n">train</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">spike_ms</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">n_samples</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">n_samples</span> <span class="o">=</span> <span class="n">sorting</span><span class="o">.</span><span class="n">get_num_samples</span><span class="p">()</span>
+    <span class="n">length_ms</span> <span class="o">=</span> <span class="n">n_samples</span> <span class="o">/</span> <span class="n">fs_Hz</span> <span class="o">*</span> <span class="mf">1000.0</span>
+    <span class="k">return</span> <span class="n">SpikeData</span><span class="p">(</span><span class="n">train</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="n">length_ms</span><span class="p">)</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Tjitse van der Molen.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

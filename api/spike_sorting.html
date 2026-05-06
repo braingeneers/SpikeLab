@@ -98,6 +98,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../guides/spike_sorting.html#merge-based-deduplication">Merge-based deduplication</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/spike_sorting.html#batch-curation">Batch curation</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/spike_sorting.html#curation-history">Curation history</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/spike_sorting.html#visualising-sorted-units">Visualising sorted units</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/spike_sorting.html#sorting-concatenated-recordings">Sorting Concatenated Recordings</a></li>
@@ -376,6 +377,7 @@
 <li class="toctree-l4"><a class="reference internal" href="#sort-run-reports">Sort Run Reports</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#resource-guards">Resource Guards</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#pipeline-canary">Pipeline Canary</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#stimulation-sorting">Stimulation Sorting</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="curation.html">Curation</a><ul>
@@ -3712,6 +3714,414 @@ during the real run).</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>result (<a class="reference external" href="https://docs.python.org/3/library/exceptions.html#BaseException" title="(in Python v3.14)">BaseException</a> or None)</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="stimulation-sorting">
+<h2>Stimulation Sorting<a class="headerlink" href="#stimulation-sorting" title="Link to this heading"></a></h2>
+<p>Helpers for spike-sorting recordings with electrical stimulation: artifact
+removal, alignment recentering (single-pulse and multi-pulse), and the
+end-to-end stim-aware pipeline. See the
+<a class="reference internal" href="../guides/spike_sorting.html#stim-artifact-removal"><span class="std std-ref">Stimulation Artifact Removal</span></a> section of the
+guide for usage examples.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="spikelab.spike_sorting.stim_sorting.sort_stim_recording">
+<span class="sig-prename descclassname"><span class="pre">spikelab.spike_sorting.stim_sorting.</span></span><span class="sig-name descname"><span class="pre">sort_stim_recording</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">stim_recording</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rt_sort</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stim_times_ms</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pre_ms</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">post_ms</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs_Hz</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">artifact_method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'polynomial'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">artifact_window_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">saturation_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">baseline_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">poly_order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">artifact_window_only</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_stim_offset_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">peak_mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'abs_max'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_reference_channels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">8</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prewindow_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">multi_peak</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">multi_peak_select</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'first'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">multi_peak_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.6</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">multi_peak_min_separation_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">recording_window_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spike_sorting/stim_sorting/pipeline.html#sort_stim_recording"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spike_sorting.stim_sorting.sort_stim_recording" title="Link to this definition"></a></dt>
+<dd><p>Sort spikes in a stimulation recording using pre-trained RT-Sort sequences.</p>
+<p>Takes a raw stimulation recording and a trained <code class="docutils literal notranslate"><span class="pre">RTSort</span></code> object
+(or path to a saved one produced by
+<code class="docutils literal notranslate"><span class="pre">sort_recording(...,</span> <span class="pre">sorter=&quot;rt_sort&quot;)</span></code>), removes stimulation
+artifacts, runs offline spike sorting, and returns a
+<code class="docutils literal notranslate"><span class="pre">SpikeSliceStack</span></code> of sorted spikes aligned to the corrected
+stimulation event times.</p>
+<p><strong>Memory model.</strong>  When <code class="docutils literal notranslate"><span class="pre">stim_recording</span></code> is a path or a lazy
+SpikeInterface recording, the pipeline processes one <em>per-event
+time chunk</em> at a time (peak RAM ≈ one chunk’s working set,
+typically 100-200 MB on MaxOne — independent of recording
+duration).  When <code class="docutils literal notranslate"><span class="pre">stim_recording</span></code> is a pre-materialised
+<code class="docutils literal notranslate"><span class="pre">np.ndarray</span></code>, the full-recording path is used instead (caller
+has already paid the memory cost).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>stim_recording</strong> – <p>The stimulation recording.  Can be:
+- <code class="docutils literal notranslate"><span class="pre">str</span></code> or <code class="docutils literal notranslate"><span class="pre">Path</span></code> to a recording file (Maxwell .h5 or</p>
+<blockquote>
+<div><p>NWB).  Chunked path.</p>
+</div></blockquote>
+<ul>
+<li><p>A SpikeInterface <code class="docutils literal notranslate"><span class="pre">BaseRecording</span></code> object.  Chunked path.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">np.ndarray</span></code> of shape <code class="docutils literal notranslate"><span class="pre">(channels,</span> <span class="pre">samples)</span></code>.
+Full-recording path (no chunking possible).</p></li>
+</ul>
+</p></li>
+<li><p><strong>rt_sort</strong> – The trained RT-Sort object or path to its pickle.</p></li>
+<li><p><strong>stim_times_ms</strong> (<em>array-like</em>) – Logged stimulation event times in
+milliseconds.</p></li>
+<li><p><strong>pre_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Output peri-event window radius before each
+stim event, in milliseconds.</p></li>
+<li><p><strong>post_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Output peri-event window radius after each
+stim event, in milliseconds.</p></li>
+<li><p><strong>fs_Hz</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Sampling frequency in Hz.  Required
+for ndarray input; inferred from the recording object
+otherwise.</p></li>
+<li><p><strong>artifact_method</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – <code class="docutils literal notranslate"><span class="pre">&quot;polynomial&quot;</span></code> (default) or
+<code class="docutils literal notranslate"><span class="pre">&quot;blank&quot;</span></code>.  Passed to <code class="docutils literal notranslate"><span class="pre">remove_stim_artifacts</span></code>.</p></li>
+<li><p><strong>artifact_window_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Max artifact tail duration after
+the last desaturation.  Default 10.0.</p></li>
+<li><p><strong>saturation_threshold</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Saturation voltage
+threshold.  None auto-detects (gain-anchored from
+recording metadata if available).</p></li>
+<li><p><strong>baseline_threshold</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Baseline envelope
+threshold.  None auto-detects from pre-stim MAD.</p></li>
+<li><p><strong>poly_order</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Polynomial order for detrend.  Default 3.</p></li>
+<li><p><strong>artifact_window_only</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Only process around stim events.
+Default True.</p></li>
+<li><p><strong>multi_peak</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – When <code class="docutils literal notranslate"><span class="pre">True</span></code>, enables multi-pulse-aware
+recentering — the search window is interpreted as
+potentially containing multiple pulses (a stim train), and
+the alignment target is the first or last qualifying pulse
+rather than the strongest. Default <code class="docutils literal notranslate"><span class="pre">False</span></code>.  When
+<code class="docutils literal notranslate"><span class="pre">False</span></code>, behaviour is identical to the pre-multi-peak
+implementation.  See <a class="reference internal" href="#spikelab.spike_sorting.stim_sorting.recenter_stim_times" title="spikelab.spike_sorting.stim_sorting.recenter_stim_times"><code class="xref py py-func docutils literal notranslate"><span class="pre">recenter_stim_times()</span></code></a> for details.</p></li>
+<li><p><strong>multi_peak_select</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – When <code class="docutils literal notranslate"><span class="pre">multi_peak=True</span></code>, which
+qualifying peak to lock onto.  <code class="docutils literal notranslate"><span class="pre">&quot;first&quot;</span></code> (default) /
+<code class="docutils literal notranslate"><span class="pre">&quot;last&quot;</span></code>.</p></li>
+<li><p><strong>multi_peak_threshold</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – When <code class="docutils literal notranslate"><span class="pre">multi_peak=True</span></code>, peaks
+below this fraction of the largest peak in the search
+window are ignored.  Default <code class="docutils literal notranslate"><span class="pre">0.6</span></code>.</p></li>
+<li><p><strong>multi_peak_min_separation_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – When <code class="docutils literal notranslate"><span class="pre">multi_peak=True</span></code>,
+minimum spacing between candidate peaks.  Default <code class="docutils literal notranslate"><span class="pre">2.0</span></code>.</p></li>
+<li><p><strong>max_stim_offset_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Search window radius for stim
+time recentering.  Default 50.0.</p></li>
+<li><p><strong>peak_mode</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Alignment target for <code class="docutils literal notranslate"><span class="pre">recenter_stim_times</span></code>.
+One of <code class="docutils literal notranslate"><span class="pre">&quot;abs_max&quot;</span></code> (default), <code class="docutils literal notranslate"><span class="pre">&quot;pos_peak&quot;</span></code>,
+<code class="docutils literal notranslate"><span class="pre">&quot;neg_peak&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;down_edge&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;up_edge&quot;</span></code>.  For
+biphasic anodic-first pulses where the AP is triggered at
+the up→down current reversal, use <code class="docutils literal notranslate"><span class="pre">&quot;down_edge&quot;</span></code>.</p></li>
+<li><p><strong>n_reference_channels</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Top-K highest-amplitude channels
+summed to form the signed reference trace for non-
+<code class="docutils literal notranslate"><span class="pre">abs_max</span></code> peak modes.  Default 8.</p></li>
+<li><p><strong>prewindow_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – For <code class="docutils literal notranslate"><span class="pre">down_edge</span></code> / <code class="docutils literal notranslate"><span class="pre">up_edge</span></code>, radius
+of the pre-window before the primary peak.  Default 5.0.</p></li>
+<li><p><strong>model</strong> (<em>ModelSpikeSorter</em><em> or </em><em>None</em>) – Detection model instance for
+<code class="docutils literal notranslate"><span class="pre">load_rt_sort</span></code> when <code class="docutils literal notranslate"><span class="pre">rt_sort</span></code> is a path.</p></li>
+<li><p><strong>model_path</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><em>Path</em><em> or </em><em>None</em>) – Path to a detection model
+folder for <code class="docutils literal notranslate"><span class="pre">load_rt_sort</span></code> when <code class="docutils literal notranslate"><span class="pre">rt_sort</span></code> is a path.</p></li>
+<li><p><strong>recording_window_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em> or </em><em>None</em>) – <code class="docutils literal notranslate"><span class="pre">(start_ms,</span> <span class="pre">end_ms)</span></code>
+sub-window to restrict processing to.  Only events whose
+peri-event window falls entirely within this range are
+sorted.  <code class="docutils literal notranslate"><span class="pre">None</span></code> processes the full recording.</p></li>
+<li><p><strong>verbose</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Print progress messages.  Default True.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Event-aligned spike slice stack</dt><dd><p>with one slice per (corrected) stim event.  Each slice
+spans <code class="docutils literal notranslate"><span class="pre">[-pre_ms,</span> <span class="pre">+post_ms]</span></code> relative to the stim time.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>stim_slices (<a class="reference internal" href="spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack" title="spikelab.spikedata.spikeslicestack.SpikeSliceStack">SpikeSliceStack</a>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="spikelab.spike_sorting.stim_sorting.preprocess_stim_artifacts">
+<span class="sig-prename descclassname"><span class="pre">spikelab.spike_sorting.stim_sorting.</span></span><span class="sig-name descname"><span class="pre">preprocess_stim_artifacts</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">recording</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stim_times_ms</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'polynomial'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">artifact_window_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">recenter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_offset_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">poly_order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">saturation_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">baseline_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">artifact_window_only</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_scaled</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'float32'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spike_sorting/stim_sorting/preprocess.html#preprocess_stim_artifacts"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spike_sorting.stim_sorting.preprocess_stim_artifacts" title="Link to this definition"></a></dt>
+<dd><p>Remove stim artifacts and return a new SpikeInterface recording.</p>
+<p>Materialises <code class="docutils literal notranslate"><span class="pre">recording.get_traces()</span></code> to an ndarray, optionally
+recenters the stim times to their artifact peaks, runs
+<a class="reference internal" href="#spikelab.spike_sorting.stim_sorting.remove_stim_artifacts" title="spikelab.spike_sorting.stim_sorting.remove_stim_artifacts"><code class="xref py py-func docutils literal notranslate"><span class="pre">remove_stim_artifacts()</span></code></a>, and wraps the cleaned traces in
+either a <code class="docutils literal notranslate"><span class="pre">BinaryRecordingExtractor</span></code> (when <code class="docutils literal notranslate"><span class="pre">output_path</span></code> is
+given) or a <code class="docutils literal notranslate"><span class="pre">NumpyRecording</span></code>.  Channel IDs, locations, gains, and
+offsets are copied from the input recording.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>recording</strong> (<em>BaseRecording</em>) – SpikeInterface recording to clean.  Single-segment only.</p></li>
+<li><p><strong>stim_times_ms</strong> (<em>array-like</em>) – Logged stim event times in milliseconds (<code class="docutils literal notranslate"><span class="pre">len(stim_times_ms)</span></code>
+may be 0, in which case recentering/artifact removal are
+skipped and the recording is returned unchanged aside from the
+<code class="docutils literal notranslate"><span class="pre">BinaryRecordingExtractor</span></code> wrap when <code class="docutils literal notranslate"><span class="pre">output_path</span></code> is
+given).</p></li>
+<li><p><strong>output_path</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><em>Path</em><em>, </em><em>optional</em>) – When provided, cleaned traces are written as a float32 binary
+(interleaved channels, i.e. shape <code class="docutils literal notranslate"><span class="pre">(num_samples,</span> <span class="pre">num_channels)</span></code>
+on disk) and a <code class="docutils literal notranslate"><span class="pre">BinaryRecordingExtractor</span></code> is returned.  Parent
+directories are created as needed.  When <code class="docutils literal notranslate"><span class="pre">None</span></code> (default), a
+<code class="docutils literal notranslate"><span class="pre">NumpyRecording</span></code> is returned — NOT dumpable for Docker-based
+sorters.</p></li>
+<li><p><strong>method</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – <code class="docutils literal notranslate"><span class="pre">&quot;polynomial&quot;</span></code> (default) or <code class="docutils literal notranslate"><span class="pre">&quot;blank&quot;</span></code> — see
+<a class="reference internal" href="#spikelab.spike_sorting.stim_sorting.remove_stim_artifacts" title="spikelab.spike_sorting.stim_sorting.remove_stim_artifacts"><code class="xref py py-func docutils literal notranslate"><span class="pre">remove_stim_artifacts()</span></code></a>.  Polynomial detrend preserves
+spikes in the 0–10 ms post-stim window (the smooth fit can’t
+capture a ~1 ms spike feature) and is safe by default thanks
+to <code class="docutils literal notranslate"><span class="pre">poly_clamp_factor</span></code> — divergent fits at extreme stim
+amplitudes are caught and downgraded to blank automatically,
+with one summary warning per call.  Use <code class="docutils literal notranslate"><span class="pre">&quot;blank&quot;</span></code> only when
+the post-stim window is genuinely irrelevant to the analysis,
+or when the clamp warning fires on a non-trivial fraction of
+events (in which case a uniform blank is cleaner than mixing
+per-event polynomial subtraction with per-event clamp blanks).</p></li>
+<li><p><strong>artifact_window_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Length of the post-stim artifact window in ms.  Default 10.0.</p></li>
+<li><p><strong>recenter</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – When True (default), align logged stim times to the actual
+artifact peaks via <a class="reference internal" href="#spikelab.spike_sorting.stim_sorting.recenter_stim_times" title="spikelab.spike_sorting.stim_sorting.recenter_stim_times"><code class="xref py py-func docutils literal notranslate"><span class="pre">recenter_stim_times()</span></code></a> before artifact
+removal.  Set False when the supplied times are already
+peak-aligned.</p></li>
+<li><p><strong>max_offset_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Maximum recentering shift, passed to
+<a class="reference internal" href="#spikelab.spike_sorting.stim_sorting.recenter_stim_times" title="spikelab.spike_sorting.stim_sorting.recenter_stim_times"><code class="xref py py-func docutils literal notranslate"><span class="pre">recenter_stim_times()</span></code></a>.  Default 50.0.</p></li>
+<li><p><strong>poly_order</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Polynomial order for <code class="docutils literal notranslate"><span class="pre">method=&quot;polynomial&quot;</span></code>.  Default 3.</p></li>
+<li><p><strong>saturation_threshold</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><em>optional</em>) – Override the auto-detected thresholds used by
+<a class="reference internal" href="#spikelab.spike_sorting.stim_sorting.remove_stim_artifacts" title="spikelab.spike_sorting.stim_sorting.remove_stim_artifacts"><code class="xref py py-func docutils literal notranslate"><span class="pre">remove_stim_artifacts()</span></code></a>.</p></li>
+<li><p><strong>baseline_threshold</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><em>optional</em>) – Override the auto-detected thresholds used by
+<a class="reference internal" href="#spikelab.spike_sorting.stim_sorting.remove_stim_artifacts" title="spikelab.spike_sorting.stim_sorting.remove_stim_artifacts"><code class="xref py py-func docutils literal notranslate"><span class="pre">remove_stim_artifacts()</span></code></a>.</p></li>
+<li><p><strong>artifact_window_only</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – When True (default), only the windows around stim events are
+processed; when False, a global sliding-window detrend is
+applied (useful for very frequent stim protocols).</p></li>
+<li><p><strong>return_scaled</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Whether to materialise µV-scaled traces from <code class="docutils literal notranslate"><span class="pre">recording</span></code>.
+Default False — match the recording’s native dtype/units.  Set
+True to force a µV-scaled float output when the recording
+exposes gains/offsets.  Forwarded as <code class="docutils literal notranslate"><span class="pre">return_in_uV</span></code> on newer
+SpikeInterface versions and <code class="docutils literal notranslate"><span class="pre">return_scaled</span></code> on older ones.</p></li>
+<li><p><strong>dtype</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – dtype of the cleaned output (both for in-memory and on-disk
+representations).  Default <code class="docutils literal notranslate"><span class="pre">&quot;float32&quot;</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.14)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code></a>[BaseRecording, <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>]</span></p>
+</dd>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><ul>
+<li><p><strong>cleaned_recording</strong> (<em>BaseRecording</em>) – New SpikeInterface recording with artifacts removed.  Channel
+IDs, locations, gains, and offsets are inherited from the input.</p></li>
+<li><p><strong>metadata</strong> (<em>dict</em>) –</p>
+<dl class="simple">
+<dt>Artifact-removal metadata.  Keys:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">stim_times_ms_logged</span></code>: original stim times as passed in</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">stim_times_ms_corrected</span></code>: recentered stim times (equals
+<code class="docutils literal notranslate"><span class="pre">stim_times_ms_logged</span></code> when <code class="docutils literal notranslate"><span class="pre">recenter=False</span></code>)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">recenter_offsets_ms</span></code>: <code class="docutils literal notranslate"><span class="pre">corrected</span> <span class="pre">-</span> <span class="pre">logged</span></code> offsets</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">blanked_fraction</span></code>: overall fraction of samples blanked</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">blanked_fraction_per_channel</span></code>: per-channel blanked
+fractions, shape <code class="docutils literal notranslate"><span class="pre">(num_channels,)</span></code></p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="spikelab.spike_sorting.stim_sorting.recenter_stim_times">
+<span class="sig-prename descclassname"><span class="pre">spikelab.spike_sorting.stim_sorting.</span></span><span class="sig-name descname"><span class="pre">recenter_stim_times</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">traces</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stim_times_ms</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs_Hz</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_offset_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50.0</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">peak_mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'abs_max'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_reference_channels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">8</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prewindow_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">warn_offset_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">multi_peak</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">multi_peak_select</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'first'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">multi_peak_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.6</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">multi_peak_min_separation_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spike_sorting/stim_sorting/recentering.html#recenter_stim_times"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spike_sorting.stim_sorting.recenter_stim_times" title="Link to this definition"></a></dt>
+<dd><p>Find actual stimulation artifact times near logged stim times.</p>
+<p>For each logged stim time, searches a window of <code class="docutils literal notranslate"><span class="pre">±max_offset_ms</span></code>
+in the raw voltage traces and returns the sample at the alignment
+point selected by <code class="docutils literal notranslate"><span class="pre">peak_mode</span></code>.  This corrects for timing offsets
+between the stimulation hardware trigger log and the artifact in
+the recording.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>traces</strong> (<em>np.ndarray</em>) – Raw voltage traces, shape
+<code class="docutils literal notranslate"><span class="pre">(channels,</span> <span class="pre">samples)</span></code>.</p></li>
+<li><p><strong>stim_times_ms</strong> (<em>array-like</em>) – Logged stimulation event times in
+milliseconds.  Need not be sorted.</p></li>
+<li><p><strong>fs_Hz</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Sampling frequency in Hz.</p></li>
+<li><p><strong>max_offset_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Radius of the search window around
+each logged stim time, in milliseconds.  Default 50.0.</p></li>
+<li><p><strong>peak_mode</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – <p>Alignment target.  One of:
+* <code class="docutils literal notranslate"><span class="pre">&quot;abs_max&quot;</span></code> (default): largest <code class="docutils literal notranslate"><span class="pre">|voltage|</span></code> across</p>
+<blockquote>
+<div><p>channels.  Backward-compatible with the pre-<code class="docutils literal notranslate"><span class="pre">peak_mode</span></code>
+API.</p>
+</div></blockquote>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;pos_peak&quot;</span></code>: largest positive voltage in the top-K
+summed reference trace.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;neg_peak&quot;</span></code>: most negative voltage in the top-K
+summed reference.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;down_edge&quot;</span></code>: up→down transition for biphasic
+anodic-first pulses (see module docstring).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;up_edge&quot;</span></code>: down→up transition for biphasic
+cathodic-first pulses.</p></li>
+</ul>
+</p></li>
+<li><p><strong>n_reference_channels</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Number of highest-amplitude
+channels summed to build the signed reference trace for
+non-<code class="docutils literal notranslate"><span class="pre">abs_max</span></code> modes.  Default <code class="docutils literal notranslate"><span class="pre">8</span></code>.  Ignored for
+<code class="docutils literal notranslate"><span class="pre">abs_max</span></code>.</p></li>
+<li><p><strong>prewindow_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – For <code class="docutils literal notranslate"><span class="pre">down_edge</span></code> / <code class="docutils literal notranslate"><span class="pre">up_edge</span></code>, radius
+of the pre-window in which to search for the preceding
+opposite-polarity peak.  Default <code class="docutils literal notranslate"><span class="pre">5.0</span></code>.</p></li>
+<li><p><strong>warn_offset_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – When the median <code class="docutils literal notranslate"><span class="pre">|corrected</span> <span class="pre">-</span>
+<span class="pre">logged|</span></code> shift exceeds this threshold, emit a
+<code class="docutils literal notranslate"><span class="pre">UserWarning</span></code>.  A large systematic shift usually means a
+fixed hardware-vs-log delay, a wrong time column in the
+stim log, or a unit mismatch (ms vs s vs samples) rather
+than genuine jitter.  Set to <code class="docutils literal notranslate"><span class="pre">None</span></code> to silence.  Default
+<code class="docutils literal notranslate"><span class="pre">3.0</span></code> ms — well above one-sample jitter at 20–30 kHz.</p></li>
+<li><p><strong>multi_peak</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Opt-in support for multi-pulse stim trains.
+When <code class="docutils literal notranslate"><span class="pre">True</span></code>, the search window is treated as potentially
+containing multiple stimulation pulses (e.g. a 100 Hz
+train), and the alignment target is the <strong>first</strong> or
+<strong>last</strong> qualifying pulse rather than the strongest one.
+Default <code class="docutils literal notranslate"><span class="pre">False</span></code> — preserves backward-compatible single-
+peak behavior.</p></li>
+<li><p><strong>multi_peak_select</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – When <code class="docutils literal notranslate"><span class="pre">multi_peak=True</span></code>, which
+qualifying peak to lock onto.  <code class="docutils literal notranslate"><span class="pre">&quot;first&quot;</span></code> (default) =
+first pulse onset (matches “first-pulse alignment” used
+for train PSTHs).  <code class="docutils literal notranslate"><span class="pre">&quot;last&quot;</span></code> = last pulse onset (useful
+for studying after-train rebound).  Ignored when
+<code class="docutils literal notranslate"><span class="pre">multi_peak=False</span></code>.</p></li>
+<li><p><strong>multi_peak_threshold</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – When <code class="docutils literal notranslate"><span class="pre">multi_peak=True</span></code>, only
+peaks whose amplitude is at least this fraction of the
+largest peak in the search window are considered “real
+pulses”.  Default <code class="docutils literal notranslate"><span class="pre">0.6</span></code> — accepts pulses up to 40% weaker
+than the strongest while still rejecting noise.</p></li>
+<li><p><strong>multi_peak_min_separation_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – When <code class="docutils literal notranslate"><span class="pre">multi_peak=True</span></code>,
+the minimum spacing between candidate peaks.  Prevents
+multi-sample peaks of a single pulse from being counted as
+separate pulses.  Default <code class="docutils literal notranslate"><span class="pre">2.0</span></code> ms — well below any
+sensible inter-pulse interval (5 ms = 200 Hz; 10 ms =
+100 Hz).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Corrected stim times in</dt><dd><p>milliseconds, same length as <code class="docutils literal notranslate"><span class="pre">stim_times_ms</span></code>.  Events
+whose search window extends outside the recording are
+clipped to the recording boundary.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>corrected_ms (np.ndarray)</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>When multiple stim events have overlapping search windows,
+each is recentered independently.</p></li>
+<li><p>For monophasic pulses the <code class="docutils literal notranslate"><span class="pre">*_edge</span></code> modes degrade
+gracefully: the pre-window search returns the opposite
+polarity’s noise peak and the zero-crossing fallback lands
+near the onset of the single artifact — but <code class="docutils literal notranslate"><span class="pre">pos_peak</span></code> /
+<code class="docutils literal notranslate"><span class="pre">neg_peak</span></code> will give cleaner results in that case.</p></li>
+<li><p>For single-pulse stim, <code class="docutils literal notranslate"><span class="pre">multi_peak=True</span></code> degrades to the
+original single-peak behavior (only one peak in the window
+is above threshold; first==last).  Set it always-on if you
+mix single-pulse and train conditions in one recording.</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="spikelab.spike_sorting.stim_sorting.remove_stim_artifacts">
+<span class="sig-prename descclassname"><span class="pre">spikelab.spike_sorting.stim_sorting.</span></span><span class="sig-name descname"><span class="pre">remove_stim_artifacts</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">traces</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stim_times_ms</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs_Hz</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'polynomial'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">artifact_window_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">saturation_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">baseline_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">poly_order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">artifact_window_only</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">copy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">recording</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raw_traces</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">poly_clamp_factor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spike_sorting/stim_sorting/artifact_removal.html#remove_stim_artifacts"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spike_sorting.stim_sorting.remove_stim_artifacts" title="Link to this definition"></a></dt>
+<dd><p>Remove stimulation artifacts from multi-channel voltage traces.</p>
+<p>Processes each stim event independently per channel.  Saturated
+samples are always blanked (zeroed).  For the <code class="docutils literal notranslate"><span class="pre">&quot;polynomial&quot;</span></code>
+method, a low-order polynomial is fit to the post-saturation
+artifact tail and subtracted, preserving neural spikes (which are
+too fast for the smooth polynomial to capture).</p>
+<p>When multiple stim events occur in rapid succession and the signal
+re-saturates before reaching baseline levels, the blanking region
+is extended dynamically and the polynomial fit is deferred until
+after the final desaturation in the burst.</p>
+<p>The polynomial detrend is conceptually related to SALPA (Wagenaar
+&amp; Potter 2002, J Neurosci Methods), adapted for offline processing
+where look-ahead past saturation is available — see the module
+docstring for details.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>traces</strong> (<em>np.ndarray</em>) – Raw voltage traces, shape
+<code class="docutils literal notranslate"><span class="pre">(channels,</span> <span class="pre">samples)</span></code>.</p></li>
+<li><p><strong>stim_times_ms</strong> (<em>array-like</em>) – Corrected stim times in
+milliseconds (e.g. from <code class="docutils literal notranslate"><span class="pre">recenter_stim_times</span></code>).</p></li>
+<li><p><strong>fs_Hz</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Sampling frequency in Hz.</p></li>
+<li><p><strong>method</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – <code class="docutils literal notranslate"><span class="pre">&quot;polynomial&quot;</span></code> (default) or <code class="docutils literal notranslate"><span class="pre">&quot;blank&quot;</span></code>.</p></li>
+<li><p><strong>artifact_window_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – <p>Maximum duration in milliseconds
+of the artifact tail after the last desaturation point.
+The polynomial is fit over this window.  Default 10.0.</p>
+<p>Note: when the post-stim window contains a clear descent
+from the recentered stim time to a subsequent negative
+peak (typical for biphasic anodic-first pulses sorted with
+<code class="docutils literal notranslate"><span class="pre">peak_mode=&quot;down_edge&quot;</span></code>), the fit is automatically split
+into two independent polynomials at the negative peak —
+one for <code class="docutils literal notranslate"><span class="pre">[stim_time,</span> <span class="pre">neg_peak]</span></code> (the descent) and one
+for <code class="docutils literal notranslate"><span class="pre">[neg_peak,</span> <span class="pre">baseline_recovery]</span></code> (the tail).  When
+the recentered stim time IS the negative peak (e.g.
+<code class="docutils literal notranslate"><span class="pre">peak_mode=&quot;abs_max&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;neg_peak&quot;</span></code>), no descent
+exists and a single fit is used.  This is automatic; no
+user knob.</p>
+</p></li>
+<li><p><strong>saturation_threshold</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Absolute voltage value
+above which a sample is considered saturated.  When None,
+auto-detected — preferring gain-anchored detection from
+<code class="docutils literal notranslate"><span class="pre">recording</span></code> metadata when supplied (see <code class="docutils literal notranslate"><span class="pre">recording</span></code>
+kwarg below), falling back to the 99.9th percentile of
+<code class="docutils literal notranslate"><span class="pre">|traces|</span></code> otherwise.</p></li>
+<li><p><strong>raw_traces</strong> (<em>np.ndarray</em><em> or </em><em>None</em>) – Optional pre-bandpass traces,
+same shape as <code class="docutils literal notranslate"><span class="pre">traces</span></code>, used as the source of truth for
+saturation detection.  Bandpass filtering of a stim
+artifact produces ringing whose filtered amplitude can
+exceed the raw ADC rail even on unsaturated samples, so
+auto-detection from <code class="docutils literal notranslate"><span class="pre">traces</span></code> (filtered) both over-
+reports (ringing overshoot) and under-reports (group-delay
+smoothing) clips.  When provided, the threshold is derived
+from <code class="docutils literal notranslate"><span class="pre">raw_traces</span></code> and the clip mask is built from
+<code class="docutils literal notranslate"><span class="pre">np.abs(raw_traces)</span> <span class="pre">&gt;=</span> <span class="pre">threshold</span></code>; the filtered <code class="docutils literal notranslate"><span class="pre">traces</span></code>
+are blanked at those same sample indices and polynomial-
+detrended around them.</p></li>
+<li><p><strong>baseline_threshold</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Absolute voltage envelope
+below which the signal is considered to have returned to
+baseline.  When None, auto-detected from pre-stim MAD.</p></li>
+<li><p><strong>poly_order</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Polynomial order for the detrend.  Default
+3 (cubic).  Higher orders risk fitting spike-like features;
+lower orders may not capture the artifact decay shape.</p></li>
+<li><p><strong>artifact_window_only</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – If True (default), only process
+windows around stim events.  If False, apply a global
+polynomial detrend to the entire trace (for recordings
+with very frequent stimulation).</p></li>
+<li><p><strong>copy</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – If True (default), return a copy; if False,
+modify <code class="docutils literal notranslate"><span class="pre">traces</span></code> in-place.</p></li>
+<li><p><strong>poly_clamp_factor</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Sanity-clamp factor for the
+<code class="docutils literal notranslate"><span class="pre">&quot;polynomial&quot;</span></code> method.  After each polynomial subtraction,
+if any post-subtract sample exceeds
+<code class="docutils literal notranslate"><span class="pre">poly_clamp_factor</span> <span class="pre">*</span> <span class="pre">saturation_threshold</span></code> in absolute
+value, the segment is treated as a divergent fit
+(extrapolated wildly across saturated samples), blanked
+instead of left in place, and counted toward a one-shot
+warning emitted at the end of the call.  Default <code class="docutils literal notranslate"><span class="pre">10.0</span></code>
+— well above any plausible neural amplitude (~100 µV) when
+<code class="docutils literal notranslate"><span class="pre">saturation_threshold</span></code> is in the multi-thousand-µV range.
+Set to <code class="docutils literal notranslate"><span class="pre">None</span></code> to disable.  Has no effect when
+<code class="docutils literal notranslate"><span class="pre">saturation_threshold</span></code> is <code class="docutils literal notranslate"><span class="pre">+inf</span></code> (no clipping detected)
+or <code class="docutils literal notranslate"><span class="pre">method=&quot;blank&quot;</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Cleaned traces, shape</dt><dd><p><code class="docutils literal notranslate"><span class="pre">(channels,</span> <span class="pre">samples)</span></code>.</p>
+</dd>
+<dt>blanked_mask (np.ndarray): Boolean array, shape</dt><dd><p><code class="docutils literal notranslate"><span class="pre">(channels,</span> <span class="pre">samples)</span></code>.  True for samples that were
+blanked (zeroed) because they fell within a saturation
+region.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>cleaned (np.ndarray)</p>
 </dd>
 </dl>
 </dd></dl>

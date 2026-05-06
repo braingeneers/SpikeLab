@@ -211,6 +211,8 @@ real run. Recordings shorter than ``canary_first_n_s`` skip the canary.
 The canary is off by default (``canary_first_n_s=0.0``).
 
 
+.. _stim-artifact-removal:
+
 Stimulation Artifact Removal
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -268,6 +270,39 @@ When multiple stim events occur in rapid succession (e.g. burst or
 paired-pulse protocols), the module automatically detects whether the signal
 has returned to baseline between events and extends the blanking region
 across the entire burst if needed.
+
+Multi-pulse alignment (``multi_peak``)
+""""""""""""""""""""""""""""""""""""""
+
+When a recentering window may contain several pulses (paired-pulse, short
+burst, high-frequency train), pass ``multi_peak=True`` to lock onto a
+specific pulse rather than the strongest one. Available on
+:func:`~spikelab.spike_sorting.stim_sorting.recentering.recenter_stim_times`,
+:func:`~spikelab.spike_sorting.stim_sorting.sort_stim_recording`, and
+:func:`~spikelab.spike_sorting.stim_sorting.preprocess_stim_artifacts`.
+
+Parameters:
+
+- ``multi_peak`` (default ``False``) — opt-in to multi-pulse-aware alignment.
+- ``multi_peak_select`` (default ``"first"``) — ``"first"`` for first-pulse
+  alignment (typical for train PSTHs); ``"last"`` for after-train rebound.
+- ``multi_peak_threshold`` (default ``0.6``) — minimum amplitude as a
+  fraction of the strongest peak in the search window for a peak to count
+  as a real pulse.
+- ``multi_peak_min_separation_ms`` (default ``2.0``) — minimum spacing
+  between candidate peaks; prevents a single broad pulse from being counted
+  twice.
+
+.. code-block:: python
+
+   corrected_times = recenter_stim_times(
+       traces, stim_times_ms, fs_Hz=20000,
+       peak_mode="down_edge",
+       multi_peak=True,
+       multi_peak_select="first",
+       multi_peak_threshold=0.6,
+       multi_peak_min_separation_ms=2.0,
+   )
 
 The polynomial detrend approach is related to SALPA, adapted for offline use:
 
@@ -383,6 +418,20 @@ For reproducibility, build a serialisable record of what was removed and why:
 
 The returned dict is JSON-serialisable and can be stored in a workspace or
 saved alongside the curated data.
+
+
+Visualising sorted units
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+To inspect the spatial waveform footprint of one or more sorted units across
+the channel grid, use
+:func:`~spikelab.spikedata.plot_utils.plot_unit_footprints` (or the
+:meth:`~spikelab.SpikeData.plot_unit_footprints` convenience method on
+``SpikeData``). Channels whose per-channel peak-to-peak amplitude exceeds a
+configurable threshold are drawn at their (x, y) positions, with the
+primary channel highlighted; each unit gets its own subplot in an
+auto-sized grid. Useful for sanity-checking footprint locality and
+spotting duplicated/over-merged units after sorting.
 
 
 Sorting Concatenated Recordings

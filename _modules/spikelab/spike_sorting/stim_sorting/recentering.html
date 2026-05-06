@@ -1,0 +1,868 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>spikelab.spike_sorting.stim_sorting.recentering &mdash; SpikeLab 0.1.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=a58bc63e"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            SpikeLab
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../getting_started/index.html">Getting Started</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../getting_started/installation.html">Installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../getting_started/installation.html#basic-install">Basic Install</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../getting_started/installation.html#optional-extras">Optional Extras</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../getting_started/installation.html#development-install">Development Install</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../getting_started/quickstart.html">Quick Start</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../getting_started/quickstart.html#creating-a-spikedata-object">Creating a SpikeData Object</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../getting_started/quickstart.html#loading-from-a-file">Loading from a File</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../getting_started/quickstart.html#plotting">Plotting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../getting_started/quickstart.html#basic-analysis">Basic Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../getting_started/quickstart.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guides/index.html">Guides</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/loading_data.html">Loading Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/loading_data.html#from-pickle-files">From pickle files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/loading_data.html#from-hdf5-files">From HDF5 files</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/loading_data.html#the-spike-times-unit-parameter">The <code class="docutils literal notranslate"><span class="pre">spike_times_unit</span></code> parameter</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/loading_data.html#from-nwb-files">From NWB files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/loading_data.html#from-kilosort-phy-output">From KiloSort/Phy output</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/loading_data.html#from-spikeinterface">From SpikeInterface</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/loading_data.html#from-spikelab-sorted-npz">From SpikeLab sorted .npz</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/loading_data.html#from-the-ibl-database">From the IBL database</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/loading_data.html#from-neo-spiketrains">From Neo SpikeTrains</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/loading_data.html#from-raw-data">From raw data</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/loading_data.html#from-threshold-detection">From threshold detection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/loading_data.html#from-a-spike-count-raster">From a spike count raster</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/spike_sorting.html">Spike Sorting and Curation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_sorting.html#spike-sorting">Spike Sorting</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#basic-usage">Basic usage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#configuration-and-presets">Configuration and presets</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#multi-stream-recordings">Multi-stream recordings</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#reusing-intermediate-results">Reusing intermediate results</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#built-in-safeguards">Built-in safeguards</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#pipeline-canary">Pipeline canary</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#stimulation-artifact-removal">Stimulation Artifact Removal</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_sorting.html#unit-curation">Unit Curation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#individual-criteria">Individual criteria</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#merge-based-deduplication">Merge-based deduplication</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#batch-curation">Batch curation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#curation-history">Curation history</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#visualising-sorted-units">Visualising sorted units</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_sorting.html#sorting-concatenated-recordings">Sorting Concatenated Recordings</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_sorting.html#handling-sort-failures">Handling Sort Failures</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#watchdog-and-lock-failures">Watchdog and lock failures</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/spike_analysis.html">Spike Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#population-rate">Population Rate</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#burst-detection">Burst Detection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#burst-widths">Burst Widths</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#burst-sensitivity-analysis">Burst Sensitivity Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#per-unit-metrics">Per-Unit Metrics</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_analysis.html#firing-rates">Firing rates</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_analysis.html#inter-spike-intervals">Inter-spike intervals</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_analysis.html#spike-triggered-population-rate">Spike-triggered population rate</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#burst-participation-per-unit">Burst Participation per Unit</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#fraction-of-spikes-in-bursts">Fraction of Spikes in Bursts</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#selecting-and-combining-data">Selecting and Combining Data</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_analysis.html#unit-selection">Unit selection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_analysis.html#time-selection">Time selection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_analysis.html#appending-recordings">Appending recordings</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_analysis.html#combining-units">Combining units</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#pairwise-metrics">Pairwise Metrics</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/firing_rates.html">Instantaneous Firing Rates</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/firing_rates.html#id1">Instantaneous Firing Rates</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/firing_rates.html#isi-interpolation">ISI interpolation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/firing_rates.html#sliding-window">Sliding window</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/firing_rates.html#working-with-ratedata">Working with RateData</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/firing_rates.html#dimensionality-reduction">Dimensionality Reduction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/firing_rates.html#pairwise-firing-rate-correlations">Pairwise Firing-Rate Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/firing_rates.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html">Event-Aligned Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#aligning-to-events">Aligning to Events</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#rateslicestack">RateSliceStack</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#spikeslicestack">SpikeSliceStack</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#applying-a-function-across-slices">Applying a function across slices</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#subsetting-slice-stacks">Subsetting slice stacks</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#slice-to-slice-unit-correlations">Slice-to-Slice Unit Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#slice-to-slice-time-correlations">Slice-to-Slice Time Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#unit-to-unit-pca">Unit-to-Unit PCA</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#rank-order-analysis">Rank-Order Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#temporal-trends-and-stability">Temporal Trends and Stability</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#shuffled-null-distributions">Shuffled Null Distributions</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/pairwise_analysis.html">Pairwise Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/pairwise_analysis.html#spike-time-tiling-coefficient-sttc">Spike Time Tiling Coefficient (STTC)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/pairwise_analysis.html#firing-rate-correlations">Firing-Rate Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/pairwise_analysis.html#fr-correlation-vs-sttc-scatter">FR Correlation vs STTC Scatter</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/pairwise_analysis.html#network-analysis">Network Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/pairwise_analysis.html#spatial-network-visualization">Spatial Network Visualization</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/shuffled_data.html">Shuffled Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/shuffled_data.html#single-shuffle">Single Shuffle</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/shuffled_data.html#shuffle-stacks">Shuffle Stacks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/shuffled_data.html#unit-subset-stacks">Unit Subset Stacks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/shuffled_data.html#comparing-to-the-null-distribution">Comparing to the Null Distribution</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/gplvm.html">GPLVM Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/gplvm.html#fitting-a-gplvm">Fitting a GPLVM</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/gplvm.html#post-fit-analysis">Post-fit Analysis</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/gplvm.html#state-entropy">State entropy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/gplvm.html#continuity-probability">Continuity probability</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/gplvm.html#average-state-probability">Average state probability</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/gplvm.html#consecutive-state-durations">Consecutive state durations</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/gplvm.html#visualisation">Visualisation</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/exporting_data.html">Exporting Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/exporting_data.html#to-hdf5">To HDF5</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/exporting_data.html#ragged-vs-raster-style">Ragged vs raster style</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/exporting_data.html#the-spike-times-unit-parameter">The <code class="docutils literal notranslate"><span class="pre">spike_times_unit</span></code> parameter</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/exporting_data.html#exporting-raw-data">Exporting raw data</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/exporting_data.html#to-nwb">To NWB</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/exporting_data.html#to-kilosort">To KiloSort</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/exporting_data.html#to-pickle">To pickle</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/workspace.html">Workspace Persistence</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/workspace.html#creating-a-workspace">Creating a Workspace</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/workspace.html#saving-and-loading">Saving and Loading</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/workspace.html#listing-and-retrieving">Listing and Retrieving</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/workspace.html#lazy-loading">Lazy Loading</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/workspace.html#merging-workspaces">Merging Workspaces</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/mcp_server.html#starting-the-server">Starting the server</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/mcp_server.html#tool-categories">Tool categories</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/mcp_server.html#data-loading-tools">Data loading tools</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/mcp_server.html#analysis-tools">Analysis tools</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/mcp_server.html#export-tools">Export tools</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/mcp_server.html#workspace-addressing">Workspace addressing</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/parallel_computing.html">Parallel Computing</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/parallel_computing.html#thread-pool-parallelism">Thread-Pool Parallelism</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/parallel_computing.html#numba-acceleration">Numba Acceleration</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/batch_jobs.html">Batch Jobs</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/batch_jobs.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/batch_jobs.html#setting-up-a-session">Setting Up a Session</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/batch_jobs.html#analysis-jobs">Analysis Jobs</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/batch_jobs.html#submitting">Submitting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/batch_jobs.html#writing-an-analysis-script">Writing an analysis script</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/batch_jobs.html#retrieving-results">Retrieving results</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/batch_jobs.html#sorting-jobs">Sorting Jobs</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/batch_jobs.html#id1">Submitting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/batch_jobs.html#id2">Retrieving results</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/batch_jobs.html#policy-guardrails">Policy Guardrails</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/batch_jobs.html#docker-images">Docker Images</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/batch_jobs.html#base-images">Base images</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/batch_jobs.html#temporary-images">Temporary images</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/batch_jobs.html#monitoring-jobs">Monitoring Jobs</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/index.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/index.html#core-data-structures">Core Data Structures</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/spikedata.html">SpikeData</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spikedata.html#spikelab.spikedata.SpikeData"><code class="docutils literal notranslate"><span class="pre">SpikeData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/ratedata.html">RateData</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/ratedata.html#spikelab.spikedata.ratedata.RateData"><code class="docutils literal notranslate"><span class="pre">RateData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/pairwise.html">Pairwise Comparisons</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/pairwise.html#pairwisecompmatrix">PairwiseCompMatrix</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/pairwise.html#pairwisecompmatrixstack">PairwiseCompMatrixStack</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/rateslicestack.html">RateSliceStack</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/rateslicestack.html#spikelab.spikedata.rateslicestack.RateSliceStack"><code class="docutils literal notranslate"><span class="pre">RateSliceStack</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/spikeslicestack.html">SpikeSliceStack</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack"><code class="docutils literal notranslate"><span class="pre">SpikeSliceStack</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/index.html#utilities">Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/utilities.html">Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.get_sttc"><code class="docutils literal notranslate"><span class="pre">get_sttc()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.swap"><code class="docutils literal notranslate"><span class="pre">swap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.randomize"><code class="docutils literal notranslate"><span class="pre">randomize()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.trough_between"><code class="docutils literal notranslate"><span class="pre">trough_between()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.ensure_h5py"><code class="docutils literal notranslate"><span class="pre">ensure_h5py()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.times_from_ms"><code class="docutils literal notranslate"><span class="pre">times_from_ms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.to_ms"><code class="docutils literal notranslate"><span class="pre">to_ms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.extract_waveforms"><code class="docutils literal notranslate"><span class="pre">extract_waveforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.check_neuron_attributes"><code class="docutils literal notranslate"><span class="pre">check_neuron_attributes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.get_channels_for_unit"><code class="docutils literal notranslate"><span class="pre">get_channels_for_unit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.compute_avg_waveform"><code class="docutils literal notranslate"><span class="pre">compute_avg_waveform()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.get_valid_spike_times"><code class="docutils literal notranslate"><span class="pre">get_valid_spike_times()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.waveforms_by_channel"><code class="docutils literal notranslate"><span class="pre">waveforms_by_channel()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.extract_unit_waveforms"><code class="docutils literal notranslate"><span class="pre">extract_unit_waveforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.consecutive_durations"><code class="docutils literal notranslate"><span class="pre">consecutive_durations()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.gplvm_state_entropy"><code class="docutils literal notranslate"><span class="pre">gplvm_state_entropy()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.gplvm_continuity_prob"><code class="docutils literal notranslate"><span class="pre">gplvm_continuity_prob()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.gplvm_average_state_probability"><code class="docutils literal notranslate"><span class="pre">gplvm_average_state_probability()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.shuffle_z_score"><code class="docutils literal notranslate"><span class="pre">shuffle_z_score()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.shuffle_percentile"><code class="docutils literal notranslate"><span class="pre">shuffle_percentile()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.slice_trend"><code class="docutils literal notranslate"><span class="pre">slice_trend()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.slice_stability"><code class="docutils literal notranslate"><span class="pre">slice_stability()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/stat_utils.html">Statistical Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/stat_utils.html#spikelab.spikedata.stat_utils.linear_regression"><code class="docutils literal notranslate"><span class="pre">linear_regression()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/stat_utils.html#spikelab.spikedata.stat_utils.pairwise_tests"><code class="docutils literal notranslate"><span class="pre">pairwise_tests()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/stat_utils.html#spikelab.spikedata.stat_utils.paired_test"><code class="docutils literal notranslate"><span class="pre">paired_test()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/stat_utils.html#spikelab.spikedata.stat_utils.omnibus_test"><code class="docutils literal notranslate"><span class="pre">omnibus_test()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/plot_utils.html">Plotting Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_distribution"><code class="docutils literal notranslate"><span class="pre">plot_distribution()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_pvalue_matrix"><code class="docutils literal notranslate"><span class="pre">plot_pvalue_matrix()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_scatter"><code class="docutils literal notranslate"><span class="pre">plot_scatter()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_scatter_with_marginals"><code class="docutils literal notranslate"><span class="pre">plot_scatter_with_marginals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_manifold"><code class="docutils literal notranslate"><span class="pre">plot_manifold()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_lines"><code class="docutils literal notranslate"><span class="pre">plot_lines()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_percentile_bands"><code class="docutils literal notranslate"><span class="pre">plot_percentile_bands()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_burst_sensitivity"><code class="docutils literal notranslate"><span class="pre">plot_burst_sensitivity()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_aligned_slice_single_unit"><code class="docutils literal notranslate"><span class="pre">plot_aligned_slice_single_unit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_heatmap"><code class="docutils literal notranslate"><span class="pre">plot_heatmap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_recording"><code class="docutils literal notranslate"><span class="pre">plot_recording()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_spatial_network"><code class="docutils literal notranslate"><span class="pre">plot_spatial_network()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_unit_footprints"><code class="docutils literal notranslate"><span class="pre">plot_unit_footprints()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/index.html#data-i-o">Data I/O</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/data_loaders.html">Data Loaders</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_hdf5"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_hdf5()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_hdf5_raw_thresholded"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_hdf5_raw_thresholded()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_nwb"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_nwb()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_kilosort"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_kilosort()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_spikeinterface"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikeinterface()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_spikeinterface_recording"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikeinterface_recording()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_pickle"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_pickle()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_ibl"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_ibl()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.query_ibl_probes"><code class="docutils literal notranslate"><span class="pre">query_ibl_probes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_spikelab_sorted_npz"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikelab_sorted_npz()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/data_exporters.html">Data Exporters</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_hdf5"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_hdf5()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_nwb"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_nwb()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_kilosort"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_kilosort()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_to_pickle"><code class="docutils literal notranslate"><span class="pre">export_to_pickle()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/s3_utils.html">S3 Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/s3_utils.html#spikelab.data_loaders.s3_utils.is_s3_url"><code class="docutils literal notranslate"><span class="pre">is_s3_url()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/s3_utils.html#spikelab.data_loaders.s3_utils.parse_s3_url"><code class="docutils literal notranslate"><span class="pre">parse_s3_url()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/s3_utils.html#spikelab.data_loaders.s3_utils.download_from_s3"><code class="docutils literal notranslate"><span class="pre">download_from_s3()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/s3_utils.html#spikelab.data_loaders.s3_utils.upload_to_s3"><code class="docutils literal notranslate"><span class="pre">upload_to_s3()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/s3_utils.html#spikelab.data_loaders.s3_utils.ensure_local_file"><code class="docutils literal notranslate"><span class="pre">ensure_local_file()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/index.html#persistence">Persistence</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/workspace.html">Workspace</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/workspace.html#spikelab.workspace.workspace.AnalysisWorkspace"><code class="docutils literal notranslate"><span class="pre">AnalysisWorkspace</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/workspace.html#spikelab.workspace.workspace.LazyAnalysisWorkspace"><code class="docutils literal notranslate"><span class="pre">LazyAnalysisWorkspace</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/workspace.html#spikelab.workspace.workspace.WorkspaceManager"><code class="docutils literal notranslate"><span class="pre">WorkspaceManager</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/workspace.html#spikelab.workspace.workspace.get_workspace_manager"><code class="docutils literal notranslate"><span class="pre">get_workspace_manager()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/index.html#spike-sorting-and-curation">Spike Sorting and Curation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/spike_sorting.html">Spike Sorting</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#entry-points">Entry Points</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#module-spikelab.spike_sorting.config">Configuration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#module-spikelab.spike_sorting.backends">Backend Registry</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#classified-exceptions">Classified Exceptions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#post-failure-classifiers">Post-Failure Classifiers</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#sort-run-reports">Sort Run Reports</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#resource-guards">Resource Guards</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#pipeline-canary">Pipeline Canary</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#stimulation-sorting">Stimulation Sorting</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/curation.html">Curation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/curation.html#spikelab.spikedata.curation.curate_by_min_spikes"><code class="docutils literal notranslate"><span class="pre">curate_by_min_spikes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/curation.html#spikelab.spikedata.curation.curate_by_firing_rate"><code class="docutils literal notranslate"><span class="pre">curate_by_firing_rate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/curation.html#spikelab.spikedata.curation.curate_by_isi_violations"><code class="docutils literal notranslate"><span class="pre">curate_by_isi_violations()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/curation.html#spikelab.spikedata.curation.curate_by_snr"><code class="docutils literal notranslate"><span class="pre">curate_by_snr()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/curation.html#spikelab.spikedata.curation.curate_by_std_norm"><code class="docutils literal notranslate"><span class="pre">curate_by_std_norm()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/curation.html#spikelab.spikedata.curation.compute_waveform_metrics"><code class="docutils literal notranslate"><span class="pre">compute_waveform_metrics()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/curation.html#spikelab.spikedata.curation.curate"><code class="docutils literal notranslate"><span class="pre">curate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/curation.html#spikelab.spikedata.curation.build_curation_history"><code class="docutils literal notranslate"><span class="pre">build_curation_history()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/curation.html#spikelab.spikedata.curation.curate_by_merge_duplicates"><code class="docutils literal notranslate"><span class="pre">curate_by_merge_duplicates()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/index.html#batch-jobs">Batch Jobs</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/batch_jobs.html">Batch Jobs</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/batch_jobs.html#models">Models</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/batch_jobs.html#policy-engine">Policy Engine</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/batch_jobs.html#module-spikelab.batch_jobs.profiles">Profile Loading</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/batch_jobs.html#run-session">Run Session</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/batch_jobs.html#module-spikelab.batch_jobs.backend_k8s">Kubernetes Backend</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/batch_jobs.html#module-spikelab.batch_jobs.storage_s3">S3 Storage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/batch_jobs.html#module-spikelab.batch_jobs.artifact_packager">Artifact Packager</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/batch_jobs.html#module-spikelab.batch_jobs.credentials">Credentials</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/batch_jobs.html#module-spikelab.batch_jobs.validation">Validation</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/index.html#server">Server</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">SpikeLab</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">spikelab.spike_sorting.stim_sorting.recentering</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for spikelab.spike_sorting.stim_sorting.recentering</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Stimulation time recentering.</span>
+
+<span class="sd">Finds the actual stimulation artifact onset near each logged stim time</span>
+<span class="sd">by detecting a chosen alignment point in the raw voltage traces:</span>
+
+<span class="sd">* ``&quot;abs_max&quot;`` (default): sample with the largest ``|voltage|`` across</span>
+<span class="sd">  channels — appropriate for monophasic pulses where there is a single</span>
+<span class="sd">  artifact peak.</span>
+<span class="sd">* ``&quot;pos_peak&quot;`` / ``&quot;neg_peak&quot;``: sample with the largest positive or</span>
+<span class="sd">  most negative voltage in a top-K summed reference trace.</span>
+<span class="sd">* ``&quot;down_edge&quot;``: up→down transition of a biphasic anodic-first pulse.</span>
+<span class="sd">  First finds the negative peak in the search window, then the positive</span>
+<span class="sd">  peak within a preceding ``prewindow_ms``, then returns the first</span>
+<span class="sd">  positive-to-negative zero-crossing between them (falling back to the</span>
+<span class="sd">  steepest negative slope if the signal does not cross zero).  This is</span>
+<span class="sd">  the moment at which the stim current reverses direction — the AP</span>
+<span class="sd">  trigger point for biphasic anodic-first protocols.</span>
+<span class="sd">* ``&quot;up_edge&quot;``: symmetric version for biphasic cathodic-first pulses.</span>
+
+<span class="sd">For the signed modes (``pos_peak``, ``neg_peak``, ``down_edge``,</span>
+<span class="sd">``up_edge``) the reference trace is the *sum* of the top-K highest-</span>
+<span class="sd">amplitude channels rather than the per-sample max.  Summing preserves</span>
+<span class="sd">phase information (biphasic transitions add coherently across nearby</span>
+<span class="sd">channels that see the same artifact; uncorrelated noise cancels) and</span>
+<span class="sd">yields cleaner derivatives for edge detection.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_build_reference_trace</span><span class="p">(</span><span class="n">traces</span><span class="p">,</span> <span class="n">n_reference_channels</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return a single reference trace by summing the top-K channels</span>
+<span class="sd">    by peak ``|voltage|``.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        traces (np.ndarray): ``(channels, samples)``.</span>
+<span class="sd">        n_reference_channels (int): K.  Clamped to ``[1, n_channels]``.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        reference (np.ndarray): Signed ``(samples,)`` array.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">chan_amps</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">traces</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">k</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">n_reference_channels</span><span class="p">),</span> <span class="n">traces</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+    <span class="n">top_k_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argpartition</span><span class="p">(</span><span class="n">chan_amps</span><span class="p">,</span> <span class="o">-</span><span class="n">k</span><span class="p">)[</span><span class="o">-</span><span class="n">k</span><span class="p">:]</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">traces</span><span class="p">[</span><span class="n">top_k_idx</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_find_down_edge</span><span class="p">(</span><span class="n">reference</span><span class="p">,</span> <span class="n">lo</span><span class="p">,</span> <span class="n">hi</span><span class="p">,</span> <span class="n">prewindow_ms</span><span class="p">,</span> <span class="n">fs_Hz</span><span class="p">,</span> <span class="n">neg_peak</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Find the up→down transition in a biphasic pulse.</span>
+
+<span class="sd">    Algorithm:</span>
+<span class="sd">      1. Find the negative peak in ``reference[lo:hi]`` (or use the</span>
+<span class="sd">         caller-supplied ``neg_peak`` for multi-peak recentering).</span>
+<span class="sd">      2. Find the positive peak in the window</span>
+<span class="sd">         ``[max(lo, neg_peak - prewindow_samples), neg_peak)``.</span>
+<span class="sd">      3. Transition = first positive-to-negative zero-crossing in</span>
+<span class="sd">         ``reference[pos_peak:neg_peak + 1]``.</span>
+<span class="sd">      4. If the signal does not cross zero (e.g. DC offset), fall back</span>
+<span class="sd">         to the sample with the steepest negative slope in the same</span>
+<span class="sd">         interval.</span>
+<span class="sd">      5. If the pre-window is empty (negative peak at ``lo``), return</span>
+<span class="sd">         the negative peak.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">neg_peak</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">neg_peak</span> <span class="o">=</span> <span class="n">lo</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">reference</span><span class="p">[</span><span class="n">lo</span><span class="p">:</span><span class="n">hi</span><span class="p">]))</span>
+
+    <span class="n">prewindow_samples</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">prewindow_ms</span> <span class="o">*</span> <span class="n">fs_Hz</span> <span class="o">/</span> <span class="mf">1000.0</span><span class="p">)))</span>
+    <span class="n">pre_lo</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">lo</span><span class="p">,</span> <span class="n">neg_peak</span> <span class="o">-</span> <span class="n">prewindow_samples</span><span class="p">)</span>
+    <span class="n">pre_hi</span> <span class="o">=</span> <span class="n">neg_peak</span>  <span class="c1"># exclusive</span>
+    <span class="k">if</span> <span class="n">pre_hi</span> <span class="o">&lt;=</span> <span class="n">pre_lo</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">neg_peak</span>
+    <span class="n">pos_peak</span> <span class="o">=</span> <span class="n">pre_lo</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">reference</span><span class="p">[</span><span class="n">pre_lo</span><span class="p">:</span><span class="n">pre_hi</span><span class="p">]))</span>
+
+    <span class="n">segment</span> <span class="o">=</span> <span class="n">reference</span><span class="p">[</span><span class="n">pos_peak</span> <span class="p">:</span> <span class="n">neg_peak</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+    <span class="c1"># Sign transitions: +V followed by -V (or zero).  np.diff(sign) is</span>
+    <span class="c1"># strictly negative at a + → - crossing.</span>
+    <span class="n">signs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="n">segment</span><span class="p">)</span>
+    <span class="n">sign_diffs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">signs</span><span class="p">)</span>
+    <span class="n">crossings</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">sign_diffs</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">crossings</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">pos_peak</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="n">crossings</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+    <span class="c1"># Fallback: steepest negative slope inside the pos→neg interval.</span>
+    <span class="n">diffs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">segment</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">diffs</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">neg_peak</span>
+    <span class="k">return</span> <span class="n">pos_peak</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">diffs</span><span class="p">))</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_find_up_edge</span><span class="p">(</span><span class="n">reference</span><span class="p">,</span> <span class="n">lo</span><span class="p">,</span> <span class="n">hi</span><span class="p">,</span> <span class="n">prewindow_ms</span><span class="p">,</span> <span class="n">fs_Hz</span><span class="p">,</span> <span class="n">pos_peak</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Symmetric to ``_find_down_edge`` for biphasic cathodic-first.</span>
+
+<span class="sd">    Finds the positive peak (or uses caller-supplied ``pos_peak``), then</span>
+<span class="sd">    the negative peak in a pre-window before it, then the first</span>
+<span class="sd">    negative-to-positive zero-crossing between them.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">pos_peak</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">pos_peak</span> <span class="o">=</span> <span class="n">lo</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">reference</span><span class="p">[</span><span class="n">lo</span><span class="p">:</span><span class="n">hi</span><span class="p">]))</span>
+
+    <span class="n">prewindow_samples</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">prewindow_ms</span> <span class="o">*</span> <span class="n">fs_Hz</span> <span class="o">/</span> <span class="mf">1000.0</span><span class="p">)))</span>
+    <span class="n">pre_lo</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">lo</span><span class="p">,</span> <span class="n">pos_peak</span> <span class="o">-</span> <span class="n">prewindow_samples</span><span class="p">)</span>
+    <span class="n">pre_hi</span> <span class="o">=</span> <span class="n">pos_peak</span>
+    <span class="k">if</span> <span class="n">pre_hi</span> <span class="o">&lt;=</span> <span class="n">pre_lo</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">pos_peak</span>
+    <span class="n">neg_peak</span> <span class="o">=</span> <span class="n">pre_lo</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">reference</span><span class="p">[</span><span class="n">pre_lo</span><span class="p">:</span><span class="n">pre_hi</span><span class="p">]))</span>
+
+    <span class="n">segment</span> <span class="o">=</span> <span class="n">reference</span><span class="p">[</span><span class="n">neg_peak</span> <span class="p">:</span> <span class="n">pos_peak</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+    <span class="n">signs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="n">segment</span><span class="p">)</span>
+    <span class="n">sign_diffs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">signs</span><span class="p">)</span>
+    <span class="n">crossings</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">sign_diffs</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">crossings</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">neg_peak</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="n">crossings</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+    <span class="n">diffs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">segment</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">diffs</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">pos_peak</span>
+    <span class="k">return</span> <span class="n">neg_peak</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">diffs</span><span class="p">))</span>
+
+
+<span class="n">_VALID_PEAK_MODES</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;abs_max&quot;</span><span class="p">,</span> <span class="s2">&quot;pos_peak&quot;</span><span class="p">,</span> <span class="s2">&quot;neg_peak&quot;</span><span class="p">,</span> <span class="s2">&quot;down_edge&quot;</span><span class="p">,</span> <span class="s2">&quot;up_edge&quot;</span><span class="p">)</span>
+<span class="n">_VALID_MULTI_PEAK_SELECT</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;first&quot;</span><span class="p">,</span> <span class="s2">&quot;last&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_multi_peak_anchor</span><span class="p">(</span>
+    <span class="n">reference</span><span class="p">,</span>
+    <span class="n">lo</span><span class="p">,</span>
+    <span class="n">hi</span><span class="p">,</span>
+    <span class="n">peak_mode</span><span class="p">,</span>
+    <span class="n">multi_peak_select</span><span class="p">,</span>
+    <span class="n">multi_peak_threshold</span><span class="p">,</span>
+    <span class="n">multi_peak_min_separation_ms</span><span class="p">,</span>
+    <span class="n">fs_Hz</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Pick a single anchor sample from possibly multiple peaks in ``reference[lo:hi]``.</span>
+
+<span class="sd">    Used for stimulation trains: the search window is wide enough to span</span>
+<span class="sd">    several pulses, and a simple ``argmax``/``argmin`` would arbitrarily</span>
+<span class="sd">    pick whichever pulse happened to have the largest amplitude.  This</span>
+<span class="sd">    helper finds **all** local peaks in the window whose amplitude is at</span>
+<span class="sd">    least ``multi_peak_threshold * max_peak_amplitude``, then returns the</span>
+<span class="sd">    first (or last) one — guaranteeing alignment to a chosen end of the</span>
+<span class="sd">    train regardless of pulse-to-pulse amplitude variation.</span>
+
+<span class="sd">    The &quot;search signal&quot; used for peak detection depends on the</span>
+<span class="sd">    ``peak_mode``:</span>
+<span class="sd">      * ``abs_max``: ``|reference|`` — peaks of unsigned amplitude.</span>
+<span class="sd">      * ``pos_peak``, ``up_edge``: positive lobe — peaks of ``reference``.</span>
+<span class="sd">      * ``neg_peak``, ``down_edge``: negative lobe — peaks of</span>
+<span class="sd">        ``-reference``.</span>
+
+<span class="sd">    For ``down_edge`` / ``up_edge``, the returned anchor is the sample of</span>
+<span class="sd">    the main artifact peak (negative or positive resp.) of the chosen</span>
+<span class="sd">    pulse — not the zero-crossing.  The caller threads this anchor into</span>
+<span class="sd">    :func:`_find_down_edge` / :func:`_find_up_edge` to compute the</span>
+<span class="sd">    zero-crossing relative to that anchor.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        anchor_sample (int): Sample index in the global ``reference``</span>
+<span class="sd">            array (i.e. already offset by ``lo``).  Falls back to single-</span>
+<span class="sd">            peak ``argmax``/``argmin`` if no peaks are found above</span>
+<span class="sd">            threshold (e.g. very short window or pure noise).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.signal</span><span class="w"> </span><span class="kn">import</span> <span class="n">find_peaks</span>  <span class="c1"># lazy import</span>
+
+    <span class="n">segment</span> <span class="o">=</span> <span class="n">reference</span><span class="p">[</span><span class="n">lo</span><span class="p">:</span><span class="n">hi</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">segment</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">lo</span>
+
+    <span class="k">if</span> <span class="n">peak_mode</span> <span class="o">==</span> <span class="s2">&quot;abs_max&quot;</span><span class="p">:</span>
+        <span class="n">search</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">segment</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">peak_mode</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;pos_peak&quot;</span><span class="p">,</span> <span class="s2">&quot;up_edge&quot;</span><span class="p">):</span>
+        <span class="n">search</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">segment</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>  <span class="c1"># neg_peak, down_edge</span>
+        <span class="n">search</span> <span class="o">=</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">minimum</span><span class="p">(</span><span class="n">segment</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+
+    <span class="n">distance_samples</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">multi_peak_min_separation_ms</span> <span class="o">*</span> <span class="n">fs_Hz</span> <span class="o">/</span> <span class="mf">1000.0</span><span class="p">)))</span>
+    <span class="k">if</span> <span class="n">search</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="c1"># All-zero or all-wrong-sign window → degrade to argmax/argmin</span>
+        <span class="k">if</span> <span class="n">peak_mode</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;neg_peak&quot;</span><span class="p">,</span> <span class="s2">&quot;down_edge&quot;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">lo</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">segment</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">lo</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">segment</span><span class="p">))</span>
+
+    <span class="n">threshold_abs</span> <span class="o">=</span> <span class="n">multi_peak_threshold</span> <span class="o">*</span> <span class="nb">float</span><span class="p">(</span><span class="n">search</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+    <span class="n">peak_idxs</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">find_peaks</span><span class="p">(</span><span class="n">search</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="n">threshold_abs</span><span class="p">,</span> <span class="n">distance</span><span class="o">=</span><span class="n">distance_samples</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">peak_idxs</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="c1"># No interior local maxima above threshold (e.g. monotonic ramp).</span>
+        <span class="c1"># Fall back to the single best sample in the window.</span>
+        <span class="k">if</span> <span class="n">peak_mode</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;neg_peak&quot;</span><span class="p">,</span> <span class="s2">&quot;down_edge&quot;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">lo</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">segment</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">lo</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">segment</span><span class="p">))</span>
+
+    <span class="k">if</span> <span class="n">multi_peak_select</span> <span class="o">==</span> <span class="s2">&quot;first&quot;</span><span class="p">:</span>
+        <span class="n">chosen_local</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">peak_idxs</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="k">else</span><span class="p">:</span>  <span class="c1"># last</span>
+        <span class="n">chosen_local</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">peak_idxs</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">lo</span> <span class="o">+</span> <span class="n">chosen_local</span>
+
+
+<div class="viewcode-block" id="recenter_stim_times">
+<a class="viewcode-back" href="../../../../api/spike_sorting.html#spikelab.spike_sorting.stim_sorting.recenter_stim_times">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">recenter_stim_times</span><span class="p">(</span>
+    <span class="n">traces</span><span class="p">,</span>
+    <span class="n">stim_times_ms</span><span class="p">,</span>
+    <span class="n">fs_Hz</span><span class="p">,</span>
+    <span class="n">max_offset_ms</span><span class="o">=</span><span class="mf">50.0</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">peak_mode</span><span class="o">=</span><span class="s2">&quot;abs_max&quot;</span><span class="p">,</span>
+    <span class="n">n_reference_channels</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span>
+    <span class="n">prewindow_ms</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span>
+    <span class="n">warn_offset_ms</span><span class="o">=</span><span class="mf">3.0</span><span class="p">,</span>
+    <span class="n">multi_peak</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">multi_peak_select</span><span class="o">=</span><span class="s2">&quot;first&quot;</span><span class="p">,</span>
+    <span class="n">multi_peak_threshold</span><span class="o">=</span><span class="mf">0.6</span><span class="p">,</span>
+    <span class="n">multi_peak_min_separation_ms</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Find actual stimulation artifact times near logged stim times.</span>
+
+<span class="sd">    For each logged stim time, searches a window of ``±max_offset_ms``</span>
+<span class="sd">    in the raw voltage traces and returns the sample at the alignment</span>
+<span class="sd">    point selected by ``peak_mode``.  This corrects for timing offsets</span>
+<span class="sd">    between the stimulation hardware trigger log and the artifact in</span>
+<span class="sd">    the recording.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        traces (np.ndarray): Raw voltage traces, shape</span>
+<span class="sd">            ``(channels, samples)``.</span>
+<span class="sd">        stim_times_ms (array-like): Logged stimulation event times in</span>
+<span class="sd">            milliseconds.  Need not be sorted.</span>
+<span class="sd">        fs_Hz (float): Sampling frequency in Hz.</span>
+<span class="sd">        max_offset_ms (float): Radius of the search window around</span>
+<span class="sd">            each logged stim time, in milliseconds.  Default 50.0.</span>
+<span class="sd">        peak_mode (str): Alignment target.  One of:</span>
+<span class="sd">            * ``&quot;abs_max&quot;`` (default): largest ``|voltage|`` across</span>
+<span class="sd">              channels.  Backward-compatible with the pre-``peak_mode``</span>
+<span class="sd">              API.</span>
+<span class="sd">            * ``&quot;pos_peak&quot;``: largest positive voltage in the top-K</span>
+<span class="sd">              summed reference trace.</span>
+<span class="sd">            * ``&quot;neg_peak&quot;``: most negative voltage in the top-K</span>
+<span class="sd">              summed reference.</span>
+<span class="sd">            * ``&quot;down_edge&quot;``: up→down transition for biphasic</span>
+<span class="sd">              anodic-first pulses (see module docstring).</span>
+<span class="sd">            * ``&quot;up_edge&quot;``: down→up transition for biphasic</span>
+<span class="sd">              cathodic-first pulses.</span>
+<span class="sd">        n_reference_channels (int): Number of highest-amplitude</span>
+<span class="sd">            channels summed to build the signed reference trace for</span>
+<span class="sd">            non-``abs_max`` modes.  Default ``8``.  Ignored for</span>
+<span class="sd">            ``abs_max``.</span>
+<span class="sd">        prewindow_ms (float): For ``down_edge`` / ``up_edge``, radius</span>
+<span class="sd">            of the pre-window in which to search for the preceding</span>
+<span class="sd">            opposite-polarity peak.  Default ``5.0``.</span>
+<span class="sd">        warn_offset_ms (float or None): When the median ``|corrected -</span>
+<span class="sd">            logged|`` shift exceeds this threshold, emit a</span>
+<span class="sd">            ``UserWarning``.  A large systematic shift usually means a</span>
+<span class="sd">            fixed hardware-vs-log delay, a wrong time column in the</span>
+<span class="sd">            stim log, or a unit mismatch (ms vs s vs samples) rather</span>
+<span class="sd">            than genuine jitter.  Set to ``None`` to silence.  Default</span>
+<span class="sd">            ``3.0`` ms — well above one-sample jitter at 20–30 kHz.</span>
+<span class="sd">        multi_peak (bool): Opt-in support for multi-pulse stim trains.</span>
+<span class="sd">            When ``True``, the search window is treated as potentially</span>
+<span class="sd">            containing multiple stimulation pulses (e.g. a 100 Hz</span>
+<span class="sd">            train), and the alignment target is the **first** or</span>
+<span class="sd">            **last** qualifying pulse rather than the strongest one.</span>
+<span class="sd">            Default ``False`` — preserves backward-compatible single-</span>
+<span class="sd">            peak behavior.</span>
+<span class="sd">        multi_peak_select (str): When ``multi_peak=True``, which</span>
+<span class="sd">            qualifying peak to lock onto.  ``&quot;first&quot;`` (default) =</span>
+<span class="sd">            first pulse onset (matches &quot;first-pulse alignment&quot; used</span>
+<span class="sd">            for train PSTHs).  ``&quot;last&quot;`` = last pulse onset (useful</span>
+<span class="sd">            for studying after-train rebound).  Ignored when</span>
+<span class="sd">            ``multi_peak=False``.</span>
+<span class="sd">        multi_peak_threshold (float): When ``multi_peak=True``, only</span>
+<span class="sd">            peaks whose amplitude is at least this fraction of the</span>
+<span class="sd">            largest peak in the search window are considered &quot;real</span>
+<span class="sd">            pulses&quot;.  Default ``0.6`` — accepts pulses up to 40% weaker</span>
+<span class="sd">            than the strongest while still rejecting noise.</span>
+<span class="sd">        multi_peak_min_separation_ms (float): When ``multi_peak=True``,</span>
+<span class="sd">            the minimum spacing between candidate peaks.  Prevents</span>
+<span class="sd">            multi-sample peaks of a single pulse from being counted as</span>
+<span class="sd">            separate pulses.  Default ``2.0`` ms — well below any</span>
+<span class="sd">            sensible inter-pulse interval (5 ms = 200 Hz; 10 ms =</span>
+<span class="sd">            100 Hz).</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        corrected_ms (np.ndarray): Corrected stim times in</span>
+<span class="sd">            milliseconds, same length as ``stim_times_ms``.  Events</span>
+<span class="sd">            whose search window extends outside the recording are</span>
+<span class="sd">            clipped to the recording boundary.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        * When multiple stim events have overlapping search windows,</span>
+<span class="sd">          each is recentered independently.</span>
+<span class="sd">        * For monophasic pulses the ``*_edge`` modes degrade</span>
+<span class="sd">          gracefully: the pre-window search returns the opposite</span>
+<span class="sd">          polarity&#39;s noise peak and the zero-crossing fallback lands</span>
+<span class="sd">          near the onset of the single artifact — but ``pos_peak`` /</span>
+<span class="sd">          ``neg_peak`` will give cleaner results in that case.</span>
+<span class="sd">        * For single-pulse stim, ``multi_peak=True`` degrades to the</span>
+<span class="sd">          original single-peak behavior (only one peak in the window</span>
+<span class="sd">          is above threshold; first==last).  Set it always-on if you</span>
+<span class="sd">          mix single-pulse and train conditions in one recording.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">peak_mode</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_VALID_PEAK_MODES</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Unknown peak_mode </span><span class="si">{</span><span class="n">peak_mode</span><span class="si">!r}</span><span class="s2">; &quot;</span> <span class="sa">f</span><span class="s2">&quot;expected one of </span><span class="si">{</span><span class="n">_VALID_PEAK_MODES</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">multi_peak</span> <span class="ow">and</span> <span class="n">multi_peak_select</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_VALID_MULTI_PEAK_SELECT</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Unknown multi_peak_select </span><span class="si">{</span><span class="n">multi_peak_select</span><span class="si">!r}</span><span class="s2">; &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;expected one of </span><span class="si">{</span><span class="n">_VALID_MULTI_PEAK_SELECT</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">multi_peak</span> <span class="ow">and</span> <span class="ow">not</span> <span class="p">(</span><span class="mf">0.0</span> <span class="o">&lt;</span> <span class="n">multi_peak_threshold</span> <span class="o">&lt;=</span> <span class="mf">1.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;multi_peak_threshold must be in (0, 1]; got </span><span class="si">{</span><span class="n">multi_peak_threshold</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+
+    <span class="n">stim_times_ms</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">stim_times_ms</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="n">n_samples</span> <span class="o">=</span> <span class="n">traces</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">offset_samples</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">max_offset_ms</span> <span class="o">*</span> <span class="n">fs_Hz</span> <span class="o">/</span> <span class="mf">1000.0</span><span class="p">))</span>
+
+    <span class="c1"># Reference trace: unsigned max-of-abs for abs_max (backward compat),</span>
+    <span class="c1"># signed top-K sum for all other modes.</span>
+    <span class="k">if</span> <span class="n">peak_mode</span> <span class="o">==</span> <span class="s2">&quot;abs_max&quot;</span><span class="p">:</span>
+        <span class="n">reference</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">traces</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">reference</span> <span class="o">=</span> <span class="n">_build_reference_trace</span><span class="p">(</span><span class="n">traces</span><span class="p">,</span> <span class="n">n_reference_channels</span><span class="p">)</span>
+
+    <span class="n">corrected</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty_like</span><span class="p">(</span><span class="n">stim_times_ms</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">t_ms</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">stim_times_ms</span><span class="p">):</span>
+        <span class="n">center</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">t_ms</span> <span class="o">*</span> <span class="n">fs_Hz</span> <span class="o">/</span> <span class="mf">1000.0</span><span class="p">))</span>
+        <span class="n">lo</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">center</span> <span class="o">-</span> <span class="n">offset_samples</span><span class="p">)</span>
+        <span class="n">hi</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">n_samples</span><span class="p">,</span> <span class="n">center</span> <span class="o">+</span> <span class="n">offset_samples</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">multi_peak</span><span class="p">:</span>
+            <span class="n">anchor</span> <span class="o">=</span> <span class="n">_multi_peak_anchor</span><span class="p">(</span>
+                <span class="n">reference</span><span class="p">,</span>
+                <span class="n">lo</span><span class="p">,</span>
+                <span class="n">hi</span><span class="p">,</span>
+                <span class="n">peak_mode</span><span class="p">,</span>
+                <span class="n">multi_peak_select</span><span class="p">,</span>
+                <span class="n">multi_peak_threshold</span><span class="p">,</span>
+                <span class="n">multi_peak_min_separation_ms</span><span class="p">,</span>
+                <span class="n">fs_Hz</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">peak_mode</span> <span class="o">==</span> <span class="s2">&quot;abs_max&quot;</span><span class="p">:</span>
+                <span class="n">peak_sample</span> <span class="o">=</span> <span class="n">anchor</span>
+            <span class="k">elif</span> <span class="n">peak_mode</span> <span class="o">==</span> <span class="s2">&quot;pos_peak&quot;</span><span class="p">:</span>
+                <span class="n">peak_sample</span> <span class="o">=</span> <span class="n">anchor</span>
+            <span class="k">elif</span> <span class="n">peak_mode</span> <span class="o">==</span> <span class="s2">&quot;neg_peak&quot;</span><span class="p">:</span>
+                <span class="n">peak_sample</span> <span class="o">=</span> <span class="n">anchor</span>
+            <span class="k">elif</span> <span class="n">peak_mode</span> <span class="o">==</span> <span class="s2">&quot;down_edge&quot;</span><span class="p">:</span>
+                <span class="c1"># anchor IS the negative-peak sample of the chosen pulse;</span>
+                <span class="c1"># pre-window search runs ahead of it for the pos peak.</span>
+                <span class="n">peak_sample</span> <span class="o">=</span> <span class="n">_find_down_edge</span><span class="p">(</span>
+                    <span class="n">reference</span><span class="p">,</span> <span class="n">lo</span><span class="p">,</span> <span class="n">hi</span><span class="p">,</span> <span class="n">prewindow_ms</span><span class="p">,</span> <span class="n">fs_Hz</span><span class="p">,</span> <span class="n">neg_peak</span><span class="o">=</span><span class="n">anchor</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>  <span class="c1"># up_edge</span>
+                <span class="n">peak_sample</span> <span class="o">=</span> <span class="n">_find_up_edge</span><span class="p">(</span>
+                    <span class="n">reference</span><span class="p">,</span> <span class="n">lo</span><span class="p">,</span> <span class="n">hi</span><span class="p">,</span> <span class="n">prewindow_ms</span><span class="p">,</span> <span class="n">fs_Hz</span><span class="p">,</span> <span class="n">pos_peak</span><span class="o">=</span><span class="n">anchor</span>
+                <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">peak_mode</span> <span class="o">==</span> <span class="s2">&quot;abs_max&quot;</span><span class="p">:</span>
+                <span class="n">peak_sample</span> <span class="o">=</span> <span class="n">lo</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">reference</span><span class="p">[</span><span class="n">lo</span><span class="p">:</span><span class="n">hi</span><span class="p">]))</span>
+            <span class="k">elif</span> <span class="n">peak_mode</span> <span class="o">==</span> <span class="s2">&quot;pos_peak&quot;</span><span class="p">:</span>
+                <span class="n">peak_sample</span> <span class="o">=</span> <span class="n">lo</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">reference</span><span class="p">[</span><span class="n">lo</span><span class="p">:</span><span class="n">hi</span><span class="p">]))</span>
+            <span class="k">elif</span> <span class="n">peak_mode</span> <span class="o">==</span> <span class="s2">&quot;neg_peak&quot;</span><span class="p">:</span>
+                <span class="n">peak_sample</span> <span class="o">=</span> <span class="n">lo</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">reference</span><span class="p">[</span><span class="n">lo</span><span class="p">:</span><span class="n">hi</span><span class="p">]))</span>
+            <span class="k">elif</span> <span class="n">peak_mode</span> <span class="o">==</span> <span class="s2">&quot;down_edge&quot;</span><span class="p">:</span>
+                <span class="n">peak_sample</span> <span class="o">=</span> <span class="n">_find_down_edge</span><span class="p">(</span><span class="n">reference</span><span class="p">,</span> <span class="n">lo</span><span class="p">,</span> <span class="n">hi</span><span class="p">,</span> <span class="n">prewindow_ms</span><span class="p">,</span> <span class="n">fs_Hz</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>  <span class="c1"># up_edge</span>
+                <span class="n">peak_sample</span> <span class="o">=</span> <span class="n">_find_up_edge</span><span class="p">(</span><span class="n">reference</span><span class="p">,</span> <span class="n">lo</span><span class="p">,</span> <span class="n">hi</span><span class="p">,</span> <span class="n">prewindow_ms</span><span class="p">,</span> <span class="n">fs_Hz</span><span class="p">)</span>
+
+        <span class="n">corrected</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">peak_sample</span> <span class="o">/</span> <span class="n">fs_Hz</span> <span class="o">*</span> <span class="mf">1000.0</span>
+
+    <span class="k">if</span> <span class="n">warn_offset_ms</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">stim_times_ms</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">median_abs_offset_ms</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">corrected</span> <span class="o">-</span> <span class="n">stim_times_ms</span><span class="p">)))</span>
+        <span class="k">if</span> <span class="n">median_abs_offset_ms</span> <span class="o">&gt;</span> <span class="n">warn_offset_ms</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;recenter_stim_times: median |offset| = &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">median_abs_offset_ms</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> ms over </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">stim_times_ms</span><span class="p">)</span><span class="si">}</span><span class="s2"> events &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;exceeds warn_offset_ms (</span><span class="si">{</span><span class="n">warn_offset_ms</span><span class="si">}</span><span class="s2"> ms).  This is well &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;above one-sample jitter and usually indicates a fixed &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;hardware-vs-log delay, a wrong time column in the stim log, &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;or a unit mismatch (ms vs s vs samples).  Verify against a &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;test pulse, then either accept the shift or pass &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;warn_offset_ms=None to silence.&quot;</span><span class="p">,</span>
+                <span class="ne">UserWarning</span><span class="p">,</span>
+                <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+            <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">corrected</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Tjitse van der Molen.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
