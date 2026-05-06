@@ -229,4 +229,4 @@ black --check .
 
 ## License
 
-SpikeLab is released under the [MIT License](LICENSE).
+Proprietary — all rights reserved. See [LICENSE](LICENSE) for details.
