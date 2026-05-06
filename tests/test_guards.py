@@ -303,7 +303,15 @@ class TestHostMemoryWatchdogContext:
                 joined and reference cleared.
             (Test Case 2) Stop event was set so the thread woke
                 from its wait promptly.
+
+        Notes:
+            - The polling thread is only spawned when ``psutil`` is
+              importable; on environments without it the watchdog
+              degrades to a no-op (covered by
+              ``test_psutil_missing_degrades_to_noop``). Skip here so
+              psutil-less hosts don't report a spurious failure.
         """
+        pytest.importorskip("psutil")
         with HostMemoryWatchdog(warn_pct=98, abort_pct=99, poll_interval_s=10.0) as wd:
             t = wd._thread
             assert t is not None and t.is_alive()
@@ -656,11 +664,24 @@ class TestRunPreflight:
         round so the disk / RAM / VRAM / HDF5 assertions in this class
         keep their pre-FEAT semantics. Each FEAT-001..003 helper is
         covered separately in test_safeguards_v2.py.
+
+        ``_check_filesystem_writable`` is also muted: when called with
+        non-existent placeholder paths like ``/inter`` and ``/results``
+        on a Windows host, the parent walk lands on the drive root and
+        ``os.access(..., W_OK)`` may return False for restricted user
+        accounts, producing spurious ``intermediate_readonly`` /
+        ``results_readonly`` findings. Tests that exercise the writable
+        check directly mock or override this in their own scope.
         """
         monkeypatch.setattr(preflight_mod, "_check_sorter_dependencies", lambda c: [])
         monkeypatch.setattr(preflight_mod, "_check_gpu_device_present", lambda c: None)
         monkeypatch.setattr(
             preflight_mod, "_check_recording_sample_rate", lambda c, recs: []
+        )
+        monkeypatch.setattr(
+            preflight_mod,
+            "_check_filesystem_writable",
+            lambda folders, *, label, code_prefix: [],
         )
 
     def test_no_findings_when_host_healthy(self, monkeypatch):
