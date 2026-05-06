@@ -5,7 +5,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>spikelab.batch_jobs.profiles &mdash; SpikeLab 0.1.1 documentation</title>
+  <title>spikelab.spike_sorting.canary &mdash; SpikeLab 0.1.1 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
 
@@ -430,7 +430,7 @@
   <ul class="wy-breadcrumbs">
       <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
-      <li class="breadcrumb-item active">spikelab.batch_jobs.profiles</li>
+      <li class="breadcrumb-item active">spikelab.spike_sorting.canary</li>
       <li class="wy-breadcrumbs-aside">
       </li>
   </ul>
@@ -439,50 +439,327 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <h1>Source code for spikelab.batch_jobs.profiles</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;Load cluster profile presets for job execution.&quot;&quot;&quot;</span>
+  <h1>Source code for spikelab.spike_sorting.canary</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Pipeline canary — short-window smoke test before each full sort.</span>
+
+<span class="sd">A multi-hour KS2 / KS4 sort can fail at the MEX / preprocessing stage</span>
+<span class="sd">hours into the run because of an architecture incompatibility, missing</span>
+<span class="sd">CUDA kernel, broken Docker image, or any other &quot;first-time&quot; failure</span>
+<span class="sd">that only manifests once the sorter actually starts processing data.</span>
+<span class="sd">The fix that already happened to the configured environment is the</span>
+<span class="sd">goal of the preflight in :mod:`.guards._preflight`; the canary covers</span>
+<span class="sd">the residual: failures that need the data + the code paths to actually</span>
+<span class="sd">run end-to-end before they show themselves.</span>
+
+<span class="sd">Operation</span>
+<span class="sd">---------</span>
+<span class="sd">When ``ExecutionConfig.canary_first_n_s &gt; 0``,</span>
+<span class="sd">:func:`run_canary` clones the live config, restricts the recording</span>
+<span class="sd">window to ``[0, canary_first_n_s]`` seconds, turns off post-sort</span>
+<span class="sd">exporters and figure generation, relaxes curation so a low-yield</span>
+<span class="sd">window does not falsely fail, and runs the same backend on the same</span>
+<span class="sd">recording into ``&lt;inter_path&gt;/_canary/``. The MEX compile, model</span>
+<span class="sd">loads, Docker image start, and the sorter&#39;s first preprocessing pass</span>
+<span class="sd">all execute under realistic conditions — that is the point.</span>
+
+<span class="sd">Failure handling</span>
+<span class="sd">----------------</span>
+<span class="sd">* **Classified failure** (``InsufficientActivityError``,</span>
+<span class="sd">  ``BiologicalSortFailure``, ``EnvironmentSortFailure``,</span>
+<span class="sd">  ``ResourceSortFailure``): returned to the caller so the full sort</span>
+<span class="sd">  is aborted before launch and the canary&#39;s exception is propagated</span>
+<span class="sd">  as the recording&#39;s classified result.</span>
+<span class="sd">* **Unexpected failure** (anything else, including the canary itself</span>
+<span class="sd">  hitting OOM or running out of disk): logged but **not** propagated —</span>
+<span class="sd">  the canary is a smoke test, not a hard gate. The full sort proceeds</span>
+<span class="sd">  and the live watchdogs handle resource-shaped issues at runtime.</span>
+
+<span class="sd">Edge cases</span>
+<span class="sd">----------</span>
+<span class="sd">* Recording shorter than ``canary_first_n_s`` → skip is performed by</span>
+<span class="sd">  the call site in :mod:`spikelab.spike_sorting.pipeline` (where the</span>
+<span class="sd">  recording duration is known), not inside :func:`run_canary`. If the</span>
+<span class="sd">  caller invokes :func:`run_canary` on a too-short recording, the</span>
+<span class="sd">  backend&#39;s slicing clamps to the actual duration and the canary</span>
+<span class="sd">  effectively runs against the whole recording.</span>
+<span class="sd">* Canary leaves a small amount of intermediate state under</span>
+<span class="sd">  ``&lt;inter_path&gt;/_canary/``; cleanup is best-effort on success.</span>
+<span class="sd">&quot;&quot;&quot;</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">importlib.resources</span><span class="w"> </span><span class="kn">import</span> <span class="n">files</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Optional</span>
 
-<span class="kn">import</span><span class="w"> </span><span class="nn">yaml</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">._exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">CLASSIFIED_FAILURES</span> <span class="k">as</span> <span class="n">_CLASSIFIED_FAILURES</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">ClusterProfile</span>
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">_read_yaml</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-    <span class="k">with</span> <span class="n">path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;r&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-        <span class="n">data</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">safe_load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span> <span class="ow">or</span> <span class="p">{}</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid profile file: </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">data</span>
+<span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
 
-<div class="viewcode-block" id="load_cluster_profile">
-<a class="viewcode-back" href="../../../api/batch_jobs.html#spikelab.batch_jobs.profiles.load_cluster_profile">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">load_cluster_profile</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ClusterProfile</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load a profile from an explicit YAML path.&quot;&quot;&quot;</span>
-    <span class="n">payload</span> <span class="o">=</span> <span class="n">_read_yaml</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
-    <span class="k">return</span> <span class="n">ClusterProfile</span><span class="o">.</span><span class="n">model_validate</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span></div>
+<span class="k">def</span><span class="w"> </span><span class="nf">_build_canary_config</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">canary_window_s</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return a config clone tuned for a short smoke-test sort.</span>
+
+<span class="sd">    The clone preserves everything that affects whether the sort can</span>
+<span class="sd">    *start* (sorter selection, sorter params, MEX compile, Docker</span>
+<span class="sd">    image, model paths, recording loader settings) and turns off</span>
+<span class="sd">    everything that only matters for the *output* of a real sort</span>
+<span class="sd">    (post-sort exporters, figures, the per-recording report, the</span>
+<span class="sd">    second preflight pass that already ran).</span>
+
+<span class="sd">    Curation is disabled because a tiny window legitimately yields</span>
+<span class="sd">    too few units, and a curation-driven empty result would surface</span>
+<span class="sd">    as a false-positive canary failure.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        config (SortingPipelineConfig): The original pipeline config.</span>
+<span class="sd">        canary_window_s (float): Seconds of the recording the canary</span>
+<span class="sd">            should sort.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        canary_config (SortingPipelineConfig): Deep copy with canary</span>
+<span class="sd">            overrides applied.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Scale the inactivity baseline with the canary window: a 30s</span>
+    <span class="c1"># smoke test should not wait the same 5 min as a multi-hour sort</span>
+    <span class="c1"># before flagging a hang. The floor (120s) absorbs Docker / MEX</span>
+    <span class="c1"># cold-start; the ceiling (300s) caps the timeout at the original</span>
+    <span class="c1"># full-sort default for unusually large windows.</span>
+    <span class="n">canary_inactivity_base_s</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="mf">300.0</span><span class="p">,</span> <span class="nb">max</span><span class="p">(</span><span class="mf">120.0</span><span class="p">,</span> <span class="mf">4.0</span> <span class="o">*</span> <span class="n">canary_window_s</span><span class="p">))</span>
+    <span class="n">overrides</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="c1"># Restrict to the leading window; clear any rec_chunks that</span>
+        <span class="c1"># would otherwise force the loader into a multi-segment path.</span>
+        <span class="s2">&quot;start_time_s&quot;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
+        <span class="s2">&quot;end_time_s&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">canary_window_s</span><span class="p">),</span>
+        <span class="s2">&quot;rec_chunks&quot;</span><span class="p">:</span> <span class="p">[],</span>
+        <span class="s2">&quot;rec_chunks_s&quot;</span><span class="p">:</span> <span class="p">[],</span>
+        <span class="c1"># Skip curation — too few units in a 30 s window is normal.</span>
+        <span class="s2">&quot;curate_first&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="s2">&quot;curate_second&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="c1"># ``tee_log_policy=&quot;keep&quot;`` preserves the canary&#39;s tee log</span>
+        <span class="c1"># for debugging. The tee log lives outside the per-pid</span>
+        <span class="c1"># ``_canary_&lt;pid&gt;/`` folder, so ``_wipe_canary_folder`` does</span>
+        <span class="c1"># not clean it up — operators should sweep stale canary tee</span>
+        <span class="c1"># logs from the parent results folder periodically.</span>
+        <span class="c1"># Skip post-sort exporters — canary outputs are discarded.</span>
+        <span class="s2">&quot;compile_single_recording&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="s2">&quot;compile_to_mat&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="s2">&quot;compile_to_npz&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="s2">&quot;compile_waveforms&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="s2">&quot;save_raw_pkl&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="s2">&quot;save_dl_data&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="c1"># Skip figures and the human-readable report.</span>
+        <span class="s2">&quot;create_figures&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="s2">&quot;create_unit_figures&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="s2">&quot;generate_sorting_report&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="c1"># Avoid double-running preflight (the outer caller already</span>
+        <span class="c1"># ran it) and keep the canary log file in place so a failure</span>
+        <span class="c1"># is debuggable.</span>
+        <span class="s2">&quot;preflight&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="s2">&quot;tee_log_policy&quot;</span><span class="p">:</span> <span class="s2">&quot;keep&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;sorter_inactivity_base_s&quot;</span><span class="p">:</span> <span class="n">canary_inactivity_base_s</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="n">config</span><span class="o">.</span><span class="n">override</span><span class="p">(</span><span class="o">**</span><span class="n">overrides</span><span class="p">)</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_wipe_canary_folder</span><span class="p">(</span><span class="n">folder</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">strict</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Best-effort cleanup of the canary&#39;s intermediate folder.</span>
 
-<div class="viewcode-block" id="load_profile_from_name">
-<a class="viewcode-back" href="../../../api/batch_jobs.html#spikelab.batch_jobs.profiles.load_profile_from_name">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">load_profile_from_name</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ClusterProfile</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load one of the built-in profile files by name.&quot;&quot;&quot;</span>
-    <span class="n">normalized</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
-    <span class="k">if</span> <span class="n">normalized</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;nrp&quot;</span><span class="p">,</span> <span class="s2">&quot;nautilus&quot;</span><span class="p">}:</span>
-        <span class="n">filename</span> <span class="o">=</span> <span class="s2">&quot;nrp.yaml&quot;</span>
+<span class="sd">    Parameters:</span>
+<span class="sd">        folder (Path): Folder to wipe.</span>
+<span class="sd">        strict (bool): When True, raises if the wipe fails. Used at</span>
+<span class="sd">            entry-time so a permission-denied wipe is surfaced</span>
+<span class="sd">            rather than silently running the canary against a</span>
+<span class="sd">            partially-cleaned folder. Defaults to False (best-effort</span>
+<span class="sd">            cleanup) for the post-canary cleanup call site.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">folder</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">strict</span><span class="p">:</span>
+                <span class="c1"># ignore_errors=False — any failure raises so the</span>
+                <span class="c1"># caller can decide how to surface it.</span>
+                <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="n">folder</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="n">folder</span><span class="p">,</span> <span class="n">ignore_errors</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">strict</span><span class="p">:</span>
+            <span class="k">raise</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;cleanup of </span><span class="si">%s</span><span class="s2"> failed: </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">folder</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="run_canary">
+<a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting.canary.run_canary">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">run_canary</span><span class="p">(</span>
+    <span class="n">config</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="n">recording</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="n">rec_path</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="n">inter_path</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">sorter_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">rec_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;canary&quot;</span><span class="p">,</span>
+    <span class="n">rng</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="ne">BaseException</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Run a short-window smoke test of the configured backend.</span>
+
+<span class="sd">    Builds a canary clone of *config* (see :func:`_build_canary_config`),</span>
+<span class="sd">    spins up a fresh backend instance against that clone, and invokes</span>
+<span class="sd">    :func:`spikelab.spike_sorting.pipeline.process_recording` against</span>
+<span class="sd">    a ``&lt;inter_path&gt;/_canary/`` subdirectory.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        config (SortingPipelineConfig): Live pipeline configuration.</span>
+<span class="sd">            Read but never mutated.</span>
+<span class="sd">        recording: Pre-loaded ``BaseRecording`` for the canary, or</span>
+<span class="sd">            ``None`` when only a path is available.</span>
+<span class="sd">        rec_path: Path to the recording on disk. Used by the backend</span>
+<span class="sd">            loader when *recording* is ``None``.</span>
+<span class="sd">        inter_path: The recording&#39;s intermediate folder. The canary</span>
+<span class="sd">            writes under a ``_canary`` sub-folder so the real sort&#39;s</span>
+<span class="sd">            artefacts are untouched.</span>
+<span class="sd">        sorter_name (str or None): Override the sorter resolved from</span>
+<span class="sd">            ``config.sorter.sorter_name``. Mostly used by tests.</span>
+<span class="sd">        rec_name (str): Short identifier for the canary in log</span>
+<span class="sd">            output.</span>
+<span class="sd">        rng (np.random.Generator or None): Optional RNG passed</span>
+<span class="sd">            through to ``process_recording`` for reproducibility.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        result (BaseException or None): A classified exception when</span>
+<span class="sd">            the canary discovered a failure the full sort would also</span>
+<span class="sd">            have hit; ``None`` when the canary succeeded *or* when</span>
+<span class="sd">            the canary itself hit an unexpected non-classified</span>
+<span class="sd">            failure (which the live watchdogs are responsible for</span>
+<span class="sd">            during the real run).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">canary_window_s</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">execution</span><span class="p">,</span> <span class="s2">&quot;canary_first_n_s&quot;</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span>
+    <span class="c1"># NaN comparisons are always False, so a NaN window would skip the</span>
+    <span class="c1"># ``&lt;= 0`` guard and proceed to build a meaningless canary with</span>
+    <span class="c1"># ``end_time_s=NaN``. Treat NaN the same as &quot;disabled&quot;.</span>
+    <span class="k">if</span> <span class="n">math</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">canary_window_s</span><span class="p">)</span> <span class="ow">or</span> <span class="n">canary_window_s</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="n">canary_config</span> <span class="o">=</span> <span class="n">_build_canary_config</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">canary_window_s</span><span class="p">)</span>
+    <span class="c1"># Per-pid subfolder so two direct callers of run_canary against</span>
+    <span class="c1"># the same inter_path cannot race on the wipe + mkdir. The</span>
+    <span class="c1"># standard pipeline flow already serialises via acquire_sort_lock</span>
+    <span class="c1"># on inter_path, but run_canary is also exposed as a public</span>
+    <span class="c1"># function and direct callers have no such protection.</span>
+    <span class="n">canary_root</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">inter_path</span><span class="p">)</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;_canary_</span><span class="si">{</span><span class="n">os</span><span class="o">.</span><span class="n">getpid</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="c1"># Strict wipe at entry — running the canary against a</span>
+    <span class="c1"># partially-cleaned folder could mask sorter behaviour. The</span>
+    <span class="c1"># cleanup-phase wipe at exit stays best-effort.</span>
+    <span class="n">_wipe_canary_folder</span><span class="p">(</span><span class="n">canary_root</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">canary_root</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">canary_inter</span> <span class="o">=</span> <span class="n">canary_root</span> <span class="o">/</span> <span class="s2">&quot;inter&quot;</span>
+    <span class="n">canary_results</span> <span class="o">=</span> <span class="n">canary_root</span> <span class="o">/</span> <span class="s2">&quot;results&quot;</span>
+
+    <span class="n">sorter</span> <span class="o">=</span> <span class="n">sorter_name</span> <span class="ow">or</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">sorter</span><span class="p">,</span> <span class="s2">&quot;sorter_name&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+    <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+        <span class="s2">&quot;running </span><span class="si">%.1f</span><span class="s2">s smoke test for </span><span class="si">%s</span><span class="s2"> via </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+        <span class="n">canary_window_s</span><span class="p">,</span>
+        <span class="n">rec_name</span><span class="p">,</span>
+        <span class="n">sorter</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">started_t</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">monotonic</span><span class="p">()</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">.backends</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_backend_class</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">process_recording</span>
+
+        <span class="n">backend_cls</span> <span class="o">=</span> <span class="n">get_backend_class</span><span class="p">(</span><span class="n">sorter</span><span class="p">)</span>
+        <span class="n">canary_backend</span> <span class="o">=</span> <span class="n">backend_cls</span><span class="p">(</span><span class="n">canary_config</span><span class="p">)</span>
+
+        <span class="n">result</span> <span class="o">=</span> <span class="n">process_recording</span><span class="p">(</span>
+            <span class="n">canary_backend</span><span class="p">,</span>
+            <span class="n">canary_config</span><span class="p">,</span>
+            <span class="n">rec_name</span><span class="p">,</span>
+            <span class="n">rec_path</span><span class="p">,</span>
+            <span class="n">canary_inter</span><span class="p">,</span>
+            <span class="n">canary_results</span><span class="p">,</span>
+            <span class="n">rec_loaded</span><span class="o">=</span><span class="n">recording</span><span class="p">,</span>
+            <span class="n">rec_chunks</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">rec_chunk_names</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">rng</span><span class="o">=</span><span class="n">rng</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">except</span> <span class="n">_CLASSIFIED_FAILURES</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;classified failure: </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
+        <span class="n">_wipe_canary_folder</span><span class="p">(</span><span class="n">canary_root</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">exc</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">KeyboardInterrupt</span><span class="p">,</span> <span class="ne">SystemExit</span><span class="p">):</span>
+        <span class="c1"># User abort or watchdog interrupt — never swallow. Clean up</span>
+        <span class="c1"># the canary folder and let the interrupt propagate so the</span>
+        <span class="c1"># outer pipeline tears down promptly.</span>
+        <span class="n">_wipe_canary_folder</span><span class="p">(</span><span class="n">canary_root</span><span class="p">)</span>
+        <span class="k">raise</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+        <span class="c1"># Unexpected failure — the canary is a smoke test, not a</span>
+        <span class="c1"># hard gate. Log and let the full sort proceed; live</span>
+        <span class="c1"># watchdogs handle resource-shaped issues at runtime.</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="s2">&quot;non-classified failure (</span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">); proceeding with the &quot;</span> <span class="s2">&quot;full sort.&quot;</span><span class="p">,</span>
+            <span class="nb">type</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+            <span class="n">exc</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">_wipe_canary_folder</span><span class="p">(</span><span class="n">canary_root</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">_CLASSIFIED_FAILURES</span><span class="p">):</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;classified failure: </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="n">result</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
+        <span class="n">_wipe_canary_folder</span><span class="p">(</span><span class="n">canary_root</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">result</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="p">(</span><span class="ne">KeyboardInterrupt</span><span class="p">,</span> <span class="ne">SystemExit</span><span class="p">)):</span>
+        <span class="c1"># process_recording returned the interrupt as a value rather</span>
+        <span class="c1"># than raising; surface it the same way as the raised path.</span>
+        <span class="n">_wipe_canary_folder</span><span class="p">(</span><span class="n">canary_root</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="n">result</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="ne">BaseException</span><span class="p">):</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="s2">&quot;non-classified failure (</span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">); proceeding with the &quot;</span> <span class="s2">&quot;full sort.&quot;</span><span class="p">,</span>
+            <span class="nb">type</span><span class="p">(</span><span class="n">result</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+            <span class="n">result</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">_wipe_canary_folder</span><span class="p">(</span><span class="n">canary_root</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="n">elapsed_s</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">monotonic</span><span class="p">()</span> <span class="o">-</span> <span class="n">started_t</span>
+    <span class="n">n_units</span> <span class="o">=</span> <span class="n">_extract_unit_count</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">n_units</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">&quot;passed in </span><span class="si">%.1f</span><span class="s2">s; proceeding with the full sort.&quot;</span><span class="p">,</span>
+            <span class="n">elapsed_s</span><span class="p">,</span>
+        <span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">filename</span> <span class="o">=</span> <span class="s2">&quot;defaults.yaml&quot;</span>
-    <span class="n">base</span> <span class="o">=</span> <span class="n">files</span><span class="p">(</span><span class="s2">&quot;spikelab.batch_jobs&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="s2">&quot;profiles&quot;</span><span class="p">)</span>
-    <span class="n">payload</span> <span class="o">=</span> <span class="n">_read_yaml</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">base</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="n">filename</span><span class="p">))))</span>
-    <span class="k">return</span> <span class="n">ClusterProfile</span><span class="o">.</span><span class="n">model_validate</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span></div>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">&quot;passed: produced </span><span class="si">%d</span><span class="s2"> unit(s) in </span><span class="si">%.1f</span><span class="s2">s; proceeding with &quot;</span> <span class="s2">&quot;the full sort.&quot;</span><span class="p">,</span>
+            <span class="n">n_units</span><span class="p">,</span>
+            <span class="n">elapsed_s</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="n">_wipe_canary_folder</span><span class="p">(</span><span class="n">canary_root</span><span class="p">)</span>
+    <span class="k">return</span> <span class="kc">None</span></div>
 
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_extract_unit_count</span><span class="p">(</span><span class="n">result</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Best-effort unit count from a ``process_recording`` success result.</span>
+
+<span class="sd">    ``process_recording`` returns either a single ``SpikeData`` or a</span>
+<span class="sd">    ``(sd, sd_curated)`` tuple depending on</span>
+<span class="sd">    ``ExecutionConfig.save_raw_pkl``. When neither shape matches, or</span>
+<span class="sd">    when the object lacks ``N`` (number of units), returns ``None``</span>
+<span class="sd">    so the caller falls back to a unit-count-less log line.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">candidate</span> <span class="o">=</span> <span class="n">result</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="ow">and</span> <span class="n">result</span><span class="p">:</span>
+        <span class="c1"># Prefer the curated SpikeData if present (last entry).</span>
+        <span class="n">candidate</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">candidate</span><span class="p">,</span> <span class="s2">&quot;N&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">n</span>
+    <span class="k">return</span> <span class="kc">None</span>
 </pre></div>
 
            </div>

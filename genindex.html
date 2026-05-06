@@ -85,6 +85,8 @@
 <li class="toctree-l4"><a class="reference internal" href="guides/spike_sorting.html#configuration-and-presets">Configuration and presets</a></li>
 <li class="toctree-l4"><a class="reference internal" href="guides/spike_sorting.html#multi-stream-recordings">Multi-stream recordings</a></li>
 <li class="toctree-l4"><a class="reference internal" href="guides/spike_sorting.html#reusing-intermediate-results">Reusing intermediate results</a></li>
+<li class="toctree-l4"><a class="reference internal" href="guides/spike_sorting.html#built-in-safeguards">Built-in safeguards</a></li>
+<li class="toctree-l4"><a class="reference internal" href="guides/spike_sorting.html#pipeline-canary">Pipeline canary</a></li>
 <li class="toctree-l4"><a class="reference internal" href="guides/spike_sorting.html#stimulation-artifact-removal">Stimulation Artifact Removal</a></li>
 </ul>
 </li>
@@ -96,7 +98,10 @@
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="guides/spike_sorting.html#sorting-concatenated-recordings">Sorting Concatenated Recordings</a></li>
-<li class="toctree-l3"><a class="reference internal" href="guides/spike_sorting.html#handling-sort-failures">Handling Sort Failures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="guides/spike_sorting.html#handling-sort-failures">Handling Sort Failures</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="guides/spike_sorting.html#watchdog-and-lock-failures">Watchdog and lock failures</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="guides/spike_analysis.html">Spike Analysis</a><ul>
@@ -365,6 +370,9 @@
 <li class="toctree-l4"><a class="reference internal" href="api/spike_sorting.html#module-spikelab.spike_sorting.backends">Backend Registry</a></li>
 <li class="toctree-l4"><a class="reference internal" href="api/spike_sorting.html#classified-exceptions">Classified Exceptions</a></li>
 <li class="toctree-l4"><a class="reference internal" href="api/spike_sorting.html#post-failure-classifiers">Post-Failure Classifiers</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/spike_sorting.html#sort-run-reports">Sort Run Reports</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/spike_sorting.html#resource-guards">Resource Guards</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/spike_sorting.html#pipeline-canary">Pipeline Canary</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="api/curation.html">Curation</a><ul>
@@ -474,21 +482,35 @@
 </li>
         <li><a href="api/batch_jobs.html#spikelab.batch_jobs.storage_s3.S3StorageClient.__init__">(spikelab.batch_jobs.storage_s3.S3StorageClient method)</a>
 </li>
+        <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.ConcurrentSortError.__init__">(spikelab.spike_sorting._exceptions.ConcurrentSortError method)</a>
+</li>
+        <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.DiskExhaustionError.__init__">(spikelab.spike_sorting._exceptions.DiskExhaustionError method)</a>
+</li>
         <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.DockerEnvironmentError.__init__">(spikelab.spike_sorting._exceptions.DockerEnvironmentError method)</a>
 </li>
         <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.EmptyWaveformMetricsError.__init__">(spikelab.spike_sorting._exceptions.EmptyWaveformMetricsError method)</a>
 </li>
+        <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.GpuMemoryWatchdogError.__init__">(spikelab.spike_sorting._exceptions.GpuMemoryWatchdogError method)</a>
+</li>
         <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.GPUOutOfMemoryError.__init__">(spikelab.spike_sorting._exceptions.GPUOutOfMemoryError method)</a>
+</li>
+        <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.GpuThermalWatchdogError.__init__">(spikelab.spike_sorting._exceptions.GpuThermalWatchdogError method)</a>
 </li>
         <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.HDF5PluginMissingError.__init__">(spikelab.spike_sorting._exceptions.HDF5PluginMissingError method)</a>
 </li>
+        <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.HostMemoryWatchdogError.__init__">(spikelab.spike_sorting._exceptions.HostMemoryWatchdogError method)</a>
+</li>
         <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.InsufficientActivityError.__init__">(spikelab.spike_sorting._exceptions.InsufficientActivityError method)</a>
+</li>
+        <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.IOStallError.__init__">(spikelab.spike_sorting._exceptions.IOStallError method)</a>
 </li>
         <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.ModelLoadingError.__init__">(spikelab.spike_sorting._exceptions.ModelLoadingError method)</a>
 </li>
         <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.NoGoodChannelsError.__init__">(spikelab.spike_sorting._exceptions.NoGoodChannelsError method)</a>
 </li>
         <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.SaturatedSignalError.__init__">(spikelab.spike_sorting._exceptions.SaturatedSignalError method)</a>
+</li>
+        <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.SorterTimeoutError.__init__">(spikelab.spike_sorting._exceptions.SorterTimeoutError method)</a>
 </li>
         <li><a href="api/spike_sorting.html#spikelab.spike_sorting.backends.base.SorterBackend.__init__">(spikelab.spike_sorting.backends.base.SorterBackend method)</a>
 </li>
@@ -509,6 +531,24 @@
         <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.SortingPipelineConfig.__init__">(spikelab.spike_sorting.config.SortingPipelineConfig method)</a>
 </li>
         <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.WaveformConfig.__init__">(spikelab.spike_sorting.config.WaveformConfig method)</a>
+</li>
+        <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.DiskExhaustionReport.__init__">(spikelab.spike_sorting.guards.DiskExhaustionReport method)</a>
+</li>
+        <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.DiskUsageWatchdog.__init__">(spikelab.spike_sorting.guards.DiskUsageWatchdog method)</a>
+</li>
+        <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.GpuMemoryWatchdog.__init__">(spikelab.spike_sorting.guards.GpuMemoryWatchdog method)</a>
+</li>
+        <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.HostMemoryWatchdog.__init__">(spikelab.spike_sorting.guards.HostMemoryWatchdog method)</a>
+</li>
+        <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.IOStallWatchdog.__init__">(spikelab.spike_sorting.guards.IOStallWatchdog method)</a>
+</li>
+        <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.LogInactivityWatchdog.__init__">(spikelab.spike_sorting.guards.LogInactivityWatchdog method)</a>
+</li>
+        <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.PreflightFinding.__init__">(spikelab.spike_sorting.guards.PreflightFinding method)</a>
+</li>
+        <li><a href="api/spike_sorting.html#spikelab.spike_sorting.pipeline.RecordingResult.__init__">(spikelab.spike_sorting.pipeline.RecordingResult method)</a>
+</li>
+        <li><a href="api/spike_sorting.html#spikelab.spike_sorting.pipeline.SortRunReport.__init__">(spikelab.spike_sorting.pipeline.SortRunReport method)</a>
 </li>
         <li><a href="api/pairwise.html#spikelab.spikedata.pairwise.PairwiseCompMatrix.__init__">(spikelab.spikedata.pairwise.PairwiseCompMatrix method)</a>
 </li>
@@ -535,9 +575,29 @@
 <h2 id="A">A</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.GpuMemoryWatchdogError.abort_pct">abort_pct (spikelab.spike_sorting._exceptions.GpuMemoryWatchdogError attribute)</a>
+
+      <ul>
+        <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.HostMemoryWatchdogError.abort_pct">(spikelab.spike_sorting._exceptions.HostMemoryWatchdogError attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.GpuThermalWatchdogError.abort_temp_c">abort_temp_c (spikelab.spike_sorting._exceptions.GpuThermalWatchdogError attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.DiskExhaustionError.abort_threshold_gb">abort_threshold_gb (spikelab.spike_sorting._exceptions.DiskExhaustionError attribute)</a>
+
+      <ul>
+        <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.DiskExhaustionReport.abort_threshold_gb">(spikelab.spike_sorting.guards.DiskExhaustionReport attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.pipeline.SortRunReport.add">add() (spikelab.spike_sorting.pipeline.SortRunReport method)</a>
+</li>
       <li><a href="api/workspace.html#spikelab.workspace.workspace.AnalysisWorkspace.add_note">add_note() (spikelab.workspace.workspace.AnalysisWorkspace method)</a>
 </li>
       <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.align_to_events">align_to_events() (spikelab.spikedata.SpikeData method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.pipeline.SortRunReport.all_succeeded">all_succeeded (spikelab.spike_sorting.pipeline.SortRunReport property)</a>
 </li>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.models.RunConfig.allow_policy_risk">allow_policy_risk (spikelab.batch_jobs.models.RunConfig attribute)</a>
 </li>
@@ -545,8 +605,6 @@
 </li>
       <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.append">append() (spikelab.spikedata.SpikeData method)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack.apply">apply() (spikelab.spikedata.spikeslicestack.SpikeSliceStack method)</a>
 </li>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.backend_k8s.KubernetesBatchJobBackend.apply_manifest">apply_manifest() (spikelab.batch_jobs.backend_k8s.KubernetesBatchJobBackend method)</a>
@@ -577,10 +635,10 @@
 </li>
       <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.best_match_assignment">best_match_assignment() (spikelab.spikedata.SpikeData static method)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.binned">binned() (spikelab.spikedata.SpikeData method)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.binned_meanrate">binned_meanrate() (spikelab.spikedata.SpikeData method)</a>
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.BiologicalSortFailure">BiologicalSortFailure</a>
@@ -597,12 +655,18 @@
 </li>
       <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.burst_sensitivity">burst_sensitivity() (spikelab.spikedata.SpikeData method)</a>
 </li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.DiskExhaustionReport.bytes_consumed_during_sort">bytes_consumed_during_sort (spikelab.spike_sorting.guards.DiskExhaustionReport attribute)</a>
+</li>
   </ul></td>
 </tr></table>
 
 <h2 id="C">C</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.canary_first_n_s">canary_first_n_s (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.PreflightFinding.category">category (spikelab.spike_sorting.guards.PreflightFinding attribute)</a>
+</li>
       <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.channel_raster">channel_raster() (spikelab.spikedata.SpikeData method)</a>
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.SaturatedSignalError.channels_saturated">channels_saturated (spikelab.spike_sorting._exceptions.SaturatedSignalError attribute)</a>
@@ -613,10 +677,18 @@
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting._classifier.classify_ks4_failure">classify_ks4_failure() (in module spikelab.spike_sorting._classifier)</a>
 </li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting._classifier.classify_rt_sort_failure">classify_rt_sort_failure() (in module spikelab.spike_sorting._classifier)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.cleanup_temp_files">cleanup_temp_files (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
+</li>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.models.ClusterProfile">ClusterProfile (class in spikelab.batch_jobs.models)</a>
 </li>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.policy.PolicyFinding.code">code (spikelab.batch_jobs.policy.PolicyFinding attribute)</a>
+
+      <ul>
+        <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.PreflightFinding.code">(spikelab.spike_sorting.guards.PreflightFinding attribute)</a>
 </li>
+      </ul></li>
       <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.compare_sorter">compare_sorter() (spikelab.spikedata.SpikeData method)</a>
 </li>
       <li><a href="api/workspace.html#spikelab.workspace.workspace.AnalysisWorkspace.comparison_namespace">comparison_namespace() (spikelab.workspace.workspace.AnalysisWorkspace static method)</a>
@@ -651,12 +723,14 @@
       </ul></li>
       <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.concatenate_spike_data">concatenate_spike_data() (spikelab.spikedata.SpikeData method)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.ConcurrentSortError">ConcurrentSortError</a>
+</li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.HDF5PluginMissingError.configured_path">configured_path (spikelab.spike_sorting._exceptions.HDF5PluginMissingError attribute)</a>
 </li>
       <li><a href="api/utilities.html#spikelab.spikedata.utils.consecutive_durations">consecutive_durations() (in module spikelab.spikedata.utils)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.models.JobSpec.container">container (spikelab.batch_jobs.models.JobSpec attribute)</a>
 </li>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.models.ContainerSpec">ContainerSpec (class in spikelab.batch_jobs.models)</a>
@@ -749,13 +823,41 @@
 </li>
       <li><a href="api/workspace.html#spikelab.workspace.workspace.AnalysisWorkspace.describe">describe() (spikelab.workspace.workspace.AnalysisWorkspace method)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.RTSortConfig.detection_window_s">detection_window_s (spikelab.spike_sorting.config.RTSortConfig attribute)</a>
 </li>
-      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.RTSortConfig.device">device (spikelab.spike_sorting.config.RTSortConfig attribute)</a>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.IOStallError.device">device (spikelab.spike_sorting._exceptions.IOStallError attribute)</a>
+
+      <ul>
+        <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.RTSortConfig.device">(spikelab.spike_sorting.config.RTSortConfig attribute)</a>
 </li>
+      </ul></li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.IOStallWatchdog.device">device() (spikelab.spike_sorting.guards.IOStallWatchdog method)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.GpuMemoryWatchdogError.device_index">device_index (spikelab.spike_sorting._exceptions.GpuMemoryWatchdogError attribute)</a>
+
+      <ul>
+        <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.GpuThermalWatchdogError.device_index">(spikelab.spike_sorting._exceptions.GpuThermalWatchdogError attribute)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/pairwise.html#spikelab.spikedata.pairwise.PairwiseCompMatrixStack.dim_red_on_lower_diagonal_corr_matrix">dim_red_on_lower_diagonal_corr_matrix() (spikelab.spikedata.pairwise.PairwiseCompMatrixStack method)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.disk_abort_free_gb">disk_abort_free_gb (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.disk_poll_interval_s">disk_poll_interval_s (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.disk_warn_free_gb">disk_warn_free_gb (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.disk_watchdog">disk_watchdog (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.DiskExhaustionError">DiskExhaustionError</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.DiskExhaustionReport">DiskExhaustionReport (class in spikelab.spike_sorting.guards)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.DiskUsageWatchdog">DiskUsageWatchdog (class in spikelab.spike_sorting.guards)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.docker_image_expected_digest">docker_image_expected_digest (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.DockerEnvironmentError">DockerEnvironmentError</a>
 </li>
@@ -787,16 +889,20 @@
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.EnvironmentSortFailure">EnvironmentSortFailure</a>
 </li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.pipeline.RecordingResult.error_class">error_class (spikelab.spike_sorting.pipeline.RecordingResult attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.pipeline.RecordingResult.error_message">error_message (spikelab.spike_sorting.pipeline.RecordingResult attribute)</a>
+</li>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.policy.evaluate_policy">evaluate_policy() (in module spikelab.batch_jobs.policy)</a>
 </li>
       <li><a href="api/rateslicestack.html#spikelab.spikedata.rateslicestack.RateSliceStack.event_stack">event_stack (spikelab.spikedata.rateslicestack.RateSliceStack attribute)</a>
 </li>
       <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.events">events (spikelab.spikedata.SpikeData property)</a>
 </li>
-      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.SortingPipelineConfig.execution">execution (spikelab.spike_sorting.config.SortingPipelineConfig attribute)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.SortingPipelineConfig.execution">execution (spikelab.spike_sorting.config.SortingPipelineConfig attribute)</a>
+</li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig">ExecutionConfig (class in spikelab.spike_sorting.config)</a>
 </li>
       <li><a href="api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_hdf5">export_spikedata_to_hdf5() (in module spikelab.data_loaders.data_exporters)</a>
@@ -813,6 +919,8 @@
 </li>
       <li><a href="api/pairwise.html#spikelab.spikedata.pairwise.PairwiseCompMatrix.extract_pairs_by_group">extract_pairs_by_group() (spikelab.spikedata.pairwise.PairwiseCompMatrix method)</a>
 </li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.report.extract_unit_quality_stats">extract_unit_quality_stats() (in module spikelab.spike_sorting.report)</a>
+</li>
       <li><a href="api/utilities.html#spikelab.spikedata.utils.extract_unit_waveforms">extract_unit_waveforms() (in module spikelab.spikedata.utils)</a>
 </li>
       <li><a href="api/utilities.html#spikelab.spikedata.utils.extract_waveforms">extract_waveforms() (in module spikelab.spikedata.utils)</a>
@@ -827,6 +935,8 @@
 <h2 id="F">F</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.pipeline.SortRunReport.failed">failed (spikelab.spike_sorting.pipeline.SortRunReport property)</a>
+</li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.FigureConfig">FigureConfig (class in spikelab.spike_sorting.config)</a>
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.SortingPipelineConfig.figures">figures (spikelab.spike_sorting.config.SortingPipelineConfig attribute)</a>
@@ -835,6 +945,12 @@
 </li>
       <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.fit_gplvm">fit_gplvm() (spikelab.spikedata.SpikeData method)</a>
 </li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.DiskExhaustionError.folder">folder (spikelab.spike_sorting._exceptions.DiskExhaustionError attribute)</a>
+
+      <ul>
+        <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.DiskExhaustionReport.folder">(spikelab.spike_sorting.guards.DiskExhaustionReport attribute)</a>
+</li>
+      </ul></li>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.models.RunConfig.follow_logs">follow_logs (spikelab.batch_jobs.models.RunConfig attribute)</a>
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.FigureConfig.font_size">font_size (spikelab.spike_sorting.config.FigureConfig attribute)</a>
@@ -849,6 +965,12 @@
       </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.DiskExhaustionError.free_gb_at_trip">free_gb_at_trip (spikelab.spike_sorting._exceptions.DiskExhaustionError attribute)</a>
+
+      <ul>
+        <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.DiskExhaustionReport.free_gb_at_trip">(spikelab.spike_sorting.guards.DiskExhaustionReport attribute)</a>
+</li>
+      </ul></li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.RecordingConfig.freq_max">freq_max (spikelab.spike_sorting.config.RecordingConfig attribute)</a>
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.RecordingConfig.freq_min">freq_min (spikelab.spike_sorting.config.RecordingConfig attribute)</a>
@@ -872,6 +994,10 @@
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.RecordingConfig.gain_to_uv">gain_to_uv (spikelab.spike_sorting.config.RecordingConfig attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.generate_sorting_report">generate_sorting_report (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.report.generate_sorting_report">generate_sorting_report() (in module spikelab.spike_sorting.report)</a>
 </li>
       <li><a href="api/workspace.html#spikelab.workspace.workspace.AnalysisWorkspace.get">get() (spikelab.workspace.workspace.AnalysisWorkspace method)</a>
 
@@ -901,8 +1027,6 @@
 </li>
       <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.get_pairwise_latencies">get_pairwise_latencies() (spikelab.spikedata.SpikeData method)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.get_pop_rate">get_pop_rate() (spikelab.spikedata.SpikeData method)</a>
 </li>
       <li><a href="api/rateslicestack.html#spikelab.spikedata.rateslicestack.RateSliceStack.get_slice_to_slice_time_corr_from_stack">get_slice_to_slice_time_corr_from_stack() (spikelab.spikedata.rateslicestack.RateSliceStack method)</a>
@@ -911,6 +1035,8 @@
 </li>
       <li><a href="api/rateslicestack.html#spikelab.spikedata.rateslicestack.RateSliceStack.get_slice_to_slice_unit_corr_from_stack">get_slice_to_slice_unit_corr_from_stack() (spikelab.spikedata.rateslicestack.RateSliceStack method)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/utilities.html#spikelab.spikedata.utils.get_sttc">get_sttc() (in module spikelab.spikedata.utils)</a>
 </li>
       <li><a href="api/rateslicestack.html#spikelab.spikedata.rateslicestack.RateSliceStack.get_unit_timing_per_slice">get_unit_timing_per_slice() (spikelab.spikedata.rateslicestack.RateSliceStack method)</a>
@@ -933,7 +1059,27 @@
 </li>
       <li><a href="api/utilities.html#spikelab.spikedata.utils.gplvm_state_entropy">gplvm_state_entropy() (in module spikelab.spikedata.utils)</a>
 </li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.gpu_abort_pct">gpu_abort_pct (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.gpu_abort_temp_c">gpu_abort_temp_c (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.gpu_monitor_throttle_reasons">gpu_monitor_throttle_reasons (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.gpu_poll_interval_s">gpu_poll_interval_s (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.gpu_warn_pct">gpu_warn_pct (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.gpu_warn_temp_c">gpu_warn_temp_c (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.gpu_watchdog">gpu_watchdog (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.GpuMemoryWatchdog">GpuMemoryWatchdog (class in spikelab.spike_sorting.guards)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.GpuMemoryWatchdogError">GpuMemoryWatchdogError</a>
+</li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.GPUOutOfMemoryError">GPUOutOfMemoryError</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.GpuThermalWatchdogError">GpuThermalWatchdogError</a>
 </li>
   </ul></td>
 </tr></table>
@@ -943,9 +1089,25 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.RecordingConfig.hdf5_plugin_path">hdf5_plugin_path (spikelab.spike_sorting.config.RecordingConfig attribute)</a>
 </li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.HDF5PluginMissingError">HDF5PluginMissingError</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.ConcurrentSortError.holder_hostname">holder_hostname (spikelab.spike_sorting._exceptions.ConcurrentSortError attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.ConcurrentSortError.holder_pid">holder_pid (spikelab.spike_sorting._exceptions.ConcurrentSortError attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.host_ram_abort_pct">host_ram_abort_pct (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
+</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.HDF5PluginMissingError">HDF5PluginMissingError</a>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.host_ram_poll_interval_s">host_ram_poll_interval_s (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.host_ram_warn_pct">host_ram_warn_pct (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.host_ram_watchdog">host_ram_watchdog (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.HostMemoryWatchdog">HostMemoryWatchdog (class in spikelab.spike_sorting.guards)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.HostMemoryWatchdogError">HostMemoryWatchdogError</a>
 </li>
   </ul></td>
 </tr></table>
@@ -961,17 +1123,37 @@
         <li><a href="api/batch_jobs.html#spikelab.batch_jobs.models.NamespaceHookSpec.image_pull_policy">(spikelab.batch_jobs.models.NamespaceHookSpec attribute)</a>
 </li>
       </ul></li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.SorterTimeoutError.inactivity_s">inactivity_s (spikelab.spike_sorting._exceptions.SorterTimeoutError attribute)</a>
+</li>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.models.RunConfig.input_path">input_path (spikelab.batch_jobs.models.RunConfig attribute)</a>
 </li>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.models.StoragePathTemplates.inputs">inputs (spikelab.batch_jobs.models.StoragePathTemplates attribute)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/ratedata.html#spikelab.spikedata.ratedata.RateData.inst_Frate_data">inst_Frate_data (spikelab.spikedata.ratedata.RateData attribute)</a>
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.InsufficientActivityError">InsufficientActivityError</a>
 </li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.GpuMemoryWatchdog.interrupt_delivery_failed">interrupt_delivery_failed() (spikelab.spike_sorting.guards.GpuMemoryWatchdog method)</a>
+
+      <ul>
+        <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.HostMemoryWatchdog.interrupt_delivery_failed">(spikelab.spike_sorting.guards.HostMemoryWatchdog method)</a>
+</li>
+        <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.IOStallWatchdog.interrupt_delivery_failed">(spikelab.spike_sorting.guards.IOStallWatchdog method)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.interspike_intervals">interspike_intervals() (spikelab.spikedata.SpikeData method)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.io_stall_poll_interval_s">io_stall_poll_interval_s (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.io_stall_s">io_stall_s (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.io_stall_watchdog">io_stall_watchdog (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.IOStallError">IOStallError</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.IOStallWatchdog">IOStallWatchdog (class in spikelab.spike_sorting.guards)</a>
 </li>
       <li><a href="api/s3_utils.html#spikelab.data_loaders.s3_utils.is_s3_url">is_s3_url() (in module spikelab.data_loaders.s3_utils)</a>
 </li>
@@ -1036,7 +1218,11 @@
       <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.length">length (spikelab.spikedata.SpikeData attribute)</a>
 </li>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.policy.PolicyFinding.level">level (spikelab.batch_jobs.policy.PolicyFinding attribute)</a>
+
+      <ul>
+        <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.PreflightFinding.level">(spikelab.spike_sorting.guards.PreflightFinding attribute)</a>
 </li>
+      </ul></li>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.models.ResourceSpec.limits_cpu">limits_cpu (spikelab.batch_jobs.models.ResourceSpec attribute)</a>
 </li>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.models.ResourceSpec.limits_memory">limits_memory (spikelab.batch_jobs.models.ResourceSpec attribute)</a>
@@ -1065,12 +1251,12 @@
 </li>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.profiles.load_cluster_profile">load_cluster_profile() (in module spikelab.batch_jobs.profiles)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/workspace.html#spikelab.workspace.workspace.AnalysisWorkspace.load_item">load_item() (spikelab.workspace.workspace.AnalysisWorkspace class method)</a>
 </li>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.profiles.load_profile_from_name">load_profile_from_name() (in module spikelab.batch_jobs.profiles)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.backends.base.SorterBackend.load_recording">load_recording() (spikelab.spike_sorting.backends.base.SorterBackend method)</a>
 </li>
       <li><a href="api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_hdf5">load_spikedata_from_hdf5() (in module spikelab.data_loaders.data_loaders)</a>
@@ -1095,6 +1281,8 @@
 </li>
       <li><a href="api/workspace.html#spikelab.workspace.workspace.WorkspaceManager.load_workspace_item">load_workspace_item() (spikelab.workspace.workspace.WorkspaceManager method)</a>
 </li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.ConcurrentSortError.lock_path">lock_path (spikelab.spike_sorting._exceptions.ConcurrentSortError attribute)</a>
+</li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.GPUOutOfMemoryError.log_path">log_path (spikelab.spike_sorting._exceptions.GPUOutOfMemoryError attribute)</a>
 
       <ul>
@@ -1102,7 +1290,13 @@
 </li>
         <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.NoGoodChannelsError.log_path">(spikelab.spike_sorting._exceptions.NoGoodChannelsError attribute)</a>
 </li>
+        <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.SorterTimeoutError.log_path">(spikelab.spike_sorting._exceptions.SorterTimeoutError attribute)</a>
+</li>
+        <li><a href="api/spike_sorting.html#spikelab.spike_sorting.pipeline.RecordingResult.log_path">(spikelab.spike_sorting.pipeline.RecordingResult attribute)</a>
+</li>
       </ul></li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.LogInactivityWatchdog">LogInactivityWatchdog (class in spikelab.spike_sorting.guards)</a>
+</li>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.models.StoragePathTemplates.logs">logs (spikelab.batch_jobs.models.StoragePathTemplates attribute)</a>
 </li>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.models.SubmitResult.logs_prefix">logs_prefix (spikelab.batch_jobs.models.SubmitResult attribute)</a>
@@ -1117,6 +1311,18 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/mcp_server.html#spikelab.mcp_server.server.main">main() (in module spikelab.mcp_server.server)</a>
 </li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.DiskUsageWatchdog.make_error">make_error() (spikelab.spike_sorting.guards.DiskUsageWatchdog method)</a>
+
+      <ul>
+        <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.GpuMemoryWatchdog.make_error">(spikelab.spike_sorting.guards.GpuMemoryWatchdog method)</a>
+</li>
+        <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.HostMemoryWatchdog.make_error">(spikelab.spike_sorting.guards.HostMemoryWatchdog method)</a>
+</li>
+        <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.IOStallWatchdog.make_error">(spikelab.spike_sorting.guards.IOStallWatchdog method)</a>
+</li>
+        <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.LogInactivityWatchdog.make_error">(spikelab.spike_sorting.guards.LogInactivityWatchdog method)</a>
+</li>
+      </ul></li>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.models.SubmitResult.manifest_yaml">manifest_yaml (spikelab.batch_jobs.models.SubmitResult attribute)</a>
 </li>
       <li><a href="api/pairwise.html#spikelab.spikedata.pairwise.PairwiseCompMatrix.matrix">matrix (spikelab.spikedata.pairwise.PairwiseCompMatrix attribute)</a>
@@ -1130,7 +1336,11 @@
       <li><a href="api/workspace.html#spikelab.workspace.workspace.AnalysisWorkspace.merge_from">merge_from() (spikelab.workspace.workspace.AnalysisWorkspace method)</a>
 </li>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.policy.PolicyFinding.message">message (spikelab.batch_jobs.policy.PolicyFinding attribute)</a>
+
+      <ul>
+        <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.PreflightFinding.message">(spikelab.spike_sorting.guards.PreflightFinding attribute)</a>
 </li>
+      </ul></li>
       <li><a href="api/pairwise.html#spikelab.spikedata.pairwise.PairwiseCompMatrix.metadata">metadata (spikelab.spikedata.pairwise.PairwiseCompMatrix attribute)</a>
 
       <ul>
@@ -1140,6 +1350,8 @@
 </li>
       </ul></li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.EmptyWaveformMetricsError.metric_name">metric_name (spikelab.spike_sorting._exceptions.EmptyWaveformMetricsError attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.pipeline.RecordingResult.min_disk_free_gb">min_disk_free_gb (spikelab.spike_sorting.pipeline.RecordingResult attribute)</a>
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.ModelLoadingError.model_path">model_path (spikelab.spike_sorting._exceptions.ModelLoadingError attribute)</a>
 
@@ -1216,6 +1428,8 @@
         <li><a href="api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack.N">(spikelab.spikedata.spikeslicestack.SpikeSliceStack attribute)</a>
 </li>
       </ul></li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.pipeline.RecordingResult.n_curated_units">n_curated_units (spikelab.spike_sorting.pipeline.RecordingResult attribute)</a>
+</li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.n_jobs">n_jobs (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
 </li>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.models.ClusterProfile.name">name (spikelab.batch_jobs.models.ClusterProfile attribute)</a>
@@ -1272,16 +1486,20 @@
 </li>
       <li><a href="api/stat_utils.html#spikelab.spikedata.stat_utils.omnibus_test">omnibus_test() (in module spikelab.spikedata.stat_utils)</a>
 </li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.oom_retry_factor">oom_retry_factor (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.oom_retry_max">oom_retry_max (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
+</li>
       <li><a href="api/rateslicestack.html#spikelab.spikedata.rateslicestack.RateSliceStack.order_units_across_slices">order_units_across_slices() (spikelab.spikedata.rateslicestack.RateSliceStack method)</a>
 
       <ul>
         <li><a href="api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack.order_units_across_slices">(spikelab.spikedata.spikeslicestack.SpikeSliceStack method)</a>
 </li>
       </ul></li>
-      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.out_file">out_file (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.out_file">out_file (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
+</li>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.models.RunConfig.output_prefix">output_prefix (spikelab.batch_jobs.models.RunConfig attribute)</a>
 
       <ul>
@@ -1314,6 +1532,16 @@
 </li>
       <li><a href="api/s3_utils.html#spikelab.data_loaders.s3_utils.parse_s3_url">parse_s3_url() (in module spikelab.data_loaders.s3_utils)</a>
 </li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.report.parse_sorting_log">parse_sorting_log() (in module spikelab.spike_sorting.report)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.pipeline.RecordingResult.peak_gpu_used_pct">peak_gpu_used_pct (spikelab.spike_sorting.pipeline.RecordingResult attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.pipeline.RecordingResult.peak_host_ram_pct">peak_host_ram_pct (spikelab.spike_sorting.pipeline.RecordingResult attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.HostMemoryWatchdogError.percent_at_trip">percent_at_trip (spikelab.spike_sorting._exceptions.HostMemoryWatchdogError attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.HostMemoryWatchdog.percent_at_trip">percent_at_trip() (spikelab.spike_sorting.guards.HostMemoryWatchdog method)</a>
+</li>
       <li><a href="api/pairwise.html#spikelab.spikedata.pairwise.PairwiseCompMatrix.plot">plot() (spikelab.spikedata.pairwise.PairwiseCompMatrix method)</a>
 
       <ul>
@@ -1338,12 +1566,12 @@
 </li>
       <li><a href="api/plot_utils.html#spikelab.spikedata.plot_utils.plot_manifold">plot_manifold() (in module spikelab.spikedata.plot_utils)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/pairwise.html#spikelab.spikedata.pairwise.PairwiseCompMatrixStack.plot_mean">plot_mean() (spikelab.spikedata.pairwise.PairwiseCompMatrixStack method)</a>
 </li>
       <li><a href="api/plot_utils.html#spikelab.spikedata.plot_utils.plot_percentile_bands">plot_percentile_bands() (in module spikelab.spikedata.plot_utils)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/plot_utils.html#spikelab.spikedata.plot_utils.plot_pvalue_matrix">plot_pvalue_matrix() (in module spikelab.spikedata.plot_utils)</a>
 </li>
       <li><a href="api/plot_utils.html#spikelab.spikedata.plot_utils.plot_recording">plot_recording() (in module spikelab.spikedata.plot_utils)</a>
@@ -1374,9 +1602,27 @@
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.WaveformConfig.pos_peak_thresh">pos_peak_thresh (spikelab.spike_sorting.config.WaveformConfig attribute)</a>
 </li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.preflight">preflight (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.preflight_min_available_ram_gb">preflight_min_available_ram_gb (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.preflight_min_free_inter_gb">preflight_min_free_inter_gb (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.preflight_min_free_results_gb">preflight_min_free_results_gb (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.preflight_min_free_vram_gb">preflight_min_free_vram_gb (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.preflight_strict">preflight_strict (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.PreflightFinding">PreflightFinding (class in spikelab.spike_sorting.guards)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.prevent_system_sleep">prevent_system_sleep (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
+</li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.RTSortConfig.probe">probe (spikelab.spike_sorting.config.RTSortConfig attribute)</a>
 </li>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.models.RunConfig.profile_name">profile_name (spikelab.batch_jobs.models.RunConfig attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.DiskExhaustionReport.projected_need_gb">projected_need_gb (spikelab.spike_sorting.guards.DiskExhaustionReport attribute)</a>
 </li>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.models.VolumeMountSpec.pvc_name">pvc_name (spikelab.batch_jobs.models.VolumeMountSpec attribute)</a>
 </li>
@@ -1424,6 +1670,10 @@
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.RecordingConfig.rec_chunks_s">rec_chunks_s (spikelab.spike_sorting.config.RecordingConfig attribute)</a>
 </li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.pipeline.RecordingResult.rec_name">rec_name (spikelab.spike_sorting.pipeline.RecordingResult attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.pipeline.RecordingResult.rec_path">rec_path (spikelab.spike_sorting.pipeline.RecordingResult attribute)</a>
+</li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.recompile_single_recording">recompile_single_recording (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.recompute_recording">recompute_recording (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
@@ -1436,17 +1686,37 @@
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.RecordingConfig">RecordingConfig (class in spikelab.spike_sorting.config)</a>
 </li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.pipeline.RecordingResult">RecordingResult (class in spikelab.spike_sorting.pipeline)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.pipeline.SortRunReport.records">records (spikelab.spike_sorting.pipeline.SortRunReport attribute)</a>
+</li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.recurate_first">recurate_first (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.recurate_second">recurate_second (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
 </li>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.credentials.redact_sensitive_map">redact_sensitive_map() (in module spikelab.batch_jobs.credentials)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.reextract_waveforms">reextract_waveforms (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
 </li>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.models.ClusterProfile.region_name">region_name (spikelab.batch_jobs.models.ClusterProfile attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.GpuMemoryWatchdog.register_kill_callback">register_kill_callback() (spikelab.spike_sorting.guards.GpuMemoryWatchdog method)</a>
+
+      <ul>
+        <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.HostMemoryWatchdog.register_kill_callback">(spikelab.spike_sorting.guards.HostMemoryWatchdog method)</a>
+</li>
+        <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.IOStallWatchdog.register_kill_callback">(spikelab.spike_sorting.guards.IOStallWatchdog method)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.GpuMemoryWatchdog.register_subprocess">register_subprocess() (spikelab.spike_sorting.guards.GpuMemoryWatchdog method)</a>
+
+      <ul>
+        <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.HostMemoryWatchdog.register_subprocess">(spikelab.spike_sorting.guards.HostMemoryWatchdog method)</a>
+</li>
+      </ul></li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.PreflightFinding.remediation">remediation (spikelab.spike_sorting.guards.PreflightFinding attribute)</a>
 </li>
       <li><a href="api/pairwise.html#spikelab.spikedata.pairwise.PairwiseCompMatrix.remove_by_condition">remove_by_condition() (spikelab.spikedata.pairwise.PairwiseCompMatrix method)</a>
 
@@ -1461,6 +1731,10 @@
 </li>
       </ul></li>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.session.RunSession.render_manifest">render_manifest() (spikelab.batch_jobs.session.RunSession method)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.DiskExhaustionError.report">report (spikelab.spike_sorting._exceptions.DiskExhaustionError attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.DiskUsageWatchdog.report">report() (spikelab.spike_sorting.guards.DiskUsageWatchdog method)</a>
 </li>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.models.ResourceSpec.requests_cpu">requests_cpu (spikelab.batch_jobs.models.ResourceSpec attribute)</a>
 </li>
@@ -1478,6 +1752,12 @@
 </li>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.models.ResourceSpec">ResourceSpec (class in spikelab.batch_jobs.models)</a>
 </li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.backends.base.SorterBackend.restore_oom_params">restore_oom_params() (spikelab.spike_sorting.backends.base.SorterBackend method)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.pipeline.RecordingResult.results_folder">results_folder (spikelab.spike_sorting.pipeline.RecordingResult attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.pipeline.RecordingResult.retries_used">retries_used (spikelab.spike_sorting.pipeline.RecordingResult attribute)</a>
+</li>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.session.RunSession.retrieve_result">retrieve_result() (spikelab.batch_jobs.session.RunSession method)</a>
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.SortingPipelineConfig.rt_sort">rt_sort (spikelab.spike_sorting.config.SortingPipelineConfig attribute)</a>
@@ -1488,7 +1768,11 @@
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.RTSortConfig">RTSortConfig (class in spikelab.spike_sorting.config)</a>
 </li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.canary.run_canary">run_canary() (in module spikelab.spike_sorting.canary)</a>
+</li>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.models.SubmitResult.run_id">run_id (spikelab.batch_jobs.models.SubmitResult attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.run_preflight">run_preflight() (in module spikelab.spike_sorting.guards)</a>
 </li>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.models.RunConfig">RunConfig (class in spikelab.batch_jobs.models)</a>
 </li>
@@ -1528,6 +1812,8 @@
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.WaveformConfig.scale_compiled_waveforms">scale_compiled_waveforms (spikelab.spike_sorting.config.WaveformConfig attribute)</a>
 </li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.backends.base.SorterBackend.scale_oom_params">scale_oom_params() (spikelab.spike_sorting.backends.base.SorterBackend method)</a>
+</li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.FigureConfig.scatter_recording_alpha">scatter_recording_alpha (spikelab.spike_sorting.config.FigureConfig attribute)</a>
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.FigureConfig.scatter_recording_colors">scatter_recording_colors (spikelab.spike_sorting.config.FigureConfig attribute)</a>
@@ -1556,6 +1842,8 @@
 </li>
       <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.sliding_rate">sliding_rate() (spikelab.spikedata.SpikeData method)</a>
 </li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.backends.base.SorterBackend.snapshot_oom_params">snapshot_oom_params() (spikelab.spike_sorting.backends.base.SorterBackend method)</a>
+</li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.CurationConfig.snr_min">snr_min (spikelab.spike_sorting.config.CurationConfig attribute)</a>
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.backends.base.SorterBackend.sort">sort() (spikelab.spike_sorting.backends.base.SorterBackend method)</a>
@@ -1573,9 +1861,21 @@
 </li>
         <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.NoGoodChannelsError.sorter">(spikelab.spike_sorting._exceptions.NoGoodChannelsError attribute)</a>
 </li>
+        <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.SorterTimeoutError.sorter">(spikelab.spike_sorting._exceptions.SorterTimeoutError attribute)</a>
+</li>
         <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.SortingPipelineConfig.sorter">(spikelab.spike_sorting.config.SortingPipelineConfig attribute)</a>
 </li>
       </ul></li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.sorter_inactivity_base_s">sorter_inactivity_base_s (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.sorter_inactivity_in_process_grace_s">sorter_inactivity_in_process_grace_s (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.sorter_inactivity_max_s">sorter_inactivity_max_s (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.sorter_inactivity_per_min_s">sorter_inactivity_per_min_s (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.sorter_inactivity_timeout">sorter_inactivity_timeout (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
+</li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.SorterConfig.sorter_name">sorter_name (spikelab.spike_sorting.config.SorterConfig attribute)</a>
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.SorterConfig.sorter_params">sorter_params (spikelab.spike_sorting.config.SorterConfig attribute)</a>
@@ -1586,7 +1886,11 @@
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.SorterConfig">SorterConfig (class in spikelab.spike_sorting.config)</a>
 </li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.SorterTimeoutError">SorterTimeoutError</a>
+</li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.SortingPipelineConfig">SortingPipelineConfig (class in spikelab.spike_sorting.config)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.pipeline.SortRunReport">SortRunReport (class in spikelab.spike_sorting.pipeline)</a>
 </li>
       <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.sparse_raster">sparse_raster() (spikelab.spikedata.SpikeData method)</a>
 </li>
@@ -1651,6 +1955,8 @@
         <li><a href="api/batch_jobs.html#module-spikelab.batch_jobs.session">module</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li>
     spikelab.batch_jobs.storage_s3
 
@@ -1658,8 +1964,6 @@
         <li><a href="api/batch_jobs.html#module-spikelab.batch_jobs.storage_s3">module</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li>
     spikelab.batch_jobs.validation
 
@@ -1763,9 +2067,15 @@
 </li>
       <li><a href="api/pairwise.html#spikelab.spikedata.pairwise.PairwiseCompMatrixStack.stack">stack (spikelab.spikedata.pairwise.PairwiseCompMatrixStack attribute)</a>
 </li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.IOStallError.stall_s">stall_s (spikelab.spike_sorting._exceptions.IOStallError attribute)</a>
+</li>
       <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.start_time">start_time (spikelab.spikedata.SpikeData attribute)</a>
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.RecordingConfig.start_time_s">start_time_s (spikelab.spike_sorting.config.RecordingConfig attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.ConcurrentSortError.started_at">started_at (spikelab.spike_sorting._exceptions.ConcurrentSortError attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.pipeline.RecordingResult.status">status (spikelab.spike_sorting.pipeline.RecordingResult attribute)</a>
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.WaveformConfig.std_at_peak">std_at_peak (spikelab.spike_sorting.config.WaveformConfig attribute)</a>
 </li>
@@ -1835,6 +2145,10 @@
         <li><a href="api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack.subtime_by_index">(spikelab.spikedata.spikeslicestack.SpikeSliceStack method)</a>
 </li>
       </ul></li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.pipeline.SortRunReport.succeeded">succeeded (spikelab.spike_sorting.pipeline.SortRunReport property)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.DiskExhaustionReport.suggested_actions">suggested_actions (spikelab.spike_sorting.guards.DiskExhaustionReport attribute)</a>
+</li>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.policy.summarize_preflight">summarize_preflight() (in module spikelab.batch_jobs.policy)</a>
 </li>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.validation.summarize_validation_error">summarize_validation_error() (in module spikelab.batch_jobs.validation)</a>
@@ -1847,6 +2161,12 @@
 <h2 id="T">T</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.tee_log_policy">tee_log_policy (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.GpuThermalWatchdogError.temperature_c_at_trip">temperature_c_at_trip (spikelab.spike_sorting._exceptions.GpuThermalWatchdogError attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.GpuMemoryWatchdog.temperature_c_at_trip">temperature_c_at_trip() (spikelab.spike_sorting.guards.GpuMemoryWatchdog method)</a>
+</li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.FigureConfig.templates_color_curated">templates_color_curated (spikelab.spike_sorting.config.FigureConfig attribute)</a>
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.FigureConfig.templates_color_failed">templates_color_failed (spikelab.spike_sorting.config.FigureConfig attribute)</a>
@@ -1891,6 +2211,12 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/utilities.html#spikelab.spikedata.utils.times_from_ms">times_from_ms() (in module spikelab.spikedata.utils)</a>
 </li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.DiskExhaustionReport.to_dict">to_dict() (spikelab.spike_sorting.guards.DiskExhaustionReport method)</a>
+
+      <ul>
+        <li><a href="api/spike_sorting.html#spikelab.spike_sorting.pipeline.SortRunReport.to_dict">(spikelab.spike_sorting.pipeline.SortRunReport method)</a>
+</li>
+      </ul></li>
       <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.to_hdf5">to_hdf5() (spikelab.spikedata.SpikeData method)</a>
 </li>
       <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.to_kilosort">to_kilosort() (spikelab.spikedata.SpikeData method)</a>
@@ -1903,6 +2229,8 @@
 </li>
       <li><a href="api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack.to_raster_array">to_raster_array() (spikelab.spikedata.spikeslicestack.SpikeSliceStack method)</a>
 </li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.DiskExhaustionReport.top_consumers">top_consumers (spikelab.spike_sorting.guards.DiskExhaustionReport attribute)</a>
+</li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.NoGoodChannelsError.total_channels">total_channels (spikelab.spike_sorting._exceptions.NoGoodChannelsError attribute)</a>
 
       <ul>
@@ -1913,6 +2241,20 @@
 </li>
       <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.train">train (spikelab.spikedata.SpikeData attribute)</a>
 </li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.GpuMemoryWatchdog.trip_kind">trip_kind() (spikelab.spike_sorting.guards.GpuMemoryWatchdog method)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.DiskUsageWatchdog.tripped">tripped() (spikelab.spike_sorting.guards.DiskUsageWatchdog method)</a>
+
+      <ul>
+        <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.GpuMemoryWatchdog.tripped">(spikelab.spike_sorting.guards.GpuMemoryWatchdog method)</a>
+</li>
+        <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.HostMemoryWatchdog.tripped">(spikelab.spike_sorting.guards.HostMemoryWatchdog method)</a>
+</li>
+        <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.IOStallWatchdog.tripped">(spikelab.spike_sorting.guards.IOStallWatchdog method)</a>
+</li>
+        <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.LogInactivityWatchdog.tripped">(spikelab.spike_sorting.guards.LogInactivityWatchdog method)</a>
+</li>
+      </ul></li>
       <li><a href="api/utilities.html#spikelab.spikedata.utils.trough_between">trough_between() (in module spikelab.spikedata.utils)</a>
 </li>
   </ul></td>
@@ -1929,10 +2271,24 @@
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.InsufficientActivityError.units_at_failure">units_at_failure (spikelab.spike_sorting._exceptions.InsufficientActivityError attribute)</a>
 </li>
-      <li><a href="api/batch_jobs.html#spikelab.batch_jobs.storage_s3.S3StorageClient.upload_bundle">upload_bundle() (spikelab.batch_jobs.storage_s3.S3StorageClient method)</a>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.GpuMemoryWatchdog.unregister_kill_callback">unregister_kill_callback() (spikelab.spike_sorting.guards.GpuMemoryWatchdog method)</a>
+
+      <ul>
+        <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.HostMemoryWatchdog.unregister_kill_callback">(spikelab.spike_sorting.guards.HostMemoryWatchdog method)</a>
 </li>
+        <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.IOStallWatchdog.unregister_kill_callback">(spikelab.spike_sorting.guards.IOStallWatchdog method)</a>
+</li>
+      </ul></li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.GpuMemoryWatchdog.unregister_subprocess">unregister_subprocess() (spikelab.spike_sorting.guards.GpuMemoryWatchdog method)</a>
+
+      <ul>
+        <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.HostMemoryWatchdog.unregister_subprocess">(spikelab.spike_sorting.guards.HostMemoryWatchdog method)</a>
+</li>
+      </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/batch_jobs.html#spikelab.batch_jobs.storage_s3.S3StorageClient.upload_bundle">upload_bundle() (spikelab.batch_jobs.storage_s3.S3StorageClient method)</a>
+</li>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.storage_s3.S3StorageClient.upload_file">upload_file() (spikelab.batch_jobs.storage_s3.S3StorageClient method)</a>
 </li>
       <li><a href="api/s3_utils.html#spikelab.data_loaders.s3_utils.upload_to_s3">upload_to_s3() (in module spikelab.data_loaders.s3_utils)</a>
@@ -1942,6 +2298,10 @@
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.SorterConfig.use_docker">use_docker (spikelab.spike_sorting.config.SorterConfig attribute)</a>
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.use_parallel_processing_for_raw_conversion">use_parallel_processing_for_raw_conversion (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.GpuMemoryWatchdogError.used_pct_at_trip">used_pct_at_trip (spikelab.spike_sorting._exceptions.GpuMemoryWatchdogError attribute)</a>
+</li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.GpuMemoryWatchdog.used_pct_at_trip">used_pct_at_trip() (spikelab.spike_sorting.guards.GpuMemoryWatchdog method)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -1969,14 +2329,16 @@
 </li>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.session.RunSession.wait_for_completion">wait_for_completion() (spikelab.batch_jobs.session.RunSession method)</a>
 </li>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.pipeline.RecordingResult.wall_time_s">wall_time_s (spikelab.spike_sorting.pipeline.RecordingResult attribute)</a>
+</li>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.models.PolicyConfig.warn_request_limit_mismatch">warn_request_limit_mismatch (spikelab.batch_jobs.models.PolicyConfig attribute)</a>
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.SortingPipelineConfig.waveform">waveform (spikelab.spike_sorting.config.SortingPipelineConfig attribute)</a>
 </li>
-      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.WaveformConfig">WaveformConfig (class in spikelab.spike_sorting.config)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.WaveformConfig">WaveformConfig (class in spikelab.spike_sorting.config)</a>
+</li>
       <li><a href="api/utilities.html#spikelab.spikedata.utils.waveforms_by_channel">waveforms_by_channel() (in module spikelab.spikedata.utils)</a>
 </li>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.models.RunConfig.workspace_id">workspace_id (spikelab.batch_jobs.models.RunConfig attribute)</a>

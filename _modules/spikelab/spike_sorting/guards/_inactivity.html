@@ -1,0 +1,1029 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>spikelab.spike_sorting.guards._inactivity &mdash; SpikeLab 0.1.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=a58bc63e"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            SpikeLab
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../getting_started/index.html">Getting Started</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../getting_started/installation.html">Installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../getting_started/installation.html#basic-install">Basic Install</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../getting_started/installation.html#optional-extras">Optional Extras</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../getting_started/installation.html#development-install">Development Install</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../getting_started/quickstart.html">Quick Start</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../getting_started/quickstart.html#creating-a-spikedata-object">Creating a SpikeData Object</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../getting_started/quickstart.html#loading-from-a-file">Loading from a File</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../getting_started/quickstart.html#plotting">Plotting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../getting_started/quickstart.html#basic-analysis">Basic Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../getting_started/quickstart.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guides/index.html">Guides</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/loading_data.html">Loading Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/loading_data.html#from-pickle-files">From pickle files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/loading_data.html#from-hdf5-files">From HDF5 files</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/loading_data.html#the-spike-times-unit-parameter">The <code class="docutils literal notranslate"><span class="pre">spike_times_unit</span></code> parameter</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/loading_data.html#from-nwb-files">From NWB files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/loading_data.html#from-kilosort-phy-output">From KiloSort/Phy output</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/loading_data.html#from-spikeinterface">From SpikeInterface</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/loading_data.html#from-spikelab-sorted-npz">From SpikeLab sorted .npz</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/loading_data.html#from-the-ibl-database">From the IBL database</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/loading_data.html#from-neo-spiketrains">From Neo SpikeTrains</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/loading_data.html#from-raw-data">From raw data</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/loading_data.html#from-threshold-detection">From threshold detection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/loading_data.html#from-a-spike-count-raster">From a spike count raster</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/spike_sorting.html">Spike Sorting and Curation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_sorting.html#spike-sorting">Spike Sorting</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#basic-usage">Basic usage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#configuration-and-presets">Configuration and presets</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#multi-stream-recordings">Multi-stream recordings</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#reusing-intermediate-results">Reusing intermediate results</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#built-in-safeguards">Built-in safeguards</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#pipeline-canary">Pipeline canary</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#stimulation-artifact-removal">Stimulation Artifact Removal</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_sorting.html#unit-curation">Unit Curation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#individual-criteria">Individual criteria</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#merge-based-deduplication">Merge-based deduplication</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#batch-curation">Batch curation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#curation-history">Curation history</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_sorting.html#sorting-concatenated-recordings">Sorting Concatenated Recordings</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_sorting.html#handling-sort-failures">Handling Sort Failures</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#watchdog-and-lock-failures">Watchdog and lock failures</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/spike_analysis.html">Spike Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#population-rate">Population Rate</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#burst-detection">Burst Detection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#burst-widths">Burst Widths</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#burst-sensitivity-analysis">Burst Sensitivity Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#per-unit-metrics">Per-Unit Metrics</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_analysis.html#firing-rates">Firing rates</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_analysis.html#inter-spike-intervals">Inter-spike intervals</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_analysis.html#spike-triggered-population-rate">Spike-triggered population rate</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#burst-participation-per-unit">Burst Participation per Unit</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#fraction-of-spikes-in-bursts">Fraction of Spikes in Bursts</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#selecting-and-combining-data">Selecting and Combining Data</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_analysis.html#unit-selection">Unit selection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_analysis.html#time-selection">Time selection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_analysis.html#appending-recordings">Appending recordings</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_analysis.html#combining-units">Combining units</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#pairwise-metrics">Pairwise Metrics</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/firing_rates.html">Instantaneous Firing Rates</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/firing_rates.html#id1">Instantaneous Firing Rates</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/firing_rates.html#isi-interpolation">ISI interpolation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/firing_rates.html#sliding-window">Sliding window</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/firing_rates.html#working-with-ratedata">Working with RateData</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/firing_rates.html#dimensionality-reduction">Dimensionality Reduction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/firing_rates.html#pairwise-firing-rate-correlations">Pairwise Firing-Rate Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/firing_rates.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html">Event-Aligned Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#aligning-to-events">Aligning to Events</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#rateslicestack">RateSliceStack</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#spikeslicestack">SpikeSliceStack</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#applying-a-function-across-slices">Applying a function across slices</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#subsetting-slice-stacks">Subsetting slice stacks</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#slice-to-slice-unit-correlations">Slice-to-Slice Unit Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#slice-to-slice-time-correlations">Slice-to-Slice Time Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#unit-to-unit-pca">Unit-to-Unit PCA</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#rank-order-analysis">Rank-Order Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#temporal-trends-and-stability">Temporal Trends and Stability</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#shuffled-null-distributions">Shuffled Null Distributions</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/pairwise_analysis.html">Pairwise Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/pairwise_analysis.html#spike-time-tiling-coefficient-sttc">Spike Time Tiling Coefficient (STTC)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/pairwise_analysis.html#firing-rate-correlations">Firing-Rate Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/pairwise_analysis.html#fr-correlation-vs-sttc-scatter">FR Correlation vs STTC Scatter</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/pairwise_analysis.html#network-analysis">Network Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/pairwise_analysis.html#spatial-network-visualization">Spatial Network Visualization</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/shuffled_data.html">Shuffled Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/shuffled_data.html#single-shuffle">Single Shuffle</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/shuffled_data.html#shuffle-stacks">Shuffle Stacks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/shuffled_data.html#unit-subset-stacks">Unit Subset Stacks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/shuffled_data.html#comparing-to-the-null-distribution">Comparing to the Null Distribution</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/gplvm.html">GPLVM Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/gplvm.html#fitting-a-gplvm">Fitting a GPLVM</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/gplvm.html#post-fit-analysis">Post-fit Analysis</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/gplvm.html#state-entropy">State entropy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/gplvm.html#continuity-probability">Continuity probability</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/gplvm.html#average-state-probability">Average state probability</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/gplvm.html#consecutive-state-durations">Consecutive state durations</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/gplvm.html#visualisation">Visualisation</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/exporting_data.html">Exporting Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/exporting_data.html#to-hdf5">To HDF5</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/exporting_data.html#ragged-vs-raster-style">Ragged vs raster style</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/exporting_data.html#the-spike-times-unit-parameter">The <code class="docutils literal notranslate"><span class="pre">spike_times_unit</span></code> parameter</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/exporting_data.html#exporting-raw-data">Exporting raw data</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/exporting_data.html#to-nwb">To NWB</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/exporting_data.html#to-kilosort">To KiloSort</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/exporting_data.html#to-pickle">To pickle</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/workspace.html">Workspace Persistence</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/workspace.html#creating-a-workspace">Creating a Workspace</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/workspace.html#saving-and-loading">Saving and Loading</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/workspace.html#listing-and-retrieving">Listing and Retrieving</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/workspace.html#lazy-loading">Lazy Loading</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/workspace.html#merging-workspaces">Merging Workspaces</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/mcp_server.html#starting-the-server">Starting the server</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/mcp_server.html#tool-categories">Tool categories</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/mcp_server.html#data-loading-tools">Data loading tools</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/mcp_server.html#analysis-tools">Analysis tools</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/mcp_server.html#export-tools">Export tools</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/mcp_server.html#workspace-addressing">Workspace addressing</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/parallel_computing.html">Parallel Computing</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/parallel_computing.html#thread-pool-parallelism">Thread-Pool Parallelism</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/parallel_computing.html#numba-acceleration">Numba Acceleration</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/batch_jobs.html">Batch Jobs</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/batch_jobs.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/batch_jobs.html#setting-up-a-session">Setting Up a Session</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/batch_jobs.html#analysis-jobs">Analysis Jobs</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/batch_jobs.html#submitting">Submitting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/batch_jobs.html#writing-an-analysis-script">Writing an analysis script</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/batch_jobs.html#retrieving-results">Retrieving results</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/batch_jobs.html#sorting-jobs">Sorting Jobs</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/batch_jobs.html#id1">Submitting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/batch_jobs.html#id2">Retrieving results</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/batch_jobs.html#policy-guardrails">Policy Guardrails</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/batch_jobs.html#docker-images">Docker Images</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/batch_jobs.html#base-images">Base images</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/batch_jobs.html#temporary-images">Temporary images</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/batch_jobs.html#monitoring-jobs">Monitoring Jobs</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/index.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/index.html#core-data-structures">Core Data Structures</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/spikedata.html">SpikeData</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spikedata.html#spikelab.spikedata.SpikeData"><code class="docutils literal notranslate"><span class="pre">SpikeData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/ratedata.html">RateData</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/ratedata.html#spikelab.spikedata.ratedata.RateData"><code class="docutils literal notranslate"><span class="pre">RateData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/pairwise.html">Pairwise Comparisons</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/pairwise.html#pairwisecompmatrix">PairwiseCompMatrix</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/pairwise.html#pairwisecompmatrixstack">PairwiseCompMatrixStack</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/rateslicestack.html">RateSliceStack</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/rateslicestack.html#spikelab.spikedata.rateslicestack.RateSliceStack"><code class="docutils literal notranslate"><span class="pre">RateSliceStack</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/spikeslicestack.html">SpikeSliceStack</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack"><code class="docutils literal notranslate"><span class="pre">SpikeSliceStack</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/index.html#utilities">Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/utilities.html">Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.get_sttc"><code class="docutils literal notranslate"><span class="pre">get_sttc()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.swap"><code class="docutils literal notranslate"><span class="pre">swap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.randomize"><code class="docutils literal notranslate"><span class="pre">randomize()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.trough_between"><code class="docutils literal notranslate"><span class="pre">trough_between()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.ensure_h5py"><code class="docutils literal notranslate"><span class="pre">ensure_h5py()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.times_from_ms"><code class="docutils literal notranslate"><span class="pre">times_from_ms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.to_ms"><code class="docutils literal notranslate"><span class="pre">to_ms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.extract_waveforms"><code class="docutils literal notranslate"><span class="pre">extract_waveforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.check_neuron_attributes"><code class="docutils literal notranslate"><span class="pre">check_neuron_attributes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.get_channels_for_unit"><code class="docutils literal notranslate"><span class="pre">get_channels_for_unit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.compute_avg_waveform"><code class="docutils literal notranslate"><span class="pre">compute_avg_waveform()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.get_valid_spike_times"><code class="docutils literal notranslate"><span class="pre">get_valid_spike_times()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.waveforms_by_channel"><code class="docutils literal notranslate"><span class="pre">waveforms_by_channel()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.extract_unit_waveforms"><code class="docutils literal notranslate"><span class="pre">extract_unit_waveforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.consecutive_durations"><code class="docutils literal notranslate"><span class="pre">consecutive_durations()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.gplvm_state_entropy"><code class="docutils literal notranslate"><span class="pre">gplvm_state_entropy()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.gplvm_continuity_prob"><code class="docutils literal notranslate"><span class="pre">gplvm_continuity_prob()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.gplvm_average_state_probability"><code class="docutils literal notranslate"><span class="pre">gplvm_average_state_probability()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.shuffle_z_score"><code class="docutils literal notranslate"><span class="pre">shuffle_z_score()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.shuffle_percentile"><code class="docutils literal notranslate"><span class="pre">shuffle_percentile()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.slice_trend"><code class="docutils literal notranslate"><span class="pre">slice_trend()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.slice_stability"><code class="docutils literal notranslate"><span class="pre">slice_stability()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/stat_utils.html">Statistical Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/stat_utils.html#spikelab.spikedata.stat_utils.linear_regression"><code class="docutils literal notranslate"><span class="pre">linear_regression()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/stat_utils.html#spikelab.spikedata.stat_utils.pairwise_tests"><code class="docutils literal notranslate"><span class="pre">pairwise_tests()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/stat_utils.html#spikelab.spikedata.stat_utils.paired_test"><code class="docutils literal notranslate"><span class="pre">paired_test()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/stat_utils.html#spikelab.spikedata.stat_utils.omnibus_test"><code class="docutils literal notranslate"><span class="pre">omnibus_test()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/plot_utils.html">Plotting Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_distribution"><code class="docutils literal notranslate"><span class="pre">plot_distribution()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_pvalue_matrix"><code class="docutils literal notranslate"><span class="pre">plot_pvalue_matrix()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_scatter"><code class="docutils literal notranslate"><span class="pre">plot_scatter()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_scatter_with_marginals"><code class="docutils literal notranslate"><span class="pre">plot_scatter_with_marginals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_manifold"><code class="docutils literal notranslate"><span class="pre">plot_manifold()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_lines"><code class="docutils literal notranslate"><span class="pre">plot_lines()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_percentile_bands"><code class="docutils literal notranslate"><span class="pre">plot_percentile_bands()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_burst_sensitivity"><code class="docutils literal notranslate"><span class="pre">plot_burst_sensitivity()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_aligned_slice_single_unit"><code class="docutils literal notranslate"><span class="pre">plot_aligned_slice_single_unit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_heatmap"><code class="docutils literal notranslate"><span class="pre">plot_heatmap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_recording"><code class="docutils literal notranslate"><span class="pre">plot_recording()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_spatial_network"><code class="docutils literal notranslate"><span class="pre">plot_spatial_network()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_unit_footprints"><code class="docutils literal notranslate"><span class="pre">plot_unit_footprints()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/index.html#data-i-o">Data I/O</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/data_loaders.html">Data Loaders</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_hdf5"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_hdf5()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_hdf5_raw_thresholded"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_hdf5_raw_thresholded()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_nwb"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_nwb()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_kilosort"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_kilosort()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_spikeinterface"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikeinterface()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_spikeinterface_recording"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikeinterface_recording()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_pickle"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_pickle()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_ibl"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_ibl()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.query_ibl_probes"><code class="docutils literal notranslate"><span class="pre">query_ibl_probes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_spikelab_sorted_npz"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikelab_sorted_npz()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/data_exporters.html">Data Exporters</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_hdf5"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_hdf5()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_nwb"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_nwb()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_kilosort"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_kilosort()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_to_pickle"><code class="docutils literal notranslate"><span class="pre">export_to_pickle()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/s3_utils.html">S3 Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/s3_utils.html#spikelab.data_loaders.s3_utils.is_s3_url"><code class="docutils literal notranslate"><span class="pre">is_s3_url()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/s3_utils.html#spikelab.data_loaders.s3_utils.parse_s3_url"><code class="docutils literal notranslate"><span class="pre">parse_s3_url()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/s3_utils.html#spikelab.data_loaders.s3_utils.download_from_s3"><code class="docutils literal notranslate"><span class="pre">download_from_s3()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/s3_utils.html#spikelab.data_loaders.s3_utils.upload_to_s3"><code class="docutils literal notranslate"><span class="pre">upload_to_s3()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/s3_utils.html#spikelab.data_loaders.s3_utils.ensure_local_file"><code class="docutils literal notranslate"><span class="pre">ensure_local_file()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/index.html#persistence">Persistence</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/workspace.html">Workspace</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/workspace.html#spikelab.workspace.workspace.AnalysisWorkspace"><code class="docutils literal notranslate"><span class="pre">AnalysisWorkspace</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/workspace.html#spikelab.workspace.workspace.LazyAnalysisWorkspace"><code class="docutils literal notranslate"><span class="pre">LazyAnalysisWorkspace</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/workspace.html#spikelab.workspace.workspace.WorkspaceManager"><code class="docutils literal notranslate"><span class="pre">WorkspaceManager</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/workspace.html#spikelab.workspace.workspace.get_workspace_manager"><code class="docutils literal notranslate"><span class="pre">get_workspace_manager()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/index.html#spike-sorting-and-curation">Spike Sorting and Curation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/spike_sorting.html">Spike Sorting</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#entry-points">Entry Points</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#module-spikelab.spike_sorting.config">Configuration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#module-spikelab.spike_sorting.backends">Backend Registry</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#classified-exceptions">Classified Exceptions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#post-failure-classifiers">Post-Failure Classifiers</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#sort-run-reports">Sort Run Reports</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#resource-guards">Resource Guards</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#pipeline-canary">Pipeline Canary</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/curation.html">Curation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/curation.html#spikelab.spikedata.curation.curate_by_min_spikes"><code class="docutils literal notranslate"><span class="pre">curate_by_min_spikes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/curation.html#spikelab.spikedata.curation.curate_by_firing_rate"><code class="docutils literal notranslate"><span class="pre">curate_by_firing_rate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/curation.html#spikelab.spikedata.curation.curate_by_isi_violations"><code class="docutils literal notranslate"><span class="pre">curate_by_isi_violations()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/curation.html#spikelab.spikedata.curation.curate_by_snr"><code class="docutils literal notranslate"><span class="pre">curate_by_snr()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/curation.html#spikelab.spikedata.curation.curate_by_std_norm"><code class="docutils literal notranslate"><span class="pre">curate_by_std_norm()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/curation.html#spikelab.spikedata.curation.compute_waveform_metrics"><code class="docutils literal notranslate"><span class="pre">compute_waveform_metrics()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/curation.html#spikelab.spikedata.curation.curate"><code class="docutils literal notranslate"><span class="pre">curate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/curation.html#spikelab.spikedata.curation.build_curation_history"><code class="docutils literal notranslate"><span class="pre">build_curation_history()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/curation.html#spikelab.spikedata.curation.curate_by_merge_duplicates"><code class="docutils literal notranslate"><span class="pre">curate_by_merge_duplicates()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/index.html#batch-jobs">Batch Jobs</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/batch_jobs.html">Batch Jobs</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/batch_jobs.html#models">Models</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/batch_jobs.html#policy-engine">Policy Engine</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/batch_jobs.html#module-spikelab.batch_jobs.profiles">Profile Loading</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/batch_jobs.html#run-session">Run Session</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/batch_jobs.html#module-spikelab.batch_jobs.backend_k8s">Kubernetes Backend</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/batch_jobs.html#module-spikelab.batch_jobs.storage_s3">S3 Storage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/batch_jobs.html#module-spikelab.batch_jobs.artifact_packager">Artifact Packager</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/batch_jobs.html#module-spikelab.batch_jobs.credentials">Credentials</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/batch_jobs.html#module-spikelab.batch_jobs.validation">Validation</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/index.html#server">Server</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">SpikeLab</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">spikelab.spike_sorting.guards._inactivity</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for spikelab.spike_sorting.guards._inactivity</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Sorter-log inactivity watchdog.</span>
+
+<span class="sd">Some sorter failure modes hang the subprocess without crashing it</span>
+<span class="sd">outright: a CUDA kernel deadlock in Kilosort2&#39;s mex code, a stuck</span>
+<span class="sd">MATLAB JVM after a Java exception, a Docker container that lost its</span>
+<span class="sd">GPU. The host-memory watchdog can catch the rare host-RAM blowup but</span>
+<span class="sd">not these silent stalls — the subprocess just sits there forever</span>
+<span class="sd">holding its GPU and the parent ``shell_script.wait()`` blocks</span>
+<span class="sd">indefinitely.</span>
+
+<span class="sd">:class:`LogInactivityWatchdog` is a daemon-thread context manager</span>
+<span class="sd">that polls the sorter&#39;s log file and trips when neither the file&#39;s</span>
+<span class="sd">mtime *nor* its byte size has advanced for the configured tolerance.</span>
+<span class="sd">When the sort is making progress — KS2 prints per-batch lines, KS4</span>
+<span class="sd">prints per-stage banners, RT-Sort writes per-chunk diagnostics — at</span>
+<span class="sd">least one of the two signals keeps moving and the watchdog never</span>
+<span class="sd">fires. When the sort hangs, both signals stay flat and the watchdog</span>
+<span class="sd">terminates the registered subprocess.</span>
+
+<span class="sd">Tracking size as well as mtime avoids two false-positive failure</span>
+<span class="sd">modes: NTFS lazy-mtime updates (Windows can defer mtime stamping</span>
+<span class="sd">on long-held file handles), and ``relatime``-style filesystems with</span>
+<span class="sd">delayed metadata flushes. In both cases the file content keeps</span>
+<span class="sd">growing while mtime appears static.</span>
+
+<span class="sd">The tolerance scales with recording duration so a long sort that</span>
+<span class="sd">takes minutes between log writes doesn&#39;t get killed by a watchdog</span>
+<span class="sd">sized for a 5-minute test recording. The scaling formula is:</span>
+
+<span class="sd">    timeout_s = clamp(base_s + per_min_s * recording_duration_min, max_s)</span>
+
+<span class="sd">with all four parameters configurable via ``ExecutionConfig``.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">_thread</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">contextlib</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">contextvars</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">threading</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">SorterTimeoutError</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">._audit</span><span class="w"> </span><span class="kn">import</span> <span class="n">append_audit_event</span>
+
+<span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Active-log-path discovery</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1">#</span>
+<span class="c1"># In-process sorters (KS4 host, RT-Sort) have no subprocess to monitor; the</span>
+<span class="c1"># inactivity watchdog instead watches the per-recording ``Tee`` log file, the</span>
+<span class="c1"># same artefact ``sort_recording`` already creates. Backends look the path</span>
+<span class="c1"># up via :func:`get_active_log_path`, so they don&#39;t need a new parameter on</span>
+<span class="c1"># every ``sort()`` signature.</span>
+
+<span class="n">_active_log_path</span><span class="p">:</span> <span class="n">contextvars</span><span class="o">.</span><span class="n">ContextVar</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="n">Path</span><span class="p">]]</span> <span class="o">=</span> <span class="n">contextvars</span><span class="o">.</span><span class="n">ContextVar</span><span class="p">(</span>
+    <span class="s2">&quot;active_tee_log_path&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span>
+<span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">get_active_log_path</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Path</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the per-recording log path active in this context, or None.</span>
+
+<span class="sd">    Used by in-process sorter backends to install a</span>
+<span class="sd">    :class:`LogInactivityWatchdog` watching the same Tee-mirrored log</span>
+<span class="sd">    that ``sort_recording`` is writing to.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        log_path (Path or None): The per-recording log file path, or</span>
+<span class="sd">            ``None`` when no ``sort_recording`` context is active.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_active_log_path</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
+
+
+<span class="nd">@contextlib</span><span class="o">.</span><span class="n">contextmanager</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">set_active_log_path</span><span class="p">(</span><span class="n">log_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Publish *log_path* via the active-log-path ContextVar for the duration.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        log_path (Path): The per-recording Tee log file path. Set by</span>
+<span class="sd">            ``sort_recording`` immediately after opening the ``Tee``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">token</span> <span class="o">=</span> <span class="n">_active_log_path</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">log_path</span><span class="p">))</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">yield</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="n">_active_log_path</span><span class="o">.</span><span class="n">reset</span><span class="p">(</span><span class="n">token</span><span class="p">)</span>
+
+
+<span class="c1"># Tolerance value to use for any opportunistic inactivity watchdog</span>
+<span class="c1"># spawned for the active recording (e.g. by ``patched_container_client``</span>
+<span class="c1"># for Docker-backed sorts). Backends compute this from the recording</span>
+<span class="c1"># duration via ``_resolve_inactivity_timeout_s`` and publish it before</span>
+<span class="c1"># diving into sorter-specific code.</span>
+<span class="n">_active_inactivity_timeout_s</span><span class="p">:</span> <span class="n">contextvars</span><span class="o">.</span><span class="n">ContextVar</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">contextvars</span><span class="o">.</span><span class="n">ContextVar</span><span class="p">(</span><span class="s2">&quot;active_inactivity_timeout_s&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">get_active_inactivity_timeout_s</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the inactivity tolerance (s) active in this context, or None.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        timeout_s (float or None): Resolved inactivity tolerance for</span>
+<span class="sd">            the current sort, or ``None`` when no backend has</span>
+<span class="sd">            published one.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_active_inactivity_timeout_s</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
+
+
+<span class="nd">@contextlib</span><span class="o">.</span><span class="n">contextmanager</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">set_active_inactivity_timeout_s</span><span class="p">(</span><span class="n">seconds</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Publish an inactivity tolerance via the ContextVar for the duration.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        seconds (float or None): Tolerance in seconds, or ``None``</span>
+<span class="sd">            to leave the value unset for nested code.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">token</span> <span class="o">=</span> <span class="n">_active_inactivity_timeout_s</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">seconds</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">yield</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="n">_active_inactivity_timeout_s</span><span class="o">.</span><span class="n">reset</span><span class="p">(</span><span class="n">token</span><span class="p">)</span>
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Built-in in-process kill callback</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">make_in_process_kill_callback</span><span class="p">(</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">interrupt_grace_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">10.0</span><span class="p">,</span>
+    <span class="n">sorter</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;in_process&quot;</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[],</span> <span class="kc">None</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build a kill callback for in-process sorters (KS4 host, RT-Sort).</span>
+
+<span class="sd">    The callback is meant to be passed to</span>
+<span class="sd">    :class:`LogInactivityWatchdog`. When the watchdog trips, it calls:</span>
+
+<span class="sd">    1. :func:`_thread.interrupt_main` — queues a ``KeyboardInterrupt``</span>
+<span class="sd">       in the main thread. If Python is responsive (i.e. not stuck</span>
+<span class="sd">       deep in a single C extension call), the interrupt fires at the</span>
+<span class="sd">       next bytecode boundary and the backend&#39;s ``try/except`` can</span>
+<span class="sd">       recover cleanly.</span>
+<span class="sd">    2. :func:`os._exit` after ``interrupt_grace_s`` seconds — nuclear</span>
+<span class="sd">       fallback for hangs that interrupt cannot reach (a stuck CUDA</span>
+<span class="sd">       kernel, a numba ``@njit(parallel=True)`` deadlock). This kills</span>
+<span class="sd">       the whole Python process with no further cleanup, but is the</span>
+<span class="sd">       only way to free the OS resources held by the hung sort.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        interrupt_grace_s (float): Seconds to wait between the</span>
+<span class="sd">            ``interrupt_main`` and the ``os._exit`` fallback. Defaults</span>
+<span class="sd">            to ``10.0`` — short enough to keep the workstation</span>
+<span class="sd">            responsive, long enough that a Python-level recovery can</span>
+<span class="sd">            complete an in-flight pickle write.</span>
+<span class="sd">        sorter (str): Short identifier used only in the diagnostic</span>
+<span class="sd">            print before ``os._exit`` fires.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        callback (Callable[[], None]): Zero-argument function suitable</span>
+<span class="sd">            for ``LogInactivityWatchdog(kill_callback=...)``.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        - ``os._exit`` skips ``finally`` blocks, ``atexit`` handlers,</span>
+<span class="sd">          and ``__exit__``. Files mid-write may be left in an</span>
+<span class="sd">          inconsistent state. The watchdog only escalates after the</span>
+<span class="sd">          interrupt has had a chance to recover, so well-behaved</span>
+<span class="sd">          Python paths will exit cleanly.</span>
+<span class="sd">        - Returning the callback (rather than installing the kill</span>
+<span class="sd">          inline) lets each backend customise the grace period without</span>
+<span class="sd">          forking the watchdog.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Validate at construction so a misconfigured grace surfaces early</span>
+    <span class="c1"># rather than during the trip cascade — a negative ``time.sleep``</span>
+    <span class="c1"># inside the callback would raise into the watchdog&#39;s outer except</span>
+    <span class="c1"># handler and disable the ``os._exit`` fallback.</span>
+    <span class="k">if</span> <span class="n">interrupt_grace_s</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;interrupt_grace_s must be non-negative, got </span><span class="si">{</span><span class="n">interrupt_grace_s</span><span class="si">}</span><span class="s2">.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_callback</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">_thread</span><span class="o">.</span><span class="n">interrupt_main</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;interrupt_main failed for </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">sorter</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
+        <span class="c1"># Sleep on a fresh thread is fine here: the watchdog already</span>
+        <span class="c1"># runs on its own daemon thread, so sleeping does not block</span>
+        <span class="c1"># anyone. ``time.sleep`` (not ``Event.wait``) is intentional</span>
+        <span class="c1"># — this is the nuclear-fallback grace period; once the</span>
+        <span class="c1"># cascade has started we want it to complete even if the</span>
+        <span class="c1"># watchdog&#39;s own ``__exit__`` runs concurrently. An</span>
+        <span class="c1"># ``Event.wait`` would let an external &quot;stop&quot; signal cancel</span>
+        <span class="c1"># the ``os._exit`` and leave the hung sort alive.</span>
+        <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">interrupt_grace_s</span><span class="p">))</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+            <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> did not respond to interrupt_main within </span><span class="si">%.1f</span><span class="s2">s — &quot;</span>
+            <span class="s2">&quot;escalating to os._exit(1) to free OS resources. &quot;</span>
+            <span class="s2">&quot;Per-recording pickles already on disk are unaffected.&quot;</span><span class="p">,</span>
+            <span class="n">sorter</span><span class="p">,</span>
+            <span class="n">interrupt_grace_s</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">_exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">_callback</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_inactivity_timeout_s</span><span class="p">(</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">recording_duration_min</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">base_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">600.0</span><span class="p">,</span>
+    <span class="n">per_min_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">30.0</span><span class="p">,</span>
+    <span class="n">max_s</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="mf">7200.0</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute a recording-size-aware inactivity tolerance.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        recording_duration_min (float): Recording length in minutes.</span>
+<span class="sd">            Negative or NaN values are clamped to zero.</span>
+<span class="sd">        base_s (float): Minimum tolerance applied even for tiny</span>
+<span class="sd">            recordings. Defaults to 600 (10 min).</span>
+<span class="sd">        per_min_s (float): Extra seconds of tolerance per minute of</span>
+<span class="sd">            recording. Defaults to 30.</span>
+<span class="sd">        max_s (float or None): Hard cap on the tolerance. ``None``</span>
+<span class="sd">            means no cap. Defaults to 7200 (2 h).</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        timeout_s (float): Resolved inactivity tolerance in seconds.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># NaN is truthy in Python, so ``recording_duration_min or 0.0``</span>
+    <span class="c1"># leaves NaN intact. ``max(0.0, NaN)`` returns NaN on CPython.</span>
+    <span class="c1"># Coerce NaN/None to 0 before arithmetic so a malfunctioning</span>
+    <span class="c1"># upstream never produces a NaN timeout (NaN comparisons would</span>
+    <span class="c1"># silently disable the watchdog).</span>
+    <span class="n">raw</span> <span class="o">=</span> <span class="n">recording_duration_min</span>
+    <span class="k">if</span> <span class="n">raw</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span> <span class="ow">and</span> <span class="n">math</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">raw</span><span class="p">)):</span>
+        <span class="n">duration</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">duration</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">raw</span><span class="p">))</span>
+    <span class="n">timeout</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">base_s</span><span class="p">)</span> <span class="o">+</span> <span class="nb">float</span><span class="p">(</span><span class="n">per_min_s</span><span class="p">)</span> <span class="o">*</span> <span class="n">duration</span>
+    <span class="k">if</span> <span class="n">max_s</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">timeout</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">timeout</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">max_s</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">timeout</span>
+
+
+<div class="viewcode-block" id="LogInactivityWatchdog">
+<a class="viewcode-back" href="../../../../api/spike_sorting.html#spikelab.spike_sorting.guards.LogInactivityWatchdog">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">LogInactivityWatchdog</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Daemon watchdog that kills a subprocess on sorter-log inactivity.</span>
+
+<span class="sd">    Use as a context manager around the call that waits for the</span>
+<span class="sd">    sorter subprocess. While the context is active a daemon thread</span>
+<span class="sd">    polls ``log_path`` (via ``os.stat().st_mtime``) every</span>
+<span class="sd">    ``poll_interval_s``. If the file&#39;s mtime has not advanced for</span>
+<span class="sd">    ``inactivity_s`` seconds the watchdog terminates the registered</span>
+<span class="sd">    subprocess and records the trip; the wait then returns and the</span>
+<span class="sd">    runner can detect the kill via ``tripped()`` and raise</span>
+<span class="sd">    :class:`SorterTimeoutError`.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        log_path (Path): Path to the sorter&#39;s log file. The file does</span>
+<span class="sd">            not need to exist when the watchdog starts — it&#39;s polled</span>
+<span class="sd">            for first appearance, and the watchdog is forgiving about</span>
+<span class="sd">            &quot;no log yet&quot; until the file shows up. The pre-existing</span>
+<span class="sd">            mtime (from a previous run, if any) is recorded at start</span>
+<span class="sd">            so an old stale log doesn&#39;t trip immediately.</span>
+<span class="sd">        popen (subprocess.Popen or None): Subprocess handle to</span>
+<span class="sd">            terminate on trip. Pass ``None`` when the sort runs</span>
+<span class="sd">            in-process — see ``kill_callback`` instead.</span>
+<span class="sd">        inactivity_s (float): Inactivity tolerance in seconds. Use</span>
+<span class="sd">            :func:`compute_inactivity_timeout_s` to derive a sensible</span>
+<span class="sd">            value from recording duration.</span>
+<span class="sd">        sorter (str): Short identifier of the sorter (used for</span>
+<span class="sd">            logging and the resulting :class:`SorterTimeoutError`).</span>
+<span class="sd">        poll_interval_s (float): Seconds between mtime polls.</span>
+<span class="sd">            Defaults to ``5.0``.</span>
+<span class="sd">        kill_grace_s (float): Seconds between ``terminate()`` and</span>
+<span class="sd">            ``kill()`` if the subprocess does not exit. Defaults to</span>
+<span class="sd">            ``5.0``.</span>
+<span class="sd">        kill_callback (Callable[[], None] or None): Optional callback</span>
+<span class="sd">            invoked after the subprocess termination step. Used by</span>
+<span class="sd">            in-process backends (KS4 host, RT-Sort) to install a</span>
+<span class="sd">            two-stage kill: ``_thread.interrupt_main`` first, then</span>
+<span class="sd">            ``os._exit`` if Python is unresponsive. See</span>
+<span class="sd">            :func:`make_in_process_kill_callback`.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        - When ``inactivity_s`` is ``None``, OR when neither ``popen``</span>
+<span class="sd">          nor ``kill_callback`` is provided, the watchdog is a no-op</span>
+<span class="sd">          context manager. This makes it safe to drop in</span>
+<span class="sd">          unconditionally — pass ``inactivity_s=None`` to disable.</span>
+<span class="sd">        - The watchdog only trips once. After trip, the polling</span>
+<span class="sd">          thread exits.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="LogInactivityWatchdog.__init__">
+<a class="viewcode-back" href="../../../../api/spike_sorting.html#spikelab.spike_sorting.guards.LogInactivityWatchdog.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">log_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span>
+        <span class="n">popen</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">subprocess</span><span class="o">.</span><span class="n">Popen</span><span class="p">],</span>
+        <span class="n">inactivity_s</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">sorter</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">poll_interval_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">5.0</span><span class="p">,</span>
+        <span class="n">kill_grace_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">5.0</span><span class="p">,</span>
+        <span class="n">kill_callback</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[],</span> <span class="kc">None</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">inactivity_s</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">inactivity_s</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;inactivity_s must be positive or None, got </span><span class="si">{</span><span class="n">inactivity_s</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">poll_interval_s</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;poll_interval_s must be positive, got </span><span class="si">{</span><span class="n">poll_interval_s</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">kill_grace_s</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;kill_grace_s must be non-negative, got </span><span class="si">{</span><span class="n">kill_grace_s</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">log_path</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">popen</span> <span class="o">=</span> <span class="n">popen</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">inactivity_s</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">inactivity_s</span><span class="p">)</span> <span class="k">if</span> <span class="n">inactivity_s</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sorter</span> <span class="o">=</span> <span class="n">sorter</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">poll_interval_s</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">poll_interval_s</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">kill_grace_s</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">kill_grace_s</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">kill_callback</span> <span class="o">=</span> <span class="n">kill_callback</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_stop_event</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Event</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_thread</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_tripped</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_last_seen_mtime</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_last_seen_size</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_inactivity_at_trip</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># Disabled when there is no timeout to enforce, or when there</span>
+        <span class="c1"># is no kill target at all (neither a subprocess nor a</span>
+        <span class="c1"># callback). Either condition makes the watchdog a no-op</span>
+        <span class="c1"># context manager.</span>
+        <span class="n">has_kill_target</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">popen</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">kill_callback</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_enabled</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">inactivity_s</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">has_kill_target</span></div>
+
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># Trip-state queries</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+
+<div class="viewcode-block" id="LogInactivityWatchdog.tripped">
+<a class="viewcode-back" href="../../../../api/spike_sorting.html#spikelab.spike_sorting.guards.LogInactivityWatchdog.tripped">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">tripped</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return True once the watchdog has fired its terminate path.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tripped</span></div>
+
+
+<div class="viewcode-block" id="LogInactivityWatchdog.make_error">
+<a class="viewcode-back" href="../../../../api/spike_sorting.html#spikelab.spike_sorting.guards.LogInactivityWatchdog.make_error">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">make_error</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SorterTimeoutError</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Build a :class:`SorterTimeoutError` from the trip state.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            message (str or None): Override the default message.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            err (SorterTimeoutError): Exception ready to raise.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">message</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">seen</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_inactivity_at_trip</span>
+            <span class="n">seen_str</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">seen</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">seen</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s2">&quot;?&quot;</span>
+            <span class="n">message</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">sorter</span><span class="si">}</span><span class="s2"> produced no log output for </span><span class="si">{</span><span class="n">seen_str</span><span class="si">}</span><span class="s2">s &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;(tolerance: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">inactivity_s</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">s). Subprocess &quot;</span>
+                <span class="s2">&quot;terminated; sort considered hung.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">SorterTimeoutError</span><span class="p">(</span>
+            <span class="n">message</span><span class="p">,</span>
+            <span class="n">sorter</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">sorter</span><span class="p">,</span>
+            <span class="n">inactivity_s</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">inactivity_s</span><span class="p">,</span>
+            <span class="n">log_path</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">log_path</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># Context manager</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;LogInactivityWatchdog&quot;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_enabled</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span>
+        <span class="c1"># Capture the pre-existing mtime + size so a stale log from</span>
+        <span class="c1"># a previous run does not register as a fresh trip.</span>
+        <span class="n">signals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_read_signals</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">signals</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_last_seen_mtime</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_seen_size</span> <span class="o">=</span> <span class="n">signals</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_last_seen_mtime</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_last_seen_size</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">&quot;active: sorter=</span><span class="si">%s</span><span class="s2"> tolerance=</span><span class="si">%.1f</span><span class="s2">s poll=</span><span class="si">%.1f</span><span class="s2">s log=</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">sorter</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">inactivity_s</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">poll_interval_s</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log_path</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_stop_event</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_thread</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="p">(</span>
+            <span class="n">target</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_poll_loop</span><span class="p">,</span>
+            <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;LogInactivityWatchdog[</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">sorter</span><span class="si">}</span><span class="s2">]&quot;</span><span class="p">,</span>
+            <span class="n">daemon</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_thread</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exc_type</span><span class="p">,</span> <span class="n">exc</span><span class="p">,</span> <span class="n">tb</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_stop_event</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_thread</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_thread</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">poll_interval_s</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_thread</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># Internals</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_read_signals</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return ``(mtime, size)`` for the log file, or None if absent.&quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">st</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">stat</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">log_path</span><span class="p">)</span>
+            <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">st</span><span class="o">.</span><span class="n">st_mtime</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">st</span><span class="o">.</span><span class="n">st_size</span><span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">OSError</span><span class="p">,</span> <span class="ne">FileNotFoundError</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_poll_loop</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Polling loop: track mtime + size, trip on inactivity, exit on stop.&quot;&quot;&quot;</span>
+        <span class="c1"># Defer the first measurement so __enter__ has time to return.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stop_event</span><span class="o">.</span><span class="n">wait</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">poll_interval_s</span><span class="p">):</span>
+            <span class="k">return</span>
+
+        <span class="c1"># Time of the most recent progress signal (mtime change or</span>
+        <span class="c1"># size change) observed by the watchdog. Initialised to</span>
+        <span class="c1"># watchdog start so a file that never appears still trips</span>
+        <span class="c1"># after the configured tolerance.</span>
+        <span class="n">last_progress_t</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="n">seen_any</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_seen_mtime</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="n">lost_warned</span> <span class="o">=</span> <span class="kc">False</span>
+
+        <span class="k">while</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stop_event</span><span class="o">.</span><span class="n">is_set</span><span class="p">():</span>
+            <span class="n">signals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_read_signals</span><span class="p">()</span>
+            <span class="n">now</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+
+            <span class="k">if</span> <span class="n">signals</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">cur_mtime</span><span class="p">,</span> <span class="n">cur_size</span> <span class="o">=</span> <span class="n">signals</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">seen_any</span><span class="p">:</span>
+                    <span class="c1"># File just appeared.</span>
+                    <span class="n">seen_any</span> <span class="o">=</span> <span class="kc">True</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_last_seen_mtime</span> <span class="o">=</span> <span class="n">cur_mtime</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_last_seen_size</span> <span class="o">=</span> <span class="n">cur_size</span>
+                    <span class="n">last_progress_t</span> <span class="o">=</span> <span class="n">now</span>
+                <span class="k">elif</span> <span class="p">(</span>
+                    <span class="n">cur_mtime</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_seen_mtime</span>
+                    <span class="ow">or</span> <span class="n">cur_size</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_seen_size</span>
+                <span class="p">):</span>
+                    <span class="c1"># Either signal advanced — reset the inactivity clock.</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_last_seen_mtime</span> <span class="o">=</span> <span class="n">cur_mtime</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_last_seen_size</span> <span class="o">=</span> <span class="n">cur_size</span>
+                    <span class="n">last_progress_t</span> <span class="o">=</span> <span class="n">now</span>
+                <span class="c1"># Recovered after a previous lost-file episode.</span>
+                <span class="n">lost_warned</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">elif</span> <span class="n">seen_any</span><span class="p">:</span>
+                <span class="c1"># The log file disappeared after we&#39;d seen it (external</span>
+                <span class="c1"># log rotation, manual cleanup). Without this branch</span>
+                <span class="c1"># the inactivity clock keeps growing and the watchdog</span>
+                <span class="c1"># falsely trips on what is actually a &quot;log file gone&quot;</span>
+                <span class="c1"># condition. Reset the clock so a healthy sort whose</span>
+                <span class="c1"># log was rotated does not get killed; warn once so</span>
+                <span class="c1"># the operator knows progress signals are unreliable</span>
+                <span class="c1"># for the duration.</span>
+                <span class="n">last_progress_t</span> <span class="o">=</span> <span class="n">now</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">lost_warned</span><span class="p">:</span>
+                    <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                        <span class="s2">&quot;log file </span><span class="si">%s</span><span class="s2"> disappeared while watchdog was &quot;</span>
+                        <span class="s2">&quot;active (likely external log rotation). &quot;</span>
+                        <span class="s2">&quot;Inactivity clock reset; watchdog is blind to &quot;</span>
+                        <span class="s2">&quot;log-progress signals until the file is &quot;</span>
+                        <span class="s2">&quot;recreated.&quot;</span><span class="p">,</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">log_path</span><span class="p">,</span>
+                    <span class="p">)</span>
+                    <span class="n">lost_warned</span> <span class="o">=</span> <span class="kc">True</span>
+
+            <span class="n">inactivity</span> <span class="o">=</span> <span class="n">now</span> <span class="o">-</span> <span class="n">last_progress_t</span>
+            <span class="k">if</span> <span class="n">inactivity</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">inactivity_s</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_on_trip</span><span class="p">(</span><span class="n">inactivity</span><span class="p">)</span>
+                <span class="k">return</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">_stop_event</span><span class="o">.</span><span class="n">wait</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">poll_interval_s</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_on_trip</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inactivity_s</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Record trip state, terminate any subprocess, then run the callback.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_tripped</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_inactivity_at_trip</span> <span class="o">=</span> <span class="n">inactivity_s</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+            <span class="s2">&quot;TRIP: </span><span class="si">%s</span><span class="s2"> log idle for </span><span class="si">%.1f</span><span class="s2">s (tolerance: </span><span class="si">%.1f</span><span class="s2">s).&quot;</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">sorter</span><span class="p">,</span>
+            <span class="n">inactivity_s</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">inactivity_s</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">append_audit_event</span><span class="p">(</span>
+            <span class="n">watchdog</span><span class="o">=</span><span class="s2">&quot;inactivity&quot;</span><span class="p">,</span>
+            <span class="n">event</span><span class="o">=</span><span class="s2">&quot;abort&quot;</span><span class="p">,</span>
+            <span class="n">log_path</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">log_path</span><span class="p">,</span>
+            <span class="n">sorter</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">sorter</span><span class="p">,</span>
+            <span class="n">inactivity_s</span><span class="o">=</span><span class="n">inactivity_s</span><span class="p">,</span>
+            <span class="n">tolerance_s</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">inactivity_s</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">popen</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">popen</span><span class="o">.</span><span class="n">poll</span><span class="p">()</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">popen</span><span class="o">.</span><span class="n">terminate</span><span class="p">()</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                <span class="n">_logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                    <span class="s2">&quot;terminate() failed for pid=</span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                    <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">popen</span><span class="p">,</span> <span class="s2">&quot;pid&quot;</span><span class="p">,</span> <span class="s2">&quot;?&quot;</span><span class="p">),</span>
+                    <span class="n">exc</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">kill_grace_s</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">popen</span><span class="o">.</span><span class="n">poll</span><span class="p">()</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">popen</span><span class="o">.</span><span class="n">kill</span><span class="p">()</span>
+                    <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                        <span class="s2">&quot;killed pid=</span><span class="si">%s</span><span class="s2"> (terminate ignored).&quot;</span><span class="p">,</span>
+                        <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">popen</span><span class="p">,</span> <span class="s2">&quot;pid&quot;</span><span class="p">,</span> <span class="s2">&quot;?&quot;</span><span class="p">),</span>
+                    <span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                <span class="n">_logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                    <span class="s2">&quot;kill() failed for pid=</span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                    <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">popen</span><span class="p">,</span> <span class="s2">&quot;pid&quot;</span><span class="p">,</span> <span class="s2">&quot;?&quot;</span><span class="p">),</span>
+                    <span class="n">exc</span><span class="p">,</span>
+                <span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">kill_callback</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">kill_callback</span><span class="p">()</span>
+            <span class="k">except</span> <span class="p">(</span><span class="ne">SystemExit</span><span class="p">,</span> <span class="ne">KeyboardInterrupt</span><span class="p">):</span>
+                <span class="c1"># ``os._exit`` does not raise SystemExit, but a custom</span>
+                <span class="c1"># callback using ``sys.exit`` should propagate, and an</span>
+                <span class="c1"># in-process kill callback&#39;s ``_thread.interrupt_main``</span>
+                <span class="c1"># surfaces here as KeyboardInterrupt — both must propagate.</span>
+                <span class="k">raise</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                <span class="n">_logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;kill_callback raised: </span><span class="si">%r</span><span class="s2">; continuing.&quot;</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Tjitse van der Molen.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

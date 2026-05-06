@@ -1,0 +1,1605 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>spikelab.spike_sorting.guards._gpu_watchdog &mdash; SpikeLab 0.1.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=a58bc63e"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            SpikeLab
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../getting_started/index.html">Getting Started</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../getting_started/installation.html">Installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../getting_started/installation.html#basic-install">Basic Install</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../getting_started/installation.html#optional-extras">Optional Extras</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../getting_started/installation.html#development-install">Development Install</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../getting_started/quickstart.html">Quick Start</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../getting_started/quickstart.html#creating-a-spikedata-object">Creating a SpikeData Object</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../getting_started/quickstart.html#loading-from-a-file">Loading from a File</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../getting_started/quickstart.html#plotting">Plotting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../getting_started/quickstart.html#basic-analysis">Basic Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../getting_started/quickstart.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guides/index.html">Guides</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/loading_data.html">Loading Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/loading_data.html#from-pickle-files">From pickle files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/loading_data.html#from-hdf5-files">From HDF5 files</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/loading_data.html#the-spike-times-unit-parameter">The <code class="docutils literal notranslate"><span class="pre">spike_times_unit</span></code> parameter</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/loading_data.html#from-nwb-files">From NWB files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/loading_data.html#from-kilosort-phy-output">From KiloSort/Phy output</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/loading_data.html#from-spikeinterface">From SpikeInterface</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/loading_data.html#from-spikelab-sorted-npz">From SpikeLab sorted .npz</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/loading_data.html#from-the-ibl-database">From the IBL database</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/loading_data.html#from-neo-spiketrains">From Neo SpikeTrains</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/loading_data.html#from-raw-data">From raw data</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/loading_data.html#from-threshold-detection">From threshold detection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/loading_data.html#from-a-spike-count-raster">From a spike count raster</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/spike_sorting.html">Spike Sorting and Curation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_sorting.html#spike-sorting">Spike Sorting</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#basic-usage">Basic usage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#configuration-and-presets">Configuration and presets</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#multi-stream-recordings">Multi-stream recordings</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#reusing-intermediate-results">Reusing intermediate results</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#built-in-safeguards">Built-in safeguards</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#pipeline-canary">Pipeline canary</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#stimulation-artifact-removal">Stimulation Artifact Removal</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_sorting.html#unit-curation">Unit Curation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#individual-criteria">Individual criteria</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#merge-based-deduplication">Merge-based deduplication</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#batch-curation">Batch curation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#curation-history">Curation history</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_sorting.html#sorting-concatenated-recordings">Sorting Concatenated Recordings</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_sorting.html#handling-sort-failures">Handling Sort Failures</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#watchdog-and-lock-failures">Watchdog and lock failures</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/spike_analysis.html">Spike Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#population-rate">Population Rate</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#burst-detection">Burst Detection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#burst-widths">Burst Widths</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#burst-sensitivity-analysis">Burst Sensitivity Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#per-unit-metrics">Per-Unit Metrics</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_analysis.html#firing-rates">Firing rates</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_analysis.html#inter-spike-intervals">Inter-spike intervals</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_analysis.html#spike-triggered-population-rate">Spike-triggered population rate</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#burst-participation-per-unit">Burst Participation per Unit</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#fraction-of-spikes-in-bursts">Fraction of Spikes in Bursts</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#selecting-and-combining-data">Selecting and Combining Data</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_analysis.html#unit-selection">Unit selection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_analysis.html#time-selection">Time selection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_analysis.html#appending-recordings">Appending recordings</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_analysis.html#combining-units">Combining units</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#pairwise-metrics">Pairwise Metrics</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_analysis.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/firing_rates.html">Instantaneous Firing Rates</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/firing_rates.html#id1">Instantaneous Firing Rates</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/firing_rates.html#isi-interpolation">ISI interpolation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/firing_rates.html#sliding-window">Sliding window</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/firing_rates.html#working-with-ratedata">Working with RateData</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/firing_rates.html#dimensionality-reduction">Dimensionality Reduction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/firing_rates.html#pairwise-firing-rate-correlations">Pairwise Firing-Rate Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/firing_rates.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html">Event-Aligned Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#aligning-to-events">Aligning to Events</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#rateslicestack">RateSliceStack</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#spikeslicestack">SpikeSliceStack</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#applying-a-function-across-slices">Applying a function across slices</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#subsetting-slice-stacks">Subsetting slice stacks</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#slice-to-slice-unit-correlations">Slice-to-Slice Unit Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#slice-to-slice-time-correlations">Slice-to-Slice Time Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#unit-to-unit-pca">Unit-to-Unit PCA</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#rank-order-analysis">Rank-Order Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#temporal-trends-and-stability">Temporal Trends and Stability</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/event_aligned_analysis.html#shuffled-null-distributions">Shuffled Null Distributions</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/pairwise_analysis.html">Pairwise Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/pairwise_analysis.html#spike-time-tiling-coefficient-sttc">Spike Time Tiling Coefficient (STTC)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/pairwise_analysis.html#firing-rate-correlations">Firing-Rate Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/pairwise_analysis.html#fr-correlation-vs-sttc-scatter">FR Correlation vs STTC Scatter</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/pairwise_analysis.html#network-analysis">Network Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/pairwise_analysis.html#spatial-network-visualization">Spatial Network Visualization</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/shuffled_data.html">Shuffled Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/shuffled_data.html#single-shuffle">Single Shuffle</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/shuffled_data.html#shuffle-stacks">Shuffle Stacks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/shuffled_data.html#unit-subset-stacks">Unit Subset Stacks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/shuffled_data.html#comparing-to-the-null-distribution">Comparing to the Null Distribution</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/gplvm.html">GPLVM Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/gplvm.html#fitting-a-gplvm">Fitting a GPLVM</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/gplvm.html#post-fit-analysis">Post-fit Analysis</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/gplvm.html#state-entropy">State entropy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/gplvm.html#continuity-probability">Continuity probability</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/gplvm.html#average-state-probability">Average state probability</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/gplvm.html#consecutive-state-durations">Consecutive state durations</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/gplvm.html#visualisation">Visualisation</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/exporting_data.html">Exporting Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/exporting_data.html#to-hdf5">To HDF5</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/exporting_data.html#ragged-vs-raster-style">Ragged vs raster style</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/exporting_data.html#the-spike-times-unit-parameter">The <code class="docutils literal notranslate"><span class="pre">spike_times_unit</span></code> parameter</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/exporting_data.html#exporting-raw-data">Exporting raw data</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/exporting_data.html#to-nwb">To NWB</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/exporting_data.html#to-kilosort">To KiloSort</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/exporting_data.html#to-pickle">To pickle</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/workspace.html">Workspace Persistence</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/workspace.html#creating-a-workspace">Creating a Workspace</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/workspace.html#saving-and-loading">Saving and Loading</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/workspace.html#listing-and-retrieving">Listing and Retrieving</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/workspace.html#lazy-loading">Lazy Loading</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/workspace.html#merging-workspaces">Merging Workspaces</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/mcp_server.html#starting-the-server">Starting the server</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/mcp_server.html#tool-categories">Tool categories</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/mcp_server.html#data-loading-tools">Data loading tools</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/mcp_server.html#analysis-tools">Analysis tools</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/mcp_server.html#export-tools">Export tools</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/mcp_server.html#workspace-addressing">Workspace addressing</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/parallel_computing.html">Parallel Computing</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/parallel_computing.html#thread-pool-parallelism">Thread-Pool Parallelism</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/parallel_computing.html#numba-acceleration">Numba Acceleration</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../guides/batch_jobs.html">Batch Jobs</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/batch_jobs.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/batch_jobs.html#setting-up-a-session">Setting Up a Session</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/batch_jobs.html#analysis-jobs">Analysis Jobs</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/batch_jobs.html#submitting">Submitting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/batch_jobs.html#writing-an-analysis-script">Writing an analysis script</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/batch_jobs.html#retrieving-results">Retrieving results</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/batch_jobs.html#sorting-jobs">Sorting Jobs</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/batch_jobs.html#id1">Submitting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/batch_jobs.html#id2">Retrieving results</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/batch_jobs.html#policy-guardrails">Policy Guardrails</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/batch_jobs.html#docker-images">Docker Images</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/batch_jobs.html#base-images">Base images</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/batch_jobs.html#temporary-images">Temporary images</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/batch_jobs.html#monitoring-jobs">Monitoring Jobs</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/index.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/index.html#core-data-structures">Core Data Structures</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/spikedata.html">SpikeData</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spikedata.html#spikelab.spikedata.SpikeData"><code class="docutils literal notranslate"><span class="pre">SpikeData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/ratedata.html">RateData</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/ratedata.html#spikelab.spikedata.ratedata.RateData"><code class="docutils literal notranslate"><span class="pre">RateData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/pairwise.html">Pairwise Comparisons</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/pairwise.html#pairwisecompmatrix">PairwiseCompMatrix</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/pairwise.html#pairwisecompmatrixstack">PairwiseCompMatrixStack</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/rateslicestack.html">RateSliceStack</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/rateslicestack.html#spikelab.spikedata.rateslicestack.RateSliceStack"><code class="docutils literal notranslate"><span class="pre">RateSliceStack</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/spikeslicestack.html">SpikeSliceStack</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack"><code class="docutils literal notranslate"><span class="pre">SpikeSliceStack</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/index.html#utilities">Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/utilities.html">Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.get_sttc"><code class="docutils literal notranslate"><span class="pre">get_sttc()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.swap"><code class="docutils literal notranslate"><span class="pre">swap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.randomize"><code class="docutils literal notranslate"><span class="pre">randomize()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.trough_between"><code class="docutils literal notranslate"><span class="pre">trough_between()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.ensure_h5py"><code class="docutils literal notranslate"><span class="pre">ensure_h5py()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.times_from_ms"><code class="docutils literal notranslate"><span class="pre">times_from_ms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.to_ms"><code class="docutils literal notranslate"><span class="pre">to_ms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.extract_waveforms"><code class="docutils literal notranslate"><span class="pre">extract_waveforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.check_neuron_attributes"><code class="docutils literal notranslate"><span class="pre">check_neuron_attributes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.get_channels_for_unit"><code class="docutils literal notranslate"><span class="pre">get_channels_for_unit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.compute_avg_waveform"><code class="docutils literal notranslate"><span class="pre">compute_avg_waveform()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.get_valid_spike_times"><code class="docutils literal notranslate"><span class="pre">get_valid_spike_times()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.waveforms_by_channel"><code class="docutils literal notranslate"><span class="pre">waveforms_by_channel()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.extract_unit_waveforms"><code class="docutils literal notranslate"><span class="pre">extract_unit_waveforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.consecutive_durations"><code class="docutils literal notranslate"><span class="pre">consecutive_durations()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.gplvm_state_entropy"><code class="docutils literal notranslate"><span class="pre">gplvm_state_entropy()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.gplvm_continuity_prob"><code class="docutils literal notranslate"><span class="pre">gplvm_continuity_prob()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.gplvm_average_state_probability"><code class="docutils literal notranslate"><span class="pre">gplvm_average_state_probability()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.shuffle_z_score"><code class="docutils literal notranslate"><span class="pre">shuffle_z_score()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.shuffle_percentile"><code class="docutils literal notranslate"><span class="pre">shuffle_percentile()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.slice_trend"><code class="docutils literal notranslate"><span class="pre">slice_trend()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/utilities.html#spikelab.spikedata.utils.slice_stability"><code class="docutils literal notranslate"><span class="pre">slice_stability()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/stat_utils.html">Statistical Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/stat_utils.html#spikelab.spikedata.stat_utils.linear_regression"><code class="docutils literal notranslate"><span class="pre">linear_regression()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/stat_utils.html#spikelab.spikedata.stat_utils.pairwise_tests"><code class="docutils literal notranslate"><span class="pre">pairwise_tests()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/stat_utils.html#spikelab.spikedata.stat_utils.paired_test"><code class="docutils literal notranslate"><span class="pre">paired_test()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/stat_utils.html#spikelab.spikedata.stat_utils.omnibus_test"><code class="docutils literal notranslate"><span class="pre">omnibus_test()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/plot_utils.html">Plotting Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_distribution"><code class="docutils literal notranslate"><span class="pre">plot_distribution()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_pvalue_matrix"><code class="docutils literal notranslate"><span class="pre">plot_pvalue_matrix()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_scatter"><code class="docutils literal notranslate"><span class="pre">plot_scatter()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_scatter_with_marginals"><code class="docutils literal notranslate"><span class="pre">plot_scatter_with_marginals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_manifold"><code class="docutils literal notranslate"><span class="pre">plot_manifold()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_lines"><code class="docutils literal notranslate"><span class="pre">plot_lines()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_percentile_bands"><code class="docutils literal notranslate"><span class="pre">plot_percentile_bands()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_burst_sensitivity"><code class="docutils literal notranslate"><span class="pre">plot_burst_sensitivity()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_aligned_slice_single_unit"><code class="docutils literal notranslate"><span class="pre">plot_aligned_slice_single_unit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_heatmap"><code class="docutils literal notranslate"><span class="pre">plot_heatmap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_recording"><code class="docutils literal notranslate"><span class="pre">plot_recording()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_spatial_network"><code class="docutils literal notranslate"><span class="pre">plot_spatial_network()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_unit_footprints"><code class="docutils literal notranslate"><span class="pre">plot_unit_footprints()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/index.html#data-i-o">Data I/O</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/data_loaders.html">Data Loaders</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_hdf5"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_hdf5()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_hdf5_raw_thresholded"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_hdf5_raw_thresholded()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_nwb"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_nwb()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_kilosort"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_kilosort()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_spikeinterface"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikeinterface()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_spikeinterface_recording"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikeinterface_recording()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_pickle"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_pickle()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_ibl"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_ibl()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.query_ibl_probes"><code class="docutils literal notranslate"><span class="pre">query_ibl_probes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_spikelab_sorted_npz"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikelab_sorted_npz()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/data_exporters.html">Data Exporters</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_hdf5"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_hdf5()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_nwb"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_nwb()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_kilosort"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_kilosort()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_to_pickle"><code class="docutils literal notranslate"><span class="pre">export_to_pickle()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/s3_utils.html">S3 Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/s3_utils.html#spikelab.data_loaders.s3_utils.is_s3_url"><code class="docutils literal notranslate"><span class="pre">is_s3_url()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/s3_utils.html#spikelab.data_loaders.s3_utils.parse_s3_url"><code class="docutils literal notranslate"><span class="pre">parse_s3_url()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/s3_utils.html#spikelab.data_loaders.s3_utils.download_from_s3"><code class="docutils literal notranslate"><span class="pre">download_from_s3()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/s3_utils.html#spikelab.data_loaders.s3_utils.upload_to_s3"><code class="docutils literal notranslate"><span class="pre">upload_to_s3()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/s3_utils.html#spikelab.data_loaders.s3_utils.ensure_local_file"><code class="docutils literal notranslate"><span class="pre">ensure_local_file()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/index.html#persistence">Persistence</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/workspace.html">Workspace</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/workspace.html#spikelab.workspace.workspace.AnalysisWorkspace"><code class="docutils literal notranslate"><span class="pre">AnalysisWorkspace</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/workspace.html#spikelab.workspace.workspace.LazyAnalysisWorkspace"><code class="docutils literal notranslate"><span class="pre">LazyAnalysisWorkspace</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/workspace.html#spikelab.workspace.workspace.WorkspaceManager"><code class="docutils literal notranslate"><span class="pre">WorkspaceManager</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/workspace.html#spikelab.workspace.workspace.get_workspace_manager"><code class="docutils literal notranslate"><span class="pre">get_workspace_manager()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/index.html#spike-sorting-and-curation">Spike Sorting and Curation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/spike_sorting.html">Spike Sorting</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#entry-points">Entry Points</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#module-spikelab.spike_sorting.config">Configuration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#module-spikelab.spike_sorting.backends">Backend Registry</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#classified-exceptions">Classified Exceptions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#post-failure-classifiers">Post-Failure Classifiers</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#sort-run-reports">Sort Run Reports</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#resource-guards">Resource Guards</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#pipeline-canary">Pipeline Canary</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/curation.html">Curation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/curation.html#spikelab.spikedata.curation.curate_by_min_spikes"><code class="docutils literal notranslate"><span class="pre">curate_by_min_spikes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/curation.html#spikelab.spikedata.curation.curate_by_firing_rate"><code class="docutils literal notranslate"><span class="pre">curate_by_firing_rate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/curation.html#spikelab.spikedata.curation.curate_by_isi_violations"><code class="docutils literal notranslate"><span class="pre">curate_by_isi_violations()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/curation.html#spikelab.spikedata.curation.curate_by_snr"><code class="docutils literal notranslate"><span class="pre">curate_by_snr()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/curation.html#spikelab.spikedata.curation.curate_by_std_norm"><code class="docutils literal notranslate"><span class="pre">curate_by_std_norm()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/curation.html#spikelab.spikedata.curation.compute_waveform_metrics"><code class="docutils literal notranslate"><span class="pre">compute_waveform_metrics()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/curation.html#spikelab.spikedata.curation.curate"><code class="docutils literal notranslate"><span class="pre">curate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/curation.html#spikelab.spikedata.curation.build_curation_history"><code class="docutils literal notranslate"><span class="pre">build_curation_history()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/curation.html#spikelab.spikedata.curation.curate_by_merge_duplicates"><code class="docutils literal notranslate"><span class="pre">curate_by_merge_duplicates()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/index.html#batch-jobs">Batch Jobs</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/batch_jobs.html">Batch Jobs</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/batch_jobs.html#models">Models</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/batch_jobs.html#policy-engine">Policy Engine</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/batch_jobs.html#module-spikelab.batch_jobs.profiles">Profile Loading</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/batch_jobs.html#run-session">Run Session</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/batch_jobs.html#module-spikelab.batch_jobs.backend_k8s">Kubernetes Backend</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/batch_jobs.html#module-spikelab.batch_jobs.storage_s3">S3 Storage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/batch_jobs.html#module-spikelab.batch_jobs.artifact_packager">Artifact Packager</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/batch_jobs.html#module-spikelab.batch_jobs.credentials">Credentials</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/batch_jobs.html#module-spikelab.batch_jobs.validation">Validation</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/index.html#server">Server</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">SpikeLab</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">spikelab.spike_sorting.guards._gpu_watchdog</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for spikelab.spike_sorting.guards._gpu_watchdog</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Live GPU memory watchdog for spike-sorting runs.</span>
+
+<span class="sd">Symmetric to :class:`HostMemoryWatchdog` but watches GPU VRAM via</span>
+<span class="sd">``pynvml`` (or ``nvidia-smi`` as a fallback). Trips when the</span>
+<span class="sd">device-in-use crosses the configured percentage thresholds; on trip</span>
+<span class="sd">it terminates registered subprocesses, runs registered kill</span>
+<span class="sd">callbacks, and raises a</span>
+<span class="sd">:class:`spikelab.spike_sorting._exceptions.GpuMemoryWatchdogError`</span>
+<span class="sd">into the main thread via ``_thread.interrupt_main``.</span>
+
+<span class="sd">The watchdog narrows its measurement to the device the sort is using</span>
+<span class="sd">(KS4 ``torch_device``, RT-Sort ``device``, KS2-Docker default</span>
+<span class="sd">``cuda:0``) so unrelated GPUs running other workloads are ignored.</span>
+
+<span class="sd">Detection priority:</span>
+
+<span class="sd">1. ``pynvml`` (already an optional spikelab dep) — fastest, exact</span>
+<span class="sd">   API for free/used/total memory per device.</span>
+<span class="sd">2. ``nvidia-smi`` parse — fallback when ``pynvml`` is missing.</span>
+<span class="sd">3. No-op when neither is available — the watchdog reports as</span>
+<span class="sd">   disabled rather than raising.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">_thread</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">contextvars</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">threading</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">GpuMemoryWatchdogError</span><span class="p">,</span> <span class="n">GpuThermalWatchdogError</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">._audit</span><span class="w"> </span><span class="kn">import</span> <span class="n">append_audit_event</span>
+
+<span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+<span class="c1"># Throttle reason bits we surface as warnings (kernel docs:</span>
+<span class="c1"># https://docs.nvidia.com/deploy/nvml-api/group__nvmlClocksThrottleReasons.html).</span>
+<span class="c1"># We deliberately ignore Idle/AppClocks because those reflect benign</span>
+<span class="c1"># OS scheduling rather than hardware distress.</span>
+<span class="n">_THROTTLE_REASON_LABELS</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="p">(</span><span class="mh">0x4</span><span class="p">,</span> <span class="s2">&quot;SW power cap&quot;</span><span class="p">),</span>
+    <span class="p">(</span><span class="mh">0x8</span><span class="p">,</span> <span class="s2">&quot;HW slowdown&quot;</span><span class="p">),</span>
+    <span class="p">(</span><span class="mh">0x20</span><span class="p">,</span> <span class="s2">&quot;SW thermal slowdown&quot;</span><span class="p">),</span>
+    <span class="p">(</span><span class="mh">0x40</span><span class="p">,</span> <span class="s2">&quot;HW thermal slowdown&quot;</span><span class="p">),</span>
+    <span class="p">(</span><span class="mh">0x80</span><span class="p">,</span> <span class="s2">&quot;HW power brake&quot;</span><span class="p">),</span>
+<span class="p">)</span>
+
+
+<span class="n">_active_gpu_watchdog</span><span class="p">:</span> <span class="n">contextvars</span><span class="o">.</span><span class="n">ContextVar</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="s2">&quot;GpuMemoryWatchdog&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">contextvars</span><span class="o">.</span><span class="n">ContextVar</span><span class="p">(</span><span class="s2">&quot;active_gpu_memory_watchdog&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">get_active_gpu_watchdog</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="s2">&quot;GpuMemoryWatchdog&quot;</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the GPU watchdog active for the current context, or None.</span>
+
+<span class="sd">    Mirror of :func:`._watchdog.get_active_watchdog` for the GPU</span>
+<span class="sd">    watchdog. Lets the per-recording :class:`KeyboardInterrupt`</span>
+<span class="sd">    catch site discover a tripped GPU watchdog and convert the</span>
+<span class="sd">    interrupt into the appropriate classified error.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        watchdog (GpuMemoryWatchdog or None): The active instance,</span>
+<span class="sd">            or ``None`` when no GPU watchdog is currently running.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_active_gpu_watchdog</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">_PynvmlSession</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Long-lived pynvml handle for one device.</span>
+
+<span class="sd">    Initialises pynvml once, caches the per-device handle, and reads</span>
+<span class="sd">    memory / temperature / throttle reasons via the cached handle.</span>
+<span class="sd">    Replaces the per-call ``nvmlInit/nvmlShutdown`` pattern, which</span>
+<span class="sd">    serialised every poll and added measurable overhead at the</span>
+<span class="sd">    default 2-second cadence.</span>
+
+<span class="sd">    Best-effort: per-method failures return ``None`` rather than</span>
+<span class="sd">    raising. ``shutdown()`` is idempotent and safe to call on a</span>
+<span class="sd">    session that never initialised.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">device_index</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">device_index</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pynvml</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_handle</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise pynvml and resolve the device handle.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            ok (bool): ``True`` when pynvml is importable and the</span>
+<span class="sd">                handle resolves; ``False`` otherwise.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">pynvml</span>
+        <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">pynvml</span><span class="o">.</span><span class="n">nvmlInit</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">handle</span> <span class="o">=</span> <span class="n">pynvml</span><span class="o">.</span><span class="n">nvmlDeviceGetHandleByIndex</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device_index</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">pynvml</span><span class="o">.</span><span class="n">nvmlShutdown</span><span class="p">()</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="k">pass</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pynvml</span> <span class="o">=</span> <span class="n">pynvml</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_handle</span> <span class="o">=</span> <span class="n">handle</span>
+        <span class="k">return</span> <span class="kc">True</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">read_memory</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return ``(used_pct, total_gb)`` or ``None`` on failure.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_handle</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pynvml</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pynvml</span><span class="o">.</span><span class="n">nvmlDeviceGetMemoryInfo</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_handle</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="n">total</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">info</span><span class="o">.</span><span class="n">total</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">total</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">info</span><span class="o">.</span><span class="n">used</span><span class="p">)</span> <span class="o">/</span> <span class="n">total</span> <span class="o">*</span> <span class="mf">100.0</span><span class="p">,</span> <span class="n">total</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1024</span><span class="o">**</span><span class="mi">3</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">read_temperature_c</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return device temperature in degrees Celsius, or ``None``.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_handle</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pynvml</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># Sensor 0 is NVML_TEMPERATURE_GPU on every supported device.</span>
+            <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_pynvml</span><span class="o">.</span><span class="n">nvmlDeviceGetTemperature</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_handle</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">read_throttle_reasons</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the active throttle-reasons bitmask, or ``None``.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_handle</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pynvml</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">int</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_pynvml</span><span class="o">.</span><span class="n">nvmlDeviceGetCurrentClocksThrottleReasons</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_handle</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">shutdown</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pynvml</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_pynvml</span><span class="o">.</span><span class="n">nvmlShutdown</span><span class="p">()</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="k">pass</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pynvml</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_handle</span> <span class="o">=</span> <span class="kc">None</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_format_throttle_reasons</span><span class="p">(</span><span class="n">mask</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Render an active throttle-reasons mask as a comma-separated string.&quot;&quot;&quot;</span>
+    <span class="n">parts</span> <span class="o">=</span> <span class="p">[</span><span class="n">label</span> <span class="k">for</span> <span class="n">bit</span><span class="p">,</span> <span class="n">label</span> <span class="ow">in</span> <span class="n">_THROTTLE_REASON_LABELS</span> <span class="k">if</span> <span class="n">mask</span> <span class="o">&amp;</span> <span class="n">bit</span><span class="p">]</span>
+    <span class="k">return</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_resolve_device_index</span><span class="p">(</span><span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the integer device index for a torch-style device string.</span>
+
+<span class="sd">    Accepts ``&quot;cuda&quot;``, ``&quot;cuda:0&quot;``, ``&quot;cuda:1&quot;``, integer-like</span>
+<span class="sd">    strings, and ``None`` (interpreted as device 0). Falls back to 0</span>
+<span class="sd">    on parse failure rather than raising — the watchdog is</span>
+<span class="sd">    best-effort.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        device (str or None): Torch-style device identifier.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        index (int): Device index (&gt;= 0).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">device</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="mi">0</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">device</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">s</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="s2">&quot;cuda&quot;</span><span class="p">):</span>
+        <span class="k">return</span> <span class="mi">0</span>
+    <span class="k">if</span> <span class="s2">&quot;:&quot;</span> <span class="ow">in</span> <span class="n">s</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">1</span><span class="p">]))</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mi">0</span>
+    <span class="k">if</span> <span class="n">s</span><span class="o">.</span><span class="n">isdigit</span><span class="p">():</span>
+        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+    <span class="k">return</span> <span class="mi">0</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_read_gpu_memory_pynvml</span><span class="p">(</span><span class="n">device_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return ``(used_pct, total_gb)`` for *device_index* via pynvml.</span>
+
+<span class="sd">    Reuses :class:`_PynvmlSession` so the init / shutdown lifecycle</span>
+<span class="sd">    is owned by a single class rather than duplicated across the</span>
+<span class="sd">    per-call helper. Returns ``None`` when pynvml is missing or the</span>
+<span class="sd">    read fails.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">session</span> <span class="o">=</span> <span class="n">_PynvmlSession</span><span class="p">(</span><span class="n">device_index</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">session</span><span class="o">.</span><span class="n">start</span><span class="p">():</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">session</span><span class="o">.</span><span class="n">read_memory</span><span class="p">()</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="n">session</span><span class="o">.</span><span class="n">shutdown</span><span class="p">()</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_read_gpu_memory_nvidia_smi</span><span class="p">(</span>
+    <span class="n">device_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return ``(used_pct, total_gb)`` via parsing ``nvidia-smi``.</span>
+
+<span class="sd">    Returns ``None`` when nvidia-smi is unavailable or the device</span>
+<span class="sd">    index is out of range.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">check_output</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="s2">&quot;nvidia-smi&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;--query-gpu=index,memory.used,memory.total&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;--format=csv,noheader,nounits&quot;</span><span class="p">,</span>
+            <span class="p">],</span>
+            <span class="n">text</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">timeout</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">except</span> <span class="p">(</span><span class="n">subprocess</span><span class="o">.</span><span class="n">SubprocessError</span><span class="p">,</span> <span class="ne">FileNotFoundError</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">out</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">splitlines</span><span class="p">():</span>
+        <span class="n">parts</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">)]</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">used_mib</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">total_mib</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="k">if</span> <span class="n">idx</span> <span class="o">!=</span> <span class="n">device_index</span> <span class="ow">or</span> <span class="n">total_mib</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="k">return</span> <span class="n">used_mib</span> <span class="o">/</span> <span class="n">total_mib</span> <span class="o">*</span> <span class="mf">100.0</span><span class="p">,</span> <span class="n">total_mib</span> <span class="o">/</span> <span class="mf">1024.0</span>
+    <span class="k">return</span> <span class="kc">None</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">capture_gpu_snapshot</span><span class="p">(</span><span class="n">output_path</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">header</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Write a GPU diagnostic snapshot to disk for postmortem analysis.</span>
+
+<span class="sd">    Captures the current ``nvidia-smi`` output and (if PyTorch is</span>
+<span class="sd">    available with CUDA) ``torch.cuda.memory_summary`` for every</span>
+<span class="sd">    visible device. The result is a plain-text file the operator can</span>
+<span class="sd">    inspect to determine which process owned the GPU memory or what</span>
+<span class="sd">    PyTorch&#39;s allocator thought it had reserved.</span>
+
+<span class="sd">    Best-effort: failures during capture are recorded in the file</span>
+<span class="sd">    rather than raising.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        output_path (path-like): Destination file path. Parent</span>
+<span class="sd">            directories are created if missing.</span>
+<span class="sd">        header (str): Optional banner prepended to the file (e.g.</span>
+<span class="sd">            &quot;Host memory watchdog trip at 93.2%&quot;).</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        path (str or None): The string path on success, ``None`` on</span>
+<span class="sd">            failure.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_dt</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span> <span class="k">as</span> <span class="n">_Path</span>
+
+    <span class="n">target</span> <span class="o">=</span> <span class="n">_Path</span><span class="p">(</span><span class="n">output_path</span><span class="p">)</span>
+    <span class="n">lines</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">if</span> <span class="n">header</span><span class="p">:</span>
+        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">header</span><span class="p">)</span>
+        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;=&quot;</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">header</span><span class="p">))</span>
+        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+    <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Captured: </span><span class="si">{</span><span class="n">_dt</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">isoformat</span><span class="p">(</span><span class="n">timespec</span><span class="o">=</span><span class="s1">&#39;seconds&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+
+    <span class="c1"># nvidia-smi. Force the C locale so column labels and units in</span>
+    <span class="c1"># the human-readable output are predictable English text — the</span>
+    <span class="c1"># snapshot is grepped through after the fact, and operators on</span>
+    <span class="c1"># non-English hosts (de_DE, ja_JP, etc.) would otherwise have to</span>
+    <span class="c1"># decode localised labels.</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">os</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_os</span>
+
+    <span class="n">smi_env</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">_os</span><span class="o">.</span><span class="n">environ</span><span class="p">,</span> <span class="s2">&quot;LANG&quot;</span><span class="p">:</span> <span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="s2">&quot;LC_ALL&quot;</span><span class="p">:</span> <span class="s2">&quot;C&quot;</span><span class="p">}</span>
+    <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;-- nvidia-smi --&quot;</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">check_output</span><span class="p">(</span>
+            <span class="p">[</span><span class="s2">&quot;nvidia-smi&quot;</span><span class="p">],</span>
+            <span class="n">text</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+            <span class="n">env</span><span class="o">=</span><span class="n">smi_env</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">out</span><span class="o">.</span><span class="n">rstrip</span><span class="p">())</span>
+    <span class="k">except</span> <span class="p">(</span><span class="n">subprocess</span><span class="o">.</span><span class="n">SubprocessError</span><span class="p">,</span> <span class="ne">FileNotFoundError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;(nvidia-smi unavailable: </span><span class="si">{</span><span class="n">exc</span><span class="si">!r}</span><span class="s2">)&quot;</span><span class="p">)</span>
+    <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+
+    <span class="c1"># torch memory summary</span>
+    <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;-- torch.cuda.memory_summary --&quot;</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+
+        <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">device_count</span><span class="p">()):</span>
+                <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Device </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">:&quot;</span><span class="p">)</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">memory_summary</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">i</span><span class="p">,</span> <span class="n">abbreviated</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                    <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;(memory_summary failed: </span><span class="si">{</span><span class="n">exc</span><span class="si">!r}</span><span class="s2">)&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;(torch.cuda.is_available() = False)&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;(torch not installed)&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;(torch.cuda probe failed: </span><span class="si">{</span><span class="n">exc</span><span class="si">!r}</span><span class="s2">)&quot;</span><span class="p">)</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">target</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">target</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">lines</span><span class="p">),</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;snapshot failed to write </span><span class="si">%s</span><span class="s2">: </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">read_gpu_memory</span><span class="p">(</span>
+    <span class="n">device_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return ``(used_pct, total_gb)`` for *device_index*, or ``None``.</span>
+
+<span class="sd">    Tries ``pynvml`` first, then ``nvidia-smi``. Returns ``None``</span>
+<span class="sd">    when neither source can produce a reading (e.g. no NVIDIA driver,</span>
+<span class="sd">    or the index is out of range).</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        device_index (int): Zero-based GPU index.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        info (tuple[float, float] or None): ``(used_pct, total_gb)``</span>
+<span class="sd">            on success.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">info</span> <span class="o">=</span> <span class="n">_read_gpu_memory_pynvml</span><span class="p">(</span><span class="n">device_index</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">info</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">info</span>
+    <span class="k">return</span> <span class="n">_read_gpu_memory_nvidia_smi</span><span class="p">(</span><span class="n">device_index</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_try_capture_snapshot_to_results</span><span class="p">(</span><span class="n">log_path</span><span class="p">,</span> <span class="n">header</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Write a GPU snapshot to the per-recording results folder.</span>
+
+<span class="sd">    Used by watchdog abort paths to leave a postmortem artefact at</span>
+<span class="sd">    ``&lt;results_folder&gt;/gpu_snapshot_at_trip.txt``. The watchdog must</span>
+<span class="sd">    pass the log path captured at ``__enter__`` time on the main</span>
+<span class="sd">    thread — the watchdog&#39;s polling thread cannot reliably look up</span>
+<span class="sd">    the ``get_active_log_path`` ContextVar because Python does not</span>
+<span class="sd">    propagate ContextVars across thread boundaries.</span>
+
+<span class="sd">    Best-effort: failures (None log_path, write failure, etc.) are</span>
+<span class="sd">    silent so a snapshot bug never breaks the surrounding watchdog.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        log_path (Path or None): Per-recording log path; the</span>
+<span class="sd">            results folder is its parent. ``None`` short-circuits.</span>
+<span class="sd">        header (str): Banner to prepend to the snapshot file.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">log_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span> <span class="k">as</span> <span class="n">_Path</span>
+
+        <span class="n">results_folder</span> <span class="o">=</span> <span class="n">_Path</span><span class="p">(</span><span class="n">log_path</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span>
+        <span class="n">target</span> <span class="o">=</span> <span class="n">results_folder</span> <span class="o">/</span> <span class="s2">&quot;gpu_snapshot_at_trip.txt&quot;</span>
+        <span class="n">capture_gpu_snapshot</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="n">header</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;snapshot failed to capture on trip: </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_resolve_rt_sort_device</span><span class="p">(</span><span class="n">config</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Resolver for the RT-Sort sorter.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_resolve_device_index</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">rt_sort</span><span class="p">,</span> <span class="s2">&quot;device&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_resolve_kilosort4_device</span><span class="p">(</span><span class="n">config</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Resolver for the Kilosort4 host sorter.&quot;&quot;&quot;</span>
+    <span class="n">params</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">sorter</span><span class="p">,</span> <span class="s2">&quot;sorter_params&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">or</span> <span class="p">{}</span>
+    <span class="k">return</span> <span class="n">_resolve_device_index</span><span class="p">(</span><span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;torch_device&quot;</span><span class="p">))</span>
+
+
+<span class="c1"># Registry mapping sorter name (lowercase) to a callable that takes</span>
+<span class="c1"># the config and returns the integer device index to monitor.</span>
+<span class="c1"># Sorters absent from this registry default to device 0 — the</span>
+<span class="c1"># convention KS2-Docker and other CUDA-using sorters that don&#39;t</span>
+<span class="c1"># expose a configurable device follow.</span>
+<span class="c1">#</span>
+<span class="c1"># Adding a new GPU-using sorter: write a ``_resolve_&lt;sorter&gt;_device``</span>
+<span class="c1"># function that pulls the device index from wherever the sorter</span>
+<span class="c1"># config holds it, then add an entry here. No other call site needs</span>
+<span class="c1"># updating.</span>
+<span class="n">_DEVICE_RESOLVERS</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Any</span><span class="p">],</span> <span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;rt_sort&quot;</span><span class="p">:</span> <span class="n">_resolve_rt_sort_device</span><span class="p">,</span>
+    <span class="s2">&quot;kilosort4&quot;</span><span class="p">:</span> <span class="n">_resolve_kilosort4_device</span><span class="p">,</span>
+<span class="p">}</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">resolve_active_device</span><span class="p">(</span><span class="n">config</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Pick the GPU device index implied by the sorter config.</span>
+
+<span class="sd">    The watchdog measures only this device so unrelated GPUs running</span>
+<span class="sd">    other workloads are ignored.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        config (SortingPipelineConfig): Pipeline configuration.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        index (int): Device index to monitor (defaults to 0 for any</span>
+<span class="sd">            sorter not registered in :data:`_DEVICE_RESOLVERS`).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">sorter_name</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">sorter</span><span class="p">,</span> <span class="s2">&quot;sorter_name&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+    <span class="n">resolver</span> <span class="o">=</span> <span class="n">_DEVICE_RESOLVERS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">sorter_name</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">resolver</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="mi">0</span>
+    <span class="k">return</span> <span class="n">resolver</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="GpuMemoryWatchdog">
+<a class="viewcode-back" href="../../../../api/spike_sorting.html#spikelab.spike_sorting.guards.GpuMemoryWatchdog">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">GpuMemoryWatchdog</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Daemon-thread watchdog that aborts on GPU VRAM or thermal pressure.</span>
+
+<span class="sd">    Use as a context manager around the per-recording sort. Each</span>
+<span class="sd">    poll inspects three signals:</span>
+
+<span class="sd">    * **VRAM usage** — crossing ``warn_pct`` prints a rate-limited</span>
+<span class="sd">      warning; crossing ``abort_pct`` builds a</span>
+<span class="sd">      :class:`GpuMemoryWatchdogError`, terminates registered</span>
+<span class="sd">      subprocesses, runs kill callbacks, and raises into the main</span>
+<span class="sd">      thread.</span>
+<span class="sd">    * **Device temperature** — crossing ``warn_temp_c`` prints a</span>
+<span class="sd">      rate-limited warning; crossing ``abort_temp_c`` aborts with a</span>
+<span class="sd">      :class:`GpuThermalWatchdogError`. Sustained operation above</span>
+<span class="sd">      the GPU&#39;s thermal junction limit risks driver-level throttling</span>
+<span class="sd">      that silently degrades sort output.</span>
+<span class="sd">    * **Active throttle reasons** — when the device reports SW/HW</span>
+<span class="sd">      power-cap or thermal slowdown, prints a rate-limited warning</span>
+<span class="sd">      (no abort: the device is already protecting itself).</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        device_index (int): GPU index to monitor. Use</span>
+<span class="sd">            :func:`resolve_active_device` to pick from the config.</span>
+<span class="sd">        warn_pct (float): Used-memory percentage at which to warn.</span>
+<span class="sd">            Defaults to ``85.0``.</span>
+<span class="sd">        abort_pct (float): Used-memory percentage at which to abort.</span>
+<span class="sd">            Defaults to ``95.0``.</span>
+<span class="sd">        poll_interval_s (float): Seconds between polls. Defaults to</span>
+<span class="sd">            ``2.0``.</span>
+<span class="sd">        warn_repeat_s (float): Minimum seconds between repeated</span>
+<span class="sd">            warnings. Defaults to ``30.0``.</span>
+<span class="sd">        kill_grace_s (float): Seconds between ``terminate()`` and</span>
+<span class="sd">            ``kill()`` on registered subprocesses.</span>
+<span class="sd">        warn_temp_c (float or None): Temperature in degrees Celsius</span>
+<span class="sd">            at which to warn. ``None`` disables the warn-stage temp</span>
+<span class="sd">            check. Defaults to ``85.0``.</span>
+<span class="sd">        abort_temp_c (float or None): Temperature at which to abort.</span>
+<span class="sd">            ``None`` disables thermal aborts. Defaults to ``92.0``.</span>
+<span class="sd">        monitor_throttle_reasons (bool): When True, surface NVML</span>
+<span class="sd">            throttle reasons (SW power cap, HW thermal slowdown,</span>
+<span class="sd">            HW power brake) as rate-limited warnings. Defaults to</span>
+<span class="sd">            ``True``.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        - Thermal monitoring requires ``pynvml``; the</span>
+<span class="sd">          ``nvidia-smi``-only fallback path used by</span>
+<span class="sd">          :func:`read_gpu_memory` does not surface temperature.</span>
+<span class="sd">          When pynvml is missing, thermal/throttle checks silently</span>
+<span class="sd">          degrade while VRAM monitoring continues via nvidia-smi.</span>
+<span class="sd">        - Disabled (no-op context manager) when no usable GPU info</span>
+<span class="sd">          source is available.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="GpuMemoryWatchdog.__init__">
+<a class="viewcode-back" href="../../../../api/spike_sorting.html#spikelab.spike_sorting.guards.GpuMemoryWatchdog.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">device_index</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">warn_pct</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">85.0</span><span class="p">,</span>
+        <span class="n">abort_pct</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">95.0</span><span class="p">,</span>
+        <span class="n">poll_interval_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">2.0</span><span class="p">,</span>
+        <span class="n">warn_repeat_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">30.0</span><span class="p">,</span>
+        <span class="n">kill_grace_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">5.0</span><span class="p">,</span>
+        <span class="n">warn_temp_c</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="mf">85.0</span><span class="p">,</span>
+        <span class="n">abort_temp_c</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="mf">92.0</span><span class="p">,</span>
+        <span class="n">monitor_throttle_reasons</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="mf">0.0</span> <span class="o">&lt;</span> <span class="n">warn_pct</span> <span class="o">&lt;</span> <span class="n">abort_pct</span> <span class="o">&lt;=</span> <span class="mf">100.0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;warn_pct (</span><span class="si">{</span><span class="n">warn_pct</span><span class="si">}</span><span class="s2">) and abort_pct (</span><span class="si">{</span><span class="n">abort_pct</span><span class="si">}</span><span class="s2">) must &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;satisfy 0 &lt; warn_pct &lt; abort_pct &lt;= 100.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">poll_interval_s</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;poll_interval_s must be positive, got </span><span class="si">{</span><span class="n">poll_interval_s</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">kill_grace_s</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;kill_grace_s must be non-negative, got </span><span class="si">{</span><span class="n">kill_grace_s</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">warn_temp_c</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="n">abort_temp_c</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="ow">not</span> <span class="mf">0.0</span> <span class="o">&lt;</span> <span class="n">warn_temp_c</span> <span class="o">&lt;</span> <span class="n">abort_temp_c</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;warn_temp_c (</span><span class="si">{</span><span class="n">warn_temp_c</span><span class="si">}</span><span class="s2">) and abort_temp_c &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="n">abort_temp_c</span><span class="si">}</span><span class="s2">) must satisfy 0 &lt; warn_temp_c &lt; &quot;</span>
+                <span class="s2">&quot;abort_temp_c.&quot;</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">device_index</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">device_index</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">warn_pct</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">warn_pct</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">abort_pct</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">abort_pct</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">poll_interval_s</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">poll_interval_s</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">warn_repeat_s</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">warn_repeat_s</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">kill_grace_s</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">kill_grace_s</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">warn_temp_c</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">warn_temp_c</span><span class="p">)</span> <span class="k">if</span> <span class="n">warn_temp_c</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">abort_temp_c</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">abort_temp_c</span><span class="p">)</span> <span class="k">if</span> <span class="n">abort_temp_c</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">monitor_throttle_reasons</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">monitor_throttle_reasons</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_subprocesses</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">subprocess</span><span class="o">.</span><span class="n">Popen</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_kill_callbacks</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[],</span> <span class="kc">None</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_stop_event</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Event</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_thread</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_tripped</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_tripped_kind</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_used_pct_at_trip</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_temp_c_at_trip</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_last_warn_t</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_last_temp_warn_t</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_last_throttle_warn_t</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_enabled</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_session</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">_PynvmlSession</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_token</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">contextvars</span><span class="o">.</span><span class="n">Token</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># Captured at ``__enter__`` time on the main thread because</span>
+        <span class="c1"># ContextVars do not propagate to the polling thread.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_snapshot_log_path</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># Set True when the trip cascade ran but</span>
+        <span class="c1"># ``_thread.interrupt_main`` raised — the main thread did not</span>
+        <span class="c1"># receive the KeyboardInterrupt and will surface a downstream</span>
+        <span class="c1"># error instead. Catch sites read this via</span>
+        <span class="c1"># :meth:`interrupt_delivery_failed`.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_interrupt_main_failed</span> <span class="o">=</span> <span class="kc">False</span></div>
+
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># Trip-state queries</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+
+<div class="viewcode-block" id="GpuMemoryWatchdog.tripped">
+<a class="viewcode-back" href="../../../../api/spike_sorting.html#spikelab.spike_sorting.guards.GpuMemoryWatchdog.tripped">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">tripped</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return True once the watchdog has fired its abort path.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tripped</span></div>
+
+
+<div class="viewcode-block" id="GpuMemoryWatchdog.interrupt_delivery_failed">
+<a class="viewcode-back" href="../../../../api/spike_sorting.html#spikelab.spike_sorting.guards.GpuMemoryWatchdog.interrupt_delivery_failed">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">interrupt_delivery_failed</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return True if the trip fired but ``_thread.interrupt_main`` raised.</span>
+
+<span class="sd">        When True, GPU protection ran successfully (subprocesses</span>
+<span class="sd">        terminated, kill callbacks invoked) but the main thread did</span>
+<span class="sd">        not receive a ``KeyboardInterrupt``. The pipeline&#39;s catch</span>
+<span class="sd">        site checks this to reclassify a downstream exception caused</span>
+<span class="sd">        by the now-dead subprocess.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            failed (bool): True only when the watchdog tripped and</span>
+<span class="sd">                the interrupt delivery raised.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_interrupt_main_failed</span></div>
+
+
+<div class="viewcode-block" id="GpuMemoryWatchdog.used_pct_at_trip">
+<a class="viewcode-back" href="../../../../api/spike_sorting.html#spikelab.spike_sorting.guards.GpuMemoryWatchdog.used_pct_at_trip">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">used_pct_at_trip</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the used-memory percent at the trip moment, or None.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_used_pct_at_trip</span></div>
+
+
+<div class="viewcode-block" id="GpuMemoryWatchdog.temperature_c_at_trip">
+<a class="viewcode-back" href="../../../../api/spike_sorting.html#spikelab.spike_sorting.guards.GpuMemoryWatchdog.temperature_c_at_trip">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">temperature_c_at_trip</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the device temperature at the trip moment, or None.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_temp_c_at_trip</span></div>
+
+
+<div class="viewcode-block" id="GpuMemoryWatchdog.trip_kind">
+<a class="viewcode-back" href="../../../../api/spike_sorting.html#spikelab.spike_sorting.guards.GpuMemoryWatchdog.trip_kind">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">trip_kind</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return ``&quot;memory&quot;``, ``&quot;thermal&quot;``, or ``None`` if not tripped.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tripped_kind</span></div>
+
+
+<div class="viewcode-block" id="GpuMemoryWatchdog.make_error">
+<a class="viewcode-back" href="../../../../api/spike_sorting.html#spikelab.spike_sorting.guards.GpuMemoryWatchdog.make_error">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">make_error</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">GpuMemoryWatchdogError</span><span class="p">,</span> <span class="n">GpuThermalWatchdogError</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Build the trip-kind-appropriate watchdog error.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            message (str or None): Override the default message.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            err: :class:`GpuMemoryWatchdogError` for VRAM trips,</span>
+<span class="sd">                :class:`GpuThermalWatchdogError` for temperature</span>
+<span class="sd">                trips. Falls back to a memory-shaped error when the</span>
+<span class="sd">                trip kind is unset.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tripped_kind</span> <span class="o">==</span> <span class="s2">&quot;thermal&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">message</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">temp</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_temp_c_at_trip</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_temp_c_at_trip</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                    <span class="k">else</span> <span class="s2">&quot;?&quot;</span>
+                <span class="p">)</span>
+                <span class="n">abort_temp</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">abort_temp_c</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">abort_temp_c</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s2">&quot;?&quot;</span>
+                <span class="p">)</span>
+                <span class="n">message</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;GPU thermal watchdog tripped: device &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">device_index</span><span class="si">}</span><span class="s2"> at </span><span class="si">{</span><span class="n">temp</span><span class="si">}</span><span class="s2"> C &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;(abort threshold </span><span class="si">{</span><span class="n">abort_temp</span><span class="si">}</span><span class="s2"> C).&quot;</span>
+                <span class="p">)</span>
+            <span class="k">return</span> <span class="n">GpuThermalWatchdogError</span><span class="p">(</span>
+                <span class="n">message</span><span class="p">,</span>
+                <span class="n">device_index</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device_index</span><span class="p">,</span>
+                <span class="n">temperature_c_at_trip</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_temp_c_at_trip</span><span class="p">,</span>
+                <span class="n">abort_temp_c</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">abort_temp_c</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">message</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">pct</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_used_pct_at_trip</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_used_pct_at_trip</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                <span class="k">else</span> <span class="s2">&quot;?&quot;</span>
+            <span class="p">)</span>
+            <span class="n">message</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;GPU watchdog tripped: device </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">device_index</span><span class="si">}</span><span class="s2"> used &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">pct</span><span class="si">}</span><span class="s2">% (abort threshold </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">abort_pct</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">%).&quot;</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">GpuMemoryWatchdogError</span><span class="p">(</span>
+            <span class="n">message</span><span class="p">,</span>
+            <span class="n">device_index</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device_index</span><span class="p">,</span>
+            <span class="n">used_pct_at_trip</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_used_pct_at_trip</span><span class="p">,</span>
+            <span class="n">abort_pct</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">abort_pct</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># Registration (subprocesses + kill callbacks)</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+
+<div class="viewcode-block" id="GpuMemoryWatchdog.register_subprocess">
+<a class="viewcode-back" href="../../../../api/spike_sorting.html#spikelab.spike_sorting.guards.GpuMemoryWatchdog.register_subprocess">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">register_subprocess</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">popen</span><span class="p">:</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">Popen</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">kill_grace_s</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Track a subprocess for termination on watchdog abort.&quot;&quot;&quot;</span>
+        <span class="n">grace</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">kill_grace_s</span> <span class="k">if</span> <span class="n">kill_grace_s</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">float</span><span class="p">(</span><span class="n">kill_grace_s</span><span class="p">)</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_subprocesses</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">popen</span><span class="p">,</span> <span class="n">grace</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="GpuMemoryWatchdog.unregister_subprocess">
+<a class="viewcode-back" href="../../../../api/spike_sorting.html#spikelab.spike_sorting.guards.GpuMemoryWatchdog.unregister_subprocess">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">unregister_subprocess</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">popen</span><span class="p">:</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">Popen</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Stop tracking a previously registered subprocess.&quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_subprocesses</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">g</span><span class="p">)</span> <span class="k">for</span> <span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">g</span><span class="p">)</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subprocesses</span> <span class="k">if</span> <span class="n">p</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">popen</span>
+            <span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="GpuMemoryWatchdog.register_kill_callback">
+<a class="viewcode-back" href="../../../../api/spike_sorting.html#spikelab.spike_sorting.guards.GpuMemoryWatchdog.register_kill_callback">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">register_kill_callback</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">callback</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[],</span> <span class="kc">None</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Track a zero-arg callable to invoke on watchdog abort.&quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_kill_callbacks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">callback</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="GpuMemoryWatchdog.unregister_kill_callback">
+<a class="viewcode-back" href="../../../../api/spike_sorting.html#spikelab.spike_sorting.guards.GpuMemoryWatchdog.unregister_kill_callback">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">unregister_kill_callback</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">callback</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[],</span> <span class="kc">None</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Stop tracking a previously registered kill callback.&quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_kill_callbacks</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_kill_callbacks</span> <span class="k">if</span> <span class="n">c</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">callback</span>
+            <span class="p">]</span></div>
+
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># Context manager</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;GpuMemoryWatchdog&quot;</span><span class="p">:</span>
+        <span class="c1"># Capture the active per-recording log path on the main</span>
+        <span class="c1"># thread; the daemon polling thread cannot read the</span>
+        <span class="c1"># ContextVar reliably.</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">._inactivity</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_active_log_path</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">_snapshot_log_path</span> <span class="o">=</span> <span class="n">get_active_log_path</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_snapshot_log_path</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># Probe once before starting the thread so we can disable</span>
+        <span class="c1"># cleanly when no GPU info source is available.</span>
+        <span class="n">info</span> <span class="o">=</span> <span class="n">read_gpu_memory</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device_index</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">info</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">&quot;no GPU info available for device </span><span class="si">%d</span><span class="s2"> (no pynvml, no &quot;</span>
+                <span class="s2">&quot;nvidia-smi). Disabled.&quot;</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">device_index</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_enabled</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">return</span> <span class="bp">self</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_enabled</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="c1"># Publish the active watchdog so the per-recording</span>
+        <span class="c1"># ``KeyboardInterrupt`` catch site can convert a</span>
+        <span class="c1"># ``_thread.interrupt_main`` from this watchdog into a</span>
+        <span class="c1"># classified error rather than letting it bubble up raw.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_token</span> <span class="o">=</span> <span class="n">_active_gpu_watchdog</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">used_pct</span><span class="p">,</span> <span class="n">total_gb</span> <span class="o">=</span> <span class="n">info</span>
+        <span class="c1"># Try to set up a long-lived pynvml session for the polling</span>
+        <span class="c1"># thread. Falls back to per-poll ``read_gpu_memory`` (which</span>
+        <span class="c1"># uses nvidia-smi) when pynvml is unavailable; in that case</span>
+        <span class="c1"># thermal / throttle monitoring degrades silently because</span>
+        <span class="c1"># nvidia-smi-only does not expose those signals here.</span>
+        <span class="n">session</span> <span class="o">=</span> <span class="n">_PynvmlSession</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device_index</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">session</span><span class="o">.</span><span class="n">start</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_session</span> <span class="o">=</span> <span class="n">session</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_session</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">thermal_str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_session</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">warn_temp_c</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">abort_temp_c</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="p">):</span>
+            <span class="n">initial_temp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_session</span><span class="o">.</span><span class="n">read_temperature_c</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">initial_temp</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">thermal_str</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot; temp_warn&gt;=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">warn_temp_c</span><span class="si">}</span><span class="s2"> &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;abort&gt;=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">abort_temp_c</span><span class="si">}</span><span class="s2"> (now </span><span class="si">{</span><span class="n">initial_temp</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">C)&quot;</span>
+                <span class="p">)</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">&quot;active: device=</span><span class="si">%d</span><span class="s2"> (</span><span class="si">%.1f</span><span class="s2"> GB) start=</span><span class="si">%.1f%%</span><span class="s2"> warn&gt;=</span><span class="si">%.1f%%</span><span class="s2"> &quot;</span>
+            <span class="s2">&quot;abort&gt;=</span><span class="si">%.1f%%</span><span class="s2"> poll=</span><span class="si">%.1f</span><span class="s2">s</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">device_index</span><span class="p">,</span>
+            <span class="n">total_gb</span><span class="p">,</span>
+            <span class="n">used_pct</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">warn_pct</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">abort_pct</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">poll_interval_s</span><span class="p">,</span>
+            <span class="n">thermal_str</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_stop_event</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_thread</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="p">(</span>
+            <span class="n">target</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_poll_loop</span><span class="p">,</span>
+            <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;GpuMemoryWatchdog[</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">device_index</span><span class="si">}</span><span class="s2">]&quot;</span><span class="p">,</span>
+            <span class="n">daemon</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_thread</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exc_type</span><span class="p">,</span> <span class="n">exc</span><span class="p">,</span> <span class="n">tb</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_stop_event</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_thread</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_thread</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">poll_interval_s</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_thread</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_token</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">_active_gpu_watchdog</span><span class="o">.</span><span class="n">reset</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_token</span><span class="p">)</span>
+            <span class="k">except</span> <span class="p">(</span><span class="ne">LookupError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="ne">RuntimeError</span><span class="p">):</span>
+                <span class="c1"># Another context modified the var between set/reset,</span>
+                <span class="c1"># or the token was already consumed (Python 3.10+</span>
+                <span class="c1"># raises RuntimeError on re-used tokens).</span>
+                <span class="k">pass</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_token</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_session</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_session</span><span class="o">.</span><span class="n">shutdown</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_session</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># Internals</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_poll_loop</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Polling loop: warn, then trip, then exit.&quot;&quot;&quot;</span>
+        <span class="c1"># Defer the first poll so __enter__ has time to return.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stop_event</span><span class="o">.</span><span class="n">wait</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">poll_interval_s</span><span class="p">):</span>
+            <span class="k">return</span>
+        <span class="n">blind_threshold_s</span> <span class="o">=</span> <span class="mf">5.0</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">warn_repeat_s</span>
+        <span class="c1"># VRAM and thermal/throttle have independent failure modes</span>
+        <span class="c1"># (the same _session may succeed for one and fail for the</span>
+        <span class="c1"># other on driver corner cases) so they get independent</span>
+        <span class="c1"># blindness trackers.</span>
+        <span class="n">vram_blind_started_t</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">vram_blind_warned</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="n">thermal_blind_started_t</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">thermal_blind_warned</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">while</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stop_event</span><span class="o">.</span><span class="n">is_set</span><span class="p">():</span>
+            <span class="n">now</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+            <span class="c1"># Memory: prefer the cached pynvml session, fall back</span>
+            <span class="c1"># to the free-function reader (which uses nvidia-smi).</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_session</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_session</span><span class="o">.</span><span class="n">read_memory</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">info</span> <span class="o">=</span> <span class="n">read_gpu_memory</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device_index</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">info</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">vram_blind_started_t</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">vram_blind_started_t</span> <span class="o">=</span> <span class="n">now</span>
+                <span class="k">elif</span> <span class="p">(</span>
+                    <span class="ow">not</span> <span class="n">vram_blind_warned</span>
+                    <span class="ow">and</span> <span class="n">now</span> <span class="o">-</span> <span class="n">vram_blind_started_t</span> <span class="o">&gt;=</span> <span class="n">blind_threshold_s</span>
+                <span class="p">):</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_warn_blind_vram</span><span class="p">(</span><span class="n">now</span> <span class="o">-</span> <span class="n">vram_blind_started_t</span><span class="p">)</span>
+                    <span class="n">vram_blind_warned</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">vram_blind_started_t</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="n">vram_blind_warned</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="n">used_pct</span><span class="p">,</span> <span class="n">_total_gb</span> <span class="o">=</span> <span class="n">info</span>
+                <span class="k">if</span> <span class="n">used_pct</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">abort_pct</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_on_abort</span><span class="p">(</span><span class="n">used_pct</span><span class="p">)</span>
+                    <span class="k">return</span>
+                <span class="k">if</span> <span class="n">used_pct</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">warn_pct</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_maybe_warn</span><span class="p">(</span><span class="n">used_pct</span><span class="p">)</span>
+
+            <span class="c1"># Thermal + throttle reasons require pynvml; skip when</span>
+            <span class="c1"># the session is unavailable. When _session is present</span>
+            <span class="c1"># but a configured sub-read returns None, that counts</span>
+            <span class="c1"># as thermal blindness for the warning tracker.</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_session</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">thermal_configured</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">warn_temp_c</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                    <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">abort_temp_c</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                    <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">monitor_throttle_reasons</span>
+                <span class="p">)</span>
+                <span class="n">thermal_unreadable</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">warn_temp_c</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">abort_temp_c</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">temp_c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_session</span><span class="o">.</span><span class="n">read_temperature_c</span><span class="p">()</span>
+                    <span class="k">if</span> <span class="n">temp_c</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="n">thermal_unreadable</span> <span class="o">=</span> <span class="kc">True</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="p">(</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">abort_temp_c</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                            <span class="ow">and</span> <span class="n">temp_c</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">abort_temp_c</span>
+                        <span class="p">):</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">_on_thermal_abort</span><span class="p">(</span><span class="n">temp_c</span><span class="p">)</span>
+                            <span class="k">return</span>
+                        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">warn_temp_c</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">temp_c</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">warn_temp_c</span><span class="p">:</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">_maybe_warn_temp</span><span class="p">(</span><span class="n">temp_c</span><span class="p">)</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">monitor_throttle_reasons</span><span class="p">:</span>
+                    <span class="n">mask</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_session</span><span class="o">.</span><span class="n">read_throttle_reasons</span><span class="p">()</span>
+                    <span class="k">if</span> <span class="n">mask</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="n">thermal_unreadable</span> <span class="o">=</span> <span class="kc">True</span>
+                    <span class="k">elif</span> <span class="n">mask</span> <span class="o">&amp;</span> <span class="nb">sum</span><span class="p">(</span><span class="n">bit</span> <span class="k">for</span> <span class="n">bit</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">_THROTTLE_REASON_LABELS</span><span class="p">):</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_maybe_warn_throttle</span><span class="p">(</span><span class="n">mask</span><span class="p">)</span>
+
+                <span class="k">if</span> <span class="n">thermal_configured</span> <span class="ow">and</span> <span class="n">thermal_unreadable</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">thermal_blind_started_t</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="n">thermal_blind_started_t</span> <span class="o">=</span> <span class="n">now</span>
+                    <span class="k">elif</span> <span class="p">(</span>
+                        <span class="ow">not</span> <span class="n">thermal_blind_warned</span>
+                        <span class="ow">and</span> <span class="n">now</span> <span class="o">-</span> <span class="n">thermal_blind_started_t</span> <span class="o">&gt;=</span> <span class="n">blind_threshold_s</span>
+                    <span class="p">):</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_warn_blind_thermal</span><span class="p">(</span><span class="n">now</span> <span class="o">-</span> <span class="n">thermal_blind_started_t</span><span class="p">)</span>
+                        <span class="n">thermal_blind_warned</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">thermal_blind_started_t</span> <span class="o">=</span> <span class="kc">None</span>
+                    <span class="n">thermal_blind_warned</span> <span class="o">=</span> <span class="kc">False</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">_stop_event</span><span class="o">.</span><span class="n">wait</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">poll_interval_s</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_maybe_warn</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">used_pct</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Print a warning if enough time has passed since the last one.&quot;&quot;&quot;</span>
+        <span class="n">now</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">now</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_warn_t</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">warn_repeat_s</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_last_warn_t</span> <span class="o">=</span> <span class="n">now</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="s2">&quot;device </span><span class="si">%d</span><span class="s2"> VRAM at </span><span class="si">%.1f%%</span><span class="s2"> (warn=</span><span class="si">%.1f%%</span><span class="s2"> / abort=</span><span class="si">%.1f%%</span><span class="s2">).&quot;</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">device_index</span><span class="p">,</span>
+            <span class="n">used_pct</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">warn_pct</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">abort_pct</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">append_audit_event</span><span class="p">(</span>
+            <span class="n">watchdog</span><span class="o">=</span><span class="s2">&quot;gpu_memory&quot;</span><span class="p">,</span>
+            <span class="n">event</span><span class="o">=</span><span class="s2">&quot;warn&quot;</span><span class="p">,</span>
+            <span class="n">log_path</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_snapshot_log_path</span><span class="p">,</span>
+            <span class="n">device_index</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device_index</span><span class="p">,</span>
+            <span class="n">used_pct</span><span class="o">=</span><span class="n">used_pct</span><span class="p">,</span>
+            <span class="n">warn_pct</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">warn_pct</span><span class="p">,</span>
+            <span class="n">abort_pct</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">abort_pct</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_maybe_warn_temp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">temp_c</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Print a thermal warning if rate-limit allows.&quot;&quot;&quot;</span>
+        <span class="n">now</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">now</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_temp_warn_t</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">warn_repeat_s</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_last_temp_warn_t</span> <span class="o">=</span> <span class="n">now</span>
+        <span class="n">abort</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">abort_temp_c</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">abort_temp_c</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s2">&quot;off&quot;</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="s2">&quot;device </span><span class="si">%d</span><span class="s2"> temperature </span><span class="si">%.1f</span><span class="s2"> C (warn&gt;=</span><span class="si">%.1f</span><span class="s2"> / abort&gt;=</span><span class="si">%s</span><span class="s2">).&quot;</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">device_index</span><span class="p">,</span>
+            <span class="n">temp_c</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">warn_temp_c</span><span class="p">,</span>
+            <span class="n">abort</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">append_audit_event</span><span class="p">(</span>
+            <span class="n">watchdog</span><span class="o">=</span><span class="s2">&quot;gpu_thermal&quot;</span><span class="p">,</span>
+            <span class="n">event</span><span class="o">=</span><span class="s2">&quot;warn&quot;</span><span class="p">,</span>
+            <span class="n">log_path</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_snapshot_log_path</span><span class="p">,</span>
+            <span class="n">device_index</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device_index</span><span class="p">,</span>
+            <span class="n">temperature_c</span><span class="o">=</span><span class="n">temp_c</span><span class="p">,</span>
+            <span class="n">warn_temp_c</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">warn_temp_c</span><span class="p">,</span>
+            <span class="n">abort_temp_c</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">abort_temp_c</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_maybe_warn_throttle</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mask</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Print a throttle-reason warning if rate-limit allows.&quot;&quot;&quot;</span>
+        <span class="n">now</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">now</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_throttle_warn_t</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">warn_repeat_s</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_last_throttle_warn_t</span> <span class="o">=</span> <span class="n">now</span>
+        <span class="n">reasons</span> <span class="o">=</span> <span class="n">_format_throttle_reasons</span><span class="p">(</span><span class="n">mask</span><span class="p">)</span> <span class="ow">or</span> <span class="sa">f</span><span class="s2">&quot;mask=0x</span><span class="si">{</span><span class="n">mask</span><span class="si">:</span><span class="s2">x</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="s2">&quot;device </span><span class="si">%d</span><span class="s2"> throttling — </span><span class="si">%s</span><span class="s2">.&quot;</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">device_index</span><span class="p">,</span>
+            <span class="n">reasons</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">append_audit_event</span><span class="p">(</span>
+            <span class="n">watchdog</span><span class="o">=</span><span class="s2">&quot;gpu_throttle&quot;</span><span class="p">,</span>
+            <span class="n">event</span><span class="o">=</span><span class="s2">&quot;warn&quot;</span><span class="p">,</span>
+            <span class="n">log_path</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_snapshot_log_path</span><span class="p">,</span>
+            <span class="n">device_index</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device_index</span><span class="p">,</span>
+            <span class="n">throttle_mask</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">mask</span><span class="p">),</span>
+            <span class="n">throttle_reasons</span><span class="o">=</span><span class="n">reasons</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_warn_blind_vram</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">blind_for</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="s2">&quot;VRAM reading for device </span><span class="si">%d</span><span class="s2"> unreadable for </span><span class="si">%.1f</span><span class="s2">s — &quot;</span>
+            <span class="s2">&quot;watchdog is blind to VRAM-pressure aborts until readings &quot;</span>
+            <span class="s2">&quot;recover.&quot;</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">device_index</span><span class="p">,</span>
+            <span class="n">blind_for</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">append_audit_event</span><span class="p">(</span>
+            <span class="n">watchdog</span><span class="o">=</span><span class="s2">&quot;gpu_memory&quot;</span><span class="p">,</span>
+            <span class="n">event</span><span class="o">=</span><span class="s2">&quot;blind_warn&quot;</span><span class="p">,</span>
+            <span class="n">source</span><span class="o">=</span><span class="s2">&quot;vram&quot;</span><span class="p">,</span>
+            <span class="n">log_path</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_snapshot_log_path</span><span class="p">,</span>
+            <span class="n">device_index</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device_index</span><span class="p">,</span>
+            <span class="n">blind_for_s</span><span class="o">=</span><span class="n">blind_for</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_warn_blind_thermal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">blind_for</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="s2">&quot;thermal/throttle reading for device </span><span class="si">%d</span><span class="s2"> unreadable for &quot;</span>
+            <span class="s2">&quot;</span><span class="si">%.1f</span><span class="s2">s — watchdog is blind to thermal aborts until &quot;</span>
+            <span class="s2">&quot;readings recover.&quot;</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">device_index</span><span class="p">,</span>
+            <span class="n">blind_for</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">append_audit_event</span><span class="p">(</span>
+            <span class="n">watchdog</span><span class="o">=</span><span class="s2">&quot;gpu_memory&quot;</span><span class="p">,</span>
+            <span class="n">event</span><span class="o">=</span><span class="s2">&quot;blind_warn&quot;</span><span class="p">,</span>
+            <span class="n">source</span><span class="o">=</span><span class="s2">&quot;thermal&quot;</span><span class="p">,</span>
+            <span class="n">log_path</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_snapshot_log_path</span><span class="p">,</span>
+            <span class="n">device_index</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device_index</span><span class="p">,</span>
+            <span class="n">blind_for_s</span><span class="o">=</span><span class="n">blind_for</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_on_thermal_abort</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">temp_c</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Trip on thermal threshold; terminate, run callbacks, raise.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_tripped</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_tripped_kind</span> <span class="o">=</span> <span class="s2">&quot;thermal&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_temp_c_at_trip</span> <span class="o">=</span> <span class="n">temp_c</span>
+        <span class="n">abort</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">abort_temp_c</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">abort_temp_c</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s2">&quot;?&quot;</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+            <span class="s2">&quot;THERMAL ABORT: device </span><span class="si">%d</span><span class="s2"> at </span><span class="si">%.1f</span><span class="s2"> C (&gt;= </span><span class="si">%s</span><span class="s2"> C). &quot;</span>
+            <span class="s2">&quot;Terminating subprocesses and raising into main thread.&quot;</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">device_index</span><span class="p">,</span>
+            <span class="n">temp_c</span><span class="p">,</span>
+            <span class="n">abort</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">append_audit_event</span><span class="p">(</span>
+            <span class="n">watchdog</span><span class="o">=</span><span class="s2">&quot;gpu_thermal&quot;</span><span class="p">,</span>
+            <span class="n">event</span><span class="o">=</span><span class="s2">&quot;abort&quot;</span><span class="p">,</span>
+            <span class="n">log_path</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_snapshot_log_path</span><span class="p">,</span>
+            <span class="n">device_index</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device_index</span><span class="p">,</span>
+            <span class="n">temperature_c</span><span class="o">=</span><span class="n">temp_c</span><span class="p">,</span>
+            <span class="n">abort_temp_c</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">abort_temp_c</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">_try_capture_snapshot_to_results</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_snapshot_log_path</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">&quot;GPU thermal watchdog trip — device </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">device_index</span><span class="si">}</span><span class="s2"> at &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">temp_c</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> C&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_kill_targets_and_interrupt</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_on_abort</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">used_pct</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Record trip, terminate subprocesses, run callbacks, interrupt main.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_tripped</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_tripped_kind</span> <span class="o">=</span> <span class="s2">&quot;memory&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_used_pct_at_trip</span> <span class="o">=</span> <span class="n">used_pct</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+            <span class="s2">&quot;ABORT: device </span><span class="si">%d</span><span class="s2"> VRAM at </span><span class="si">%.1f%%</span><span class="s2"> (&gt;= </span><span class="si">%.1f%%</span><span class="s2">). Terminating &quot;</span>
+            <span class="s2">&quot;subprocesses and raising into main thread.&quot;</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">device_index</span><span class="p">,</span>
+            <span class="n">used_pct</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">abort_pct</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">append_audit_event</span><span class="p">(</span>
+            <span class="n">watchdog</span><span class="o">=</span><span class="s2">&quot;gpu_memory&quot;</span><span class="p">,</span>
+            <span class="n">event</span><span class="o">=</span><span class="s2">&quot;abort&quot;</span><span class="p">,</span>
+            <span class="n">log_path</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_snapshot_log_path</span><span class="p">,</span>
+            <span class="n">device_index</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device_index</span><span class="p">,</span>
+            <span class="n">used_pct</span><span class="o">=</span><span class="n">used_pct</span><span class="p">,</span>
+            <span class="n">abort_pct</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">abort_pct</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">_try_capture_snapshot_to_results</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_snapshot_log_path</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">&quot;GPU memory watchdog trip — device </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">device_index</span><span class="si">}</span><span class="s2"> at &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">used_pct</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">%&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_kill_targets_and_interrupt</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_kill_targets</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Terminate registered subprocesses and run kill callbacks.</span>
+
+<span class="sd">        Side-effect-only: returns nothing, raises only the explicit</span>
+<span class="sd">        ``SystemExit`` / ``KeyboardInterrupt`` propagation case.</span>
+<span class="sd">        Split from :meth:`_kill_targets_and_interrupt` so a future</span>
+<span class="sd">        telemetry-only abort path can run the destructive cascade</span>
+<span class="sd">        without injecting a ``KeyboardInterrupt`` into the main</span>
+<span class="sd">        thread.</span>
+
+<span class="sd">        Notes:</span>
+<span class="sd">            - When ``entries`` is empty (no subprocesses registered),</span>
+<span class="sd">              the ``if entries:`` gate skips the grace sleep — there</span>
+<span class="sd">              is nothing to terminate, so callbacks fire immediately.</span>
+<span class="sd">              The ``default=self.kill_grace_s`` on the ``max(...)``</span>
+<span class="sd">              call is unreachable in that case but kept for clarity.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+            <span class="n">entries</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_subprocesses</span><span class="p">)</span>
+            <span class="n">callbacks</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_kill_callbacks</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">popen</span><span class="p">,</span> <span class="n">_grace</span> <span class="ow">in</span> <span class="n">entries</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">popen</span><span class="o">.</span><span class="n">poll</span><span class="p">()</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">popen</span><span class="o">.</span><span class="n">terminate</span><span class="p">()</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                <span class="n">_logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                    <span class="s2">&quot;terminate() failed for pid=</span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                    <span class="nb">getattr</span><span class="p">(</span><span class="n">popen</span><span class="p">,</span> <span class="s2">&quot;pid&quot;</span><span class="p">,</span> <span class="s2">&quot;?&quot;</span><span class="p">),</span>
+                    <span class="n">exc</span><span class="p">,</span>
+                <span class="p">)</span>
+        <span class="k">if</span> <span class="n">entries</span><span class="p">:</span>
+            <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="nb">max</span><span class="p">((</span><span class="n">g</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">entries</span><span class="p">),</span> <span class="n">default</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">kill_grace_s</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">popen</span><span class="p">,</span> <span class="n">_grace</span> <span class="ow">in</span> <span class="n">entries</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">popen</span><span class="o">.</span><span class="n">poll</span><span class="p">()</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">popen</span><span class="o">.</span><span class="n">kill</span><span class="p">()</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                <span class="n">_logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                    <span class="s2">&quot;kill() failed for pid=</span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                    <span class="nb">getattr</span><span class="p">(</span><span class="n">popen</span><span class="p">,</span> <span class="s2">&quot;pid&quot;</span><span class="p">,</span> <span class="s2">&quot;?&quot;</span><span class="p">),</span>
+                    <span class="n">exc</span><span class="p">,</span>
+                <span class="p">)</span>
+        <span class="k">for</span> <span class="n">cb</span> <span class="ow">in</span> <span class="n">callbacks</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">cb</span><span class="p">()</span>
+            <span class="k">except</span> <span class="p">(</span><span class="ne">SystemExit</span><span class="p">,</span> <span class="ne">KeyboardInterrupt</span><span class="p">):</span>
+                <span class="c1"># An in-process kill callback delivers KeyboardInterrupt</span>
+                <span class="c1"># via _thread.interrupt_main(); SystemExit signals</span>
+                <span class="c1"># operator-requested abort. Both must propagate.</span>
+                <span class="k">raise</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                <span class="n">_logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;kill_callback raised: </span><span class="si">%r</span><span class="s2">; continuing.&quot;</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_kill_targets_and_interrupt</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Common subprocess + callback termination + interrupt main.</span>
+
+<span class="sd">        Used by the abort paths (``_on_abort``, ``_on_thermal_abort``)</span>
+<span class="sd">        which both want destructive cleanup followed by</span>
+<span class="sd">        ``_thread.interrupt_main`` to convert the daemon-thread trip</span>
+<span class="sd">        into a classified main-thread error.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_kill_targets</span><span class="p">()</span>
+        <span class="c1"># If __exit__ ran while we were mid-cascade (terminate +</span>
+        <span class="c1"># grace + callbacks can take several seconds), the with-block</span>
+        <span class="c1"># has already torn down. Sending interrupt_main() now would</span>
+        <span class="c1"># land a phantom KeyboardInterrupt in whatever code is running</span>
+        <span class="c1"># next — the next sort, an exception handler, or the</span>
+        <span class="c1"># interactive prompt. Skip it.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stop_event</span><span class="o">.</span><span class="n">is_set</span><span class="p">():</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;suppressing interrupt_main: watchdog is already exiting.&quot;</span><span class="p">)</span>
+            <span class="k">return</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">_thread</span><span class="o">.</span><span class="n">interrupt_main</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_interrupt_main_failed</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;failed to interrupt main: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
+            <span class="n">append_audit_event</span><span class="p">(</span>
+                <span class="n">watchdog</span><span class="o">=</span><span class="s2">&quot;gpu_memory&quot;</span><span class="p">,</span>
+                <span class="n">event</span><span class="o">=</span><span class="s2">&quot;interrupt_delivery_failed&quot;</span><span class="p">,</span>
+                <span class="n">log_path</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_snapshot_log_path</span><span class="p">,</span>
+                <span class="n">device_index</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device_index</span><span class="p">,</span>
+                <span class="n">error</span><span class="o">=</span><span class="nb">repr</span><span class="p">(</span><span class="n">exc</span><span class="p">),</span>
+            <span class="p">)</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Tjitse van der Molen.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

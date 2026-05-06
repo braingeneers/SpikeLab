@@ -85,6 +85,8 @@
 <li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#configuration-and-presets">Configuration and presets</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#multi-stream-recordings">Multi-stream recordings</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#reusing-intermediate-results">Reusing intermediate results</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#built-in-safeguards">Built-in safeguards</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#pipeline-canary">Pipeline canary</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#stimulation-artifact-removal">Stimulation Artifact Removal</a></li>
 </ul>
 </li>
@@ -96,7 +98,10 @@
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_sorting.html#sorting-concatenated-recordings">Sorting Concatenated Recordings</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_sorting.html#handling-sort-failures">Handling Sort Failures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../guides/spike_sorting.html#handling-sort-failures">Handling Sort Failures</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../guides/spike_sorting.html#watchdog-and-lock-failures">Watchdog and lock failures</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../guides/spike_analysis.html">Spike Analysis</a><ul>
@@ -365,6 +370,9 @@
 <li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#module-spikelab.spike_sorting.backends">Backend Registry</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#classified-exceptions">Classified Exceptions</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#post-failure-classifiers">Post-Failure Classifiers</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#sort-run-reports">Sort Run Reports</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#resource-guards">Resource Guards</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/spike_sorting.html#pipeline-canary">Pipeline Canary</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../api/curation.html">Curation</a><ul>
@@ -449,7 +457,7 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Optional</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">..config</span><span class="w"> </span><span class="kn">import</span> <span class="n">SortingPipelineConfig</span>
 
@@ -569,7 +577,153 @@
 <span class="sd">            dat_path (Path): Output binary file path.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">pass</span></div>
-</div>
+
+
+<div class="viewcode-block" id="SorterBackend.scale_oom_params">
+<a class="viewcode-back" href="../../../../api/spike_sorting.html#spikelab.spike_sorting.backends.base.SorterBackend.scale_oom_params">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">scale_oom_params</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">factor</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Mutate ``self.config`` to halve (or scale) the OOM-bound knob.</span>
+
+<span class="sd">        Each backend overrides this to adjust the parameter most</span>
+<span class="sd">        directly responsible for GPU memory consumption — typically</span>
+<span class="sd">        the per-batch sample count. The default implementation does</span>
+<span class="sd">        nothing and reports failure so callers know retry-on-OOM is</span>
+<span class="sd">        not supported for that backend.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            factor (float): Multiplicative factor in ``(0, 1]`` to</span>
+<span class="sd">                apply. ``0.5`` halves the parameter.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            scaled (bool): True when at least one parameter was</span>
+<span class="sd">                changed; False when no scaling was applied. Callers</span>
+<span class="sd">                should skip the retry when False is returned.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="kc">False</span></div>
+
+
+<div class="viewcode-block" id="SorterBackend.snapshot_oom_params">
+<a class="viewcode-back" href="../../../../api/spike_sorting.html#spikelab.spike_sorting.backends.base.SorterBackend.snapshot_oom_params">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">snapshot_oom_params</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a snapshot of OOM-bound config fields for restore.</span>
+
+<span class="sd">        Used by the per-recording OOM-retry loop so a scale-down</span>
+<span class="sd">        applied for one recording does not silently persist into the</span>
+<span class="sd">        next. The returned dict is opaque — only</span>
+<span class="sd">        :meth:`restore_oom_params` is expected to read it.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            snapshot (dict): Backend-specific snapshot. Default</span>
+<span class="sd">                implementation returns an empty dict.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">{}</span></div>
+
+
+<div class="viewcode-block" id="SorterBackend.restore_oom_params">
+<a class="viewcode-back" href="../../../../api/spike_sorting.html#spikelab.spike_sorting.backends.base.SorterBackend.restore_oom_params">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">restore_oom_params</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">snapshot</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Restore the OOM-bound config fields from a prior snapshot.</span>
+
+<span class="sd">        Default implementation is a no-op. Backends that override</span>
+<span class="sd">        :meth:`scale_oom_params` should also override this so the</span>
+<span class="sd">        retry loop can reset the config between recordings.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            snapshot (dict): Object returned by</span>
+<span class="sd">                :meth:`snapshot_oom_params`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_make_in_process_inactivity_watchdog</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">recording</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">sorter</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Build a no-popen :class:`LogInactivityWatchdog` for an in-process sort.</span>
+
+<span class="sd">        Looks up the active per-recording log path (published by</span>
+<span class="sd">        ``sort_recording``) and computes the inactivity tolerance from</span>
+<span class="sd">        the recording&#39;s wall-clock duration. Returns a watchdog</span>
+<span class="sd">        whose kill path is :func:`make_in_process_kill_callback` —</span>
+<span class="sd">        i.e. ``_thread.interrupt_main`` followed by ``os._exit`` if</span>
+<span class="sd">        Python is unresponsive.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            recording: SpikeInterface ``BaseRecording`` for the</span>
+<span class="sd">                inactivity-tolerance scaling.</span>
+<span class="sd">            sorter (str): Short identifier used in diagnostics and</span>
+<span class="sd">                in the resulting :class:`SorterTimeoutError`.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            watchdog (LogInactivityWatchdog or None): A configured</span>
+<span class="sd">                watchdog (no-op when the active log path is missing</span>
+<span class="sd">                or the timeout is disabled) ready to be used as a</span>
+<span class="sd">                context manager. Returns ``None`` when no log path</span>
+<span class="sd">                is currently active — the caller should skip</span>
+<span class="sd">                wrapping in that case.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">..guards</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+            <span class="n">LogInactivityWatchdog</span><span class="p">,</span>
+            <span class="n">get_active_log_path</span><span class="p">,</span>
+            <span class="n">make_in_process_kill_callback</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">log_path</span> <span class="o">=</span> <span class="n">get_active_log_path</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">log_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="n">inactivity_s</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_inactivity_timeout_s</span><span class="p">(</span><span class="n">recording</span><span class="p">)</span>
+        <span class="n">grace_s</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span>
+            <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">execution</span><span class="p">,</span> <span class="s2">&quot;sorter_inactivity_in_process_grace_s&quot;</span><span class="p">,</span> <span class="mf">10.0</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">LogInactivityWatchdog</span><span class="p">(</span>
+            <span class="n">log_path</span><span class="o">=</span><span class="n">log_path</span><span class="p">,</span>
+            <span class="n">popen</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">inactivity_s</span><span class="o">=</span><span class="n">inactivity_s</span><span class="p">,</span>
+            <span class="n">sorter</span><span class="o">=</span><span class="n">sorter</span><span class="p">,</span>
+            <span class="n">kill_callback</span><span class="o">=</span><span class="n">make_in_process_kill_callback</span><span class="p">(</span>
+                <span class="n">interrupt_grace_s</span><span class="o">=</span><span class="n">grace_s</span><span class="p">,</span>
+                <span class="n">sorter</span><span class="o">=</span><span class="n">sorter</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_inactivity_timeout_s</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">recording</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute the recording-aware sorter inactivity tolerance.</span>
+
+<span class="sd">        Reads the watchdog knobs from ``self.config.execution`` and</span>
+<span class="sd">        scales the tolerance with the recording&#39;s wall-clock duration</span>
+<span class="sd">        so a long sort that takes several minutes between log writes</span>
+<span class="sd">        is not falsely killed by a watchdog tuned for short test</span>
+<span class="sd">        recordings.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            recording: SpikeInterface ``BaseRecording`` providing</span>
+<span class="sd">                ``get_num_samples()`` and ``get_sampling_frequency()``.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            timeout_s (float or None): Resolved tolerance in seconds,</span>
+<span class="sd">                or ``None`` when the watchdog is disabled in the</span>
+<span class="sd">                configuration. ``None`` is also returned when the</span>
+<span class="sd">                recording duration cannot be determined; the caller</span>
+<span class="sd">                must treat ``None`` as &quot;do not start the watchdog&quot;.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">exe</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">execution</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">exe</span><span class="p">,</span> <span class="s2">&quot;sorter_inactivity_timeout&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">n_samples</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">recording</span><span class="o">.</span><span class="n">get_num_samples</span><span class="p">())</span>
+            <span class="n">fs_hz</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">recording</span><span class="o">.</span><span class="n">get_sampling_frequency</span><span class="p">())</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">fs_hz</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="n">duration_min</span> <span class="o">=</span> <span class="n">n_samples</span> <span class="o">/</span> <span class="n">fs_hz</span> <span class="o">/</span> <span class="mf">60.0</span>
+
+        <span class="kn">from</span><span class="w"> </span><span class="nn">..guards</span><span class="w"> </span><span class="kn">import</span> <span class="n">compute_inactivity_timeout_s</span>
+
+        <span class="k">return</span> <span class="n">compute_inactivity_timeout_s</span><span class="p">(</span>
+            <span class="n">recording_duration_min</span><span class="o">=</span><span class="n">duration_min</span><span class="p">,</span>
+            <span class="n">base_s</span><span class="o">=</span><span class="n">exe</span><span class="o">.</span><span class="n">sorter_inactivity_base_s</span><span class="p">,</span>
+            <span class="n">per_min_s</span><span class="o">=</span><span class="n">exe</span><span class="o">.</span><span class="n">sorter_inactivity_per_min_s</span><span class="p">,</span>
+            <span class="n">max_s</span><span class="o">=</span><span class="n">exe</span><span class="o">.</span><span class="n">sorter_inactivity_max_s</span><span class="p">,</span>
+        <span class="p">)</span></div>
 
 </pre></div>
 

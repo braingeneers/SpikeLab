@@ -85,6 +85,8 @@
 <li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_sorting.html#configuration-and-presets">Configuration and presets</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_sorting.html#multi-stream-recordings">Multi-stream recordings</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_sorting.html#reusing-intermediate-results">Reusing intermediate results</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_sorting.html#built-in-safeguards">Built-in safeguards</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_sorting.html#pipeline-canary">Pipeline canary</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_sorting.html#stimulation-artifact-removal">Stimulation Artifact Removal</a></li>
 </ul>
 </li>
@@ -96,7 +98,10 @@
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_sorting.html#sorting-concatenated-recordings">Sorting Concatenated Recordings</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_sorting.html#handling-sort-failures">Handling Sort Failures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_sorting.html#handling-sort-failures">Handling Sort Failures</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_sorting.html#watchdog-and-lock-failures">Watchdog and lock failures</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../guides/spike_analysis.html">Spike Analysis</a><ul>
@@ -365,6 +370,9 @@
 <li class="toctree-l4"><a class="reference internal" href="../../../api/spike_sorting.html#module-spikelab.spike_sorting.backends">Backend Registry</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/spike_sorting.html#classified-exceptions">Classified Exceptions</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/spike_sorting.html#post-failure-classifiers">Post-Failure Classifiers</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/spike_sorting.html#sort-run-reports">Sort Run Reports</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/spike_sorting.html#resource-guards">Resource Guards</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/spike_sorting.html#pipeline-canary">Pipeline Canary</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/curation.html">Curation</a><ul>
@@ -458,7 +466,7 @@
 <span class="sd">&quot;&quot;&quot;</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Optional</span>
 
 
 <div class="viewcode-block" id="SpikeSortingClassifiedError">
@@ -670,6 +678,53 @@
 <span class="c1"># ---------------------------------------------------------------------------</span>
 
 
+<div class="viewcode-block" id="ConcurrentSortError">
+<a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.ConcurrentSortError">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ConcurrentSortError</span><span class="p">(</span><span class="n">EnvironmentSortFailure</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Another sort is already in progress on the same intermediate folder.</span>
+
+<span class="sd">    Raised by</span>
+<span class="sd">    :func:`spikelab.spike_sorting.guards.acquire_sort_lock` when a</span>
+<span class="sd">    pre-existing lock file points at an alive PID on the same host.</span>
+<span class="sd">    Two concurrent sorts against the same intermediate folder would</span>
+<span class="sd">    corrupt each other&#39;s binary artefacts (KS2 ``.dat`` file,</span>
+<span class="sd">    RT-Sort scaled traces, curation cache), so the second sort</span>
+<span class="sd">    fails fast rather than racing.</span>
+
+<span class="sd">    Recommended remediation: wait for the running sort to finish,</span>
+<span class="sd">    or point the second sort at a different ``intermediate_folders``</span>
+<span class="sd">    path. If you believe the holder is dead but the lock persists,</span>
+<span class="sd">    delete ``&lt;inter_path&gt;/.spikelab_sort.lock`` by hand.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        lock_path: Path to the lock file that triggered the abort.</span>
+<span class="sd">        holder_pid: PID listed in the lock file (when readable).</span>
+<span class="sd">        holder_hostname: Hostname listed in the lock file (when</span>
+<span class="sd">            readable).</span>
+<span class="sd">        started_at: ISO timestamp recorded when the holder acquired</span>
+<span class="sd">            the lock.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="ConcurrentSortError.__init__">
+<a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.ConcurrentSortError.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">lock_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">holder_pid</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">holder_hostname</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">started_at</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lock_path</span> <span class="o">=</span> <span class="n">lock_path</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">holder_pid</span> <span class="o">=</span> <span class="n">holder_pid</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">holder_hostname</span> <span class="o">=</span> <span class="n">holder_hostname</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">started_at</span> <span class="o">=</span> <span class="n">started_at</span></div>
+</div>
+
+
+
 <div class="viewcode-block" id="HDF5PluginMissingError">
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.HDF5PluginMissingError">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">HDF5PluginMissingError</span><span class="p">(</span><span class="n">EnvironmentSortFailure</span><span class="p">):</span>
@@ -801,6 +856,287 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">log_path</span> <span class="o">=</span> <span class="n">log_path</span></div>
 </div>
 
+
+
+<div class="viewcode-block" id="SorterTimeoutError">
+<a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.SorterTimeoutError">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SorterTimeoutError</span><span class="p">(</span><span class="n">ResourceSortFailure</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The sorter subprocess produced no output for too long.</span>
+
+<span class="sd">    Raised by</span>
+<span class="sd">    :class:`spikelab.spike_sorting.guards.LogInactivityWatchdog` when</span>
+<span class="sd">    the sorter&#39;s log file has not been updated within the configured</span>
+<span class="sd">    inactivity tolerance. Distinct from a hard wall-clock timeout:</span>
+<span class="sd">    this fires only when the sort has stopped making progress (no log</span>
+<span class="sd">    writes), so legitimate long sorts on dense MEAs / multi-hour</span>
+<span class="sd">    recordings are not falsely killed.</span>
+
+<span class="sd">    Recommended remediation: skip the recording and continue. Retrying</span>
+<span class="sd">    without intervention will likely hang again at the same stage.</span>
+<span class="sd">    Investigate the sorter log up to the inactivity point for the</span>
+<span class="sd">    proximate cause (CUDA hang, MATLAB JVM deadlock, mex kernel</span>
+<span class="sd">    failure mode, disk-full stall).</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        sorter: Short identifier of the sorter that hung.</span>
+<span class="sd">        inactivity_s: Configured inactivity tolerance at the time of</span>
+<span class="sd">            the trip, in seconds.</span>
+<span class="sd">        log_path: Path to the sorter log file the watchdog was</span>
+<span class="sd">            polling, when known.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="SorterTimeoutError.__init__">
+<a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.SorterTimeoutError.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">sorter</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">inactivity_s</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">log_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sorter</span> <span class="o">=</span> <span class="n">sorter</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">inactivity_s</span> <span class="o">=</span> <span class="n">inactivity_s</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log_path</span> <span class="o">=</span> <span class="n">log_path</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="DiskExhaustionError">
+<a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.DiskExhaustionError">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">DiskExhaustionError</span><span class="p">(</span><span class="n">ResourceSortFailure</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Free disk space crossed the watchdog abort threshold mid-sort.</span>
+
+<span class="sd">    Raised by :class:`spikelab.spike_sorting.guards.DiskUsageWatchdog`</span>
+<span class="sd">    when ``shutil.disk_usage(folder).free`` drops below the configured</span>
+<span class="sd">    abort threshold while a sort is in progress. RT-Sort especially</span>
+<span class="sd">    can fill a volume mid-run by writing scaled traces, model traces,</span>
+<span class="sd">    and model outputs as large ``.npy`` files.</span>
+
+<span class="sd">    The exception carries a :class:`DiskExhaustionReport` describing</span>
+<span class="sd">    free space, projected need, top disk consumers in the watched</span>
+<span class="sd">    folder, and suggested operator actions.</span>
+
+<span class="sd">    Recommended remediation: free disk space (or shorten the</span>
+<span class="sd">    recording window via ``RTSortConfig.recording_window_ms`` /</span>
+<span class="sd">    ``first_n_mins``) and rerun. The report&#39;s ``top_consumers`` field</span>
+<span class="sd">    flags the largest existing files in the watched folder so the</span>
+<span class="sd">    operator can clean up safely.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        folder: The folder whose free space crossed the threshold.</span>
+<span class="sd">        free_gb_at_trip: Free space (GB) at the moment of the trip.</span>
+<span class="sd">        abort_threshold_gb: Configured abort threshold (GB).</span>
+<span class="sd">        report: Optional :class:`DiskExhaustionReport` with the full</span>
+<span class="sd">            diagnostic payload. ``None`` only when the report could</span>
+<span class="sd">            not be assembled (e.g. ``os.walk`` failed).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="DiskExhaustionError.__init__">
+<a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.DiskExhaustionError.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">folder</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">free_gb_at_trip</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">abort_threshold_gb</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">report</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">folder</span> <span class="o">=</span> <span class="n">folder</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">free_gb_at_trip</span> <span class="o">=</span> <span class="n">free_gb_at_trip</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">abort_threshold_gb</span> <span class="o">=</span> <span class="n">abort_threshold_gb</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">report</span> <span class="o">=</span> <span class="n">report</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="GpuMemoryWatchdogError">
+<a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.GpuMemoryWatchdogError">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">GpuMemoryWatchdogError</span><span class="p">(</span><span class="n">ResourceSortFailure</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;GPU VRAM crossed the watchdog abort threshold mid-sort.</span>
+
+<span class="sd">    Raised by :class:`spikelab.spike_sorting.guards.GpuMemoryWatchdog`</span>
+<span class="sd">    when free VRAM on the device-in-use drops below the configured</span>
+<span class="sd">    abort threshold (or used VRAM crosses the abort percentage). Sharp</span>
+<span class="sd">    GPU OOMs typically come from PyTorch allocator fragmentation</span>
+<span class="sd">    rather than a clean ``cudaMalloc`` failure, so a percentage-based</span>
+<span class="sd">    early warning lets the pipeline trigger the existing OOM-retry</span>
+<span class="sd">    path with a reduced batch *before* the next allocation hits the</span>
+<span class="sd">    wall.</span>
+
+<span class="sd">    Recommended remediation: rerun with reduced sorter batch params</span>
+<span class="sd">    (the existing OOM-retry path handles this automatically through</span>
+<span class="sd">    ``GPUOutOfMemoryError`` classification, which this exception</span>
+<span class="sd">    subclasses-by-symmetry — both surface as ``oom_gpu`` status).</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        device_index: Index of the GPU device that crossed the</span>
+<span class="sd">            threshold.</span>
+<span class="sd">        used_pct_at_trip: GPU memory used percentage at the moment</span>
+<span class="sd">            of the trip.</span>
+<span class="sd">        abort_pct: Configured abort percentage threshold.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="GpuMemoryWatchdogError.__init__">
+<a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.GpuMemoryWatchdogError.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">device_index</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">used_pct_at_trip</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">abort_pct</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">device_index</span> <span class="o">=</span> <span class="n">device_index</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">used_pct_at_trip</span> <span class="o">=</span> <span class="n">used_pct_at_trip</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">abort_pct</span> <span class="o">=</span> <span class="n">abort_pct</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="GpuThermalWatchdogError">
+<a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.GpuThermalWatchdogError">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">GpuThermalWatchdogError</span><span class="p">(</span><span class="n">ResourceSortFailure</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;GPU temperature crossed the watchdog abort threshold mid-sort.</span>
+
+<span class="sd">    Raised by :class:`spikelab.spike_sorting.guards.GpuMemoryWatchdog`</span>
+<span class="sd">    when the device&#39;s reported temperature crosses the configured</span>
+<span class="sd">    abort threshold. Sustained operation above the GPU&#39;s thermal</span>
+<span class="sd">    junction limit risks driver-level throttling that produces</span>
+<span class="sd">    silently degraded output, or in extreme cases a hardware</span>
+<span class="sd">    shutdown that loses the in-progress sort.</span>
+
+<span class="sd">    Recommended remediation: pause the batch until the GPU cools</span>
+<span class="sd">    (check airflow, ambient temperature, dust on the heatsink), then</span>
+<span class="sd">    rerun. A persistent thermal trip across reboots indicates a</span>
+<span class="sd">    cooling failure that needs operator attention.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        device_index: Index of the GPU device that crossed the</span>
+<span class="sd">            threshold.</span>
+<span class="sd">        temperature_c_at_trip: Reported device temperature in degrees</span>
+<span class="sd">            Celsius at the moment of the trip.</span>
+<span class="sd">        abort_temp_c: Configured abort temperature threshold.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="GpuThermalWatchdogError.__init__">
+<a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.GpuThermalWatchdogError.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">device_index</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">temperature_c_at_trip</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">abort_temp_c</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">device_index</span> <span class="o">=</span> <span class="n">device_index</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">temperature_c_at_trip</span> <span class="o">=</span> <span class="n">temperature_c_at_trip</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">abort_temp_c</span> <span class="o">=</span> <span class="n">abort_temp_c</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="IOStallError">
+<a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.IOStallError">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">IOStallError</span><span class="p">(</span><span class="n">ResourceSortFailure</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Disk I/O stalled mid-sort.</span>
+
+<span class="sd">    Raised by</span>
+<span class="sd">    :class:`spikelab.spike_sorting.guards.IOStallWatchdog` when</span>
+<span class="sd">    ``psutil.disk_io_counters()`` for the watched volume shows no</span>
+<span class="sd">    byte-counter movement for the configured tolerance — typical</span>
+<span class="sd">    of a hung NFS / SMB / S3-fuse mount that&#39;s still accepting</span>
+<span class="sd">    file handles but not actually reading or writing.</span>
+
+<span class="sd">    The inactivity watchdog catches some I/O stalls (no log</span>
+<span class="sd">    output → trip), but a sorter that keeps logging while waiting</span>
+<span class="sd">    for I/O can defeat that signal. The I/O stall watchdog adds a</span>
+<span class="sd">    second layer specifically targeting kernel-level read/write</span>
+<span class="sd">    progress.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        device: Volume identifier (e.g. ``&quot;sda1&quot;``, ``&quot;C:&quot;``).</span>
+<span class="sd">        stall_s: Configured stall tolerance at the time of the trip.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="IOStallError.__init__">
+<a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.IOStallError.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">stall_s</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">device</span> <span class="o">=</span> <span class="n">device</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stall_s</span> <span class="o">=</span> <span class="n">stall_s</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="HostMemoryWatchdogError">
+<a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.HostMemoryWatchdogError">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">HostMemoryWatchdogError</span><span class="p">(</span><span class="n">ResourceSortFailure</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Host RAM pressure exceeded the watchdog abort threshold.</span>
+
+<span class="sd">    Raised by :class:`spikelab.spike_sorting.guards.HostMemoryWatchdog`</span>
+<span class="sd">    when ``psutil.virtual_memory().percent`` crosses the configured</span>
+<span class="sd">    abort percentage. Distinct from a Python ``MemoryError`` (which</span>
+<span class="sd">    fires on a failed allocation): this signals impending host-level</span>
+<span class="sd">    thrash before any individual allocation has hit a wall, so the</span>
+<span class="sd">    pipeline can skip the current recording and let the workstation</span>
+<span class="sd">    recover.</span>
+
+<span class="sd">    Recommended remediation: skip the current recording, free</span>
+<span class="sd">    references and call ``gc.collect()``/``torch.cuda.empty_cache()``,</span>
+<span class="sd">    then continue with the next recording. Investigate the recording</span>
+<span class="sd">    that tripped the trigger — long durations, very high unit counts,</span>
+<span class="sd">    or oversized intermediate buffers are common causes.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        percent_at_trip: ``psutil`` system memory percentage at the</span>
+<span class="sd">            moment the watchdog tripped.</span>
+<span class="sd">        abort_pct: Configured abort threshold.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="HostMemoryWatchdogError.__init__">
+<a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.HostMemoryWatchdogError.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">percent_at_trip</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">abort_pct</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">percent_at_trip</span> <span class="o">=</span> <span class="n">percent_at_trip</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">abort_pct</span> <span class="o">=</span> <span class="n">abort_pct</span></div>
+</div>
+
+
+
+<span class="c1"># ----------------------------------------------------------------------</span>
+<span class="c1"># Classified-failure registry</span>
+<span class="c1"># ----------------------------------------------------------------------</span>
+
+<span class="c1"># The four top-level branches of the classified-failure hierarchy.</span>
+<span class="c1"># Callers that want to re-raise classified failures (e.g. the canary</span>
+<span class="c1"># in :mod:`spikelab.spike_sorting.canary`) should reference this tuple</span>
+<span class="c1"># directly rather than redefining their own copy — adding a new</span>
+<span class="c1"># top-level classified failure should only require updating this</span>
+<span class="c1"># one spot.</span>
+<span class="n">CLASSIFIED_FAILURES</span><span class="p">:</span> <span class="nb">tuple</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">InsufficientActivityError</span><span class="p">,</span>
+    <span class="n">BiologicalSortFailure</span><span class="p">,</span>
+    <span class="n">EnvironmentSortFailure</span><span class="p">,</span>
+    <span class="n">ResourceSortFailure</span><span class="p">,</span>
+<span class="p">)</span>
 </pre></div>
 
            </div>

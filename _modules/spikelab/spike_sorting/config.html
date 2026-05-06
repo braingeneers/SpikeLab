@@ -85,6 +85,8 @@
 <li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_sorting.html#configuration-and-presets">Configuration and presets</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_sorting.html#multi-stream-recordings">Multi-stream recordings</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_sorting.html#reusing-intermediate-results">Reusing intermediate results</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_sorting.html#built-in-safeguards">Built-in safeguards</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_sorting.html#pipeline-canary">Pipeline canary</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_sorting.html#stimulation-artifact-removal">Stimulation Artifact Removal</a></li>
 </ul>
 </li>
@@ -96,7 +98,10 @@
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_sorting.html#sorting-concatenated-recordings">Sorting Concatenated Recordings</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_sorting.html#handling-sort-failures">Handling Sort Failures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_sorting.html#handling-sort-failures">Handling Sort Failures</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_sorting.html#watchdog-and-lock-failures">Watchdog and lock failures</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../guides/spike_analysis.html">Spike Analysis</a><ul>
@@ -365,6 +370,9 @@
 <li class="toctree-l4"><a class="reference internal" href="../../../api/spike_sorting.html#module-spikelab.spike_sorting.backends">Backend Registry</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/spike_sorting.html#classified-exceptions">Classified Exceptions</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/spike_sorting.html#post-failure-classifiers">Post-Failure Classifiers</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/spike_sorting.html#sort-run-reports">Sort Run Reports</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/spike_sorting.html#resource-guards">Resource Guards</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/spike_sorting.html#pipeline-canary">Pipeline Canary</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/curation.html">Curation</a><ul>
@@ -657,7 +665,13 @@
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig">[docs]</a>
 <span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">ExecutionConfig</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Parameters for pipeline execution control.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Parameters for pipeline execution control.</span>
+
+<span class="sd">    Includes safety knobs for the host-memory watchdog and the</span>
+<span class="sd">    pre-loop preflight checks under</span>
+<span class="sd">    ``spikelab.spike_sorting.guards``. Defaults are tuned for a</span>
+<span class="sd">    32–64 GB workstation; bump the GB thresholds on smaller hosts.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">n_jobs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">8</span>
     <span class="n">total_memory</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;16G&quot;</span>
@@ -672,7 +686,120 @@
     <span class="n">recurate_second</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="n">recompile_single_recording</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
 
-    <span class="n">delete_inter</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span></div>
+    <span class="n">delete_inter</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># Host-memory watchdog (guards/_watchdog.py)</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="n">host_ram_watchdog</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">host_ram_warn_pct</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">85.0</span>
+    <span class="n">host_ram_abort_pct</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">92.0</span>
+    <span class="n">host_ram_poll_interval_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">2.0</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># Preflight checks (guards/_preflight.py)</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="n">preflight</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">preflight_strict</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">preflight_min_free_inter_gb</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">20.0</span>
+    <span class="n">preflight_min_free_results_gb</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">2.0</span>
+    <span class="n">preflight_min_available_ram_gb</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">4.0</span>
+    <span class="n">preflight_min_free_vram_gb</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">2.0</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># Sorter inactivity timeout (guards/_inactivity.py)</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="n">sorter_inactivity_timeout</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">sorter_inactivity_base_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">600.0</span>
+    <span class="n">sorter_inactivity_per_min_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">30.0</span>
+    <span class="n">sorter_inactivity_max_s</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="mf">7200.0</span>
+    <span class="c1"># Grace period (seconds) between ``_thread.interrupt_main`` and</span>
+    <span class="c1"># the ``os._exit`` fallback when an in-process sorter (KS4 host,</span>
+    <span class="c1"># RT-Sort) hangs. Short enough to keep the workstation</span>
+    <span class="c1"># responsive, long enough that a Python-level recovery can finish</span>
+    <span class="c1"># an in-flight pickle write.</span>
+    <span class="n">sorter_inactivity_in_process_grace_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">10.0</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># OOM auto-retry</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="n">oom_retry_max</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">oom_retry_factor</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># Pipeline canary (canary.py)</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># When &gt; 0, run the configured backend on the first</span>
+    <span class="c1"># ``canary_first_n_s`` seconds of each recording before launching</span>
+    <span class="c1"># the full sort. Catches MEX / preprocessing / environment</span>
+    <span class="c1"># failures in seconds rather than hours. Disabled by default</span>
+    <span class="c1"># because the smoke test adds ~30 s of startup overhead per</span>
+    <span class="c1"># recording.</span>
+    <span class="n">canary_first_n_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># Docker image digest pinning (docker_utils.get_local_image_digest)</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># Optional ``sha256:...`` digest the operator expects the local</span>
+    <span class="c1"># Docker image to match. The actual digest is always recorded in</span>
+    <span class="c1"># ``config_used.json`` and the sorting report. When this field is</span>
+    <span class="c1"># set and the local digest differs, the pipeline emits a warning</span>
+    <span class="c1"># (no failure) so two sorts months apart can be compared at the</span>
+    <span class="c1"># bit level rather than only by mutable image tag.</span>
+    <span class="n">docker_image_expected_digest</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># Disk-usage watchdog (guards/_disk_watchdog.py)</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="n">disk_watchdog</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">disk_warn_free_gb</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">5.0</span>
+    <span class="n">disk_abort_free_gb</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span>
+    <span class="n">disk_poll_interval_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">10.0</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># I/O stall watchdog (guards/_io_stall.py)</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="n">io_stall_watchdog</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">io_stall_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">300.0</span>
+    <span class="n">io_stall_poll_interval_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">10.0</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># Temp-file cleanup at sort end (guards/_tempfile_cleanup.py)</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="n">cleanup_temp_files</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># Windows: prevent system sleep during sort (guards/_power_state.py)</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="n">prevent_system_sleep</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># GPU memory watchdog (guards/_gpu_watchdog.py)</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="n">gpu_watchdog</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">gpu_warn_pct</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">85.0</span>
+    <span class="n">gpu_abort_pct</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">95.0</span>
+    <span class="n">gpu_poll_interval_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">2.0</span>
+    <span class="c1"># Thermal sub-thresholds (degrees Celsius). Set either to None to</span>
+    <span class="c1"># disable that stage. Throttle-reason warnings are surfaced</span>
+    <span class="c1"># whenever ``gpu_watchdog`` is on and pynvml is available.</span>
+    <span class="n">gpu_warn_temp_c</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="mf">85.0</span>
+    <span class="n">gpu_abort_temp_c</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="mf">92.0</span>
+    <span class="n">gpu_monitor_throttle_reasons</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># Post-sorting Markdown report + Tee log lifecycle (report.py)</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># ``tee_log_policy`` controls what happens to the per-recording</span>
+    <span class="c1"># Tee log file after the Markdown sorting report is successfully</span>
+    <span class="c1"># generated. Only applied on the success path; failures always</span>
+    <span class="c1"># keep the log so tracebacks are preserved for diagnosis.</span>
+    <span class="c1">#</span>
+    <span class="c1">#   * &quot;keep&quot;               — leave the Tee log untouched</span>
+    <span class="c1">#   * &quot;gzip_on_success&quot;    — compress to ``.log.gz`` on success</span>
+    <span class="c1">#   * &quot;delete_on_success&quot;  — remove the Tee log on success</span>
+    <span class="n">tee_log_policy</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;delete_on_success&quot;</span>
+    <span class="n">generate_sorting_report</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span></div>
 
 
 
@@ -916,6 +1043,88 @@
                 <span class="s2">&quot;recompile_single_recording&quot;</span><span class="p">,</span>
             <span class="p">),</span>
             <span class="s2">&quot;delete_inter&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;delete_inter&quot;</span><span class="p">),</span>
+            <span class="c1"># ExecutionConfig — guards (host-memory watchdog)</span>
+            <span class="s2">&quot;host_ram_watchdog&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;host_ram_watchdog&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;host_ram_warn_pct&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;host_ram_warn_pct&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;host_ram_abort_pct&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;host_ram_abort_pct&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;host_ram_poll_interval_s&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;host_ram_poll_interval_s&quot;</span><span class="p">),</span>
+            <span class="c1"># ExecutionConfig — guards (preflight)</span>
+            <span class="s2">&quot;preflight&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;preflight&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;preflight_strict&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;preflight_strict&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;preflight_min_free_inter_gb&quot;</span><span class="p">:</span> <span class="p">(</span>
+                <span class="s2">&quot;execution&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;preflight_min_free_inter_gb&quot;</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="s2">&quot;preflight_min_free_results_gb&quot;</span><span class="p">:</span> <span class="p">(</span>
+                <span class="s2">&quot;execution&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;preflight_min_free_results_gb&quot;</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="s2">&quot;preflight_min_available_ram_gb&quot;</span><span class="p">:</span> <span class="p">(</span>
+                <span class="s2">&quot;execution&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;preflight_min_available_ram_gb&quot;</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="s2">&quot;preflight_min_free_vram_gb&quot;</span><span class="p">:</span> <span class="p">(</span>
+                <span class="s2">&quot;execution&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;preflight_min_free_vram_gb&quot;</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="c1"># ExecutionConfig — guards (sorter inactivity timeout)</span>
+            <span class="s2">&quot;sorter_inactivity_timeout&quot;</span><span class="p">:</span> <span class="p">(</span>
+                <span class="s2">&quot;execution&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;sorter_inactivity_timeout&quot;</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="s2">&quot;sorter_inactivity_base_s&quot;</span><span class="p">:</span> <span class="p">(</span>
+                <span class="s2">&quot;execution&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;sorter_inactivity_base_s&quot;</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="s2">&quot;sorter_inactivity_per_min_s&quot;</span><span class="p">:</span> <span class="p">(</span>
+                <span class="s2">&quot;execution&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;sorter_inactivity_per_min_s&quot;</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="s2">&quot;sorter_inactivity_max_s&quot;</span><span class="p">:</span> <span class="p">(</span>
+                <span class="s2">&quot;execution&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;sorter_inactivity_max_s&quot;</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="s2">&quot;sorter_inactivity_in_process_grace_s&quot;</span><span class="p">:</span> <span class="p">(</span>
+                <span class="s2">&quot;execution&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;sorter_inactivity_in_process_grace_s&quot;</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="c1"># ExecutionConfig — OOM auto-retry</span>
+            <span class="s2">&quot;oom_retry_max&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;oom_retry_max&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;oom_retry_factor&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;oom_retry_factor&quot;</span><span class="p">),</span>
+            <span class="c1"># ExecutionConfig — pipeline canary</span>
+            <span class="s2">&quot;canary_first_n_s&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;canary_first_n_s&quot;</span><span class="p">),</span>
+            <span class="c1"># ExecutionConfig — Docker image digest pinning</span>
+            <span class="s2">&quot;docker_image_expected_digest&quot;</span><span class="p">:</span> <span class="p">(</span>
+                <span class="s2">&quot;execution&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;docker_image_expected_digest&quot;</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="c1"># ExecutionConfig — disk watchdog</span>
+            <span class="s2">&quot;disk_watchdog&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;disk_watchdog&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;disk_warn_free_gb&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;disk_warn_free_gb&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;disk_abort_free_gb&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;disk_abort_free_gb&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;disk_poll_interval_s&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;disk_poll_interval_s&quot;</span><span class="p">),</span>
+            <span class="c1"># ExecutionConfig — I/O stall watchdog</span>
+            <span class="s2">&quot;io_stall_watchdog&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;io_stall_watchdog&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;io_stall_s&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;io_stall_s&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;io_stall_poll_interval_s&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;io_stall_poll_interval_s&quot;</span><span class="p">),</span>
+            <span class="c1"># ExecutionConfig — temp-file cleanup</span>
+            <span class="s2">&quot;cleanup_temp_files&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;cleanup_temp_files&quot;</span><span class="p">),</span>
+            <span class="c1"># ExecutionConfig — Windows sleep prevention</span>
+            <span class="s2">&quot;prevent_system_sleep&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;prevent_system_sleep&quot;</span><span class="p">),</span>
+            <span class="c1"># ExecutionConfig — GPU watchdog</span>
+            <span class="s2">&quot;gpu_watchdog&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;gpu_watchdog&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;gpu_warn_pct&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;gpu_warn_pct&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;gpu_abort_pct&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;gpu_abort_pct&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;gpu_poll_interval_s&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;gpu_poll_interval_s&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;gpu_warn_temp_c&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;gpu_warn_temp_c&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;gpu_abort_temp_c&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;gpu_abort_temp_c&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;gpu_monitor_throttle_reasons&quot;</span><span class="p">:</span> <span class="p">(</span>
+                <span class="s2">&quot;execution&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;gpu_monitor_throttle_reasons&quot;</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="c1"># ExecutionConfig — sorting report + tee log lifecycle</span>
+            <span class="s2">&quot;tee_log_policy&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;tee_log_policy&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;generate_sorting_report&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;generate_sorting_report&quot;</span><span class="p">),</span>
         <span class="p">}</span></div>
 
 

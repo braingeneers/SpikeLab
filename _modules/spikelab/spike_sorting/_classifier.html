@@ -85,6 +85,8 @@
 <li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_sorting.html#configuration-and-presets">Configuration and presets</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_sorting.html#multi-stream-recordings">Multi-stream recordings</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_sorting.html#reusing-intermediate-results">Reusing intermediate results</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_sorting.html#built-in-safeguards">Built-in safeguards</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_sorting.html#pipeline-canary">Pipeline canary</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_sorting.html#stimulation-artifact-removal">Stimulation Artifact Removal</a></li>
 </ul>
 </li>
@@ -96,7 +98,10 @@
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_sorting.html#sorting-concatenated-recordings">Sorting Concatenated Recordings</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_sorting.html#handling-sort-failures">Handling Sort Failures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_sorting.html#handling-sort-failures">Handling Sort Failures</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_sorting.html#watchdog-and-lock-failures">Watchdog and lock failures</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../guides/spike_analysis.html">Spike Analysis</a><ul>
@@ -365,6 +370,9 @@
 <li class="toctree-l4"><a class="reference internal" href="../../../api/spike_sorting.html#module-spikelab.spike_sorting.backends">Backend Registry</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/spike_sorting.html#classified-exceptions">Classified Exceptions</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/spike_sorting.html#post-failure-classifiers">Post-Failure Classifiers</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/spike_sorting.html#sort-run-reports">Sort Run Reports</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/spike_sorting.html#resource-guards">Resource Guards</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/spike_sorting.html#pipeline-canary">Pipeline Canary</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/curation.html">Curation</a><ul>
@@ -976,6 +984,8 @@
 <span class="c1"># ---------------------------------------------------------------------------</span>
 
 
+<div class="viewcode-block" id="classify_rt_sort_failure">
+<a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._classifier.classify_rt_sort_failure">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">classify_rt_sort_failure</span><span class="p">(</span>
     <span class="n">output_folder</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">exc</span><span class="p">:</span> <span class="ne">BaseException</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">SpikeSortingClassifiedError</span><span class="p">]:</span>
@@ -1013,7 +1023,8 @@
         <span class="k">return</span> <span class="n">oom</span>
 
     <span class="c1"># Biology</span>
-    <span class="k">return</span> <span class="n">_classify_insufficient_activity_rt_sort</span><span class="p">(</span><span class="n">chain_text</span><span class="p">,</span> <span class="n">log_text</span><span class="p">,</span> <span class="n">log_path</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_classify_insufficient_activity_rt_sort</span><span class="p">(</span><span class="n">chain_text</span><span class="p">,</span> <span class="n">log_text</span><span class="p">,</span> <span class="n">log_path</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span></div>
+
 </pre></div>
 
            </div>
