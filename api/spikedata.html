@@ -315,6 +315,7 @@
 <li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_heatmap"><code class="docutils literal notranslate"><span class="pre">plot_heatmap()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_recording"><code class="docutils literal notranslate"><span class="pre">plot_recording()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_spatial_network"><code class="docutils literal notranslate"><span class="pre">plot_spatial_network()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_unit_footprints"><code class="docutils literal notranslate"><span class="pre">plot_unit_footprints()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -2240,6 +2241,51 @@ condition on the same <code class="docutils literal notranslate"><span class="pr
 with its own <code class="docutils literal notranslate"><span class="pre">color</span></code> and <code class="docutils literal notranslate"><span class="pre">label</span></code>; add <code class="docutils literal notranslate"><span class="pre">ax.legend()</span></code>
 after the last call.</p></li>
 </ul>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.SpikeData.plot_unit_footprints">
+<span class="sig-name descname"><span class="pre">plot_unit_footprints</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">unit_ids</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_amplitude_uv</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5.0</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikedata.html#SpikeData.plot_unit_footprints"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.SpikeData.plot_unit_footprints" title="Link to this definition"></a></dt>
+<dd><p>Plot the spatial waveform footprint for one or more units.</p>
+<p>Thin wrapper around
+<a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_unit_footprints" title="spikelab.spikedata.plot_utils.plot_unit_footprints"><code class="xref py py-func docutils literal notranslate"><span class="pre">spikelab.spikedata.plot_utils.plot_unit_footprints()</span></code></a> that
+extracts the per-unit <code class="docutils literal notranslate"><span class="pre">template_full</span></code> arrays and primary
+channels from <code class="docutils literal notranslate"><span class="pre">neuron_attributes</span></code>, and <code class="docutils literal notranslate"><span class="pre">channel_locations</span></code>
+from <code class="docutils literal notranslate"><span class="pre">metadata</span></code>.</p>
+<dl class="simple">
+<dt>Required attributes on each unit’s <code class="docutils literal notranslate"><span class="pre">neuron_attributes</span></code> entry:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">template_full</span></code> (ndarray, shape <code class="docutils literal notranslate"><span class="pre">(n_samples,</span> <span class="pre">n_channels)</span></code>)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">channel</span></code> (int): primary channel index.</p></li>
+</ul>
+</dd>
+<dt>Required entry in <code class="docutils literal notranslate"><span class="pre">metadata</span></code>:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">channel_locations</span></code> (ndarray, shape <code class="docutils literal notranslate"><span class="pre">(n_channels,</span> <span class="pre">2)</span></code>):
+channel positions in micrometres.</p></li>
+</ul>
+</dd>
+</dl>
+<p>Both are populated automatically by the SpikeLab sorting pipeline.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>unit_ids</strong> (<em>sequence</em><em> of </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Units to plot. Each must match a
+<code class="docutils literal notranslate"><span class="pre">unit_id</span></code> in <code class="docutils literal notranslate"><span class="pre">self.neuron_attributes</span></code>.</p></li>
+<li><p><strong>min_amplitude_uv</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Per-channel peak-to-peak amplitude
+threshold (µV). Channels below this are omitted (the
+primary channel is always kept as anchor).</p></li>
+<li><p><strong>**kwargs</strong> – Forwarded to
+<a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_unit_footprints" title="spikelab.spikedata.plot_utils.plot_unit_footprints"><code class="xref py py-func docutils literal notranslate"><span class="pre">spikelab.spikedata.plot_utils.plot_unit_footprints()</span></code></a>
+(e.g. <code class="docutils literal notranslate"><span class="pre">waveform_box_um</span></code>, <code class="docutils literal notranslate"><span class="pre">n_cols_grid</span></code>, <code class="docutils literal notranslate"><span class="pre">fig</span></code>,
+<code class="docutils literal notranslate"><span class="pre">axes</span></code>, <code class="docutils literal notranslate"><span class="pre">save_path</span></code>, <code class="docutils literal notranslate"><span class="pre">show</span></code>).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>One subplot per unit.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>fig (matplotlib.figure.Figure)</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py method">

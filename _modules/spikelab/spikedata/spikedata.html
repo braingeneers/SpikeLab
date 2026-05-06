@@ -312,6 +312,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_heatmap"><code class="docutils literal notranslate"><span class="pre">plot_heatmap()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_recording"><code class="docutils literal notranslate"><span class="pre">plot_recording()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_spatial_network"><code class="docutils literal notranslate"><span class="pre">plot_spatial_network()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_unit_footprints"><code class="docutils literal notranslate"><span class="pre">plot_unit_footprints()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -3566,6 +3567,92 @@
             <span class="n">_apply_font_size</span><span class="p">(</span><span class="n">ax</span><span class="p">,</span> <span class="n">font_size</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">avg_rate</span></div>
+
+
+<div class="viewcode-block" id="SpikeData.plot_unit_footprints">
+<a class="viewcode-back" href="../../../api/spikedata.html#spikelab.spikedata.SpikeData.plot_unit_footprints">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">plot_unit_footprints</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">unit_ids</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">min_amplitude_uv</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">5.0</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Plot the spatial waveform footprint for one or more units.</span>
+
+<span class="sd">        Thin wrapper around</span>
+<span class="sd">        :func:`spikelab.spikedata.plot_utils.plot_unit_footprints` that</span>
+<span class="sd">        extracts the per-unit ``template_full`` arrays and primary</span>
+<span class="sd">        channels from ``neuron_attributes``, and ``channel_locations``</span>
+<span class="sd">        from ``metadata``.</span>
+
+<span class="sd">        Required attributes on each unit&#39;s ``neuron_attributes`` entry:</span>
+<span class="sd">            - ``template_full`` (ndarray, shape ``(n_samples, n_channels)``)</span>
+<span class="sd">            - ``channel`` (int): primary channel index.</span>
+
+<span class="sd">        Required entry in ``metadata``:</span>
+<span class="sd">            - ``channel_locations`` (ndarray, shape ``(n_channels, 2)``):</span>
+<span class="sd">              channel positions in micrometres.</span>
+
+<span class="sd">        Both are populated automatically by the SpikeLab sorting pipeline.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            unit_ids (sequence of int): Units to plot. Each must match a</span>
+<span class="sd">                ``unit_id`` in ``self.neuron_attributes``.</span>
+<span class="sd">            min_amplitude_uv (float): Per-channel peak-to-peak amplitude</span>
+<span class="sd">                threshold (µV). Channels below this are omitted (the</span>
+<span class="sd">                primary channel is always kept as anchor).</span>
+<span class="sd">            **kwargs: Forwarded to</span>
+<span class="sd">                :func:`spikelab.spikedata.plot_utils.plot_unit_footprints`</span>
+<span class="sd">                (e.g. ``waveform_box_um``, ``n_cols_grid``, ``fig``,</span>
+<span class="sd">                ``axes``, ``save_path``, ``show``).</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            fig (matplotlib.figure.Figure): One subplot per unit.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">.plot_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot_unit_footprints</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;neuron_attributes is None — cannot plot unit footprints.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="s2">&quot;channel_locations&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;metadata[&#39;channel_locations&#39;] is required for footprint &quot;</span>
+                <span class="s2">&quot;plotting (shape (n_channels, 2), in micrometres).&quot;</span>
+            <span class="p">)</span>
+
+        <span class="n">unit_ids</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">unit_ids</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">unit_ids</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;unit_ids must be a non-empty sequence.&quot;</span><span class="p">)</span>
+
+        <span class="n">uid_to_row</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="nb">int</span><span class="p">(</span><span class="n">attr</span><span class="p">[</span><span class="s2">&quot;unit_id&quot;</span><span class="p">]):</span> <span class="n">i</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">attr</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">)</span>
+            <span class="k">if</span> <span class="s2">&quot;unit_id&quot;</span> <span class="ow">in</span> <span class="n">attr</span>
+        <span class="p">}</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">uid_to_row</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;neuron_attributes entries must carry a &#39;unit_id&#39; key for &quot;</span>
+                <span class="s2">&quot;footprint plotting.&quot;</span>
+            <span class="p">)</span>
+        <span class="n">missing</span> <span class="o">=</span> <span class="p">[</span><span class="n">u</span> <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">unit_ids</span> <span class="k">if</span> <span class="nb">int</span><span class="p">(</span><span class="n">u</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">uid_to_row</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">missing</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;unit_ids not present in this SpikeData: </span><span class="si">{</span><span class="n">missing</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="n">templates_full</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">primary_channels</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">uid</span> <span class="ow">in</span> <span class="n">unit_ids</span><span class="p">:</span>
+            <span class="n">attr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">[</span><span class="n">uid_to_row</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">uid</span><span class="p">)]]</span>
+            <span class="n">templates_full</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">attr</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;template_full&quot;</span><span class="p">))</span>
+            <span class="n">primary_channels</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">attr</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;channel&quot;</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)))</span>
+
+        <span class="k">return</span> <span class="n">plot_unit_footprints</span><span class="p">(</span>
+            <span class="n">channel_xy</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;channel_locations&quot;</span><span class="p">],</span>
+            <span class="n">templates_full</span><span class="o">=</span><span class="n">templates_full</span><span class="p">,</span>
+            <span class="n">primary_channels</span><span class="o">=</span><span class="n">primary_channels</span><span class="p">,</span>
+            <span class="n">unit_labels</span><span class="o">=</span><span class="n">unit_ids</span><span class="p">,</span>
+            <span class="n">min_amplitude_uv</span><span class="o">=</span><span class="n">min_amplitude_uv</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+        <span class="p">)</span></div>
 
 
     <span class="c1"># ------------------------------------------------------------------</span>
