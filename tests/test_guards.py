@@ -4331,26 +4331,31 @@ class TestTempFileCleanup:
 class TestPowerStateLock:
     """``prevent_system_sleep`` is a no-op off Windows."""
 
-    def test_noop_on_non_windows(self):
+    def test_noop_on_non_windows(self, monkeypatch):
         """
-        Off Windows, prevent_system_sleep yields False without raising.
+        Off Windows, prevent_system_sleep yields False without raising
+        when no inhibitor binary is available.
 
         Tests:
-            (Test Case 1) Non-Windows platform → yields False.
+            (Test Case 1) Non-Windows platform with no inhibitor
+                spawnable → yields False.
         """
         from spikelab.spike_sorting.guards import _power_state as ps
 
+        monkeypatch.setattr(ps, "_spawn_inhibitor", lambda *a, **kw: None)
         with mock.patch.object(ps.sys, "platform", "linux"):
             with prevent_system_sleep() as active:
                 assert active is False
 
-    def test_yields_false_when_platform_simulated_non_windows(self):
+    def test_yields_false_when_platform_simulated_non_windows(self, monkeypatch):
         """
-        Patching sys.platform to a non-Windows value yields False.
+        Patching sys.platform to a non-Windows value yields False
+        when the inhibitor spawn fails.
 
         Tests:
             (Test Case 1) When the helper sees a non-Windows
-                platform, it yields False without touching any
+                platform and ``_spawn_inhibitor`` returns None,
+                the context yields False without touching any
                 ctypes APIs — even on a real Windows host.
 
         Notes:
@@ -4359,9 +4364,14 @@ class TestPowerStateLock:
               mocking ``ctypes.windll`` reliably across platforms
               is fragile and the live call interacts with the OS
               in ways that can stall a test process.
+            - We must patch ``_spawn_inhibitor`` because on a real
+              Windows host an inhibitor binary may still resolve
+              via Git Bash / WSL helpers / other shims on PATH,
+              which would let the Linux/macOS branch yield True.
         """
         from spikelab.spike_sorting.guards import _power_state as ps
 
+        monkeypatch.setattr(ps, "_spawn_inhibitor", lambda *a, **kw: None)
         for fake_platform in ("linux", "darwin"):
             with mock.patch.object(ps.sys, "platform", fake_platform):
                 with prevent_system_sleep() as active:
