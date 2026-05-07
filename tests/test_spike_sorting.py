@@ -8071,3 +8071,565 @@ class TestPrintPipelineBannerDockerLines:
         out = capsys.readouterr().out
         assert "Docker image:" not in out
         assert "Docker image digest:" not in out
+
+
+# ===========================================================================
+# Pipeline orchestration helpers (C4)
+# ===========================================================================
+
+
+class TestMakeRecordingResult:
+    """
+    Tests for ``pipeline._make_recording_result``.
+    """
+
+    def test_success_result_populates_units_and_status(self, tmp_path):
+        """
+        A SpikeData-like object as ``result`` produces a RecordingResult
+        with status='success' and n_curated_units derived from sd.N.
+
+        Tests:
+            (Test Case 1) Status is "success".
+            (Test Case 2) n_curated_units equals sd.N.
+            (Test Case 3) error_class and error_message are None.
+        """
+        from spikelab.spike_sorting.pipeline import (
+            RecordingResult,
+            _make_recording_result,
+        )
+
+        results_folder = tmp_path / "rec0_sorted"
+        results_folder.mkdir()
+        fake_sd = SimpleNamespace(N=42)
+
+        record = _make_recording_result(
+            rec_name="rec0",
+            rec_path="/data/rec0.h5",
+            results_folder=results_folder,
+            result=fake_sd,
+            wall_time_s=12.5,
+            retries_used=1,
+            log_path=results_folder / "sorting.log",
+        )
+        assert isinstance(record, RecordingResult)
+        assert record.status == "success"
+        assert record.n_curated_units == 42
+        assert record.error_class is None
+        assert record.error_message is None
+        assert record.retries_used == 1
+        assert record.wall_time_s == pytest.approx(12.5)
+        assert record.rec_name == "rec0"
+        assert record.log_path == str(results_folder / "sorting.log")
+
+    def test_tuple_result_uses_curated_field(self, tmp_path):
+        """
+        When ``result`` is a (raw, curated) tuple (save_raw_pkl=True),
+        ``n_curated_units`` is taken from the second element's ``.N``.
+
+        Tests:
+            (Test Case 1) n_curated_units == curated.N (not raw.N).
+        """
+        from spikelab.spike_sorting.pipeline import _make_recording_result
+
+        results_folder = tmp_path / "rec1_sorted"
+        results_folder.mkdir()
+        sd_raw = SimpleNamespace(N=100)
+        sd_curated = SimpleNamespace(N=37)
+
+        record = _make_recording_result(
+            rec_name="rec1",
+            rec_path="/data/rec1.h5",
+            results_folder=results_folder,
+            result=(sd_raw, sd_curated),
+            wall_time_s=20.0,
+            retries_used=0,
+        )
+        assert record.status == "success"
+        assert record.n_curated_units == 37
+
+    def test_exception_result_classifies_failure(self, tmp_path):
+        """
+        When ``result`` is a BaseException, the record status is
+        derived from the exception type and error metadata is filled.
+
+        Tests:
+            (Test Case 1) status is "failed" for plain RuntimeError.
+            (Test Case 2) error_class is the exception class name.
+            (Test Case 3) error_message is the exception's message.
+            (Test Case 4) n_curated_units is None on failure.
+        """
+        from spikelab.spike_sorting.pipeline import _make_recording_result
+
+        results_folder = tmp_path / "rec2_sorted"
+        results_folder.mkdir()
+        err = RuntimeError("kilosort blew up")
+
+        record = _make_recording_result(
+            rec_name="rec2",
+            rec_path="/data/rec2.h5",
+            results_folder=results_folder,
+            result=err,
+            wall_time_s=5.0,
+            retries_used=0,
+        )
+        assert record.status == "failed"
+        assert record.error_class == "RuntimeError"
+        assert record.error_message is not None
+        assert "kilosort blew up" in record.error_message
+        assert record.n_curated_units is None
+
+
+class TestWriteRecordingReport:
+    """
+    Tests for ``pipeline._write_recording_report``.
+    """
+
+    def test_writes_json_with_record_fields(self, tmp_path):
+        """
+        ``_write_recording_report`` writes ``recording_report.json`` next
+        to the per-recording results folder containing all RecordingResult
+        fields.
+
+        Tests:
+            (Test Case 1) Output file exists at the expected path.
+            (Test Case 2) JSON content includes the rec_name, status,
+                wall_time_s, and n_curated_units fields.
+        """
+        import json as _json
+
+        from spikelab.spike_sorting.pipeline import (
+            RecordingResult,
+            _write_recording_report,
+        )
+
+        results_folder = tmp_path / "rec_done"
+        # Note: do NOT pre-create — verifies that the helper creates
+        # the folder if missing.
+        record = RecordingResult(
+            rec_name="rec_alpha",
+            rec_path="/data/rec_alpha.h5",
+            results_folder=str(results_folder),
+            status="success",
+            wall_time_s=99.5,
+            n_curated_units=21,
+        )
+        _write_recording_report(record, results_folder)
+        out_path = results_folder / "recording_report.json"
+        assert out_path.exists()
+        data = _json.loads(out_path.read_text(encoding="utf-8"))
+        assert data["rec_name"] == "rec_alpha"
+        assert data["status"] == "success"
+        assert data["wall_time_s"] == pytest.approx(99.5)
+        assert data["n_curated_units"] == 21
+
+    def test_failure_to_write_does_not_raise(self, tmp_path, capsys, monkeypatch):
+        """
+        Errors from the underlying ``open`` are swallowed: the helper
+        prints a diagnostic but does not propagate the exception.
+
+        Tests:
+            (Test Case 1) An OSError raised by open() is caught.
+            (Test Case 2) A diagnostic line is printed.
+        """
+        from spikelab.spike_sorting.pipeline import (
+            RecordingResult,
+            _write_recording_report,
+        )
+
+        record = RecordingResult(
+            rec_name="rec_x",
+            rec_path="/data/rec_x.h5",
+            results_folder=str(tmp_path / "rx"),
+            status="success",
+            wall_time_s=1.0,
+        )
+
+        # Force the open() call to raise OSError on the .tmp path.
+        import builtins
+
+        real_open = builtins.open
+
+        def boom(path, *args, **kwargs):
+            if str(path).endswith(".tmp"):
+                raise OSError("disk full")
+            return real_open(path, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "open", boom)
+
+        # Must not raise.
+        _write_recording_report(record, tmp_path / "rx")
+        out = capsys.readouterr().out
+        assert "recording report" in out
+
+
+class TestWriteDiskExhaustionReport:
+    """
+    Tests for ``pipeline._write_disk_exhaustion_report``.
+    """
+
+    def test_writes_disk_report_json(self, tmp_path, capsys):
+        """
+        ``_write_disk_exhaustion_report`` writes
+        ``disk_exhaustion_report.json`` containing the report's
+        to_dict() payload.
+
+        Tests:
+            (Test Case 1) Target file exists.
+            (Test Case 2) Content includes folder + thresholds + free space.
+            (Test Case 3) A success diagnostic is printed.
+        """
+        import json as _json
+
+        from spikelab.spike_sorting.guards._disk_watchdog import (
+            DiskExhaustionReport,
+        )
+        from spikelab.spike_sorting.pipeline import _write_disk_exhaustion_report
+
+        report = DiskExhaustionReport(
+            folder=str(tmp_path / "inter"),
+            free_gb_at_trip=0.3,
+            abort_threshold_gb=1.0,
+            projected_need_gb=12.0,
+            bytes_consumed_during_sort=5e9,
+            top_consumers=[("/big.npy", 4.5)],
+            suggested_actions=["clean ~/cache"],
+        )
+        results_folder = tmp_path / "rec_results"
+        _write_disk_exhaustion_report(report, results_folder)
+
+        target = results_folder / "disk_exhaustion_report.json"
+        assert target.exists()
+        data = _json.loads(target.read_text(encoding="utf-8"))
+        assert data["folder"].endswith("inter")
+        assert data["abort_threshold_gb"] == pytest.approx(1.0)
+        assert data["free_gb_at_trip"] == pytest.approx(0.3)
+        assert data["projected_need_gb"] == pytest.approx(12.0)
+        assert data["suggested_actions"] == ["clean ~/cache"]
+        out = capsys.readouterr().out
+        assert "wrote disk-exhaustion report" in out
+
+
+class TestPrintPipelineSummary:
+    """
+    Tests for ``pipeline._print_pipeline_summary``.
+    """
+
+    def test_prints_status_and_walltime(self, capsys):
+        """
+        ``_print_pipeline_summary`` prints status, wall time, and the
+        SUMMARY banner header.
+
+        Tests:
+            (Test Case 1) The "SUMMARY" banner is printed.
+            (Test Case 2) The status line is printed.
+            (Test Case 3) The wall time is formatted as Xm Ys.
+        """
+        from spikelab.spike_sorting.pipeline import _print_pipeline_summary
+
+        _print_pipeline_summary(status="success", elapsed_s=125.0)
+        out = capsys.readouterr().out
+        assert "SUMMARY" in out
+        assert "Status:" in out
+        assert "success" in out
+        # 125 seconds = 2m 5s.
+        assert "2m 5s" in out
+
+    def test_prints_error_when_provided(self, capsys):
+        """
+        When ``error`` is provided, an Error: line with the exception
+        type and message is printed.
+
+        Tests:
+            (Test Case 1) The error class name and message appear in
+                the output.
+        """
+        from spikelab.spike_sorting.pipeline import _print_pipeline_summary
+
+        err = ValueError("bad config")
+        _print_pipeline_summary(status="failed", elapsed_s=3.0, error=err)
+        out = capsys.readouterr().out
+        assert "Error:" in out
+        assert "ValueError" in out
+        assert "bad config" in out
+
+
+class TestPrintBatchSummary:
+    """
+    Tests for ``pipeline._print_batch_summary``.
+    """
+
+    def test_prints_totals_and_succeeded_section(self, capsys):
+        """
+        With one success and one failure, the batch summary prints
+        totals and includes both the successful and failure sections.
+
+        Tests:
+            (Test Case 1) "BATCH SUMMARY" banner is printed.
+            (Test Case 2) "Total recordings: 2" is printed.
+            (Test Case 3) "Succeeded: 1" / "Failed: 1" lines are present.
+            (Test Case 4) The success rec_name and the failure rec_name
+                each appear in the output.
+        """
+        from spikelab.spike_sorting.pipeline import (
+            RecordingResult,
+            SortRunReport,
+            _print_batch_summary,
+        )
+
+        ok = RecordingResult(
+            rec_name="rec_ok",
+            rec_path="/data/rec_ok.h5",
+            results_folder="/out/rec_ok",
+            status="success",
+            wall_time_s=10.0,
+            n_curated_units=12,
+        )
+        bad = RecordingResult(
+            rec_name="rec_bad",
+            rec_path="/data/rec_bad.h5",
+            results_folder="/out/rec_bad",
+            status="failed",
+            wall_time_s=2.5,
+            error_class="RuntimeError",
+            error_message="boom",
+            log_path="/out/rec_bad/sorting.log",
+        )
+        report = SortRunReport(records=[ok, bad])
+        _print_batch_summary(report)
+        out = capsys.readouterr().out
+        assert "BATCH SUMMARY" in out
+        assert "Total recordings:  2" in out
+        assert "Succeeded:         1" in out
+        assert "Failed:            1" in out
+        assert "rec_ok" in out
+        assert "rec_bad" in out
+        assert "RuntimeError" in out
+        assert "boom" in out
+
+    def test_resource_trends_table_when_peaks_present(self, capsys):
+        """
+        Recordings whose ``peak_host_ram_pct`` / ``peak_gpu_used_pct`` /
+        ``min_disk_free_gb`` are populated trigger a Markdown table
+        summarising trends across the batch.
+
+        Tests:
+            (Test Case 1) The "Resource trends" header is printed.
+            (Test Case 2) The numerical values appear in the table.
+        """
+        from spikelab.spike_sorting.pipeline import (
+            RecordingResult,
+            SortRunReport,
+            _print_batch_summary,
+        )
+
+        rec = RecordingResult(
+            rec_name="rec_trend",
+            rec_path="/data/rec_trend.h5",
+            results_folder="/out/rec_trend",
+            status="success",
+            wall_time_s=42.0,
+            n_curated_units=5,
+            peak_host_ram_pct=87.3,
+            peak_gpu_used_pct=72.1,
+            min_disk_free_gb=3.25,
+        )
+        report = SortRunReport(records=[rec])
+        _print_batch_summary(report)
+        out = capsys.readouterr().out
+        assert "Resource trends" in out
+        assert "87.3" in out
+        assert "72.1" in out
+        assert "3.25" in out
+
+
+class TestMakeDiskWatchdog:
+    """
+    Tests for ``pipeline._make_disk_watchdog``.
+    """
+
+    def test_disabled_when_config_disables_disk_watchdog(self, tmp_path):
+        """
+        When ``config.execution.disk_watchdog`` is False, the helper
+        returns a DiskUsageWatchdog with no kill target set, so the
+        watchdog's ``_enabled`` flag is False.
+
+        Tests:
+            (Test Case 1) Returned object is a DiskUsageWatchdog.
+            (Test Case 2) ``_enabled`` is False (popen=None,
+                kill_callback=None).
+            (Test Case 3) Configured thresholds and folder are still
+                populated from the config.
+        """
+        from spikelab.spike_sorting.config import (
+            ExecutionConfig,
+            SortingPipelineConfig,
+        )
+        from spikelab.spike_sorting.guards._disk_watchdog import (
+            DiskUsageWatchdog,
+        )
+        from spikelab.spike_sorting.pipeline import _make_disk_watchdog
+
+        cfg = SortingPipelineConfig(
+            execution=ExecutionConfig(
+                disk_watchdog=False,
+                disk_warn_free_gb=4.5,
+                disk_abort_free_gb=0.5,
+                disk_poll_interval_s=15.0,
+            )
+        )
+        wd = _make_disk_watchdog(
+            inter_path=tmp_path / "inter",
+            config=cfg,
+            sorter="kilosort2",
+        )
+        assert isinstance(wd, DiskUsageWatchdog)
+        assert wd._enabled is False
+        assert wd.warn_free_gb == pytest.approx(4.5)
+        assert wd.abort_free_gb == pytest.approx(0.5)
+        assert wd.poll_interval_s == pytest.approx(15.0)
+        assert wd.folder == Path(tmp_path / "inter")
+        assert wd.sorter == "kilosort2"
+
+    def test_enabled_with_kill_callback_when_watchdog_active(self, tmp_path):
+        """
+        With ``disk_watchdog=True`` (default), the helper installs a
+        kill callback so the returned watchdog is ``_enabled``.
+
+        Tests:
+            (Test Case 1) Returned object is a DiskUsageWatchdog.
+            (Test Case 2) ``_enabled`` is True (kill_callback installed).
+            (Test Case 3) ``sorter`` field matches the input.
+        """
+        from spikelab.spike_sorting.config import (
+            ExecutionConfig,
+            SortingPipelineConfig,
+        )
+        from spikelab.spike_sorting.guards._disk_watchdog import (
+            DiskUsageWatchdog,
+        )
+        from spikelab.spike_sorting.pipeline import _make_disk_watchdog
+
+        cfg = SortingPipelineConfig(execution=ExecutionConfig(disk_watchdog=True))
+        wd = _make_disk_watchdog(
+            inter_path=tmp_path / "inter2",
+            config=cfg,
+            sorter="kilosort4",
+        )
+        assert isinstance(wd, DiskUsageWatchdog)
+        assert wd._enabled is True
+        assert wd.kill_callback is not None
+        assert wd.sorter == "kilosort4"
+
+
+class TestBoundedHostMemory:
+    """
+    Tests for ``pipeline._bounded_host_memory``.
+    """
+
+    def test_no_op_when_resource_module_missing(self, capsys, monkeypatch):
+        """
+        On platforms without the ``resource`` module (Windows), the
+        context manager is a no-op that prints a notice.
+
+        Tests:
+            (Test Case 1) Context exits normally without raising.
+            (Test Case 2) A notice line is printed.
+        """
+        from spikelab.spike_sorting.pipeline import _bounded_host_memory
+
+        # Force the import of `resource` to fail by stubbing the
+        # builtins.__import__ machinery used inside the function. We
+        # cannot rely on platform here since the test must work on
+        # Linux runners too.
+        import builtins
+
+        real_import = builtins.__import__
+
+        def fake_import(name, *args, **kwargs):
+            if name == "resource":
+                raise ImportError("forced — no resource module")
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "__import__", fake_import)
+
+        with _bounded_host_memory(0.8):
+            pass
+        out = capsys.readouterr().out
+        assert "host memory cap" in out
+
+    def test_no_op_when_ram_unknown(self, capsys, monkeypatch):
+        """
+        When ``get_system_ram_bytes`` returns None, the helper prints
+        a notice and yields without setting a limit.
+
+        Tests:
+            (Test Case 1) Context exits normally.
+            (Test Case 2) A "cap not enforced" notice is printed.
+        """
+        from spikelab.spike_sorting.pipeline import _bounded_host_memory
+
+        # If the platform lacks `resource`, the function early-returns
+        # before ever reaching get_system_ram_bytes; in that case
+        # this branch isn't testable directly. Skip when needed.
+        try:
+            import resource as _resource  # noqa: F401
+        except ImportError:
+            pytest.skip("`resource` module not available on this platform")
+
+        from spikelab.spike_sorting import sorting_utils
+
+        monkeypatch.setattr(sorting_utils, "get_system_ram_bytes", lambda: None)
+
+        with _bounded_host_memory(0.5):
+            pass
+        out = capsys.readouterr().out
+        assert "Could not detect system RAM" in out
+
+    def test_clamps_new_soft_to_existing_hard_limit(self, capsys, monkeypatch):
+        """
+        When the requested cap exceeds the current hard RLIMIT_DATA,
+        the helper clamps to the hard limit and the original soft
+        limit is restored on exit.
+
+        Tests:
+            (Test Case 1) ``setrlimit`` is called with new_soft <= hard.
+            (Test Case 2) On exit, the original (soft, hard) tuple is
+                restored.
+        """
+        from spikelab.spike_sorting.pipeline import _bounded_host_memory
+
+        try:
+            import resource as _resource
+        except ImportError:
+            pytest.skip("`resource` module not available on this platform")
+
+        # Patch get_system_ram_bytes so the requested new_soft is
+        # huge — much bigger than any sane hard limit we set.
+        from spikelab.spike_sorting import sorting_utils
+
+        # 1 PB requested cap (frac=0.8 → 0.8 PB) — vastly bigger than hard.
+        monkeypatch.setattr(sorting_utils, "get_system_ram_bytes", lambda: 10**15)
+
+        original_soft, original_hard = (1024 * 1024 * 1024, 2 * 1024 * 1024 * 1024)
+        observed_calls = []
+
+        def fake_getrlimit(which):
+            return (original_soft, original_hard)
+
+        def fake_setrlimit(which, limits):
+            observed_calls.append(limits)
+
+        monkeypatch.setattr(_resource, "getrlimit", fake_getrlimit)
+        monkeypatch.setattr(_resource, "setrlimit", fake_setrlimit)
+
+        with _bounded_host_memory(0.8):
+            pass
+
+        # Two setrlimit calls: one to lower (clamped to hard), one to restore.
+        assert len(observed_calls) == 2
+        new_soft_in_call, hard_in_call = observed_calls[0]
+        assert new_soft_in_call <= original_hard
+        assert hard_in_call == original_hard
+        # Restoration call.
+        restore_call = observed_calls[1]
+        assert restore_call == (original_soft, original_hard)
