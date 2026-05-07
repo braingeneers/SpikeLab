@@ -5044,48 +5044,34 @@ class TestDumpNeuronAttributesCorruptionPaths:
                 _dump_neuron_attributes(grp, attrs)
         assert "set" in str(exc_info.value)
 
-    def test_slash_in_attribute_key_creates_nested_group(self, tmp_path):
+    def test_slash_in_attribute_key_raises(self, tmp_path):
         """
-        _dump_neuron_attributes with a slash in the attribute key
-        creates an unintended HDF5 nested hierarchy. On reload the
-        loader crashes because it iterates top-level keys and tries
-        to slice the resulting Group as if it were a Dataset.
+        _dump_neuron_attributes rejects forward-slash-in-key with a
+        ValueError naming the offending key and the underlying h5py
+        path-separator behavior.
 
         Tests:
-            (Test Case 1) Attribute key 'meta/info' is interpreted by
-                h5py as a nested path; the dataset is created at
-                'neuron_attributes/meta/info' instead of as a literal
-                key.
-            (Test Case 2) Reload via _load_neuron_attributes raises
-                TypeError because na_grp[<group_name>][:] is invalid.
-
-        Notes:
-            - documents bug — see REVIEW.md (deferred; needs decision
-              on raise vs. escape)
+            (Test Case 1) Slash-in-key raises ValueError.
+            (Test Case 2) The error names the offending key.
+            (Test Case 3) The error mentions the h5py path-separator
+                behavior so the user knows why.
         """
         try:
             import h5py  # noqa: F811
         except ImportError:
             pytest.skip("h5py not installed")
 
-        from spikelab.workspace.hdf5_io import (
-            _dump_neuron_attributes,
-            _load_neuron_attributes,
-        )
+        from spikelab.workspace.hdf5_io import _dump_neuron_attributes
 
         attrs = [{"meta/info": 1.0}, {"meta/info": 2.0}]
         path = str(tmp_path / "slash_key.h5")
         with h5py.File(path, "w") as f:
             grp = f.create_group("test")
-            _dump_neuron_attributes(grp, attrs)
-            # The slash creates a nested 'meta' group with an 'info' dataset.
-            assert "neuron_attributes/meta/info" in f["test"]
-
-        # Reload: the loader iterates na_grp.keys(), encounters 'meta'
-        # (a Group, not a Dataset), and crashes on the [:] slice.
-        with h5py.File(path, "r") as f:
-            with pytest.raises(TypeError):
-                _load_neuron_attributes(f["test"])
+            with pytest.raises(ValueError) as exc_info:
+                _dump_neuron_attributes(grp, attrs)
+        msg = str(exc_info.value)
+        assert "meta/info" in msg
+        assert "/" in msg or "slash" in msg.lower()
 
     def test_legitimate_nan_attribute_is_silently_dropped(self, tmp_path):
         """

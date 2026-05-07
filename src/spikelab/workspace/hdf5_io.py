@@ -432,6 +432,18 @@ def _dump_neuron_attributes(grp, neuron_attributes: list) -> None:
     _SUPPORTED_ARRAY_TYPES = (np.ndarray, list, tuple)
 
     for attr_key in all_keys:
+        # h5py interprets '/' in dataset names as a path separator, so a
+        # key like 'meta/info' would create a nested group rather than a
+        # literal attribute. Reject up front instead of silently
+        # corrupting the round-trip.
+        if "/" in attr_key:
+            raise ValueError(
+                f"Neuron attribute key {attr_key!r} contains a forward "
+                f"slash. h5py treats '/' as a group-path separator; use "
+                f"a different separator (e.g. '_' or '.') in attribute "
+                f"keys."
+            )
+
         values = [d.get(attr_key) for d in neuron_attributes]
         non_none = [v for v in values if v is not None]
 
