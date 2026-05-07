@@ -4287,3 +4287,264 @@ class TestSpikeDataPlotUnitFootprints:
         sd = self._make_sd_with_footprints(n_units=1)
         with pytest.raises(ValueError):
             sd.plot_unit_footprints([])
+
+
+class TestPlotUnitFootprintsOptionalKwargs:
+    """
+    Tests for the optional kwargs of ``plot_unit_footprints`` that are
+    not exercised by ``TestPlotUnitFootprints``.
+    """
+
+    def test_view_radius_um_sets_axis_limits_per_primary(self):
+        """
+        ``view_radius_um`` forces each subplot to a window of
+        ``primary +/- view_radius_um`` centred on that unit's primary
+        channel, overriding the default channel-bounding-box layout.
+
+        Tests:
+            (Test Case 1) The axis xlim/ylim span equals 2 * view_radius_um.
+            (Test Case 2) The axis is centred on the primary channel.
+        """
+        chan_xy, templates_full, primary = _make_footprint_inputs(
+            n_channels=12, n_units=1, peak_uv=20.0
+        )
+        radius = 30.0
+        fig = plot_unit_footprints(
+            chan_xy,
+            templates_full,
+            primary,
+            min_amplitude_uv=0.5,
+            view_radius_um=radius,
+        )
+        ax = [a for a in fig.axes if a.get_visible()][0]
+        xlo, xhi = ax.get_xlim()
+        ylo, yhi = ax.get_ylim()
+        # Window radius should match exactly (modulo equal-aspect adjust).
+        cx, cy = chan_xy[primary[0]]
+        # The function calls ax.set_xlim/ylim BEFORE set_aspect("equal");
+        # set_aspect can stretch the limits to keep them equal. But the
+        # midpoints should still coincide with the primary's coordinates.
+        assert (xlo + xhi) / 2.0 == pytest.approx(cx, abs=1e-6)
+        assert (ylo + yhi) / 2.0 == pytest.approx(cy, abs=1e-6)
+        # At least one of the spans should be exactly 2*radius (the
+        # other may be stretched by aspect="equal").
+        spans = [xhi - xlo, yhi - ylo]
+        assert any(abs(s - 2.0 * radius) < 1e-6 for s in spans)
+
+    def test_n_cols_grid_shapes_subplot_grid(self):
+        """
+        ``n_cols_grid`` controls the number of subplot columns; the
+        total number of axes equals ``n_cols * ceil(n_units / n_cols)``.
+
+        Tests:
+            (Test Case 1) With n_units=4 and n_cols_grid=4 the grid is 1x4.
+            (Test Case 2) With n_units=4 and n_cols_grid=2 the grid is 2x2.
+        """
+        chan_xy, templates_full, primary = _make_footprint_inputs(
+            n_channels=16, n_units=4
+        )
+
+        fig_wide = plot_unit_footprints(
+            chan_xy,
+            templates_full,
+            primary,
+            min_amplitude_uv=0.5,
+            n_cols_grid=4,
+        )
+        # 4 visible + 0 hidden = 4 axes (1 row x 4 cols).
+        assert len(fig_wide.axes) == 4
+
+        fig_square = plot_unit_footprints(
+            chan_xy,
+            templates_full,
+            primary,
+            min_amplitude_uv=0.5,
+            n_cols_grid=2,
+        )
+        # 4 visible in a 2 x 2 grid = 4 axes.
+        assert len(fig_square.axes) == 4
+        # Verify the grid is laid out as 2x2 (rows == cols).
+        # With squeeze=False the gridspec records (nrows, ncols).
+        gs = fig_square.axes[0].get_subplotspec().get_gridspec()
+        assert (gs.nrows, gs.ncols) == (2, 2)
+
+    def test_waveform_box_um_changes_glyph_size(self):
+        """
+        ``waveform_box_um`` overrides the auto-computed glyph box. A
+        smaller box produces a narrower x-extent for the primary
+        waveform line (the t-axis spans ``-box_w/2 .. +box_w/2``).
+
+        Tests:
+            (Test Case 1) Smaller ``waveform_box_um[0]`` shrinks the
+                primary waveform's x-extent.
+        """
+        chan_xy, templates_full, primary = _make_footprint_inputs(
+            n_channels=12, n_units=1, peak_uv=20.0
+        )
+
+        fig_small = plot_unit_footprints(
+            chan_xy,
+            templates_full,
+            primary,
+            min_amplitude_uv=0.5,
+            waveform_box_um=(4.0, 8.0),
+            show_amplitude_scale_bar=False,
+        )
+        fig_big = plot_unit_footprints(
+            chan_xy,
+            templates_full,
+            primary,
+            min_amplitude_uv=0.5,
+            waveform_box_um=(40.0, 8.0),
+            show_amplitude_scale_bar=False,
+        )
+
+        def _primary_xspan(fig):
+            ax = [a for a in fig.axes if a.get_visible()][0]
+            # Primary waveform is the line whose color matches the default
+            # ``primary_color="tab:red"``; pick by line width tagging:
+            # primary uses lw = 1.6 * waveform_lw.
+            cands = [ln for ln in ax.lines if ln.get_color() == "tab:red"]
+            assert cands, "primary waveform line not found"
+            xs = cands[0].get_xdata()
+            return float(np.max(xs) - np.min(xs))
+
+        small = _primary_xspan(fig_small)
+        big = _primary_xspan(fig_big)
+        assert big > small
+        # Box width 40 vs 4 → ratio ~10 (allow generous slack).
+        assert big > 5.0 * small
+
+    def test_title_format_substitutes_placeholders(self):
+        """
+        ``title_format`` accepts ``{label}``, ``{primary}``, ``{n_kept}``,
+        ``{min_amp}`` placeholders and the rendered title contains the
+        substituted values.
+
+        Tests:
+            (Test Case 1) Custom format string lands in axes title.
+            (Test Case 2) Empty title_format suppresses titles.
+        """
+        chan_xy, templates_full, primary = _make_footprint_inputs(
+            n_channels=12, n_units=1, peak_uv=20.0
+        )
+        fig = plot_unit_footprints(
+            chan_xy,
+            templates_full,
+            primary,
+            min_amplitude_uv=0.5,
+            title_format="UNIT={label}|CH={primary}",
+        )
+        ax = [a for a in fig.axes if a.get_visible()][0]
+        title = ax.get_title()
+        assert "UNIT=" in title
+        # The unit label is the integer 0 (default for n_units=1).
+        assert "UNIT=0" in title
+        # primary channel index is in [0, 11].
+        assert f"CH={primary[0]}" in title
+
+        fig_empty = plot_unit_footprints(
+            chan_xy,
+            templates_full,
+            primary,
+            min_amplitude_uv=0.5,
+            title_format="",
+        )
+        ax_empty = [a for a in fig_empty.axes if a.get_visible()][0]
+        assert ax_empty.get_title() == ""
+
+    def test_show_amplitude_scale_bar_toggles_bar(self):
+        """
+        ``show_amplitude_scale_bar`` controls whether a vertical scale
+        bar (Line2D) and the ``"µV"`` label (Text) are drawn on each
+        subplot.
+
+        Tests:
+            (Test Case 1) When True, an axis text contains a ``µV`` label.
+            (Test Case 2) When False, no axis text contains ``µV``.
+        """
+        chan_xy, templates_full, primary = _make_footprint_inputs(
+            n_channels=12, n_units=1, peak_uv=20.0
+        )
+        fig_on = plot_unit_footprints(
+            chan_xy,
+            templates_full,
+            primary,
+            min_amplitude_uv=0.5,
+            show_amplitude_scale_bar=True,
+        )
+        fig_off = plot_unit_footprints(
+            chan_xy,
+            templates_full,
+            primary,
+            min_amplitude_uv=0.5,
+            show_amplitude_scale_bar=False,
+        )
+
+        ax_on = [a for a in fig_on.axes if a.get_visible()][0]
+        ax_off = [a for a in fig_off.axes if a.get_visible()][0]
+
+        def _has_uv_label(ax):
+            return any("µV" in t.get_text() for t in ax.texts)
+
+        assert _has_uv_label(ax_on)
+        assert not _has_uv_label(ax_off)
+
+    def test_save_path_writes_png_and_closes_figure(self, tmp_path):
+        """
+        ``save_path`` writes the figure to disk and closes it; the
+        resulting file exists with non-zero size.
+
+        Tests:
+            (Test Case 1) After save_path, the file exists with size > 0.
+        """
+        chan_xy, templates_full, primary = _make_footprint_inputs(
+            n_channels=12, n_units=1, peak_uv=20.0
+        )
+        save_path = tmp_path / "footprint.png"
+        fig = plot_unit_footprints(
+            chan_xy,
+            templates_full,
+            primary,
+            min_amplitude_uv=0.5,
+            save_path=str(save_path),
+        )
+        assert save_path.exists()
+        assert save_path.stat().st_size > 0
+        # Function still returns the figure (for inspection) even after close.
+        assert isinstance(fig, matplotlib.figure.Figure)
+
+    def test_show_true_calls_pyplot_show(self):
+        """
+        ``show=True`` (and no ``save_path``) calls ``matplotlib.pyplot.show``
+        exactly once.
+
+        Tests:
+            (Test Case 1) ``plt.show`` is called once when show=True.
+            (Test Case 2) ``plt.show`` is not called when show=False.
+        """
+        from unittest.mock import patch
+
+        chan_xy, templates_full, primary = _make_footprint_inputs(
+            n_channels=12, n_units=1, peak_uv=20.0
+        )
+
+        with patch.object(plt, "show") as mock_show:
+            plot_unit_footprints(
+                chan_xy,
+                templates_full,
+                primary,
+                min_amplitude_uv=0.5,
+                show=True,
+            )
+            assert mock_show.call_count == 1
+
+        with patch.object(plt, "show") as mock_show:
+            plot_unit_footprints(
+                chan_xy,
+                templates_full,
+                primary,
+                min_amplitude_uv=0.5,
+                show=False,
+            )
+            assert mock_show.call_count == 0

@@ -1138,3 +1138,510 @@ class TestPatchNeoMaxwellHdf5PluginPathHandling:
             return  # neo missing -> patch is a no-op
         assert hasattr(_mwrawio, "auto_install_maxwell_hdf5_compression_plugin")
         assert callable(_mwrawio.auto_install_maxwell_hdf5_compression_plugin)
+
+
+# ===========================================================================
+# Multi-peak peak_mode x select matrix and parameter propagation
+# ===========================================================================
+
+
+def _make_multi_peak_traces(
+    pulse_centers_samples,
+    *,
+    fs=20000.0,
+    n_ch=4,
+    dur_s=0.5,
+    polarity="pos",
+    pulse_width_samples=8,
+    pulse_amp=1000.0,
+    noise_std=5.0,
+    seed=0,
+):
+    """Build (channels, samples) traces with synthetic pulses at given samples.
+
+    Parameters:
+        pulse_centers_samples: Sample indices of pulse onsets.
+        polarity: ``"pos"`` (positive pulses), ``"neg"`` (negative pulses),
+            or ``"alt"`` (alternating, biphasic-like).
+    """
+    rng = np.random.default_rng(seed)
+    n_samp = int(dur_s * fs)
+    traces = rng.standard_normal((n_ch, n_samp)).astype(np.float32) * noise_std
+    for i, s in enumerate(pulse_centers_samples):
+        if polarity == "pos":
+            sign = 1.0
+        elif polarity == "neg":
+            sign = -1.0
+        else:  # "alt"
+            sign = 1.0 if i % 2 == 0 else -1.0
+        lo = max(0, int(s))
+        hi = min(n_samp, int(s) + pulse_width_samples)
+        traces[:, lo:hi] = sign * pulse_amp
+    return traces
+
+
+class TestMultiPeakAnchorPeakModeMatrix:
+    """
+    Tests covering the (peak_mode x multi_peak_select) matrix in
+    ``_multi_peak_anchor`` for the previously-untested combinations
+    (``neg_peak``/``abs_max`` x ``first``/``last``).
+    """
+
+    def test_neg_peak_first_picks_earliest_negative_pulse(self):
+        """
+        With ``peak_mode='neg_peak'`` and ``select='first'``, the helper
+        anchors on the earliest negative pulse in a 3-pulse train.
+
+        Tests:
+            (Test Case 1) ``-reference`` is searched; the first peak is
+                near sample 100 in a 3-pulse train at 100/200/300.
+        """
+        from spikelab.spike_sorting.stim_sorting.recentering import (
+            _multi_peak_anchor,
+        )
+
+        # Three negative-going pulses in a positive-noise reference.
+        reference = np.zeros(400, dtype=np.float64)
+        for center in (100, 200, 300):
+            reference[center : center + 5] = -100.0
+
+        result = _multi_peak_anchor(
+            reference,
+            lo=0,
+            hi=400,
+            peak_mode="neg_peak",
+            multi_peak_select="first",
+            multi_peak_threshold=0.6,
+            multi_peak_min_separation_ms=2.0,
+            fs_Hz=20000.0,
+        )
+        assert abs(result - 100) <= 5
+
+    def test_neg_peak_last_picks_latest_negative_pulse(self):
+        """
+        With ``peak_mode='neg_peak'`` and ``select='last'``, the helper
+        anchors on the latest negative pulse in a 3-pulse train.
+
+        Tests:
+            (Test Case 1) The chosen peak is near the last (sample 300) pulse.
+            (Test Case 2) It is strictly later than the first-select result.
+        """
+        from spikelab.spike_sorting.stim_sorting.recentering import (
+            _multi_peak_anchor,
+        )
+
+        reference = np.zeros(400, dtype=np.float64)
+        for center in (100, 200, 300):
+            reference[center : center + 5] = -100.0
+
+        first = _multi_peak_anchor(
+            reference,
+            lo=0,
+            hi=400,
+            peak_mode="neg_peak",
+            multi_peak_select="first",
+            multi_peak_threshold=0.6,
+            multi_peak_min_separation_ms=2.0,
+            fs_Hz=20000.0,
+        )
+        last = _multi_peak_anchor(
+            reference,
+            lo=0,
+            hi=400,
+            peak_mode="neg_peak",
+            multi_peak_select="last",
+            multi_peak_threshold=0.6,
+            multi_peak_min_separation_ms=2.0,
+            fs_Hz=20000.0,
+        )
+        assert last > first
+        assert abs(last - 300) <= 5
+
+    def test_abs_max_first_picks_earliest_pulse_regardless_of_polarity(self):
+        """
+        With ``peak_mode='abs_max'`` and ``select='first'``, the helper
+        anchors on the earliest pulse regardless of polarity (the search
+        signal is ``|reference|``).
+
+        Tests:
+            (Test Case 1) An alternating pos/neg/pos pulse train:
+                the chosen anchor is near the first pulse.
+        """
+        from spikelab.spike_sorting.stim_sorting.recentering import (
+            _multi_peak_anchor,
+        )
+
+        reference = np.zeros(400, dtype=np.float64)
+        # Alternating polarity pulses; |reference| treats them all equally.
+        reference[100:105] = 100.0
+        reference[200:205] = -100.0
+        reference[300:305] = 100.0
+
+        result = _multi_peak_anchor(
+            reference,
+            lo=0,
+            hi=400,
+            peak_mode="abs_max",
+            multi_peak_select="first",
+            multi_peak_threshold=0.6,
+            multi_peak_min_separation_ms=2.0,
+            fs_Hz=20000.0,
+        )
+        assert abs(result - 100) <= 5
+
+    def test_abs_max_last_picks_latest_pulse_regardless_of_polarity(self):
+        """
+        With ``peak_mode='abs_max'`` and ``select='last'``, the helper
+        anchors on the latest pulse regardless of polarity.
+
+        Tests:
+            (Test Case 1) On a pos/neg/pos train at 100/200/300, the
+                last-select anchor is near sample 300.
+        """
+        from spikelab.spike_sorting.stim_sorting.recentering import (
+            _multi_peak_anchor,
+        )
+
+        reference = np.zeros(400, dtype=np.float64)
+        reference[100:105] = 100.0
+        reference[200:205] = -100.0
+        reference[300:305] = 100.0
+
+        result = _multi_peak_anchor(
+            reference,
+            lo=0,
+            hi=400,
+            peak_mode="abs_max",
+            multi_peak_select="last",
+            multi_peak_threshold=0.6,
+            multi_peak_min_separation_ms=2.0,
+            fs_Hz=20000.0,
+        )
+        assert abs(result - 300) <= 5
+
+
+class TestRecenterStimTimesMultiPeakPropagation:
+    """
+    Tests that ``recenter_stim_times`` forwards multi_peak parameters
+    correctly into the underlying ``_multi_peak_anchor`` call.
+    """
+
+    def test_multi_peak_select_changes_recentered_time(self):
+        """
+        The same 3-pulse train recentered with ``select='first'`` vs
+        ``select='last'`` produces different corrected times.
+
+        Tests:
+            (Test Case 1) ``select='first'`` gives the earliest pulse
+                onset; ``select='last'`` gives the latest.
+            (Test Case 2) The two values differ by approximately the
+                inter-pulse interval (10 ms).
+        """
+        from spikelab.spike_sorting.stim_sorting import recenter_stim_times
+
+        fs = 20000.0
+        pulse_samples = [int(0.100 * fs), int(0.105 * fs), int(0.110 * fs)]
+        traces = _make_multi_peak_traces(
+            pulse_samples,
+            fs=fs,
+            polarity="pos",
+            pulse_amp=1000.0,
+        )
+
+        logged_ms = np.array([105.0])
+        first = recenter_stim_times(
+            traces,
+            logged_ms,
+            fs_Hz=fs,
+            max_offset_ms=20.0,
+            peak_mode="pos_peak",
+            multi_peak=True,
+            multi_peak_select="first",
+            warn_offset_ms=None,
+        )
+        last = recenter_stim_times(
+            traces,
+            logged_ms,
+            fs_Hz=fs,
+            max_offset_ms=20.0,
+            peak_mode="pos_peak",
+            multi_peak=True,
+            multi_peak_select="last",
+            warn_offset_ms=None,
+        )
+        # First aligns near 100 ms; last near 110 ms; inter-pulse gap = 10 ms.
+        assert abs(first[0] - 100.0) < 1.0
+        assert abs(last[0] - 110.0) < 1.0
+        assert (last[0] - first[0]) == pytest.approx(10.0, abs=1.0)
+
+    def test_multi_peak_threshold_filters_weak_pulses(self):
+        """
+        A strong primary pulse and a weaker secondary pulse: with the
+        default threshold (0.6) only the strong pulse qualifies.
+
+        Tests:
+            (Test Case 1) With a weak (10% amplitude) trailing pulse
+                and threshold=0.6, the strong primary is selected by
+                both 'first' and 'last' (no second qualifying peak).
+            (Test Case 2) Lowering threshold to 0.05 admits the weak
+                pulse — the 'last' result then differs from the first.
+        """
+        from spikelab.spike_sorting.stim_sorting import recenter_stim_times
+
+        fs = 20000.0
+        n_ch = 4
+        n_samp = int(0.5 * fs)
+        rng = np.random.default_rng(0)
+        traces = rng.standard_normal((n_ch, n_samp)).astype(np.float32) * 5.0
+        # Strong pulse at 100 ms (1000 uV), weak pulse at 110 ms (100 uV).
+        s_strong = int(0.100 * fs)
+        s_weak = int(0.110 * fs)
+        traces[:, s_strong : s_strong + 8] = 1000.0
+        traces[:, s_weak : s_weak + 8] = 100.0
+
+        logged_ms = np.array([105.0])
+
+        # Tight threshold: only the strong pulse counts.
+        tight = recenter_stim_times(
+            traces,
+            logged_ms,
+            fs_Hz=fs,
+            max_offset_ms=20.0,
+            peak_mode="pos_peak",
+            multi_peak=True,
+            multi_peak_select="last",
+            multi_peak_threshold=0.6,
+            warn_offset_ms=None,
+        )
+        # Loose threshold: both pulses count → 'last' picks the weak one.
+        loose = recenter_stim_times(
+            traces,
+            logged_ms,
+            fs_Hz=fs,
+            max_offset_ms=20.0,
+            peak_mode="pos_peak",
+            multi_peak=True,
+            multi_peak_select="last",
+            multi_peak_threshold=0.05,
+            warn_offset_ms=None,
+        )
+        assert abs(tight[0] - 100.0) < 1.0
+        assert abs(loose[0] - 110.0) < 1.5
+
+    def test_multi_peak_min_separation_merges_close_pulses(self):
+        """
+        Two pulses spaced below the ``multi_peak_min_separation_ms``
+        threshold are merged by ``find_peaks`` (which keeps the
+        strongest within the distance window).
+
+        Tests:
+            (Test Case 1) Two equal-amplitude pulses 1 ms apart, with
+                ``multi_peak_min_separation_ms=10.0``: the helper sees
+                only one peak (find_peaks distance window suppresses
+                the other), so 'first' and 'last' return the same
+                anchor.
+            (Test Case 2) The same pulses with separation=0.2 ms
+                allow both peaks: 'last' anchors at the second pulse,
+                which is later than 'first'.
+        """
+        from spikelab.spike_sorting.stim_sorting.recentering import (
+            _multi_peak_anchor,
+        )
+
+        fs = 20000.0
+        # Two pulses 20 samples apart = 1 ms at 20 kHz.
+        reference = np.zeros(400, dtype=np.float64)
+        reference[100:103] = 100.0
+        reference[120:123] = 100.0
+
+        # Large min-separation (10 ms = 200 samples) → forces find_peaks
+        # to keep at most one peak in the window, so first==last.
+        merged_first = _multi_peak_anchor(
+            reference,
+            lo=0,
+            hi=400,
+            peak_mode="pos_peak",
+            multi_peak_select="first",
+            multi_peak_threshold=0.6,
+            multi_peak_min_separation_ms=10.0,
+            fs_Hz=fs,
+        )
+        merged_last = _multi_peak_anchor(
+            reference,
+            lo=0,
+            hi=400,
+            peak_mode="pos_peak",
+            multi_peak_select="last",
+            multi_peak_threshold=0.6,
+            multi_peak_min_separation_ms=10.0,
+            fs_Hz=fs,
+        )
+        assert merged_first == merged_last
+
+        # Small min-separation (0.2 ms = 4 samples) → both peaks survive.
+        split_first = _multi_peak_anchor(
+            reference,
+            lo=0,
+            hi=400,
+            peak_mode="pos_peak",
+            multi_peak_select="first",
+            multi_peak_threshold=0.6,
+            multi_peak_min_separation_ms=0.2,
+            fs_Hz=fs,
+        )
+        split_last = _multi_peak_anchor(
+            reference,
+            lo=0,
+            hi=400,
+            peak_mode="pos_peak",
+            multi_peak_select="last",
+            multi_peak_threshold=0.6,
+            multi_peak_min_separation_ms=0.2,
+            fs_Hz=fs,
+        )
+        assert split_last > split_first
+        assert abs(split_first - 100) <= 2
+        assert abs(split_last - 120) <= 2
+
+
+# ===========================================================================
+# Multi-peak chunked vs full-recording dispatch parity
+# ===========================================================================
+
+
+@skip_no_spikeinterface
+class TestSortStimRecordingMultiPeakDispatch:
+    """
+    Tests that ``sort_stim_recording`` forwards the multi-peak parameters
+    to the underlying ``recenter_stim_times`` call on both the chunked
+    (BaseRecording) and full-recording (ndarray) dispatch paths.
+
+    Tests use mocks to short-circuit RT-Sort itself — the goal is to
+    verify the multi-peak parameter plumbing, not to run a real sort.
+    """
+
+    @staticmethod
+    def _mock_rt_sort_obj():
+        """A SimpleNamespace standing in for an RTSort with sort_offline."""
+        from types import SimpleNamespace
+
+        class _StubSorting:
+            def get_unit_ids(self):
+                return []
+
+            def get_unit_spike_train(self, uid):
+                return np.array([], dtype=np.int64)
+
+            def get_num_samples(self):
+                return 0
+
+        ns = SimpleNamespace()
+        ns.sort_offline = lambda recording, **kwargs: _StubSorting()
+        return ns
+
+    def test_full_recording_path_forwards_multi_peak_params(self, monkeypatch):
+        """
+        When ``stim_recording`` is an ndarray, the full-recording branch
+        forwards ``multi_peak``, ``multi_peak_select``,
+        ``multi_peak_threshold``, and ``multi_peak_min_separation_ms``
+        to ``recenter_stim_times``.
+
+        Tests:
+            (Test Case 1) The captured kwargs match what was passed in.
+        """
+        from spikelab.spike_sorting.stim_sorting import pipeline as stim_pipeline
+
+        captured = {}
+
+        def fake_recenter(*args, **kwargs):
+            captured.update(kwargs)
+            # Return ms times corresponding to the input stim times.
+            return np.asarray(args[1], dtype=np.float64)
+
+        def fake_remove(*args, **kwargs):
+            return args[0], np.zeros(args[0].shape, dtype=bool)
+
+        monkeypatch.setattr(
+            stim_pipeline, "_load_rt_sort", lambda *a, **kw: self._mock_rt_sort_obj()
+        )
+        # Patch the lazily-imported helpers *inside* the per-call import
+        # by monkeypatching the source modules used by `from .recentering import recenter_stim_times`.
+        from spikelab.spike_sorting.stim_sorting import recentering as _recentering
+        from spikelab.spike_sorting.stim_sorting import artifact_removal as _ar
+
+        monkeypatch.setattr(_recentering, "recenter_stim_times", fake_recenter)
+        monkeypatch.setattr(_ar, "remove_stim_artifacts", fake_remove)
+
+        traces = np.zeros((4, 20000), dtype=np.float32)
+        stim_times_ms = np.array([100.0])
+        stim_pipeline.sort_stim_recording(
+            traces,
+            rt_sort=object(),  # bypassed via _load_rt_sort patch
+            stim_times_ms=stim_times_ms,
+            pre_ms=10.0,
+            post_ms=20.0,
+            fs_Hz=20000.0,
+            peak_mode="pos_peak",
+            multi_peak=True,
+            multi_peak_select="last",
+            multi_peak_threshold=0.42,
+            multi_peak_min_separation_ms=3.5,
+            verbose=False,
+        )
+
+        assert captured.get("multi_peak") is True
+        assert captured.get("multi_peak_select") == "last"
+        assert captured.get("multi_peak_threshold") == pytest.approx(0.42)
+        assert captured.get("multi_peak_min_separation_ms") == pytest.approx(3.5)
+        assert captured.get("peak_mode") == "pos_peak"
+
+    def test_chunked_path_forwards_multi_peak_params(self, monkeypatch):
+        """
+        When ``stim_recording`` is a BaseRecording, the chunked branch
+        forwards multi-peak parameters to ``recenter_stim_times``.
+
+        Tests:
+            (Test Case 1) Captured kwargs match what was passed in.
+        """
+        from spikelab.spike_sorting.stim_sorting import pipeline as stim_pipeline
+
+        captured = {}
+
+        def fake_recenter(*args, **kwargs):
+            captured.update(kwargs)
+            return np.asarray(args[1], dtype=np.float64)
+
+        def fake_remove(*args, **kwargs):
+            return args[0], np.zeros(args[0].shape, dtype=bool)
+
+        monkeypatch.setattr(
+            stim_pipeline, "_load_rt_sort", lambda *a, **kw: self._mock_rt_sort_obj()
+        )
+        from spikelab.spike_sorting.stim_sorting import recentering as _recentering
+        from spikelab.spike_sorting.stim_sorting import artifact_removal as _ar
+
+        monkeypatch.setattr(_recentering, "recenter_stim_times", fake_recenter)
+        monkeypatch.setattr(_ar, "remove_stim_artifacts", fake_remove)
+
+        # Build a BaseRecording (NumpyRecording), 1 s of synthetic data.
+        rec = _make_numpy_recording(num_samples=20000, num_channels=4, fs=20000.0)
+        stim_times_ms = np.array([500.0])
+        stim_pipeline.sort_stim_recording(
+            rec,
+            rt_sort=object(),
+            stim_times_ms=stim_times_ms,
+            pre_ms=20.0,
+            post_ms=20.0,
+            peak_mode="abs_max",
+            multi_peak=True,
+            multi_peak_select="first",
+            multi_peak_threshold=0.55,
+            multi_peak_min_separation_ms=4.5,
+            verbose=False,
+        )
+
+        assert captured.get("multi_peak") is True
+        assert captured.get("multi_peak_select") == "first"
+        assert captured.get("multi_peak_threshold") == pytest.approx(0.55)
+        assert captured.get("multi_peak_min_separation_ms") == pytest.approx(4.5)
+        assert captured.get("peak_mode") == "abs_max"
