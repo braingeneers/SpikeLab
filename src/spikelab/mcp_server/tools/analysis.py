@@ -2830,6 +2830,11 @@ async def pairwise_tests(
     from ...spikedata.stat_utils import pairwise_tests as _pairwise_tests
 
     ws = _get_workspace(workspace_id)
+    if labels is not None and len(labels) != len(keys):
+        raise ValueError(
+            f"len(labels)={len(labels)} does not match len(keys)={len(keys)}; "
+            f"each key must have a corresponding label."
+        )
     groups = {}
     group_labels = labels if labels else keys
     for lbl, k in zip(group_labels, keys):

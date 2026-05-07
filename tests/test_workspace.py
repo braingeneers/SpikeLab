@@ -4988,18 +4988,16 @@ class TestDumpNeuronAttributesCorruptionPaths:
           deep errors.
     """
 
-    def test_dict_valued_attribute_raises(self, tmp_path):
+    def test_dict_valued_attribute_raises_value_error(self, tmp_path):
         """
-        _dump_neuron_attributes with dict-valued entries currently
-        raises a deep TypeError from inside float(v).
+        _dump_neuron_attributes rejects dict-valued attributes upfront
+        with a ValueError naming the attribute key and offending type,
+        instead of letting a deep TypeError surface from float(v).
 
         Tests:
-            (Test Case 1) A neuron_attributes list where one unit has a
-                dict value for a key falls into the float() branch,
-                raising a TypeError.
-
-        Notes:
-            - documents bug — see REVIEW.md
+            (Test Case 1) Dict-valued attribute raises ValueError.
+            (Test Case 2) The error names the offending attribute key.
+            (Test Case 3) The error names the offending type ("dict").
         """
         try:
             import h5py  # noqa: F811
@@ -5015,8 +5013,36 @@ class TestDumpNeuronAttributesCorruptionPaths:
         path = str(tmp_path / "dict_attr.h5")
         with h5py.File(path, "w") as f:
             grp = f.create_group("test")
-            with pytest.raises((TypeError, Exception)):
+            with pytest.raises(ValueError) as exc_info:
                 _dump_neuron_attributes(grp, attrs)
+        msg = str(exc_info.value)
+        assert "meta" in msg
+        assert "dict" in msg
+
+    def test_unsupported_set_value_raises_value_error(self, tmp_path):
+        """
+        _dump_neuron_attributes rejects other unsupported types (e.g.
+        set) with the same ValueError pattern, naming the offending
+        type.
+
+        Tests:
+            (Test Case 1) Set-valued attribute raises ValueError.
+            (Test Case 2) The error names the offending type ("set").
+        """
+        try:
+            import h5py  # noqa: F811
+        except ImportError:
+            pytest.skip("h5py not installed")
+
+        from spikelab.workspace.hdf5_io import _dump_neuron_attributes
+
+        attrs = [{"tags": {"a", "b"}}, {"tags": {"c"}}]
+        path = str(tmp_path / "set_attr.h5")
+        with h5py.File(path, "w") as f:
+            grp = f.create_group("test")
+            with pytest.raises(ValueError) as exc_info:
+                _dump_neuron_attributes(grp, attrs)
+        assert "set" in str(exc_info.value)
 
     def test_slash_in_attribute_key_creates_nested_group(self, tmp_path):
         """

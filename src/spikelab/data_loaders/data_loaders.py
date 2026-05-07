@@ -18,6 +18,7 @@ from __future__ import annotations
 from typing import List, Mapping, Optional, Sequence, Union
 
 import os
+import re
 import warnings
 
 import numpy as np
@@ -50,6 +51,15 @@ __all__ = [
 ]
 
 from ..spikedata.utils import ensure_h5py, to_ms
+
+
+def _natural_sort_key(s: str):
+    """Sort key that orders embedded digit runs numerically.
+
+    `sorted(["1", "10", "2"], key=_natural_sort_key)` returns
+    `["1", "2", "10"]` instead of the lexicographic `["1", "10", "2"]`.
+    """
+    return [int(t) if t.isdigit() else t for t in re.split(r"(\d+)", s)]
 
 
 def _trains_from_flat_index(
@@ -297,9 +307,12 @@ def load_spikedata_from_hdf5(
             )
 
         if group_per_unit is not None:
-            # Style (3): each child dataset is a unit's spike times
+            # Style (3): each child dataset is a unit's spike times.
+            # Sort numerically (so "10" sorts after "9", not after "1") so
+            # round-trip with the matching exporter preserves unit identity
+            # at N>=10.
             grp = f[group_per_unit]
-            keys = sorted(list(grp.keys()))
+            keys = sorted(grp.keys(), key=_natural_sort_key)
             trains = [to_ms(np.asarray(grp[k]), group_time_unit, fs_Hz) for k in keys]
             return _build_spikedata(
                 trains,
@@ -726,6 +739,12 @@ def load_spikedata_from_kilosort(
                     "Install with: pip install spikelab[io]. "
                     "Keeping all clusters."
                 )
+            except pd.errors.EmptyDataError as e:
+                raise ValueError(
+                    f"Cluster info TSV at {tsv_path!r} is empty (0 rows). "
+                    f"Provide a TSV with at least a header row, or omit "
+                    f"cluster_info_tsv to skip cluster filtering."
+                ) from e
             except (IOError, ValueError, KeyError) as e:
                 warnings.warn(
                     f"Failed parsing cluster info TSV: {e}; keeping all clusters"

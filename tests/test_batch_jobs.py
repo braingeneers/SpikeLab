@@ -3359,17 +3359,13 @@ class TestCredentialExtended:
         assert redacted["AWS_ACCESS_KEY_ID"] == "AKIAEXAMPLE"
 
 
-class TestRetrieveSortingBareExceptSilencesErrors:
+class TestRetrieveSortingWarnsOnCorruptOutputs:
     """
-    Edge case tests pinning current behavior of _retrieve_sorting when
-    pickle / JSON load fails: the bare `except Exception:` swallows the
-    error and the workspace ends up missing those entries.
-
-    Notes:
-        - documents bug — see REVIEW.md
-        - A corrupt sorting output produces an empty workspace with no
-          warning. The user cannot tell a "no output" job from a
-          "corrupt output" job.
+    Tests that _retrieve_sorting emits a UserWarning naming the corrupt
+    file when a pickle or JSON output fails to load, instead of silently
+    swallowing the error. The retrieval still completes (continuing
+    through the remaining files) so a single bad output does not abort
+    the whole batch.
     """
 
     def _make_session(self):
@@ -3391,18 +3387,19 @@ class TestRetrieveSortingBareExceptSilencesErrors:
         )
         return session, storage
 
-    def test_corrupt_pickle_silently_skipped(self, tmp_path):
+    def test_corrupt_pickle_warns_and_skips(self, tmp_path):
         """
-        _retrieve_sorting silently skips a corrupt .pkl file, producing
-        an empty workspace.
+        _retrieve_sorting emits a UserWarning naming the corrupt pickle
+        and continues; the workspace ends up without that entry.
 
         Tests:
-            (Test Case 1) The output workspace is empty (no spikedata
-                stored) when the pickle is corrupt.
-
-        Notes:
-            - documents bug — see REVIEW.md
+            (Test Case 1) A UserWarning is emitted whose message names
+                the corrupt file.
+            (Test Case 2) The workspace is returned (no exception) and
+                contains no spikedata entry from the corrupt pickle.
         """
+        import warnings
+
         from spikelab.batch_jobs.models import SubmitResult
         from spikelab.workspace.workspace import AnalysisWorkspace
 
@@ -3439,23 +3436,29 @@ class TestRetrieveSortingBareExceptSilencesErrors:
             job_type="sorting",
         )
 
-        # Should not raise; the bare except swallows the pickle error.
-        result_ws = session.retrieve_result(submit_result, str(local_dir))
-        assert isinstance(result_ws, AnalysisWorkspace)
-        # The corrupt pickle was silently dropped: no namespaces stored.
-        assert len(result_ws._index) == 0
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            result_ws = session.retrieve_result(submit_result, str(local_dir))
 
-    def test_corrupt_json_silently_skipped(self, tmp_path):
+        assert isinstance(result_ws, AnalysisWorkspace)
+        assert len(result_ws._index) == 0
+        # A UserWarning naming the corrupt pickle was emitted.
+        warn_msgs = [str(rec.message) for rec in w if rec.category is UserWarning]
+        assert any("bad.pkl" in m for m in warn_msgs), warn_msgs
+
+    def test_corrupt_json_warns_and_skips(self, tmp_path):
         """
-        _retrieve_sorting silently skips a corrupt .json metadata file.
+        _retrieve_sorting emits a UserWarning naming the unreadable JSON
+        and continues; the workspace ends up without that entry.
 
         Tests:
-            (Test Case 1) Workspace ends empty when the only output is
-                an unparseable JSON file.
-
-        Notes:
-            - documents bug — see REVIEW.md
+            (Test Case 1) A UserWarning is emitted whose message names
+                the unreadable JSON file.
+            (Test Case 2) The workspace is returned and contains no
+                metadata entry from the corrupt JSON.
         """
+        import warnings
+
         from spikelab.batch_jobs.models import SubmitResult
         from spikelab.workspace.workspace import AnalysisWorkspace
 
@@ -3489,10 +3492,14 @@ class TestRetrieveSortingBareExceptSilencesErrors:
             job_type="sorting",
         )
 
-        result_ws = session.retrieve_result(submit_result, str(local_dir))
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            result_ws = session.retrieve_result(submit_result, str(local_dir))
+
         assert isinstance(result_ws, AnalysisWorkspace)
-        # The corrupt JSON was silently dropped.
         assert len(result_ws._index) == 0
+        warn_msgs = [str(rec.message) for rec in w if rec.category is UserWarning]
+        assert any("metadata.json" in m for m in warn_msgs), warn_msgs
 
 
 class TestBuildJobNameRfc1123Compliance:
