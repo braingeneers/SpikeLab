@@ -7559,88 +7559,76 @@ class TestSlidingRate:
 class TestSpikeDataSubtimeEventCenteredBoundary:
     """Edge case tests for SpikeData.subtime on event-centered data."""
 
-    def test_subtime_start_below_event_centered_start_silent_empty(self):
+    def test_subtime_start_below_event_centered_start_raises(self):
         """
-        subtime with start < self.start_time on event-centered data
-        currently produces a SpikeData with no spikes and an extended length.
+        subtime rejects start < self.start_time on event-centered data
+        with a clear ValueError naming the recording range.
 
         Tests:
-            (Test Case 1) For event-centered SpikeData (start_time<0),
-                start = start_time - extra silently produces a SpikeData
-                whose length exceeds the original recording length.
-
-        Notes:
-            - documents bug — see REVIEW.md
-            - For event-centered data the negative-start branch in subtime
-              treats negatives as literal times rather than counting from
-              the recording end, so no error is raised when start is below
-              the recording's actual start_time.
+            (Test Case 1) For event-centered SpikeData (start_time<0), a
+                start value below start_time raises ValueError.
+            (Test Case 2) A start value at or above start_time still
+                produces a valid SpikeData.
         """
         sd = SpikeData(
             [[-10.0, 0.0, 5.0]], length=20.0, start_time=-10.0
         )  # window [-10, 10]
-        # start = -50 is below start_time = -10; current behavior accepts it.
-        result = sd.subtime(-50.0, 5.0)
-        # Length is the requested span, exceeding the original recording.
-        assert result.length > sd.length
-        # No spikes at t < -10, so the train holds only spikes in [-10, 5).
+        with pytest.raises(ValueError, match="below recording start"):
+            sd.subtime(-50.0, 5.0)
+        # Boundary: start exactly at start_time is allowed.
+        result = sd.subtime(-10.0, 5.0)
+        assert result.start_time == -10.0
         assert len(result.train[0]) == 2
 
-    def test_subtime_shift_to_nan_propagates(self):
+    def test_subtime_shift_to_nan_raises(self):
         """
-        subtime with shift_to=NaN propagates NaN through the constructor.
+        subtime rejects shift_to=NaN/inf with a clear ValueError before
+        applying any shifts.
 
         Tests:
-            (Test Case 1) shift_to=NaN raises ValueError because the
-                constructor's NaN guard rejects all-NaN spike trains.
-
-        Notes:
-            - documents bug — see REVIEW.md
-            - subtime does not validate shift_to before applying it; the
-              error surfaces from the SpikeData constructor with a
-              confusing message.
+            (Test Case 1) shift_to=NaN raises ValueError naming "finite".
+            (Test Case 2) shift_to=inf raises ValueError naming "finite".
         """
         sd = SpikeData([[5.0, 10.0]], length=20.0)
-        with pytest.raises((ValueError, FloatingPointError)):
+        with pytest.raises(ValueError, match="finite"):
             sd.subtime(0.0, 20.0, shift_to=float("nan"))
+        with pytest.raises(ValueError, match="finite"):
+            sd.subtime(0.0, 20.0, shift_to=float("inf"))
 
 
 class TestSpikeDataPairwiseLatenciesNumpyFallback:
     """Edge case tests for the numpy fallback branch of get_pairwise_latencies."""
 
-    def test_numpy_fallback_single_spike_train(self, monkeypatch):
+    def test_numpy_fallback_single_spike_train(self):
         """
-        Pairwise latencies on a SpikeData with a single-spike train
-        currently degenerates in the numpy fallback because
-        np.clip(idx, 1, len(train_j)-1) is np.clip(idx, 1, 0).
+        Pairwise latencies on a SpikeData with a single-spike train use a
+        dedicated branch in the numpy fallback so latencies are computed
+        against the lone spike directly.
 
         Tests:
-            (Test Case 1) get_pairwise_latencies via the pure-numpy
-                fallback (return_distributions=True) returns a result
-                without raising on a single-spike train.
-
-        Notes:
-            - documents bug — see REVIEW.md
-            - return_distributions=True forces the numpy fallback path
-              regardless of numba availability. clip with min=1, max=0
-              is degenerate but numpy currently silently picks max.
+            (Test Case 1) Latencies from a multi-spike train to a
+                single-spike train equal (single_spike_time - t_i).
+            (Test Case 2) Latency from a single-spike train to a
+                multi-spike train equals the closest-neighbour latency.
         """
-        # Two units: one with a single spike, one with two spikes.
+        # Unit 0: single spike at t=5. Unit 1: two spikes at t=3, 7.
         sd = SpikeData([[5.0], [3.0, 7.0]], length=20.0)
-        # Force numpy fallback by requesting distributions.
         result = sd.get_pairwise_latencies(return_distributions=True)
-        assert len(result) == 3  # mean, std, distributions
         mean_pcm, std_pcm, distributions = result
-        # Diagonal is zero by convention.
         assert mean_pcm.matrix.shape == (2, 2)
+        # Diagonal is zero by convention.
         assert mean_pcm.matrix[0, 0] == 0.0
         assert mean_pcm.matrix[1, 1] == 0.0
-        # The distributions array exists; entry [0,1] (single→pair) and
-        # [1,0] (pair→single) should be ndarrays (possibly with garbage
-        # values from the degenerate clip; the test just locks current
-        # shape behavior).
-        assert isinstance(distributions[0, 1], np.ndarray)
-        assert isinstance(distributions[1, 0], np.ndarray)
+        # [1, 0]: every spike in train_1 paired with train_0[0]=5.0
+        # Latencies: 5-3=2, 5-7=-2 → mean = 0, std = 2.
+        np.testing.assert_array_equal(distributions[1, 0], np.array([2.0, -2.0]))
+        assert mean_pcm.matrix[1, 0] == 0.0
+        assert std_pcm.matrix[1, 0] == 2.0
+        # [0, 1]: train_0[0]=5 paired with closest in train_1={3,7}.
+        # 5-3=2 vs 5-7=-2 → equal magnitude; numpy picks the right
+        # (successor) so latency = -2.
+        assert distributions[0, 1].shape == (1,)
+        assert distributions[0, 1][0] in (-2.0, 2.0)
 
 
 class TestSpikeDataSplitEpochs:
@@ -7758,70 +7746,60 @@ class TestSpikeDataSplitEpochs:
 
 class TestSpikeDataBinSizeZeroValidation:
     """
-    Edge case tests pinning current bin_size=0 behavior across the
-    raster-family methods.
-
-    Notes:
-        - documents bug — see REVIEW.md
-        - bin_size=0 is not validated; calls fall through to numpy
-          ZeroDivisionError or scipy sparse matrix construction errors.
+    Tests that bin_size <= 0 is rejected with a clear ValueError across
+    the raster-family methods.
     """
 
     def test_sparse_raster_zero_bin_size_raises(self):
         """
-        sparse_raster(0) currently raises (ZeroDivisionError or similar).
+        sparse_raster(0) raises ValueError naming "bin_size".
 
         Tests:
-            (Test Case 1) Calling sparse_raster with bin_size=0 produces
-                an exception rather than silently accepting it.
-
-        Notes:
-            - documents bug — see REVIEW.md
+            (Test Case 1) bin_size=0 raises ValueError.
+            (Test Case 2) Negative bin_size raises ValueError.
         """
         sd = SpikeData([[1.0, 2.0]], length=10.0)
-        with pytest.raises(Exception):
+        with pytest.raises(ValueError, match="bin_size must be > 0"):
             sd.sparse_raster(bin_size=0)
+        with pytest.raises(ValueError, match="bin_size must be > 0"):
+            sd.sparse_raster(bin_size=-1.0)
 
     def test_raster_zero_bin_size_raises(self):
         """
-        raster(0) currently raises (delegates to sparse_raster).
+        raster(0) raises ValueError (delegates to sparse_raster).
 
         Tests:
-            (Test Case 1) Calling raster with bin_size=0 produces an
-                exception.
-
-        Notes:
-            - documents bug — see REVIEW.md
+            (Test Case 1) bin_size=0 raises ValueError.
         """
         sd = SpikeData([[1.0, 2.0]], length=10.0)
-        with pytest.raises(Exception):
+        with pytest.raises(ValueError, match="bin_size must be > 0"):
             sd.raster(bin_size=0)
 
     def test_binned_meanrate_zero_bin_size_raises(self):
         """
-        binned_meanrate(0) currently raises.
+        binned_meanrate(0) raises ValueError, including for empty SpikeData
+        (the N==0 short-circuit no longer hides the bad input).
 
         Tests:
-            (Test Case 1) Calling binned_meanrate with bin_size=0 produces
-                an exception (division-by-zero on the integer
-                ceil(length / 0)).
-
-        Notes:
-            - documents bug — see REVIEW.md
+            (Test Case 1) bin_size=0 raises ValueError on a populated
+                SpikeData.
+            (Test Case 2) bin_size=0 raises ValueError on an empty
+                SpikeData (N==0 short-circuit guarded).
         """
         sd = SpikeData([[1.0, 2.0]], length=10.0)
-        with pytest.raises(Exception):
+        with pytest.raises(ValueError, match="bin_size must be > 0"):
             sd.binned_meanrate(bin_size=0)
+        # N==0 short-circuit must also be guarded.
+        sd_empty = SpikeData([], length=10.0, N=0)
+        with pytest.raises(ValueError, match="bin_size must be > 0"):
+            sd_empty.binned_meanrate(bin_size=0)
 
     def test_channel_raster_zero_bin_size_raises(self):
         """
-        channel_raster(0) currently raises (delegates to raster).
+        channel_raster(0) raises ValueError (delegates to raster).
 
         Tests:
-            (Test Case 1) Calling channel_raster with bin_size=0 raises.
-
-        Notes:
-            - documents bug — see REVIEW.md
+            (Test Case 1) bin_size=0 raises ValueError.
         """
         sd = SpikeData(
             [[1.0, 2.0], [3.0, 4.0]],
@@ -7831,5 +7809,5 @@ class TestSpikeDataBinSizeZeroValidation:
                 {"channel": 1},
             ],
         )
-        with pytest.raises(Exception):
+        with pytest.raises(ValueError, match="bin_size must be > 0"):
             sd.channel_raster(bin_size=0)

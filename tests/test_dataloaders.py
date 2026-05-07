@@ -4597,27 +4597,22 @@ class TestS3Utils4:
 @skip_no_pandas
 class TestKilosortEmptyClusterInfoTsv:
     """
-    Tests current behavior when cluster_info.tsv is empty (zero bytes).
-    The loader catches the parse failure via the existing
-    (IOError, ValueError, KeyError) handler — pandas.errors.EmptyDataError
-    is a ValueError subclass — emits a UserWarning and falls through with
-    keep_clusters=None so all clusters are kept.
+    Tests that an empty cluster_info.tsv produces a clear ValueError
+    rather than letting pandas.errors.EmptyDataError propagate from
+    deep inside the loader.
     """
 
-    def test_empty_cluster_info_tsv_warns_and_keeps_all_clusters(self, tmp_path):
+    def test_empty_cluster_info_tsv_raises_value_error(self, tmp_path):
         """
-        Empty cluster_info.tsv produces a UserWarning and a SpikeData
-        containing all clusters (no filtering applied).
+        Empty cluster_info.tsv raises ValueError with a clear message
+        naming the empty file and pointing at the workaround.
 
         Tests:
-            (Test Case 1) The loader returns without raising.
-            (Test Case 2) sd.N equals the number of unique clusters in
-                spike_clusters.npy (no filtering applied).
-            (Test Case 3) A UserWarning naming "cluster info TSV" is
-                emitted.
+            (Test Case 1) Zero-byte cluster_info_tsv raises ValueError.
+            (Test Case 2) The error message names the offending path.
+            (Test Case 3) The error message suggests omitting
+                cluster_info_tsv as a workaround.
         """
-        import warnings as _warnings
-
         d = str(tmp_path / "ks_empty_tsv")
         os.makedirs(d)
         spike_times = np.array([10, 20, 15])
@@ -4627,13 +4622,35 @@ class TestKilosortEmptyClusterInfoTsv:
         tsv_path = os.path.join(d, "cluster_info.tsv")
         open(tsv_path, "w").close()
 
-        with _warnings.catch_warnings(record=True) as w:
-            _warnings.simplefilter("always")
-            sd = loaders.load_spikedata_from_kilosort(
+        with pytest.raises(ValueError) as exc_info:
+            loaders.load_spikedata_from_kilosort(
                 d,
                 fs_Hz=1000.0,
                 cluster_info_tsv="cluster_info.tsv",
             )
+        msg = str(exc_info.value)
+        assert "empty" in msg.lower()
+        assert "cluster_info.tsv" in msg
+
+    def test_omit_cluster_info_tsv_loads_normally(self, tmp_path):
+        """
+        Omitting cluster_info_tsv loads spikes normally (no crash) — the
+        suggested workaround in the empty-TSV error message.
+
+        Tests:
+            (Test Case 1) Loader returns a SpikeData with the expected
+                number of units when cluster_info_tsv is None.
+        """
+        d = str(tmp_path / "ks_no_tsv")
+        os.makedirs(d)
+        spike_times = np.array([10, 20, 15])
+        spike_clusters = np.array([0, 0, 1])
+        np.save(os.path.join(d, "spike_times.npy"), spike_times)
+        np.save(os.path.join(d, "spike_clusters.npy"), spike_clusters)
+        sd = loaders.load_spikedata_from_kilosort(
+            d, fs_Hz=1000.0, cluster_info_tsv=None
+        )
+        assert sd.N == 2
 
         assert sd.N == 2
         warn_msgs = [str(rec.message) for rec in w if rec.category is UserWarning]
@@ -4641,35 +4658,22 @@ class TestKilosortEmptyClusterInfoTsv:
 
 
 @skip_no_h5py
-class TestHDF5GroupPerUnitLargeN:
+class TestHDF5GroupPerUnitNaturalSort:
     """
-    Edge case test pinning lexicographic-sort behavior for the
-    group-per-unit loader at N>=10.
-
-    Notes:
-        - documents bug — see REVIEW.md
-        - The exporter writes unit datasets as str(i) keys; on reload the
-          loader calls sorted(...) which orders the keys lexicographically.
-          With N>=10 the order becomes ["0","1","10","2",...] — so unit
-          identity is permuted across round-trip.
+    Tests that the group-per-unit loader sorts numerically (natural sort),
+    preserving unit identity across round-trip at N>=10.
     """
 
-    def test_group_per_unit_lexicographic_sort_with_10_units(self, tmp_path):
+    def test_group_per_unit_natural_sort_with_11_units(self, tmp_path):
         """
-        Group-per-unit loader with N=10 keys produces lexicographically
-        sorted output (current behavior).
+        Group-per-unit loader with 11 numeric keys returns trains in
+        numerical (not lexicographic) order.
 
         Tests:
-            (Test Case 1) Keys "0".."9" are sorted lexicographically;
-                with N=10, key "10" sorts after "1" and before "2".
-            (Test Case 2) Loaded train at index 1 has the spikes from key "1"
-                if "10" sorts after "1" (correct) — but the output ordering
-                does not match numerical index order.
-
-        Notes:
-            - documents bug — see REVIEW.md
+            (Test Case 1) sd.train[i] holds the spikes from key str(i)
+                for i in 0..10.
         """
-        path = str(tmp_path / "lex_n10.h5")
+        path = str(tmp_path / "natural_sort_n11.h5")
         # Create 11 units with distinct spike times so ordering is observable.
         with h5py.File(path, "w") as f:  # type: ignore
             grp = f.create_group("units")
@@ -4681,10 +4685,33 @@ class TestHDF5GroupPerUnitLargeN:
             path, group_per_unit="units", group_time_unit="ms"
         )
         assert sd.N == 11
-        # Lexicographic order of "0".."10" is ["0","1","10","2","3",...,"9"].
-        # So train[2] should hold the spikes for key "10" (value 110.0)
-        # rather than for key "2" (value 30.0).
-        np.testing.assert_array_equal(sd.train[2], [110.0])
+        # Natural order: train[i] holds key str(i) → spike at (i+1)*10.
+        for i in range(11):
+            np.testing.assert_array_equal(sd.train[i], [float(i + 1) * 10.0])
+
+    def test_group_per_unit_natural_sort_mixed_prefix(self, tmp_path):
+        """
+        Natural sort works with prefixed keys like "unit_2" / "unit_10".
+
+        Tests:
+            (Test Case 1) Keys "unit_1" .. "unit_11" load in numerical
+                order; train[1] holds the spike from "unit_2" and
+                train[9] holds the spike from "unit_10".
+        """
+        path = str(tmp_path / "natural_sort_prefixed.h5")
+        with h5py.File(path, "w") as f:  # type: ignore
+            grp = f.create_group("units")
+            for i in range(1, 12):
+                grp.create_dataset(f"unit_{i}", data=np.array([float(i) * 10.0]))
+            grp.attrs["time_unit"] = "ms"
+
+        sd = loaders.load_spikedata_from_hdf5(
+            path, group_per_unit="units", group_time_unit="ms"
+        )
+        assert sd.N == 11
+        # train[i] holds unit_(i+1).
+        for i in range(11):
+            np.testing.assert_array_equal(sd.train[i], [float(i + 1) * 10.0])
 
 
 class TestLoadSpikedataFromIblAllFallbacksFail:

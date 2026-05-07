@@ -420,15 +420,38 @@ def _dump_neuron_attributes(grp, neuron_attributes: list) -> None:
     for d in neuron_attributes:
         all_keys.update(d.keys())
 
+    _SUPPORTED_SCALAR_TYPES = (
+        str,
+        bool,
+        int,
+        float,
+        np.integer,
+        np.floating,
+        np.bool_,
+    )
+    _SUPPORTED_ARRAY_TYPES = (np.ndarray, list, tuple)
+
     for attr_key in all_keys:
         values = [d.get(attr_key) for d in neuron_attributes]
         non_none = [v for v in values if v is not None]
+
+        # Reject unsupported value types upfront with a clear message
+        # naming the attribute and offending type. This guards against
+        # deep TypeError/IndexError later in dataset construction.
+        for v in non_none:
+            if not isinstance(v, _SUPPORTED_SCALAR_TYPES + _SUPPORTED_ARRAY_TYPES):
+                raise ValueError(
+                    f"Neuron attribute {attr_key!r} contains an unsupported "
+                    f"value type: {type(v).__name__}. Supported types are "
+                    f"numeric scalars, strings, and array-likes "
+                    f"(ndarray/list/tuple)."
+                )
 
         if not non_none:
             na_grp.create_dataset(attr_key, data=np.full(N, np.nan))
             continue
 
-        use_array = any(isinstance(v, (np.ndarray, list, tuple)) for v in non_none)
+        use_array = any(isinstance(v, _SUPPORTED_ARRAY_TYPES) for v in non_none)
         use_string = any(isinstance(v, str) for v in non_none)
 
         if use_array:

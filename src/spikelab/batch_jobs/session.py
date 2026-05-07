@@ -5,8 +5,10 @@ from __future__ import annotations
 import dataclasses
 import json
 import os
+import pickle
 import tempfile
 import time
+import warnings
 from pathlib import Path
 from typing import Any, Dict, Iterable, Optional, Union
 from uuid import uuid4
@@ -410,7 +412,12 @@ class RunSession:
             if local_path.endswith(".pkl"):
                 try:
                     sd = load_spikedata_from_pickle(local_path)
-                except Exception:
+                except (pickle.UnpicklingError, EOFError, OSError, ValueError) as e:
+                    warnings.warn(
+                        f"Skipping corrupt pickle {relative!r}: "
+                        f"{type(e).__name__}: {e}",
+                        UserWarning,
+                    )
                     continue
                 namespace = Path(relative).stem
                 ws.store(namespace, "spikedata", sd)
@@ -419,10 +426,15 @@ class RunSession:
                 try:
                     with open(local_path, "r", encoding="utf-8") as f:
                         meta = json.load(f)
-                    namespace = Path(relative).stem
-                    ws.store(namespace, "sorting_metadata", meta)
-                except Exception:
+                except (json.JSONDecodeError, OSError) as e:
+                    warnings.warn(
+                        f"Skipping unreadable JSON {relative!r}: "
+                        f"{type(e).__name__}: {e}",
+                        UserWarning,
+                    )
                     continue
+                namespace = Path(relative).stem
+                ws.store(namespace, "sorting_metadata", meta)
 
         return ws
 
