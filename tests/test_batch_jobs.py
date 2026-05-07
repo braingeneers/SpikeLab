@@ -1570,26 +1570,19 @@ class TestPolicyBoundary:
 
 
 class TestBuildJobName:
-    def test_empty_prefix(self):
-        """Empty prefix produces a name that is just '-<token>'."""
+    def test_empty_prefix_raises(self):
+        """Empty prefix raises ValueError (would produce a leading-hyphen name)."""
         from spikelab.batch_jobs.session import RunSession
 
-        name = RunSession._build_job_name("")
-        # Empty string rstripped of hyphens is still empty, so name is "-<8hex>"
-        assert len(name) <= 63
-        token = name.split("-")[-1]
-        assert len(token) == 8
-        int(token, 16)
+        with pytest.raises(ValueError, match="alphanumeric"):
+            RunSession._build_job_name("")
 
-    def test_all_hyphens_prefix(self):
-        """Prefix like '---' is rstripped to empty, producing '-<token>'."""
+    def test_all_hyphens_prefix_raises(self):
+        """All-hyphen prefix raises ValueError (rstrip reduces it to empty)."""
         from spikelab.batch_jobs.session import RunSession
 
-        name = RunSession._build_job_name("---")
-        assert len(name) <= 63
-        token = name.split("-")[-1]
-        assert len(token) == 8
-        int(token, 16)
+        with pytest.raises(ValueError, match="empty string"):
+            RunSession._build_job_name("---")
 
     def test_prefix_exactly_at_max_length(self):
         """54-char prefix fits exactly (54 + 1 + 8 = 63)."""
@@ -3504,51 +3497,59 @@ class TestRetrieveSortingWarnsOnCorruptOutputs:
 
 class TestBuildJobNameRfc1123Compliance:
     """
-    Edge case tests pinning current K8s-name compliance behavior of
-    _build_job_name.
-
-    Notes:
-        - documents bug — see REVIEW.md
-        - K8s job names must conform to RFC 1123: a sequence of
-          `[a-z0-9-]` starting with a letter and not ending with a
-          hyphen. Empty / all-hyphen prefixes currently produce names
-          that start with `-`.
+    Tests that _build_job_name rejects prefixes that would produce an
+    RFC 1123-invalid Kubernetes job name (leading hyphen) instead of
+    letting the cluster reject the manifest at apply time.
     """
 
-    def test_empty_prefix_produces_invalid_k8s_name(self):
+    def test_empty_prefix_raises(self):
         """
-        _build_job_name("") currently returns a string starting with '-',
-        which is not RFC 1123 compliant.
+        _build_job_name("") raises ValueError naming "alphanumeric".
 
         Tests:
-            (Test Case 1) Resulting name starts with a hyphen.
-
-        Notes:
-            - documents bug — see REVIEW.md
-            - K8s would reject this name at apply time with an opaque
-              error.
+            (Test Case 1) Empty prefix raises ValueError.
+            (Test Case 2) The error names the offending input and the
+                reason (RFC 1123 / alphanumeric).
         """
         from spikelab.batch_jobs.session import RunSession
 
-        name = RunSession._build_job_name("")
-        # Documents that the result starts with '-' (the truncated
-        # prefix is the empty string after rstrip).
-        assert name.startswith("-")
-        # Non-compliant: the leading char is not a letter [a-z].
-        assert not name[0].isalpha()
+        with pytest.raises(ValueError) as exc_info:
+            RunSession._build_job_name("")
+        msg = str(exc_info.value)
+        assert "''" in msg or "empty" in msg.lower()
+        assert "alphanumeric" in msg.lower() or "RFC 1123" in msg
 
-    def test_all_hyphens_prefix_produces_invalid_k8s_name(self):
+    def test_all_hyphens_prefix_raises(self):
         """
-        _build_job_name("---") currently returns '-<token>', not RFC 1123.
+        _build_job_name("---") raises ValueError because trailing-hyphen
+        stripping reduces it to the empty string.
 
         Tests:
-            (Test Case 1) Resulting name starts with a hyphen.
-
-        Notes:
-            - documents bug — see REVIEW.md
+            (Test Case 1) All-hyphen prefix raises ValueError.
         """
         from spikelab.batch_jobs.session import RunSession
 
-        name = RunSession._build_job_name("---")
-        assert name.startswith("-")
-        assert not name[0].isalpha()
+        with pytest.raises(ValueError, match="empty string"):
+            RunSession._build_job_name("---")
+
+    def test_valid_prefix_succeeds(self):
+        """
+        Valid prefixes still produce well-formed job names — no
+        regression for the happy path.
+
+        Tests:
+            (Test Case 1) "spikelab-sort" produces a name starting with
+                "spikelab-sort-" and containing the 8-char hex token.
+            (Test Case 2) Total length ≤ 63 (K8s job name limit).
+            (Test Case 3) Trailing-hyphen prefix "foo--" still works
+                because "foo" is left after rstrip.
+        """
+        from spikelab.batch_jobs.session import RunSession
+
+        name = RunSession._build_job_name("spikelab-sort")
+        assert name.startswith("spikelab-sort-")
+        assert len(name) <= 63
+        assert name[0].isalpha()
+
+        name2 = RunSession._build_job_name("foo--")
+        assert name2.startswith("foo-")

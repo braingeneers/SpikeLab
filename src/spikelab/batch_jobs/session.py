@@ -50,6 +50,13 @@ class RunSession:
         token = uuid4().hex[:8]
         max_prefix = 63 - 1 - len(token)  # 54
         truncated = prefix[:max_prefix].rstrip("-")
+        if not truncated:
+            raise ValueError(
+                f"name_prefix ({prefix!r}) reduces to an empty string "
+                f"after truncation and trailing-hyphen stripping. "
+                f"Kubernetes job names must contain at least one "
+                f"alphanumeric character (RFC 1123)."
+            )
         return f"{truncated}-{token}"
 
     def _preflight(self, job_spec: JobSpec, allow_policy_risk: bool) -> None:
