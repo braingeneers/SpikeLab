@@ -1176,36 +1176,20 @@ class TestSubtimeByIndex:
         with pytest.raises(ValueError, match="end_idx"):
             sss.subtime_by_index(10, 10)
 
-    def test_non_integer_slice_duration(self):
+    def test_non_integer_slice_duration_raises(self):
         """
-        subtime_by_index with non-integer slice duration uses int(round(duration))
-        for T. This tests that the rounding does not cause off-by-one errors.
+        subtime_by_index rejects non-integer slice durations with a
+        clear ValueError. For non-integer windows, callers should use
+        SpikeData.subtime() directly.
 
         Tests:
-            (Test Case 1) Construction and subtime succeed with a 100.5ms duration.
-            (Test Case 2) The resulting sub-window times are consistent.
-            (Test Case 3) Spikes in the result fall within the expected sub-window.
-
-        Notes:
-            The slice duration 100.5ms is rounded to T=100 (or 101 depending on
-            floating point), which could cause subtle off-by-one issues. This test
-            verifies the behavior is at least consistent.
+            (Test Case 1) A 100.5 ms slice duration raises ValueError.
         """
         train = [np.array([10.0, 50.0, 80.0, 99.0])]
         sd = SpikeData(train, length=200.5)
         sss = SpikeSliceStack(sd, times_start_to_end=[(0.0, 100.5), (100.0, 200.5)])
-
-        # Trim to inner range [10, 90) — well within bounds regardless of rounding
-        result = sss.subtime_by_index(10, 90)
-
-        assert len(result.spike_stack) == 2
-        expected_duration = 90 - 10  # 80ms
-        for sd_slice in result.spike_stack:
-            assert sd_slice.length == pytest.approx(expected_duration, abs=1.0)
-            for unit_spikes in sd_slice.train:
-                if len(unit_spikes) > 0:
-                    assert np.all(unit_spikes >= 0)
-                    assert np.all(unit_spikes < expected_duration + 1.0)
+        with pytest.raises(ValueError, match="integer number of milliseconds"):
+            sss.subtime_by_index(10, 90)
 
 
 class TestToRasterArrayCustomBin:
@@ -2817,22 +2801,21 @@ class TestSSSSubset2:
 class TestSSSSubtimeByIndex2:
     """Additional edge case tests for SpikeSliceStack.subtime_by_index."""
 
-    def test_non_integer_slice_duration(self):
+    def test_non_integer_slice_duration_raises(self):
         """
-        subtime_by_index with non-integer slice_duration_ms (e.g. 100.5).
+        subtime_by_index rejects non-integer slice_duration_ms with
+        ValueError instead of silently rounding.
 
         Tests:
-            (Test Case 1) Non-integer durations are handled by int(round(...))
-                and produce a valid result.
+            (Test Case 1) A 100.5 ms slice duration raises ValueError.
         """
         sd = make_spikedata(n_units=2, length_ms=201.0)
         sss = SpikeSliceStack(
             sd,
             times_start_to_end=[(0.0, 100.5), (100.5, 201.0)],
         )
-        # Select first 50 indices
-        result = sss.subtime_by_index(0, 50)
-        assert len(result.spike_stack) == 2
+        with pytest.raises(ValueError, match="integer number of milliseconds"):
+            sss.subtime_by_index(0, 50)
 
 
 class TestSSSOrderUnits2:
@@ -3176,39 +3159,44 @@ class TestSpikeSliceStackCoreReview:
         assert not np.isnan(tm[1, 1])
 
 
-class TestSSSSubtimeByIndexNonIntegerTruncation:
+class TestSSSSubtimeByIndexNonIntegerSliceDuration:
     """
-    Edge case test pinning the int(round(slice_duration_ms)) truncation
-    in SpikeSliceStack.subtime_by_index.
-
-    Notes:
-        - documents bug — see REVIEW.md
-        - subtime_by_index assumes 1 index = 1 ms by computing
-          T = int(round(slice_duration_ms)). For slice durations that are
-          not integer ms (e.g. 12.4 ms with bin_size_ms=0.4), the true
-          number of bins is silently rounded.
+    Tests that SpikeSliceStack.subtime_by_index rejects non-integer
+    slice durations with a clear ValueError, instead of silently
+    truncating the sub-ms tail via int(round(slice_duration_ms)).
     """
 
-    def test_subtime_by_index_truncates_sub_ms_tail(self):
+    def test_subtime_by_index_non_integer_slice_duration_raises(self):
         """
-        subtime_by_index with a 12.4 ms slice rounds T to 12 (the
-        sub-ms tail is silently dropped).
+        subtime_by_index raises ValueError when the slice duration
+        is not an integer number of milliseconds.
 
         Tests:
-            (Test Case 1) Constructing SpikeSliceStack with a 12.4 ms
-                slice and calling subtime_by_index(0, 12) succeeds.
-            (Test Case 2) Calling subtime_by_index(0, 13) raises
-                because end_idx > T = round(12.4) = 12.
-
-        Notes:
-            - documents bug — see REVIEW.md
+            (Test Case 1) A 12.4 ms slice raises ValueError naming
+                "integer number of milliseconds".
+            (Test Case 2) The error suggests SpikeData.subtime() as
+                the workaround for non-integer windows.
         """
         train = [np.array([1.0, 5.0, 10.0])]
         sd = SpikeData(train, length=12.4)
         sss = SpikeSliceStack(sd, times_start_to_end=[(0.0, 12.4)])
-        # T = int(round(12.4)) = 12; (0, 12) is the maximal valid range.
+        with pytest.raises(ValueError, match="integer number of milliseconds"):
+            sss.subtime_by_index(0, 12)
+
+    def test_subtime_by_index_integer_slice_duration_succeeds(self):
+        """
+        Integer slice durations still work normally (no behavior change
+        for well-formed inputs).
+
+        Tests:
+            (Test Case 1) A 12.0 ms slice + subtime_by_index(0, 12)
+                returns a SpikeSliceStack with the expected slice count.
+            (Test Case 2) A float-but-integer-valued duration (12.0)
+                is accepted (the validation tolerates float
+                imprecision below 1e-9 ms).
+        """
+        train = [np.array([1.0, 5.0, 10.0])]
+        sd = SpikeData(train, length=12.0)
+        sss = SpikeSliceStack(sd, times_start_to_end=[(0.0, 12.0)])
         result = sss.subtime_by_index(0, 12)
         assert len(result.spike_stack) == 1
-        # (0, 13) exceeds T=12 and should raise.
-        with pytest.raises(ValueError):
-            sss.subtime_by_index(0, 13)
