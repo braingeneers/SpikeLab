@@ -19,6 +19,7 @@ PairwiseCompMatrix, PairwiseCompMatrixStack, dict (with serializable leaf values
 
 import json
 import time
+import warnings
 from typing import Any, Optional, Tuple
 
 import numpy as np
@@ -495,6 +496,24 @@ def _dump_neuron_attributes(grp, neuron_attributes: list) -> None:
                 dtype=dt,
             )
         else:
+            # NaN doubles as the missing-entry sentinel here, so a
+            # legitimate NaN supplied by the caller would be silently
+            # dropped on reload. Warn so the caller can pick a different
+            # convention (e.g. omit the attribute, or use a sentinel
+            # like -1).
+            if any(
+                isinstance(v, (float, np.floating)) and np.isnan(v) for v in non_none
+            ):
+                warnings.warn(
+                    f"Neuron attribute {attr_key!r} contains NaN values "
+                    f"that will be indistinguishable from missing "
+                    f"entries when reloaded (NaN is the missing-entry "
+                    f"sentinel for float attributes). Drop the "
+                    f"attribute or use a different convention if NaN "
+                    f"is meaningful here.",
+                    UserWarning,
+                    stacklevel=2,
+                )
             float_values = [float(v) if v is not None else np.nan for v in values]
             na_grp.create_dataset(
                 attr_key, data=np.array(float_values, dtype=np.float64)

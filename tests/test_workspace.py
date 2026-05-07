@@ -5073,18 +5073,23 @@ class TestDumpNeuronAttributesCorruptionPaths:
         assert "meta/info" in msg
         assert "/" in msg or "slash" in msg.lower()
 
-    def test_legitimate_nan_attribute_is_silently_dropped(self, tmp_path):
+    def test_legitimate_nan_attribute_warns_at_dump(self, tmp_path):
         """
-        _dump_neuron_attributes with a legitimate float('nan') value
-        round-trips as missing because NaN is the missing-sentinel.
+        _dump_neuron_attributes emits a UserWarning at dump time when
+        a legitimate float('nan') value is supplied for a numeric
+        attribute, surfacing that NaN doubles as the missing-entry
+        sentinel and will be silently dropped on reload.
 
         Tests:
-            (Test Case 1) Storing attr['snr'] = nan and reloading produces
-                a unit dict where the 'snr' key is absent.
-
-        Notes:
-            - documents bug — see REVIEW.md
+            (Test Case 1) A UserWarning is emitted whose message names
+                the offending attribute key.
+            (Test Case 2) The round-trip behavior is unchanged: NaN
+                values are still dropped on reload (current contract;
+                refactoring to a missing-mask is deferred).
+            (Test Case 3) Valid (non-NaN) values are preserved.
         """
+        import warnings as _warnings
+
         try:
             import h5py  # noqa: F811
         except ImportError:
@@ -5097,14 +5102,51 @@ class TestDumpNeuronAttributesCorruptionPaths:
 
         attrs = [{"snr": float("nan")}, {"snr": 5.0}]
         path = str(tmp_path / "nan_attr.h5")
-        with h5py.File(path, "w") as f:
-            grp = f.create_group("test")
-            _dump_neuron_attributes(grp, attrs)
+        with _warnings.catch_warnings(record=True) as w:
+            _warnings.simplefilter("always")
+            with h5py.File(path, "w") as f:
+                grp = f.create_group("test")
+                _dump_neuron_attributes(grp, attrs)
+
+        warn_msgs = [str(rec.message) for rec in w if rec.category is UserWarning]
+        assert any("snr" in m for m in warn_msgs), warn_msgs
+
         with h5py.File(path, "r") as f:
             loaded = _load_neuron_attributes(f["test"])
-
         assert loaded is not None
-        # The legitimate NaN value is silently dropped on reload.
+        # Round-trip behavior unchanged: NaN still dropped on reload.
         assert "snr" not in loaded[0]
-        # The valid float value is preserved.
         assert loaded[1]["snr"] == 5.0
+
+    def test_no_warning_when_only_missing_entries(self, tmp_path):
+        """
+        _dump_neuron_attributes does NOT warn when NaN values arise
+        only from missing-entry None defaults (the legitimate use of
+        the sentinel).
+
+        Tests:
+            (Test Case 1) Mix of None and 5.0 produces no UserWarning.
+        """
+        import warnings as _warnings
+
+        try:
+            import h5py  # noqa: F811
+        except ImportError:
+            pytest.skip("h5py not installed")
+
+        from spikelab.workspace.hdf5_io import _dump_neuron_attributes
+
+        attrs = [{"snr": 5.0}, {}]  # second unit has no 'snr' → None → NaN sentinel
+        path = str(tmp_path / "missing_only.h5")
+        with _warnings.catch_warnings(record=True) as w:
+            _warnings.simplefilter("always")
+            with h5py.File(path, "w") as f:
+                grp = f.create_group("test")
+                _dump_neuron_attributes(grp, attrs)
+
+        warn_msgs = [
+            str(rec.message)
+            for rec in w
+            if rec.category is UserWarning and "indistinguishable" in str(rec.message)
+        ]
+        assert warn_msgs == []
