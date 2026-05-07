@@ -2635,17 +2635,18 @@ class TestHDF5Loader:
                 spike_times_unit="ms",
             )
 
-    def test_group_per_unit_lexicographic_sort(self, tmp_path):
+    def test_group_per_unit_natural_sort(self, tmp_path):
         """
-        Group-per-unit loader with non-numeric dataset names uses lexicographic sort.
+        Group-per-unit loader uses natural (numeric-aware) sort so unit
+        identity is preserved across round-trip at N>=10.
 
         Tests:
-            (Test Case 1) Keys ["1", "10", "2"] are sorted as ["1", "10", "2"]
-                not [1, 2, 10].
+            (Test Case 1) Keys ["1", "10", "2"] are loaded in
+                numerical order [1, 2, 10] (not lex [1, 10, 2]).
         """
         import h5py
 
-        path = str(tmp_path / "lexico.h5")
+        path = str(tmp_path / "natural_sort.h5")
         with h5py.File(path, "w") as f:
             grp = f.create_group("units")
             grp.create_dataset("1", data=[1.0, 2.0])
@@ -2657,10 +2658,10 @@ class TestHDF5Loader:
             path, group_per_unit="units", group_time_unit="ms"
         )
         assert sd.N == 3
-        # First unit in lexicographic order is "1", then "10", then "2"
+        # Natural order: ["1", "2", "10"] → trains in that order.
         np.testing.assert_array_equal(sd.train[0], [1.0, 2.0])
-        np.testing.assert_array_equal(sd.train[1], [3.0, 4.0])
-        np.testing.assert_array_equal(sd.train[2], [5.0, 6.0])
+        np.testing.assert_array_equal(sd.train[1], [5.0, 6.0])
+        np.testing.assert_array_equal(sd.train[2], [3.0, 4.0])
 
     def test_paired_gaps_in_unit_indices(self, tmp_path):
         """

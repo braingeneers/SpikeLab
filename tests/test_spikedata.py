@@ -7575,8 +7575,9 @@ class TestSpikeDataSubtimeEventCenteredBoundary:
         )  # window [-10, 10]
         with pytest.raises(ValueError, match="below recording start"):
             sd.subtime(-50.0, 5.0)
-        # Boundary: start exactly at start_time is allowed.
-        result = sd.subtime(-10.0, 5.0)
+        # Boundary: start exactly at start_time is allowed. With explicit
+        # shift_to=0 the event-centered convention is preserved.
+        result = sd.subtime(-10.0, 5.0, shift_to=0.0)
         assert result.start_time == -10.0
         assert len(result.train[0]) == 2
 

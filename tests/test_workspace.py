@@ -5060,7 +5060,8 @@ class TestDumpNeuronAttributesCorruptionPaths:
                 TypeError because na_grp[<group_name>][:] is invalid.
 
         Notes:
-            - documents bug — see REVIEW.md
+            - documents bug — see REVIEW.md (deferred; needs decision
+              on raise vs. escape)
         """
         try:
             import h5py  # noqa: F811
