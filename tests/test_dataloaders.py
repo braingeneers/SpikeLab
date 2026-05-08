@@ -2733,40 +2733,22 @@ class TestTrainsFromFlatIndex:
                 np.array([1.0, 2.0, 3.0]), np.array([10]), unit="ms", fs_Hz=None
             )
 
-    def test_leading_zero_nwb_convention_silently_shifts_units(self):
+    def test_leading_zero_nwb_convention_auto_detected(self):
         """
         Many NWB files in the wild write ``spike_times_index`` with a
         leading zero — i.e. ``(0, c0, c0+c1, ..., total)`` of length
-        ``N+1``. The current loader iterates with ``start=0; for stop
-        in end_indices``, which on a leading-zero array produces
-        ``N+1`` trains: a phantom empty train at position 0, then
-        each real unit shifted by one index (and a trailing empty
-        train if total < len(flat_times)).
-
-        This test pins the current (incorrect) behaviour so a
-        regression away from it is detected. The recommended fix
-        (raise on, or auto-detect, the leading-zero variant) is
-        documented in REVIEW.md and is owned by the developer
-        role — this test should be updated accordingly when the
-        behaviour is hardened.
+        ``N+1``. The loader auto-detects this variant and strips the
+        leading zero so the cumulative-end semantics produce exactly
+        ``N`` trains with each unit's spikes correctly assigned.
 
         Tests:
             (Test Case 1) Leading-zero ``end_indices=[0, 2, 5]`` with
-                ``flat_times`` of length 5 produces 3 trains (one
-                more than the intended 2 units).
-            (Test Case 2) The first train is empty (the phantom
-                pre-unit slice).
-            (Test Case 3) Real unit 0's spikes appear in the loader's
-                second train, not its first — the silent unit shift.
-
-        Notes:
-            - This is a documented bug; see REVIEW.md
-              "_trains_from_flat_index uses end_indices directly".
-            - The fix should make this test fail; update the
-              expected behaviour at that point.
+                ``flat_times`` of length 5 produces 2 trains (not 3).
+            (Test Case 2) Unit 0's spikes are in trains[0], unit 1's
+                spikes are in trains[1] — no silent identity shift.
         """
         flat = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
-        # Intended: 2 units, c0=2 spikes (1.0, 2.0), c1=3 spikes (3.0, 4.0, 5.0).
+        # 2 units, c0=2 spikes (1.0, 2.0), c1=3 spikes (3.0, 4.0, 5.0).
         # Leading-zero NWB convention: index = [0, 2, 5].
         end_indices = np.array([0, 2, 5])
 
@@ -2774,14 +2756,29 @@ class TestTrainsFromFlatIndex:
             flat, end_indices, unit="ms", fs_Hz=None
         )
 
-        # Current behaviour: 3 trains, not 2. Pin it.
-        assert len(trains) == 3
-        # Phantom first train is empty (flat[0:0]).
+        assert len(trains) == 2
+        np.testing.assert_array_equal(trains[0], np.array([1.0, 2.0]))
+        np.testing.assert_array_equal(trains[1], np.array([3.0, 4.0, 5.0]))
+
+    def test_bare_zero_index_treated_as_single_empty_unit(self):
+        """
+        A bare ``[0]`` is ambiguous between a single empty unit
+        (cumulative-end with one zero-spike unit) and a leading-zero
+        marker. The loader treats it as the former — a single empty
+        train — for backward compatibility with SpikeLab's own
+        exporter convention.
+
+        Tests:
+            (Test Case 1) ``end_indices=[0]`` with empty flat_times
+                produces a single empty train (not zero trains).
+        """
+        flat = np.array([], dtype=float)
+        end_indices = np.array([0])
+        trains = loaders._trains_from_flat_index(
+            flat, end_indices, unit="ms", fs_Hz=None
+        )
+        assert len(trains) == 1
         assert len(trains[0]) == 0
-        # Real unit 0's spikes are now in trains[1]; intended unit 1's
-        # spikes are in trains[2]. The unit identity is shifted.
-        np.testing.assert_array_equal(trains[1], np.array([1.0, 2.0]))
-        np.testing.assert_array_equal(trains[2], np.array([3.0, 4.0, 5.0]))
 
     def test_no_leading_zero_convention_assigns_units_correctly(self):
         """
