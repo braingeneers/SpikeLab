@@ -5021,15 +5021,17 @@ class TestDumpNeuronAttributesCorruptionPaths:
     def test_slash_in_attribute_key_creates_nested_group(self, tmp_path):
         """
         _dump_neuron_attributes with a slash in the attribute key
-        currently creates an unintended HDF5 hierarchy.
+        creates an unintended HDF5 nested hierarchy. On reload the
+        loader crashes because it iterates top-level keys and tries
+        to slice the resulting Group as if it were a Dataset.
 
         Tests:
             (Test Case 1) Attribute key 'meta/info' is interpreted by
                 h5py as a nested path; the dataset is created at
-                'neuron_attributes/meta/info' instead of
-                'neuron_attributes/<literal-key-with-slash>'.
-            (Test Case 2) On reload, the load helper iterates top-level
-                keys of neuron_attributes and may not find the value.
+                'neuron_attributes/meta/info' instead of as a literal
+                key.
+            (Test Case 2) Reload via _load_neuron_attributes raises
+                TypeError because na_grp[<group_name>][:] is invalid.
 
         Notes:
             - documents bug — see REVIEW.md
@@ -5052,15 +5054,11 @@ class TestDumpNeuronAttributesCorruptionPaths:
             # The slash creates a nested 'meta' group with an 'info' dataset.
             assert "neuron_attributes/meta/info" in f["test"]
 
-        # Reload: the literal 'meta/info' top-level key is not present
-        # because of the nested-group interpretation. Either reload
-        # silently drops the key, or it returns None/empty.
+        # Reload: the loader iterates na_grp.keys(), encounters 'meta'
+        # (a Group, not a Dataset), and crashes on the [:] slice.
         with h5py.File(path, "r") as f:
-            loaded = _load_neuron_attributes(f["test"])
-        # The value is no longer accessible under the literal key.
-        if loaded is not None:
-            for d in loaded:
-                assert "meta/info" not in d
+            with pytest.raises(TypeError):
+                _load_neuron_attributes(f["test"])
 
     def test_legitimate_nan_attribute_is_silently_dropped(self, tmp_path):
         """
