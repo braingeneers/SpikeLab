@@ -3408,9 +3408,15 @@ class TestRetrieveSortingBareExceptSilencesErrors:
 
         session, storage = self._make_session()
 
-        # Write a corrupt pickle file.
-        bad_pkl = tmp_path / "bad.pkl"
+        # Source for the fake download lives in a separate subdirectory so
+        # local_path (derived from local_dir/relative) does not collide
+        # with the source — copy2 raises SameFileError otherwise.
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        bad_pkl = src_dir / "bad.pkl"
         bad_pkl.write_bytes(b"not a real pickle")
+        local_dir = tmp_path / "local"
+        local_dir.mkdir()
 
         storage.list_output_files.return_value = ["pfx/out/run-1/bad.pkl"]
         storage.output_prefix_for_run.return_value = "s3://b/pfx/out/run-1/"
@@ -3434,7 +3440,7 @@ class TestRetrieveSortingBareExceptSilencesErrors:
         )
 
         # Should not raise; the bare except swallows the pickle error.
-        result_ws = session.retrieve_result(submit_result, str(tmp_path))
+        result_ws = session.retrieve_result(submit_result, str(local_dir))
         assert isinstance(result_ws, AnalysisWorkspace)
         # The corrupt pickle was silently dropped: no namespaces stored.
         assert len(result_ws._index) == 0
@@ -3455,8 +3461,12 @@ class TestRetrieveSortingBareExceptSilencesErrors:
 
         session, storage = self._make_session()
 
-        bad_json = tmp_path / "metadata.json"
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        bad_json = src_dir / "metadata.json"
         bad_json.write_text("not valid json {")
+        local_dir = tmp_path / "local"
+        local_dir.mkdir()
 
         storage.list_output_files.return_value = ["pfx/out/run-1/metadata.json"]
         storage.output_prefix_for_run.return_value = "s3://b/pfx/out/run-1/"
@@ -3479,7 +3489,7 @@ class TestRetrieveSortingBareExceptSilencesErrors:
             job_type="sorting",
         )
 
-        result_ws = session.retrieve_result(submit_result, str(tmp_path))
+        result_ws = session.retrieve_result(submit_result, str(local_dir))
         assert isinstance(result_ws, AnalysisWorkspace)
         # The corrupt JSON was silently dropped.
         assert len(result_ws._index) == 0

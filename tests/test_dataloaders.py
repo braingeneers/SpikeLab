@@ -4597,45 +4597,47 @@ class TestS3Utils4:
 @skip_no_pandas
 class TestKilosortEmptyClusterInfoTsv:
     """
-    Edge case tests pinning current behavior when cluster_info.tsv is
-    empty (zero bytes).
-
-    Notes:
-        - documents bug — see REVIEW.md
-        - load_spikedata_from_kilosort catches (IOError, ValueError, KeyError)
-          when reading the TSV, but pandas raises EmptyDataError on a
-          zero-byte file, which is NOT in the caught list. The exception
-          propagates and the loader crashes.
+    Tests current behavior when cluster_info.tsv is empty (zero bytes).
+    The loader catches the parse failure via the existing
+    (IOError, ValueError, KeyError) handler — pandas.errors.EmptyDataError
+    is a ValueError subclass — emits a UserWarning and falls through with
+    keep_clusters=None so all clusters are kept.
     """
 
-    def test_empty_cluster_info_tsv_raises_pandas_error(self, tmp_path):
+    def test_empty_cluster_info_tsv_warns_and_keeps_all_clusters(self, tmp_path):
         """
-        Empty cluster_info.tsv currently raises pandas.errors.EmptyDataError.
+        Empty cluster_info.tsv produces a UserWarning and a SpikeData
+        containing all clusters (no filtering applied).
 
         Tests:
-            (Test Case 1) Calling load_spikedata_from_kilosort with a
-                zero-byte cluster_info_tsv raises (pandas.errors.EmptyDataError
-                or any subclass / Exception).
-
-        Notes:
-            - documents bug — see REVIEW.md
+            (Test Case 1) The loader returns without raising.
+            (Test Case 2) sd.N equals the number of unique clusters in
+                spike_clusters.npy (no filtering applied).
+            (Test Case 3) A UserWarning naming "cluster info TSV" is
+                emitted.
         """
+        import warnings as _warnings
+
         d = str(tmp_path / "ks_empty_tsv")
         os.makedirs(d)
         spike_times = np.array([10, 20, 15])
         spike_clusters = np.array([0, 0, 1])
         np.save(os.path.join(d, "spike_times.npy"), spike_times)
         np.save(os.path.join(d, "spike_clusters.npy"), spike_clusters)
-        # Write a zero-byte cluster_info.tsv.
         tsv_path = os.path.join(d, "cluster_info.tsv")
         open(tsv_path, "w").close()
 
-        with pytest.raises(Exception):
-            loaders.load_spikedata_from_kilosort(
+        with _warnings.catch_warnings(record=True) as w:
+            _warnings.simplefilter("always")
+            sd = loaders.load_spikedata_from_kilosort(
                 d,
                 fs_Hz=1000.0,
                 cluster_info_tsv="cluster_info.tsv",
             )
+
+        assert sd.N == 2
+        warn_msgs = [str(rec.message) for rec in w if rec.category is UserWarning]
+        assert any("cluster info TSV" in m for m in warn_msgs), warn_msgs
 
 
 @skip_no_h5py
