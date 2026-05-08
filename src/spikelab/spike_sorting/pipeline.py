@@ -1717,9 +1717,18 @@ def sort_recording(
                     # full sort. Catches MEX / preprocessing / Docker /
                     # model-loading failures in seconds rather than
                     # hours. Disabled by default; enabled by
-                    # ExecutionConfig.canary_first_n_s > 0.
+                    # ExecutionConfig.canary_first_n_s > 0. Additionally
+                    # gated by ExecutionConfig.canary_min_recording_s
+                    # (default 120 s) — for short recordings the full
+                    # sort is fast enough that canary overhead is not
+                    # worth it, and pipeline helpers like
+                    # ``_get_noise_levels`` can crash on
+                    # very-short windows.
                     canary_window_s = float(
                         getattr(exe_cfg, "canary_first_n_s", 0.0) or 0.0
+                    )
+                    canary_min_s = float(
+                        getattr(exe_cfg, "canary_min_recording_s", 120.0) or 0.0
                     )
                     canary_result: Optional[BaseException] = None
                     if canary_window_s > 0:
@@ -1732,12 +1741,25 @@ def sort_recording(
                                     rec_dur_s = n_smp / fs_hz
                             except Exception:
                                 rec_dur_s = None
-                        if rec_dur_s is not None and rec_dur_s < canary_window_s:
-                            print(
-                                f"[canary] skipping {rec_name}: recording "
-                                f"({rec_dur_s:.1f} s) is shorter than the "
-                                f"canary window ({canary_window_s:.1f} s)."
-                            )
+                        skip_reason: Optional[str] = None
+                        if rec_dur_s is not None:
+                            if rec_dur_s < canary_window_s:
+                                skip_reason = (
+                                    f"recording ({rec_dur_s:.1f} s) is "
+                                    f"shorter than the canary window "
+                                    f"({canary_window_s:.1f} s)"
+                                )
+                            elif rec_dur_s < canary_min_s:
+                                skip_reason = (
+                                    f"recording ({rec_dur_s:.1f} s) is "
+                                    f"shorter than the canary minimum "
+                                    f"({canary_min_s:.0f} s); full sort "
+                                    f"is fast enough that canary "
+                                    f"overhead outweighs the smoke-test "
+                                    f"value"
+                                )
+                        if skip_reason is not None:
+                            print(f"[canary] skipping {rec_name}: {skip_reason}.")
                         else:
                             from .canary import run_canary
 

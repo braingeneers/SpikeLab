@@ -8177,12 +8177,14 @@ class TestNewExecutionConfigFields:
         Tests:
             (Test Case 1) canary_first_n_s defaults to 0.0.
             (Test Case 2) docker_image_expected_digest defaults to None.
+            (Test Case 3) canary_min_recording_s defaults to 120.0.
         """
         from spikelab.spike_sorting.config import ExecutionConfig
 
         cfg = ExecutionConfig()
         assert cfg.canary_first_n_s == 0.0
         assert cfg.docker_image_expected_digest is None
+        assert cfg.canary_min_recording_s == 120.0
 
     def test_flat_map_round_trip(self):
         """
@@ -8206,6 +8208,22 @@ class TestNewExecutionConfigFields:
         assert cfg2.execution.canary_first_n_s == 0.0
         # Other field preserved.
         assert cfg2.execution.docker_image_expected_digest == "sha256:abc"
+
+    def test_canary_min_recording_s_round_trip(self):
+        """
+        canary_min_recording_s can be set via from_kwargs and overridden.
+
+        Tests:
+            (Test Case 1) from_kwargs accepts canary_min_recording_s.
+            (Test Case 2) override re-sets it.
+            (Test Case 3) Setting to 0 disables the floor.
+        """
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+
+        cfg = SortingPipelineConfig.from_kwargs(canary_min_recording_s=60.0)
+        assert cfg.execution.canary_min_recording_s == 60.0
+        cfg2 = cfg.override(canary_min_recording_s=0.0)
+        assert cfg2.execution.canary_min_recording_s == 0.0
 
 
 class TestPrintPipelineBannerDockerLines:
