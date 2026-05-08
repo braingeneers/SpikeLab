@@ -41,6 +41,11 @@ def _sync_globals_from_config(
     _globals.GAIN_TO_UV = rec.gain_to_uv
     _globals.OFFSET_TO_UV = rec.offset_to_uv
     _globals.REC_CHUNKS = list(rec.rec_chunks)
+    # Anything the user supplied here is by definition not
+    # auto-populated; reset the flag so a stale True from a previous
+    # sort or canary run does not silently allow a real
+    # frame/time-slice combination through the loader's guard.
+    _globals.REC_CHUNKS_FROM_CONCAT = False
     _globals.REC_CHUNKS_S = list(rec.rec_chunks_s)
     _globals.START_TIME_S = rec.start_time_s
     _globals.END_TIME_S = rec.end_time_s

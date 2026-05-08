@@ -247,13 +247,19 @@ def load_recording(rec_path: Any) -> BaseRecording:
         total_duration_s=rec.get_total_duration(),
     )
     if time_chunks:
-        if len(_globals.REC_CHUNKS) > 0:
+        if len(_globals.REC_CHUNKS) > 0 and not _globals.REC_CHUNKS_FROM_CONCAT:
             raise ValueError(
                 "Cannot combine frame-based 'rec_chunks' with time-based "
                 "'start_time_s'/'end_time_s'/'rec_chunks_s'. Use one or the "
                 "other."
             )
+        # Time-based slicing replaces any auto-populated per-file
+        # boundaries from directory concatenation. The flag is reset
+        # because the resulting chunks were chosen by the user
+        # (directly via ``start_time_s`` / ``end_time_s`` /
+        # ``rec_chunks_s`` or indirectly via the canary).
         _globals.REC_CHUNKS = time_chunks
+        _globals.REC_CHUNKS_FROM_CONCAT = False
 
     if _globals.FIRST_N_MINS is not None:
         end_frame = _globals.FIRST_N_MINS * 60 * rec.get_sampling_frequency()
@@ -533,6 +539,11 @@ def concatenate_recordings(rec_path: Path) -> BaseRecording:
         rec = si_segmentutils.concatenate_recordings(recordings)
         if len(_globals.REC_CHUNKS) == 0:
             _globals.REC_CHUNKS = new_rec_chunks
+            # Mark these chunks as auto-populated so explicit time
+            # slicing (e.g. the canary's ``start_time_s`` /
+            # ``end_time_s``) can override them in ``load_recording``
+            # without tripping the "frame- vs time-based" guard.
+            _globals.REC_CHUNKS_FROM_CONCAT = True
 
     print(f"Done concatenating {len(recordings)} recordings")
     print(f"Total duration: {rec.get_total_duration()}s")
