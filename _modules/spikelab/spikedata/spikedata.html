@@ -1093,7 +1093,8 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Calculate the mean firing rate across the population in each time bin.</span>
 
 <span class="sd">        Parameters:</span>
-<span class="sd">            bin_size (float): Size of the time bin in milliseconds.</span>
+<span class="sd">            bin_size (float): Size of the time bin in milliseconds. Must be</span>
+<span class="sd">                strictly positive.</span>
 <span class="sd">            unit (str): Unit of the firing rate (&#39;Hz&#39; or &#39;kHz&#39;).</span>
 
 <span class="sd">        Returns:</span>
@@ -1104,6 +1105,8 @@
 <span class="sd">            - The rate is calculated as the number of events in each bin</span>
 <span class="sd">              divided by the bin size and number of units.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">bin_size</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;bin_size must be &gt; 0, got </span><span class="si">{</span><span class="n">bin_size</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">N</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">/</span> <span class="n">bin_size</span><span class="p">)))</span>
         <span class="n">binned_rate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">binned</span><span class="p">(</span><span class="n">bin_size</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">N</span> <span class="o">/</span> <span class="n">bin_size</span>
@@ -1473,6 +1476,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">end_time</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_time</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span>
 
+        <span class="k">if</span> <span class="n">shift_to</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">shift_to</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;shift_to (</span><span class="si">{</span><span class="n">shift_to</span><span class="si">}</span><span class="s2">) must be a finite number, not NaN or inf.&quot;</span>
+            <span class="p">)</span>
+
         <span class="k">if</span> <span class="n">start</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">start</span> <span class="ow">is</span> <span class="bp">Ellipsis</span><span class="p">:</span>
             <span class="n">start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_time</span>
         <span class="k">elif</span> <span class="n">start</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_time</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">:</span>
@@ -1497,6 +1505,15 @@
         <span class="k">elif</span> <span class="n">end</span> <span class="o">&gt;</span> <span class="n">end_time</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;end (</span><span class="si">{</span><span class="n">end</span><span class="si">}</span><span class="s2">) exceeds recording end (</span><span class="si">{</span><span class="n">end_time</span><span class="si">}</span><span class="s2">). &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Recording range is [</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">start_time</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">end_time</span><span class="si">}</span><span class="s2">].&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Reject start below the recording&#39;s earliest time. For</span>
+        <span class="c1"># event-centered data (start_time &lt; 0) the literal-time branch</span>
+        <span class="c1"># above lets through values below start_time; this guards them.</span>
+        <span class="k">if</span> <span class="n">start</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_time</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;start (</span><span class="si">{</span><span class="n">start</span><span class="si">}</span><span class="s2">) is below recording start (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">start_time</span><span class="si">}</span><span class="s2">). &quot;</span>
                 <span class="sa">f</span><span class="s2">&quot;Recording range is [</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">start_time</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">end_time</span><span class="si">}</span><span class="s2">].&quot;</span>
             <span class="p">)</span>
 
@@ -1610,7 +1627,8 @@
 <span class="sd">        corresponds to ``start_time``.</span>
 
 <span class="sd">        Parameters:</span>
-<span class="sd">            bin_size (float): Size of the time bin in milliseconds.</span>
+<span class="sd">            bin_size (float): Size of the time bin in milliseconds. Must</span>
+<span class="sd">                be strictly positive.</span>
 <span class="sd">            time_offset (float): Additional offset added to all spike times</span>
 <span class="sd">                before binning (default 0.0). Use this to place spikes at</span>
 <span class="sd">                their absolute recording position, e.g. ``time_offset=500``</span>
@@ -1627,6 +1645,8 @@
 <span class="sd">            - The number of bins is always</span>
 <span class="sd">              ceil((length + time_offset) / bin_size).</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">bin_size</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;bin_size must be &gt; 0, got </span><span class="si">{</span><span class="n">bin_size</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
         <span class="c1"># Shift spike times so start_time → 0 before binning</span>
         <span class="n">shift</span> <span class="o">=</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">start_time</span> <span class="o">+</span> <span class="n">time_offset</span>
         <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span>
@@ -2197,17 +2217,22 @@
                         <span class="n">dist_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
                     <span class="k">continue</span>
 
-                <span class="c1"># For each spike in train_i, find the closest spike in train_j</span>
-                <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="n">train_j</span><span class="p">,</span> <span class="n">train_i</span><span class="p">)</span>
-                <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">idx</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">train_j</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">idx</span><span class="p">)</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">train_j</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="c1"># No predecessor/successor choice when train_j has a</span>
+                    <span class="c1"># single spike; pair every spike in train_i with it.</span>
+                    <span class="n">latencies</span> <span class="o">=</span> <span class="n">train_j</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">train_i</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># For each spike in train_i, find the closest spike in train_j.</span>
+                    <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="n">train_j</span><span class="p">,</span> <span class="n">train_i</span><span class="p">)</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">idx</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">train_j</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">idx</span><span class="p">)</span>
 
-                <span class="c1"># Check both the candidate and its predecessor</span>
-                <span class="n">dt_right</span> <span class="o">=</span> <span class="n">train_j</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">-</span> <span class="n">train_i</span>
-                <span class="n">dt_left</span> <span class="o">=</span> <span class="n">train_j</span><span class="p">[</span><span class="n">idx</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">train_i</span>
+                    <span class="c1"># Check both the candidate and its predecessor.</span>
+                    <span class="n">dt_right</span> <span class="o">=</span> <span class="n">train_j</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">-</span> <span class="n">train_i</span>
+                    <span class="n">dt_left</span> <span class="o">=</span> <span class="n">train_j</span><span class="p">[</span><span class="n">idx</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">train_i</span>
 
-                <span class="c1"># Pick whichever is closer in absolute value</span>
-                <span class="n">use_left</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">dt_left</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">dt_right</span><span class="p">)</span>
-                <span class="n">latencies</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">use_left</span><span class="p">,</span> <span class="n">dt_left</span><span class="p">,</span> <span class="n">dt_right</span><span class="p">)</span>
+                    <span class="c1"># Pick whichever is closer in absolute value.</span>
+                    <span class="n">use_left</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">dt_left</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">dt_right</span><span class="p">)</span>
+                    <span class="n">latencies</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">use_left</span><span class="p">,</span> <span class="n">dt_left</span><span class="p">,</span> <span class="n">dt_right</span><span class="p">)</span>
 
                 <span class="c1"># Apply window filter</span>
                 <span class="k">if</span> <span class="n">window_ms</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>

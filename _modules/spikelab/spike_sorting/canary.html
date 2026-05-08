@@ -498,6 +498,8 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Optional</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
 <span class="kn">from</span><span class="w"> </span><span class="nn">._exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">CLASSIFIED_FAILURES</span> <span class="k">as</span> <span class="n">_CLASSIFIED_FAILURES</span>
 
 <span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
@@ -759,8 +761,11 @@
         <span class="c1"># Prefer the curated SpikeData if present (last entry).</span>
         <span class="n">candidate</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
     <span class="n">n</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">candidate</span><span class="p">,</span> <span class="s2">&quot;N&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">n</span>
+    <span class="c1"># Accept numpy integer types (np.int64, etc.) as well as Python int.</span>
+    <span class="c1"># SpikeData.N is sometimes assigned from numpy operations such as</span>
+    <span class="c1"># np.unique(...).size, which returns a numpy scalar.</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">)):</span>
+        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
     <span class="k">return</span> <span class="kc">None</span>
 </pre></div>
 

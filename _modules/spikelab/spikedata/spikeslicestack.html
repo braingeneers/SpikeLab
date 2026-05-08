@@ -774,6 +774,12 @@
 <span class="sd">                spike times are preserved (not shifted). self.times is updated</span>
 <span class="sd">                to reflect the new absolute time bounds.</span>
 
+<span class="sd">        Raises:</span>
+<span class="sd">            ValueError: If the underlying slice duration (``times[0][1] -</span>
+<span class="sd">                times[0][0]``) is not an integer number of milliseconds.</span>
+<span class="sd">                Use ``SpikeData.subtime()`` with explicit ms bounds for</span>
+<span class="sd">                non-integer windows.</span>
+
 <span class="sd">        Notes:</span>
 <span class="sd">            - Indices are relative to each slice&#39;s own start (index 0 = slice</span>
 <span class="sd">              start ms). They are converted to absolute recording times</span>
@@ -784,6 +790,17 @@
 <span class="sd">              original.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">slice_duration_ms</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">times</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">times</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+        <span class="c1"># 1 index = 1 ms; non-integer durations would silently drop the</span>
+        <span class="c1"># sub-ms tail. Push the rounding decision back to the caller.</span>
+        <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">slice_duration_ms</span> <span class="o">-</span> <span class="nb">round</span><span class="p">(</span><span class="n">slice_duration_ms</span><span class="p">))</span> <span class="o">&gt;</span> <span class="mf">1e-9</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;slice_duration_ms (</span><span class="si">{</span><span class="n">slice_duration_ms</span><span class="si">}</span><span class="s2">) must be an &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;integer number of milliseconds for subtime_by_index &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;(1 index = 1 ms). For non-integer windows, call &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;SpikeData.subtime() with explicit ms bounds, or &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;reconstruct the SpikeSliceStack with an integer slice &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;duration.&quot;</span>
+            <span class="p">)</span>
         <span class="n">T</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">slice_duration_ms</span><span class="p">))</span>
 
         <span class="k">if</span> <span class="n">start_idx</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>

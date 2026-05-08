@@ -631,6 +631,12 @@ to reflect the new absolute time bounds.</p>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>result (<a class="reference internal" href="#spikelab.spikedata.spikeslicestack.SpikeSliceStack" title="spikelab.spikedata.spikeslicestack.SpikeSliceStack">SpikeSliceStack</a>)</p>
 </dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – If the underlying slice duration (<code class="docutils literal notranslate"><span class="pre">times[0][1]</span> <span class="pre">-</span>
+&#160;&#160;&#160; <span class="pre">times[0][0]</span></code>) is not an integer number of milliseconds.
+    Use <code class="docutils literal notranslate"><span class="pre">SpikeData.subtime()</span></code> with explicit ms bounds for
+    non-integer windows.</p>
+</dd>
 </dl>
 <p class="rubric">Notes</p>
 <ul class="simple">
