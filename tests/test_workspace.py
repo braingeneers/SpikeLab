@@ -5196,3 +5196,115 @@ class TestDumpNeuronAttributesBoolCoercion:
         assert loaded.neuron_attributes[0]["passed"] == 1.0
         assert isinstance(loaded.neuron_attributes[0]["passed"], float)
         assert not isinstance(loaded.neuron_attributes[0]["passed"], bool)
+
+
+class TestDumpDictKeyValidation:
+    """
+    Tests that _dump_dict rejects dict keys h5py would mishandle: empty
+    strings, non-strings, and slash-containing keys (which h5py treats
+    as a path separator and silently corrupts the round-trip).
+    """
+
+    def test_empty_string_key_raises(self, tmp_path):
+        """
+        _dump_dict({"": ...}) raises ValueError naming "empty".
+
+        Tests:
+            (Test Case 1) Empty-string key raises ValueError.
+        """
+        if not H5PY_AVAILABLE:
+            pytest.skip("h5py not installed")
+        import h5py
+
+        from spikelab.workspace.hdf5_io import _dump_dict
+
+        path = str(tmp_path / "empty_key.h5")
+        with h5py.File(path, "w") as f:
+            grp = f.create_group("test")
+            with pytest.raises(ValueError, match="empty"):
+                _dump_dict(grp, {"": 1}, created_at=0.0)
+
+    def test_non_string_key_raises(self, tmp_path):
+        """
+        _dump_dict with a non-string key raises ValueError naming the
+        offending type.
+
+        Tests:
+            (Test Case 1) Integer key raises ValueError naming "int".
+            (Test Case 2) Tuple key raises ValueError naming "tuple".
+        """
+        if not H5PY_AVAILABLE:
+            pytest.skip("h5py not installed")
+        import h5py
+
+        from spikelab.workspace.hdf5_io import _dump_dict
+
+        path = str(tmp_path / "non_str_key.h5")
+        with h5py.File(path, "w") as f:
+            grp = f.create_group("test")
+            with pytest.raises(ValueError, match="int"):
+                _dump_dict(grp, {7: "value"}, created_at=0.0)
+            with pytest.raises(ValueError, match="tuple"):
+                _dump_dict(grp, {(1, 2): "value"}, created_at=0.0)
+
+    def test_slash_in_key_raises(self, tmp_path):
+        """
+        _dump_dict with a slash-containing key raises ValueError naming
+        the h5py path-separator behavior, instead of silently producing
+        a nested group hierarchy.
+
+        Tests:
+            (Test Case 1) Key 'a/b' raises ValueError.
+            (Test Case 2) The error names the offending key and the
+                slash semantics.
+        """
+        if not H5PY_AVAILABLE:
+            pytest.skip("h5py not installed")
+        import h5py
+
+        from spikelab.workspace.hdf5_io import _dump_dict
+
+        path = str(tmp_path / "slash_key.h5")
+        with h5py.File(path, "w") as f:
+            grp = f.create_group("test")
+            with pytest.raises(ValueError) as exc_info:
+                _dump_dict(grp, {"a/b": 1}, created_at=0.0)
+        msg = str(exc_info.value)
+        assert "a/b" in msg
+        assert "slash" in msg.lower() or "/" in msg
+
+    def test_valid_keys_still_work(self, tmp_path):
+        """
+        Valid string keys (including ones with dots and underscores)
+        still round-trip — no regression for the happy path.
+
+        Tests:
+            (Test Case 1) Mixed scalar / str values with well-formed
+                keys round-trip via _dump_dict / _load_dict.
+        """
+        if not H5PY_AVAILABLE:
+            pytest.skip("h5py not installed")
+        import h5py
+
+        from spikelab.workspace.hdf5_io import _dump_dict, _load_dict
+
+        d = {
+            "scalar_int": 42,
+            "scalar_float": 3.14,
+            "scalar_bool": True,
+            "string_val": "hello",
+            "with.dot": 1,
+            "with_underscore": 2,
+        }
+        path = str(tmp_path / "valid_keys.h5")
+        with h5py.File(path, "w") as f:
+            grp = f.create_group("test")
+            _dump_dict(grp, d, created_at=0.0)
+        with h5py.File(path, "r") as f:
+            loaded = _load_dict(f["test"])
+        assert loaded["scalar_int"] == 42
+        assert loaded["scalar_float"] == 3.14
+        assert loaded["scalar_bool"] is True
+        assert loaded["string_val"] == "hello"
+        assert loaded["with.dot"] == 1
+        assert loaded["with_underscore"] == 2

@@ -342,8 +342,30 @@ def _dump_dict(grp, d: dict, created_at: float) -> None:
     wrapped in a group are stored as scalar datasets with
     ``__type__ = "scalar"``.  Lists are converted to numpy arrays before
     serialisation.
+
+    Raises:
+        ValueError: If any dict key is not a non-empty string, or
+            contains a forward slash (h5py interprets ``/`` as a
+            group-path separator and would silently corrupt the
+            round-trip).
     """
     for k, v in d.items():
+        # Reject keys that h5py would either reject cryptically
+        # (empty / non-string) or silently misinterpret (slash). Up-front
+        # validation gives a clear error and avoids silent corruption.
+        if not isinstance(k, str):
+            raise ValueError(
+                f"Dict key {k!r} is not a string. HDF5 group names must "
+                f"be strings (got {type(k).__name__})."
+            )
+        if not k:
+            raise ValueError("Dict key is empty. HDF5 group names must be non-empty.")
+        if "/" in k:
+            raise ValueError(
+                f"Dict key {k!r} contains a forward slash. h5py treats "
+                f"'/' as a group-path separator; use a different "
+                f"separator (e.g. '_' or '.') in dict keys."
+            )
         if isinstance(v, list):
             v = np.asarray(v)
             if v.dtype == object:
