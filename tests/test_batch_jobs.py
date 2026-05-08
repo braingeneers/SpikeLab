@@ -3559,32 +3559,34 @@ class TestSleepDetectionEdgeCases:
     """Boundary tests for _contains_disallowed_sleep covering NaN durations,
     -infinity, mixed case, and whitespace-padded tokens."""
 
-    def test_nan_duration_not_flagged(self):
+    def test_nan_duration_flagged(self):
         """
-        ``sleep NaN`` parses as float("NaN") successfully but the
-        comparison ``NaN >= 86400`` is always False, so the heuristic
-        does not flag a NaN duration. Pin current behaviour.
+        ``sleep NaN`` is flagged as a disallowed sleep pattern — NaN is
+        not a finite duration; the actual sleep binary rejects it, but
+        a job spec containing it is suspicious (bug or obfuscation
+        around the literal 'inf'/'infinity' check).
 
         Tests:
-            (Test Case 1) ['sleep', 'NaN'] is not flagged as disallowed.
+            (Test Case 1) ['sleep', 'NaN'] is flagged.
         """
         from spikelab.batch_jobs.policy import _contains_disallowed_sleep
 
-        assert _contains_disallowed_sleep(["sleep", "NaN"], []) is False
+        assert _contains_disallowed_sleep(["sleep", "NaN"], []) is True
 
-    def test_negative_infinity_duration_not_flagged(self):
+    def test_negative_infinity_duration_flagged(self):
         """
-        ``sleep -infinity`` parses as float("-infinity") successfully;
-        ``-inf >= 86400`` is False, so the heuristic does not flag this
-        counter-intuitive idle pattern. Documented gap; pin current
-        behaviour.
+        ``sleep -infinity`` is flagged as a disallowed sleep pattern —
+        non-finite duration suggests intent to bypass the literal
+        'inf'/'infinity' string check.
 
         Tests:
-            (Test Case 1) ['sleep', '-infinity'] is not flagged.
+            (Test Case 1) ['sleep', '-infinity'] is flagged.
+            (Test Case 2) ['sleep', '-inf'] is flagged.
         """
         from spikelab.batch_jobs.policy import _contains_disallowed_sleep
 
-        assert _contains_disallowed_sleep(["sleep", "-infinity"], []) is False
+        assert _contains_disallowed_sleep(["sleep", "-infinity"], []) is True
+        assert _contains_disallowed_sleep(["sleep", "-inf"], []) is True
 
     def test_mixed_case_sleep_infinity_flagged(self):
         """

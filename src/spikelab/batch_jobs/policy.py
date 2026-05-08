@@ -6,6 +6,7 @@ different clusters can enforce different rules.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import Iterable, List, Literal, Sequence
 
@@ -53,7 +54,11 @@ def _contains_disallowed_sleep(command: Sequence[str], args: Sequence[str]) -> b
             return True
         try:
             duration = float(next_tok)
-            if duration >= _SLEEP_THRESHOLD:
+            # Flag any non-finite duration (NaN, +inf, -inf) as suspicious —
+            # the actual sleep binary rejects these, and a job spec with
+            # such a token is almost certainly a bug or an obfuscation
+            # attempt around the literal "inf" / "infinity" check above.
+            if not math.isfinite(duration) or duration >= _SLEEP_THRESHOLD:
                 return True
         except (ValueError, IndexError):
             pass
