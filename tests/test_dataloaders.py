@@ -4653,10 +4653,6 @@ class TestKilosortEmptyClusterInfoTsv:
         )
         assert sd.N == 2
 
-        assert sd.N == 2
-        warn_msgs = [str(rec.message) for rec in w if rec.category is UserWarning]
-        assert any("cluster info TSV" in m for m in warn_msgs), warn_msgs
-
 
 @skip_no_h5py
 class TestHDF5GroupPerUnitNaturalSort:
