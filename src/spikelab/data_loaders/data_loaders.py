@@ -723,7 +723,7 @@ def load_spikedata_from_kilosort(
             except ImportError:
                 warnings.warn(
                     "pandas is required to parse cluster info TSV. "
-                    "Install with: pip install spikelab[io]. "
+                    "Install with: pip install oc-spikelab[io]. "
                     "Keeping all clusters."
                 )
             except (IOError, ValueError, KeyError) as e:
@@ -1200,7 +1200,7 @@ def query_ibl_probes(
     except ImportError as e:
         raise ImportError(
             "pandas is required for query_ibl_probes. "
-            "Install with: pip install spikelab[io]"
+            "Install with: pip install oc-spikelab[io]"
         ) from e
 
     # Authenticate against the public IBL server.
