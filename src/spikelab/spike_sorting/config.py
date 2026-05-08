@@ -297,6 +297,22 @@ class ExecutionConfig:
     io_stall_watchdog: bool = True
     io_stall_s: float = 300.0
     io_stall_poll_interval_s: float = 10.0
+    # Polling scope:
+    #   "process" (default) — track read/write byte counters of the
+    #     orchestrating Python process and its descendants; immune
+    #     to ambient I/O on the same disk. Default because the
+    #     interesting failure mode is the sort process itself
+    #     hanging, not the device hanging globally.
+    #   "device" — legacy mode; polls the volume-wide
+    #     ``disk_io_counters`` for the inter folder. Catches kernel
+    #     I/O hangs that freeze the device, but background activity
+    #     from unrelated processes can mask a stall in the sort.
+    io_stall_mode: str = "process"
+    # When True (default) and ``io_stall_mode="process"``, the
+    # watchdog walks each registered PID's descendants on every poll
+    # so subprocesses spawned by the sort (spikeinterface workers,
+    # KS2 MATLAB child) contribute to the byte counter.
+    io_stall_include_descendants: bool = True
 
     # ------------------------------------------------------------------
     # Temp-file cleanup at sort end (guards/_tempfile_cleanup.py)
@@ -633,6 +649,11 @@ class SortingPipelineConfig:
             "io_stall_watchdog": ("execution", "io_stall_watchdog"),
             "io_stall_s": ("execution", "io_stall_s"),
             "io_stall_poll_interval_s": ("execution", "io_stall_poll_interval_s"),
+            "io_stall_mode": ("execution", "io_stall_mode"),
+            "io_stall_include_descendants": (
+                "execution",
+                "io_stall_include_descendants",
+            ),
             # ExecutionConfig — temp-file cleanup
             "cleanup_temp_files": ("execution", "cleanup_temp_files"),
             # ExecutionConfig — Windows sleep prevention

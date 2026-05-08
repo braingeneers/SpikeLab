@@ -1666,11 +1666,41 @@ def sort_recording(
                 from .guards import IOStallWatchdog
 
                 if getattr(exe_cfg, "io_stall_watchdog", True):
-                    io_stall_wd = IOStallWatchdog(
-                        folder=Path(inter_path),
-                        stall_s=exe_cfg.io_stall_s,
-                        poll_interval_s=exe_cfg.io_stall_poll_interval_s,
-                    )
+                    io_stall_mode = getattr(exe_cfg, "io_stall_mode", "process")
+                    if io_stall_mode == "process":
+                        # Process-mode: track this orchestrating
+                        # python process's I/O. Descendants are
+                        # included by default so a sorter child or
+                        # spikeinterface worker is covered.
+                        # Docker-backed sorters: the daemon is the
+                        # parent of the container, NOT this process,
+                        # so a separate ``register_pid`` happens
+                        # downstream once the container is known
+                        # (see ks2_runner). The fallback is the
+                        # log-inactivity watchdog, which always
+                        # covers the case where the container
+                        # silently hangs.
+                        io_stall_wd = IOStallWatchdog(
+                            pids=[os.getpid()],
+                            include_descendants=getattr(
+                                exe_cfg,
+                                "io_stall_include_descendants",
+                                True,
+                            ),
+                            stall_s=exe_cfg.io_stall_s,
+                            poll_interval_s=exe_cfg.io_stall_poll_interval_s,
+                        )
+                    elif io_stall_mode == "device":
+                        io_stall_wd = IOStallWatchdog(
+                            folder=Path(inter_path),
+                            stall_s=exe_cfg.io_stall_s,
+                            poll_interval_s=exe_cfg.io_stall_poll_interval_s,
+                        )
+                    else:
+                        raise ValueError(
+                            f"Unknown io_stall_mode={io_stall_mode!r}; "
+                            "must be 'process' or 'device'."
+                        )
                 else:
                     io_stall_wd = nullcontext()
 
