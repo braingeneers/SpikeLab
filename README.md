@@ -30,7 +30,7 @@ You need **Python 3.10 or later**. If you don't have Python installed, we recomm
 ### Option 1: pip install (recommended)
 
 ```bash
-pip install spikelab
+pip install oc-spikelab
 ```
 
 This installs SpikeLab and its core dependencies (numpy, scipy, matplotlib, h5py).
@@ -44,7 +44,7 @@ git clone https://github.com/braingeneers/SpikeLab.git
 cd SpikeLab
 conda env create -f environment.yml
 conda activate spikelab
-pip install spikelab
+pip install oc-spikelab
 ```
 
 ### Option 3: install from source
@@ -73,28 +73,28 @@ If you see the success message, you're ready to go.
 Some features require additional packages that are not installed by default. Install them by appending the extra in brackets:
 
 ```bash
-pip install "spikelab[s3]"
-pip install "spikelab[s3,ml,mcp]"   # multiple extras
-pip install "spikelab[all]"         # everything except kilosort4
+pip install "oc-spikelab[s3]"
+pip install "oc-spikelab[s3,ml,mcp]"   # multiple extras
+pip install "oc-spikelab[all]"         # everything except kilosort4
 ```
 
 | Extra | Install command | What it enables |
 |---|---|---|
-| `mcp` | `pip install "spikelab[mcp]"` | Built-in MCP server for tool-based workflows |
-| `sse` | `pip install "spikelab[sse]"` | SSE transport for the MCP server (uvicorn + starlette) |
-| `s3` | `pip install "spikelab[s3]"` | Upload/download data from Amazon S3 (or any S3-compatible store) |
-| `io` | `pip install "spikelab[io]"` | Extra I/O helpers (pandas) |
-| `ml` | `pip install "spikelab[ml]"` | scikit-learn, UMAP, networkx, python-louvain |
-| `neo` | `pip install "spikelab[neo]"` | NWB / neo / quantities for reading NWB files |
-| `ibl` | `pip install "spikelab[ibl]"` (+ `pip install git+https://github.com/int-brain-lab/paper-brain-wide-map.git`) | Query and load IBL Brain-Wide Map datasets (`ONE-api`; `brainwidemap` not on PyPI) |
-| `gplvm` | `pip install "spikelab[gplvm]"` | Gaussian Process Latent Variable Model fitting |
-| `numba` | `pip install "spikelab[numba]"` | Numba-accelerated routines |
-| `spike-sorting` | `pip install "spikelab[spike-sorting]"` (+ MATLAB for Kilosort2) | Kilosort2 / rt-sort pipelines via `spikelab.spike_sorting` |
-| `kilosort4` | `pip install "spikelab[kilosort4]"` (+ PyTorch with CUDA, [installed separately](https://pytorch.org/get-started/locally/)) | Kilosort4 pipeline |
-| `batch-jobs` | `pip install "spikelab[batch-jobs]"` | Submit jobs to remote Kubernetes clusters (`spikelab-batch-jobs` CLI) |
-| `docs` | `pip install "spikelab[docs]"` | Sphinx + theme + autodoc-typehints for building the docs |
-| `dev` | `pip install "spikelab[dev]"` | pytest, black, and other dev utilities |
-| `all` | `pip install "spikelab[all]"` | All of the above except `kilosort4` |
+| `mcp` | `pip install "oc-spikelab[mcp]"` | Built-in MCP server for tool-based workflows |
+| `sse` | `pip install "oc-spikelab[sse]"` | SSE transport for the MCP server (uvicorn + starlette) |
+| `s3` | `pip install "oc-spikelab[s3]"` | Upload/download data from Amazon S3 (or any S3-compatible store) |
+| `io` | `pip install "oc-spikelab[io]"` | Extra I/O helpers (pandas) |
+| `ml` | `pip install "oc-spikelab[ml]"` | scikit-learn, UMAP, networkx, python-louvain |
+| `neo` | `pip install "oc-spikelab[neo]"` | NWB / neo / quantities for reading NWB files |
+| `ibl` | `pip install "oc-spikelab[ibl]"` (+ `pip install git+https://github.com/int-brain-lab/paper-brain-wide-map.git`) | Query and load IBL Brain-Wide Map datasets (`ONE-api`; `brainwidemap` not on PyPI) |
+| `gplvm` | `pip install "oc-spikelab[gplvm]"` | Gaussian Process Latent Variable Model fitting |
+| `numba` | `pip install "oc-spikelab[numba]"` | Numba-accelerated routines |
+| `spike-sorting` | `pip install "oc-spikelab[spike-sorting]"` (+ MATLAB for Kilosort2) | Kilosort2 / rt-sort pipelines via `spikelab.spike_sorting` |
+| `kilosort4` | `pip install "oc-spikelab[kilosort4]"` (+ PyTorch with CUDA, [installed separately](https://pytorch.org/get-started/locally/)) | Kilosort4 pipeline |
+| `batch-jobs` | `pip install "oc-spikelab[batch-jobs]"` | Submit jobs to remote Kubernetes clusters (`spikelab-batch-jobs` CLI) |
+| `docs` | `pip install "oc-spikelab[docs]"` | Sphinx + theme + autodoc-typehints for building the docs |
+| `dev` | `pip install "oc-spikelab[dev]"` | pytest, black, and other dev utilities |
+| `all` | `pip install "oc-spikelab[all]"` | All of the above except `kilosort4` |
 
 When installing from a local source checkout, replace `spikelab` with `-e .` (e.g. `pip install -e ".[s3]"`).
 

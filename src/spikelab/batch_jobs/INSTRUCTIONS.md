@@ -194,7 +194,7 @@ kubectl version --client
 # If not installed, guide the user to https://kubernetes.io/docs/tasks/tools/
 
 # SpikeLab with batch-jobs extra
-pip install spikelab[batch-jobs]
+pip install oc-spikelab[batch-jobs]
 
 # Docker (only needed if building custom images)
 docker --version
@@ -266,7 +266,7 @@ spikelab-batch-jobs render-job \
 
 If this prints a valid YAML manifest, the setup is complete. If it fails,
 check the error message — common issues:
-- `ModuleNotFoundError` → `pip install spikelab[batch-jobs]`
+- `ModuleNotFoundError` → `pip install oc-spikelab[batch-jobs]`
 - Profile not found → check `--profile` name or use `--profile-file`
 - Image not specified → the `defaults` profile has no default images;
   use `--image <tag>` or switch to a profile with `default_images`

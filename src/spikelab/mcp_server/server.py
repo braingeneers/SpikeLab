@@ -18,7 +18,7 @@ try:
 except ImportError as e:
     raise ImportError(
         "The MCP server requires the 'mcp' package. "
-        "Install with: pip install spikelab[mcp]"
+        "Install with: pip install oc-spikelab[mcp]"
     ) from e
 
 from .tools import analysis, data_loaders, exporters

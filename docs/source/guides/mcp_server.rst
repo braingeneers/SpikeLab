@@ -41,7 +41,7 @@ To use SSE (Server-Sent Events) transport instead, pass ``--transport sse``:
    python -m spikelab.mcp_server --transport sse --port 8080
 
 SSE transport requires the ``sse`` optional dependency group
-(``pip install spikelab[sse]``).
+(``pip install oc-spikelab[sse]``).
 
 The server requires the ``mcp`` Python package as a dependency.
 
