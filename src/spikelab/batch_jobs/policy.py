@@ -132,15 +132,32 @@ def evaluate_policy(
             )
         )
 
-    if (
-        job_spec.active_deadline_seconds
-        and job_spec.active_deadline_seconds > cfg.max_runtime_seconds
-    ):
+    if not job_spec.active_deadline_seconds:
+        # No deadline set; the cluster's own max applies via Kubernetes.
+        # Emit a PASS finding so the audit trail is complete.
+        findings.append(
+            PolicyFinding(
+                "long_runtime",
+                "PASS",
+                "No active_deadline_seconds set; cluster default applies.",
+            )
+        )
+    elif job_spec.active_deadline_seconds > cfg.max_runtime_seconds:
         findings.append(
             PolicyFinding(
                 "long_runtime",
                 "WARN",
-                f"Runtime exceeds configured maximum ({cfg.max_runtime_seconds}s).",
+                f"Runtime ({job_spec.active_deadline_seconds}s) exceeds "
+                f"configured maximum ({cfg.max_runtime_seconds}s).",
+            )
+        )
+    else:
+        findings.append(
+            PolicyFinding(
+                "long_runtime",
+                "PASS",
+                f"Runtime ({job_spec.active_deadline_seconds}s) within "
+                f"configured maximum ({cfg.max_runtime_seconds}s).",
             )
         )
     return findings

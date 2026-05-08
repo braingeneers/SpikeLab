@@ -1426,15 +1426,25 @@ class TestPolicy:
         codes = {f.code: f.level for f in findings}
         assert codes["long_runtime"] == "WARN"
 
-    def test_policy_no_runtime_warning_when_not_set(self):
-        """No long_runtime finding when active_deadline_seconds is None."""
+    def test_policy_long_runtime_pass_when_not_set(self):
+        """
+        No active_deadline_seconds set produces a PASS finding (cluster
+        default applies). The other policy checks always emit a finding;
+        long_runtime now matches that pattern for audit-trail symmetry.
+
+        Tests:
+            (Test Case 1) None deadline produces a long_runtime PASS.
+            (Test Case 2) The PASS message names the cluster-default
+                fallback so operators can see why no warning fired.
+        """
         payload = _example_payload()
         # active_deadline_seconds defaults to None
         job_spec = validate_job_spec(payload)
         profile = ClusterProfile(name="test")
         findings = evaluate_policy(job_spec, profile)
-        codes = {f.code for f in findings}
-        assert "long_runtime" not in codes
+        long_finding = [f for f in findings if f.code == "long_runtime"][0]
+        assert long_finding.level == "PASS"
+        assert "cluster default" in long_finding.message
 
     def test_policy_request_limit_mismatch_warning(self):
         """Mismatched CPU/memory requests and limits triggers WARN."""
@@ -1531,7 +1541,16 @@ class TestPolicyBoundary:
         assert sleep_finding.level == "PASS"
 
     def test_active_deadline_at_boundary(self):
-        """active_deadline_seconds == max_runtime_seconds should not WARN."""
+        """
+        active_deadline_seconds == max_runtime_seconds is treated as
+        within-limit and produces a long_runtime PASS finding (not WARN).
+
+        Tests:
+            (Test Case 1) Boundary deadline produces PASS (the WARN
+                threshold is strict ``>``).
+            (Test Case 2) The PASS message names both the actual
+                deadline and the configured maximum.
+        """
         payload = _example_payload()
         payload["active_deadline_seconds"] = 1_209_600  # exactly 14 days
         job_spec = validate_job_spec(payload)
@@ -1540,8 +1559,9 @@ class TestPolicyBoundary:
             policy=PolicyConfig(max_runtime_seconds=1_209_600),
         )
         findings = evaluate_policy(job_spec, profile)
-        codes = {f.code for f in findings}
-        assert "long_runtime" not in codes
+        long_finding = [f for f in findings if f.code == "long_runtime"][0]
+        assert long_finding.level == "PASS"
+        assert "1209600" in long_finding.message
 
     def test_mixed_block_and_warn_findings(self):
         """BLOCK takes precedence over WARN in summarize_preflight."""
