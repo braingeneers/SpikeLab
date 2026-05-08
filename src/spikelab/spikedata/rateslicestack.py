@@ -75,14 +75,12 @@ class RateSliceStack:
     ):
         if (data_obj is None) and (event_matrix is None):
             raise ValueError(
-                "Must input either data_obj(option 1) or event_matrix(option 2)"
+                "Must input either data_obj (option 1) or event_matrix (option 2)"
             )
         if (data_obj is not None) and (event_matrix is not None):
-            warnings.warn(
-                "User input both data_obj and event_matrix. Ignoring data_obj and using event_matrix instead.",
-                UserWarning,
+            raise ValueError(
+                "Provide exactly one of data_obj or event_matrix, not both."
             )
-            data_obj = None
 
         if sigma_ms is not None and sigma_ms < 0:
             raise ValueError("sigma_ms must be non-negative")

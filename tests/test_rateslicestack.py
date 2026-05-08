@@ -177,25 +177,23 @@ class TestRateSliceStackConstructor:
         with pytest.raises(ValueError, match="Must input"):
             RateSliceStack()
 
-    def test_both_inputs_warns(self):
+    def test_both_inputs_raises(self):
         """
-        Tests that providing both data_obj and event_matrix warns and uses event_matrix.
+        Tests that providing both data_obj and event_matrix raises
+        ValueError instead of silently discarding the data_obj-derived
+        stack after running Option-1 to completion.
 
         Tests:
-            (Test Case 1) UserWarning is raised.
-            (Test Case 2) event_matrix is used.
+            (Test Case 1) ValueError raised naming "exactly one".
         """
         rd = make_ratedata(n_units=2, n_times=50)
         mat = make_event_matrix(2, 10, 3)
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            rss = RateSliceStack(
+        with pytest.raises(ValueError, match="exactly one"):
+            RateSliceStack(
                 data_obj=rd,
                 event_matrix=mat,
                 times_start_to_end=[(0.0, 10.0), (20.0, 30.0), (40.0, 50.0)],
             )
-            assert any("Ignoring data_obj" in str(warning.message) for warning in w)
-        assert rss.event_stack.shape == (2, 10, 3)
 
     def test_invalid_data_obj_type_raises(self):
         """
