@@ -5359,68 +5359,95 @@ class TestIOStallProcessModeReadBytes:
 
 
 class TestIOStallProcessModePollLoop:
-    """Polling-loop behaviour in process mode against real PIDs."""
+    """Polling-loop behaviour in process mode against a stubbed counter.
 
-    def test_trips_on_real_stalled_subprocess(self, tmp_path):
+    Uses a stubbed ``_read_io_bytes_for_pids`` so the test is
+    deterministic across CI environments where ``/proc/<pid>/io``
+    permissions or ptrace_scope settings can vary. The polling
+    loop's stall-detection logic is what's under test here, not
+    the real psutil read path (that's covered by
+    :class:`TestIOStallProcessModeReadBytes`).
+    """
+
+    def test_trips_when_per_pid_counter_stays_flat(self, monkeypatch):
         """
-        Spawn a Python subprocess that does an initial write then
-        sleeps; a process-mode watchdog should observe the per-PID
-        byte counter going flat and trip within tolerance.
+        Process-mode polling loop trips when the per-PID byte
+        counter doesn't change for ``stall_s`` seconds.
 
         Tests:
-            (Test Case 1) Real subprocess (``python -c
-                "open... time.sleep"``) + IOStallWatchdog with
-                ``pids=[child.pid]`` and ``stall_s=2`` — kill
-                callback fires within ~3 s of the stall starting.
+            (Test Case 1) Stubbed ``_read_io_bytes_for_pids``
+                returns a constant ``(42, 1)``; with ``stall_s=1.0``
+                and ``poll_interval_s=0.1``, the kill callback
+                fires within 3 s and ``tripped()`` becomes True.
         """
-        # Worker writes a small file, then sleeps without touching
-        # any I/O. Per-process counters stay flat during sleep.
-        target = tmp_path / "out.bin"
-        worker_code = (
-            f"import os, time\n"
-            f"with open({str(target)!r}, 'wb') as f:\n"
-            f"    f.write(b'x' * (1024 * 1024))\n"
-            f"    f.flush()\n"
-            f"    os.fsync(f.fileno())\n"
-            f"time.sleep(15)\n"
+        from spikelab.spike_sorting.guards import _io_stall as iom
+
+        # Constant counter -> stall detected by the polling loop.
+        monkeypatch.setattr(
+            iom,
+            "_read_io_bytes_for_pids",
+            lambda pids, *, include_descendants=True: (42, len(pids)),
         )
-        proc = subprocess.Popen(
-            [sys.executable, "-c", worker_code],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+
+        kill_event = threading.Event()
+        wd = IOStallWatchdog(
+            pids=[12345],  # PID is irrelevant — the counter is stubbed
+            stall_s=1.0,
+            poll_interval_s=0.1,
+            kill_grace_s=0.25,
         )
+        wd.register_kill_callback(kill_event.set)
+        # The trip cascade ends in ``_thread.interrupt_main`` which
+        # can race with our context exit and land here as a
+        # KeyboardInterrupt — documented behaviour, not a test
+        # failure. Catch it and read kill_event afterwards.
         try:
-            # Give the subprocess a moment to do its initial write
-            # and hit the sleep.
-            time.sleep(0.5)
-            kill_event = threading.Event()
-            wd = IOStallWatchdog(
-                pids=[proc.pid],
-                stall_s=2.0,
-                poll_interval_s=0.25,
-                kill_grace_s=0.25,
-            )
-            wd.register_kill_callback(kill_event.set)
-            # The watchdog's trip cascade ends in
-            # ``_thread.interrupt_main()``. The kill callback fires
-            # first, but interrupt_main can race with our context
-            # exit and land here as KeyboardInterrupt — that is the
-            # documented behaviour, not a test failure. Catch it.
-            try:
-                with wd:
-                    fired = kill_event.wait(timeout=6.0)
-            except KeyboardInterrupt:
-                fired = kill_event.is_set()
-            assert fired, (
-                "Process-mode watchdog did not fire kill_callback "
-                "within 6 s for a stalled real subprocess."
-            )
-            assert wd.tripped()
-        finally:
-            try:
-                proc.kill()
-            finally:
-                proc.wait(timeout=5)
+            with wd:
+                fired = kill_event.wait(timeout=3.0)
+        except KeyboardInterrupt:
+            fired = kill_event.is_set()
+        assert fired, (
+            "Process-mode polling loop did not fire kill_callback "
+            "within 3 s for a flat per-PID byte counter."
+        )
+        assert wd.tripped()
+
+    def test_does_not_trip_when_per_pid_counter_climbs(self, monkeypatch):
+        """
+        Process-mode polling loop does NOT trip while the per-PID
+        counter is climbing on every poll.
+
+        Tests:
+            (Test Case 1) Stubbed ``_read_io_bytes_for_pids``
+                returns a strictly-increasing value on each call.
+                With ``stall_s=1.0`` and ``poll_interval_s=0.1``,
+                the kill callback does not fire within 1.5 s.
+        """
+        from spikelab.spike_sorting.guards import _io_stall as iom
+
+        counter = {"v": 0}
+
+        def _climbing(pids, *, include_descendants=True):
+            counter["v"] += 1024
+            return counter["v"], len(pids)
+
+        monkeypatch.setattr(iom, "_read_io_bytes_for_pids", _climbing)
+
+        kill_event = threading.Event()
+        wd = IOStallWatchdog(
+            pids=[12345],
+            stall_s=1.0,
+            poll_interval_s=0.1,
+            kill_grace_s=0.25,
+        )
+        wd.register_kill_callback(kill_event.set)
+        with wd:
+            fired = kill_event.wait(timeout=1.5)
+        assert not fired, (
+            "Process-mode watchdog tripped despite a climbing "
+            "per-PID counter — false positive."
+        )
+        assert not wd.tripped()
 
 
 class TestIOStallWatchdogMaybeWarn:
