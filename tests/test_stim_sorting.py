@@ -799,3 +799,342 @@ class TestRecenterShiftWarning:
             warnings.simplefilter("always")
             recenter_stim_times(traces, np.array([]), fs_Hz=20000.0, max_offset_ms=50.0)
         assert not any("median |offset|" in str(w.message) for w in caught)
+
+
+# ===========================================================================
+# Multi-peak recentering (PR #126) — _multi_peak_anchor + multi_peak path
+# ===========================================================================
+
+
+class TestMultiPeakAnchor:
+    """Direct unit tests for the private _multi_peak_anchor helper."""
+
+    def test_empty_segment_returns_lo(self):
+        """
+        _multi_peak_anchor with hi <= lo (empty segment) returns lo.
+
+        Tests:
+            (Test Case 1) An empty search window short-circuits to lo.
+        """
+        from spikelab.spike_sorting.stim_sorting.recentering import (
+            _multi_peak_anchor,
+        )
+
+        reference = np.zeros(100, dtype=np.float64)
+        result = _multi_peak_anchor(
+            reference,
+            lo=50,
+            hi=50,
+            peak_mode="abs_max",
+            multi_peak_select="first",
+            multi_peak_threshold=0.6,
+            multi_peak_min_separation_ms=2.0,
+            fs_Hz=20000.0,
+        )
+        assert result == 50
+
+    def test_all_zero_window_falls_back_argmax_for_unsigned(self):
+        """
+        _multi_peak_anchor with an all-zero search window falls back
+        to argmax/argmin per peak_mode.
+
+        Tests:
+            (Test Case 1) abs_max + all-zero -> argmax in the segment
+                (returns lo since np.argmax of zeros is 0).
+        """
+        from spikelab.spike_sorting.stim_sorting.recentering import (
+            _multi_peak_anchor,
+        )
+
+        reference = np.zeros(100, dtype=np.float64)
+        result = _multi_peak_anchor(
+            reference,
+            lo=10,
+            hi=20,
+            peak_mode="abs_max",
+            multi_peak_select="first",
+            multi_peak_threshold=0.6,
+            multi_peak_min_separation_ms=2.0,
+            fs_Hz=20000.0,
+        )
+        # All zeros -> search.max() == 0 -> argmax fallback returns lo.
+        assert result == 10
+
+    def test_neg_peak_all_positive_window_falls_back_to_argmin(self):
+        """
+        _multi_peak_anchor with peak_mode='neg_peak' and an all-positive
+        window degrades via argmin(segment).
+
+        Tests:
+            (Test Case 1) When the search signal -minimum(segment, 0)
+                is identically zero (no negative samples), the helper
+                falls back to argmin of the original segment.
+        """
+        from spikelab.spike_sorting.stim_sorting.recentering import (
+            _multi_peak_anchor,
+        )
+
+        reference = np.array([1.0, 2.0, 3.0, 0.5, 4.0], dtype=np.float64)
+        result = _multi_peak_anchor(
+            reference,
+            lo=0,
+            hi=5,
+            peak_mode="neg_peak",
+            multi_peak_select="first",
+            multi_peak_threshold=0.6,
+            multi_peak_min_separation_ms=2.0,
+            fs_Hz=20000.0,
+        )
+        # argmin of the segment is index 3 (value 0.5).
+        assert result == 3
+
+    def test_first_vs_last_select_returns_different_pulses(self):
+        """
+        _multi_peak_anchor with multi_peak_select='first' vs 'last'
+        returns the first vs the last pulse in a multi-pulse train.
+
+        Tests:
+            (Test Case 1) 'first' returns the index of the earliest pulse.
+            (Test Case 2) 'last' returns the index of the latest pulse.
+        """
+        from spikelab.spike_sorting.stim_sorting.recentering import (
+            _multi_peak_anchor,
+        )
+
+        # Three positive pulses at samples 100, 200, 300 in a 400-sample
+        # window, pulse width ~5 samples, 5x noise floor.
+        reference = np.zeros(400, dtype=np.float64)
+        for center in (100, 200, 300):
+            reference[center - 2 : center + 3] = 100.0
+
+        first = _multi_peak_anchor(
+            reference,
+            lo=0,
+            hi=400,
+            peak_mode="pos_peak",
+            multi_peak_select="first",
+            multi_peak_threshold=0.6,
+            multi_peak_min_separation_ms=2.0,
+            fs_Hz=20000.0,
+        )
+        last = _multi_peak_anchor(
+            reference,
+            lo=0,
+            hi=400,
+            peak_mode="pos_peak",
+            multi_peak_select="last",
+            multi_peak_threshold=0.6,
+            multi_peak_min_separation_ms=2.0,
+            fs_Hz=20000.0,
+        )
+        assert first < last
+        # The first chosen peak should be near sample 100, last near 300.
+        assert abs(first - 100) <= 3
+        assert abs(last - 300) <= 3
+
+    def test_monotonic_ramp_no_interior_peak_falls_back(self):
+        """
+        _multi_peak_anchor on a monotonic ramp (no interior peaks above
+        threshold) falls back to argmax/argmin.
+
+        Tests:
+            (Test Case 1) Linear ramp up + abs_max returns the last index
+                (largest value) via argmax fallback.
+        """
+        from spikelab.spike_sorting.stim_sorting.recentering import (
+            _multi_peak_anchor,
+        )
+
+        reference = np.linspace(0.0, 10.0, 50, dtype=np.float64)
+        result = _multi_peak_anchor(
+            reference,
+            lo=0,
+            hi=50,
+            peak_mode="abs_max",
+            multi_peak_select="first",
+            multi_peak_threshold=0.6,
+            multi_peak_min_separation_ms=2.0,
+            fs_Hz=20000.0,
+        )
+        # With no interior peaks, argmax fallback returns the global max
+        # at index 49.
+        assert result == 49
+
+
+class TestRecenterStimTimesMultiPeak:
+    """Tests for recenter_stim_times with multi_peak=True."""
+
+    def test_invalid_multi_peak_select_raises(self):
+        """
+        recenter_stim_times with multi_peak=True and an invalid
+        multi_peak_select value raises ValueError.
+
+        Tests:
+            (Test Case 1) multi_peak_select='middle' raises.
+        """
+        from spikelab.spike_sorting.stim_sorting import recenter_stim_times
+
+        traces = np.zeros((4, 1000), dtype=np.float32)
+        with pytest.raises(ValueError, match="multi_peak_select"):
+            recenter_stim_times(
+                traces,
+                np.array([10.0]),
+                fs_Hz=20000.0,
+                multi_peak=True,
+                multi_peak_select="middle",
+            )
+
+    def test_invalid_multi_peak_threshold_raises(self):
+        """
+        recenter_stim_times with multi_peak=True and a threshold
+        outside (0, 1] raises ValueError.
+
+        Tests:
+            (Test Case 1) multi_peak_threshold=0.0 raises.
+            (Test Case 2) multi_peak_threshold=1.5 raises.
+        """
+        from spikelab.spike_sorting.stim_sorting import recenter_stim_times
+
+        traces = np.zeros((4, 1000), dtype=np.float32)
+        with pytest.raises(ValueError, match="multi_peak_threshold"):
+            recenter_stim_times(
+                traces,
+                np.array([10.0]),
+                fs_Hz=20000.0,
+                multi_peak=True,
+                multi_peak_threshold=0.0,
+            )
+        with pytest.raises(ValueError, match="multi_peak_threshold"):
+            recenter_stim_times(
+                traces,
+                np.array([10.0]),
+                fs_Hz=20000.0,
+                multi_peak=True,
+                multi_peak_threshold=1.5,
+            )
+
+    def test_multi_peak_first_picks_first_pulse(self):
+        """
+        recenter_stim_times with multi_peak=True and select='first'
+        aligns the corrected time to the first pulse in a 3-pulse train.
+
+        Tests:
+            (Test Case 1) The corrected time is closer to the first pulse
+                than to the median or last pulse.
+        """
+        from spikelab.spike_sorting.stim_sorting import recenter_stim_times
+
+        fs = 20000.0
+        n_ch = 4
+        n_samp = int(0.5 * fs)  # 500 ms
+        rng = np.random.default_rng(0)
+        traces = rng.standard_normal((n_ch, n_samp)).astype(np.float32) * 5.0
+        # Three positive pulses (5 ms apart) starting at 100 ms.
+        pulse_times_samples = [int(0.100 * fs), int(0.105 * fs), int(0.110 * fs)]
+        for s in pulse_times_samples:
+            traces[:, s : s + 8] = 1000.0
+
+        # Logged stim time at the start of the train (within window).
+        logged_ms = np.array([100.0])
+        corrected = recenter_stim_times(
+            traces,
+            logged_ms,
+            fs_Hz=fs,
+            max_offset_ms=20.0,
+            peak_mode="pos_peak",
+            multi_peak=True,
+            multi_peak_select="first",
+            warn_offset_ms=None,
+        )
+        # First pulse onset is at 100 ms; corrected should be very close.
+        assert abs(corrected[0] - 100.0) < 1.0
+
+    def test_multi_peak_last_picks_last_pulse(self):
+        """
+        recenter_stim_times with multi_peak=True and select='last'
+        aligns the corrected time to the last pulse in a 3-pulse train.
+
+        Tests:
+            (Test Case 1) The corrected time is closer to the last pulse
+                than to the first.
+        """
+        from spikelab.spike_sorting.stim_sorting import recenter_stim_times
+
+        fs = 20000.0
+        n_ch = 4
+        n_samp = int(0.5 * fs)
+        rng = np.random.default_rng(0)
+        traces = rng.standard_normal((n_ch, n_samp)).astype(np.float32) * 5.0
+        pulse_times_samples = [int(0.100 * fs), int(0.105 * fs), int(0.110 * fs)]
+        for s in pulse_times_samples:
+            traces[:, s : s + 8] = 1000.0
+
+        logged_ms = np.array([105.0])  # middle of the train
+        corrected = recenter_stim_times(
+            traces,
+            logged_ms,
+            fs_Hz=fs,
+            max_offset_ms=20.0,
+            peak_mode="pos_peak",
+            multi_peak=True,
+            multi_peak_select="last",
+            warn_offset_ms=None,
+        )
+        # Last pulse onset at 110 ms; corrected should be near it.
+        assert abs(corrected[0] - 110.0) < 1.0
+        # And further from the first pulse than from the last.
+        assert abs(corrected[0] - 110.0) < abs(corrected[0] - 100.0)
+
+
+# ===========================================================================
+# recording_io._patch_neo_maxwell_hdf5_plugin_path_handling
+# ===========================================================================
+
+
+class TestPatchNeoMaxwellHdf5PluginPathHandling:
+    """
+    Tests for the import-time monkey-patch of neo's Maxwell HDF5 plugin
+    path handling.
+    """
+
+    def test_patch_runs_without_error(self):
+        """
+        _patch_neo_maxwell_hdf5_plugin_path_handling runs without error.
+
+        Tests:
+            (Test Case 1) Calling the patch is a no-op when neo is
+                missing and idempotent when neo is present (no exception).
+        """
+        from spikelab.spike_sorting.recording_io import (
+            _patch_neo_maxwell_hdf5_plugin_path_handling,
+        )
+
+        # Should not raise on any platform with or without neo installed.
+        _patch_neo_maxwell_hdf5_plugin_path_handling()
+
+    def test_patch_is_idempotent(self):
+        """
+        _patch_neo_maxwell_hdf5_plugin_path_handling can be called
+        repeatedly without crashing or causing side-effects on
+        subsequent calls.
+
+        Tests:
+            (Test Case 1) Two calls in a row produce the same end state
+                (no exception, patched attribute remains set if neo is
+                installed).
+        """
+        from spikelab.spike_sorting.recording_io import (
+            _patch_neo_maxwell_hdf5_plugin_path_handling,
+        )
+
+        _patch_neo_maxwell_hdf5_plugin_path_handling()
+        _patch_neo_maxwell_hdf5_plugin_path_handling()
+
+        # If neo is installed, the auto_install_maxwell_hdf5_compression_plugin
+        # attribute should now be patched.
+        try:
+            import neo.rawio.maxwellrawio as _mwrawio
+        except ImportError:
+            return  # neo missing -> patch is a no-op
+        assert hasattr(_mwrawio, "auto_install_maxwell_hdf5_compression_plugin")
+        assert callable(_mwrawio.auto_install_maxwell_hdf5_compression_plugin)

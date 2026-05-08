@@ -1440,7 +1440,7 @@ class SpikeData:
                 length = float(np.max(flat)) if len(flat) > 0 else 0.0
             upper = nb_sttc_all_pairs(flat, offsets, self.N, delt, length)
             # Unpack upper-triangle vector into symmetric matrix
-            ret = np.diag(np.ones(self.N))
+            ret = np.eye(self.N)
             k = 0
             for i in range(self.N):
                 for j in range(i + 1, self.N):
@@ -1448,7 +1448,7 @@ class SpikeData:
                     k += 1
             return PairwiseCompMatrix(matrix=ret, metadata={"delt": delt})
 
-        ret = np.diag(np.ones(self.N))
+        ret = np.eye(self.N)
         for i in range(self.N):
             for j in range(i + 1, self.N):
                 ret[i, j] = ret[j, i] = get_sttc(
@@ -2316,6 +2316,10 @@ class SpikeData:
                 # Σ_{j≠i} μ_j = leave-one-out sum of mean rates
                 mu_loo = mu_sum - mu[i]
 
+                # Skip if leave-one-out mean rate is zero (i is the only firing neuron)
+                if mu_loo == 0:
+                    continue
+
                 # All spike times for neuron i: {s | f_i(s) > 0}
                 spike_times = np.where(spike_matrix[i] > 0)[0]
 
@@ -2516,11 +2520,20 @@ class SpikeData:
         unique_bursts, counts = np.unique(tburst, return_counts=True)
         duplicates = unique_bursts[counts > 1]
         if len(duplicates) != 0:
+            if peak_to_trough:
+                suggestion = (
+                    "Consider increasing burst_edge_mult_thresh if this burst duration is longer than you would expect for your data. "
+                    "Alternatively, increase min_burst_diff to prevent two bursts from being detected too close to each other."
+                )
+            else:
+                suggestion = (
+                    "This is likely due to identifying bursts using peak-to-zero calculations. Consider setting the PEAK-TO-TROUGH flag to True. "
+                    "Otherwise, consider increasing burst_edge_mult_thresh if this burst duration is longer than you would expect for your data. "
+                    "Alternatively, increase min_burst_diff to prevent two bursts from being detected too close to each other."
+                )
             warnings.warn(
                 f"{len(tburst) - len(unique_bursts)} duplicate bursts were detected across the following times: {list(duplicates)}. "
-                f"This is likely due to identifying bursts using peak-to-zero calculations. Consider setting the PEAK-TO-TROUGH flag to True. "
-                f"Otherwise, consider increasing burst_edge_mult_thresh if this burst duration is longer than you would expect for your data. "
-                f"Alternatively, increase min_burst_diff to prevent two bursts from being detected too close to each other.",
+                f"{suggestion}",
                 RuntimeWarning,
             )
 
@@ -2905,8 +2918,8 @@ class SpikeData:
         window_len = int(pre_ms) + int(post_ms)
         slices = []
         for t in events:
-            t0 = int(t) - int(pre_ms)
-            t1 = int(t) + int(post_ms)
+            t0 = int(round(t)) - int(pre_ms)
+            t1 = int(round(t)) + int(post_ms)
             if t0 >= 0 and t1 <= len(pop_rate):
                 slices.append(pop_rate[t0:t1])
 

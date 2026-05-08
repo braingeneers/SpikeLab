@@ -4974,3 +4974,124 @@ class TestHDF5IOIO:
         assert len(sss2.spike_stack) == 2
         assert sss2.spike_stack[0].N == 1
         assert sss2.spike_stack[1].N == 2
+
+
+class TestDumpNeuronAttributesCorruptionPaths:
+    """
+    Edge case tests pinning current behavior for problematic neuron
+    attribute values: dict-valued, slash-named, and legitimate-NaN keys.
+
+    Notes:
+        - documents bugs — see REVIEW.md
+        - These cases are not validated at the workspace IO layer and
+          either silently corrupt the round-trip or raise confusing
+          deep errors.
+    """
+
+    def test_dict_valued_attribute_raises(self, tmp_path):
+        """
+        _dump_neuron_attributes with dict-valued entries currently
+        raises a deep TypeError from inside float(v).
+
+        Tests:
+            (Test Case 1) A neuron_attributes list where one unit has a
+                dict value for a key falls into the float() branch,
+                raising a TypeError.
+
+        Notes:
+            - documents bug — see REVIEW.md
+        """
+        try:
+            import h5py  # noqa: F811
+        except ImportError:
+            pytest.skip("h5py not installed")
+
+        from spikelab.workspace.hdf5_io import _dump_neuron_attributes
+
+        attrs = [
+            {"meta": {"id": 5, "loc": (0, 0)}},
+            {"meta": {"id": 6, "loc": (1, 1)}},
+        ]
+        path = str(tmp_path / "dict_attr.h5")
+        with h5py.File(path, "w") as f:
+            grp = f.create_group("test")
+            with pytest.raises((TypeError, Exception)):
+                _dump_neuron_attributes(grp, attrs)
+
+    def test_slash_in_attribute_key_creates_nested_group(self, tmp_path):
+        """
+        _dump_neuron_attributes with a slash in the attribute key
+        creates an unintended HDF5 nested hierarchy. On reload the
+        loader crashes because it iterates top-level keys and tries
+        to slice the resulting Group as if it were a Dataset.
+
+        Tests:
+            (Test Case 1) Attribute key 'meta/info' is interpreted by
+                h5py as a nested path; the dataset is created at
+                'neuron_attributes/meta/info' instead of as a literal
+                key.
+            (Test Case 2) Reload via _load_neuron_attributes raises
+                TypeError because na_grp[<group_name>][:] is invalid.
+
+        Notes:
+            - documents bug — see REVIEW.md
+        """
+        try:
+            import h5py  # noqa: F811
+        except ImportError:
+            pytest.skip("h5py not installed")
+
+        from spikelab.workspace.hdf5_io import (
+            _dump_neuron_attributes,
+            _load_neuron_attributes,
+        )
+
+        attrs = [{"meta/info": 1.0}, {"meta/info": 2.0}]
+        path = str(tmp_path / "slash_key.h5")
+        with h5py.File(path, "w") as f:
+            grp = f.create_group("test")
+            _dump_neuron_attributes(grp, attrs)
+            # The slash creates a nested 'meta' group with an 'info' dataset.
+            assert "neuron_attributes/meta/info" in f["test"]
+
+        # Reload: the loader iterates na_grp.keys(), encounters 'meta'
+        # (a Group, not a Dataset), and crashes on the [:] slice.
+        with h5py.File(path, "r") as f:
+            with pytest.raises(TypeError):
+                _load_neuron_attributes(f["test"])
+
+    def test_legitimate_nan_attribute_is_silently_dropped(self, tmp_path):
+        """
+        _dump_neuron_attributes with a legitimate float('nan') value
+        round-trips as missing because NaN is the missing-sentinel.
+
+        Tests:
+            (Test Case 1) Storing attr['snr'] = nan and reloading produces
+                a unit dict where the 'snr' key is absent.
+
+        Notes:
+            - documents bug — see REVIEW.md
+        """
+        try:
+            import h5py  # noqa: F811
+        except ImportError:
+            pytest.skip("h5py not installed")
+
+        from spikelab.workspace.hdf5_io import (
+            _dump_neuron_attributes,
+            _load_neuron_attributes,
+        )
+
+        attrs = [{"snr": float("nan")}, {"snr": 5.0}]
+        path = str(tmp_path / "nan_attr.h5")
+        with h5py.File(path, "w") as f:
+            grp = f.create_group("test")
+            _dump_neuron_attributes(grp, attrs)
+        with h5py.File(path, "r") as f:
+            loaded = _load_neuron_attributes(f["test"])
+
+        assert loaded is not None
+        # The legitimate NaN value is silently dropped on reload.
+        assert "snr" not in loaded[0]
+        # The valid float value is preserved.
+        assert loaded[1]["snr"] == 5.0

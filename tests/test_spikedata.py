@@ -7554,3 +7554,282 @@ class TestSlidingRate:
         np.testing.assert_allclose(
             rd_step.inst_Frate_data, rd_rate.inst_Frate_data, atol=1e-12
         )
+
+
+class TestSpikeDataSubtimeEventCenteredBoundary:
+    """Edge case tests for SpikeData.subtime on event-centered data."""
+
+    def test_subtime_start_below_event_centered_start_silent_empty(self):
+        """
+        subtime with start < self.start_time on event-centered data
+        currently produces a SpikeData with no spikes and an extended length.
+
+        Tests:
+            (Test Case 1) For event-centered SpikeData (start_time<0),
+                start = start_time - extra silently produces a SpikeData
+                whose length exceeds the original recording length.
+
+        Notes:
+            - documents bug — see REVIEW.md
+            - For event-centered data the negative-start branch in subtime
+              treats negatives as literal times rather than counting from
+              the recording end, so no error is raised when start is below
+              the recording's actual start_time.
+        """
+        sd = SpikeData(
+            [[-10.0, 0.0, 5.0]], length=20.0, start_time=-10.0
+        )  # window [-10, 10]
+        # start = -50 is below start_time = -10; current behavior accepts it.
+        result = sd.subtime(-50.0, 5.0)
+        # Length is the requested span, exceeding the original recording.
+        assert result.length > sd.length
+        # No spikes at t < -10, so the train holds only spikes in [-10, 5).
+        assert len(result.train[0]) == 2
+
+    def test_subtime_shift_to_nan_propagates(self):
+        """
+        subtime with shift_to=NaN propagates NaN through the constructor.
+
+        Tests:
+            (Test Case 1) shift_to=NaN raises ValueError because the
+                constructor's NaN guard rejects all-NaN spike trains.
+
+        Notes:
+            - documents bug — see REVIEW.md
+            - subtime does not validate shift_to before applying it; the
+              error surfaces from the SpikeData constructor with a
+              confusing message.
+        """
+        sd = SpikeData([[5.0, 10.0]], length=20.0)
+        with pytest.raises((ValueError, FloatingPointError)):
+            sd.subtime(0.0, 20.0, shift_to=float("nan"))
+
+
+class TestSpikeDataPairwiseLatenciesNumpyFallback:
+    """Edge case tests for the numpy fallback branch of get_pairwise_latencies."""
+
+    def test_numpy_fallback_single_spike_train(self, monkeypatch):
+        """
+        Pairwise latencies on a SpikeData with a single-spike train
+        currently degenerates in the numpy fallback because
+        np.clip(idx, 1, len(train_j)-1) is np.clip(idx, 1, 0).
+
+        Tests:
+            (Test Case 1) get_pairwise_latencies via the pure-numpy
+                fallback (return_distributions=True) returns a result
+                without raising on a single-spike train.
+
+        Notes:
+            - documents bug — see REVIEW.md
+            - return_distributions=True forces the numpy fallback path
+              regardless of numba availability. clip with min=1, max=0
+              is degenerate but numpy currently silently picks max.
+        """
+        # Two units: one with a single spike, one with two spikes.
+        sd = SpikeData([[5.0], [3.0, 7.0]], length=20.0)
+        # Force numpy fallback by requesting distributions.
+        result = sd.get_pairwise_latencies(return_distributions=True)
+        assert len(result) == 3  # mean, std, distributions
+        mean_pcm, std_pcm, distributions = result
+        # Diagonal is zero by convention.
+        assert mean_pcm.matrix.shape == (2, 2)
+        assert mean_pcm.matrix[0, 0] == 0.0
+        assert mean_pcm.matrix[1, 1] == 0.0
+        # The distributions array exists; entry [0,1] (single→pair) and
+        # [1,0] (pair→single) should be ndarrays (possibly with garbage
+        # values from the degenerate clip; the test just locks current
+        # shape behavior).
+        assert isinstance(distributions[0, 1], np.ndarray)
+        assert isinstance(distributions[1, 0], np.ndarray)
+
+
+class TestSpikeDataSplitEpochs:
+    """Tests for SpikeData.split_epochs (previously zero coverage)."""
+
+    def test_split_epochs_missing_metadata_raises(self):
+        """
+        split_epochs without rec_chunks_ms in metadata raises ValueError.
+
+        Tests:
+            (Test Case 1) A SpikeData created without concatenation
+                metadata cannot be split.
+        """
+        sd = SpikeData([[5.0, 10.0]], length=20.0)
+        with pytest.raises(ValueError, match="rec_chunks_ms"):
+            sd.split_epochs()
+
+    def test_split_epochs_empty_chunks_raises(self):
+        """
+        split_epochs with rec_chunks_ms=[] raises ValueError.
+
+        Tests:
+            (Test Case 1) Empty chunks list is rejected with a clear
+                error message.
+        """
+        sd = SpikeData(
+            [[5.0, 10.0]],
+            length=20.0,
+            metadata={"rec_chunks_ms": []},
+        )
+        with pytest.raises(ValueError, match="rec_chunks_ms"):
+            sd.split_epochs()
+
+    def test_split_epochs_single_epoch(self):
+        """
+        split_epochs with a single epoch returns a one-element list.
+
+        Tests:
+            (Test Case 1) Output has length 1.
+            (Test Case 2) The epoch's metadata['epoch_index'] is 0.
+            (Test Case 3) rec_chunks_ms metadata is removed from the epoch.
+        """
+        sd = SpikeData(
+            [[5.0, 10.0, 15.0]],
+            length=20.0,
+            metadata={"rec_chunks_ms": [(0.0, 20.0)]},
+        )
+        epochs = sd.split_epochs()
+        assert len(epochs) == 1
+        assert epochs[0].metadata["epoch_index"] == 0
+        assert "rec_chunks_ms" not in epochs[0].metadata
+
+    def test_split_epochs_multiple_epochs(self):
+        """
+        split_epochs with multiple epochs returns one SpikeData per chunk.
+
+        Tests:
+            (Test Case 1) Output has length matching number of chunks.
+            (Test Case 2) Each epoch's metadata['epoch_index'] is correct.
+            (Test Case 3) Each epoch only contains spikes within its chunk.
+        """
+        sd = SpikeData(
+            [[5.0, 25.0, 55.0, 85.0]],
+            length=100.0,
+            metadata={"rec_chunks_ms": [(0.0, 50.0), (50.0, 100.0)]},
+        )
+        epochs = sd.split_epochs()
+        assert len(epochs) == 2
+        assert epochs[0].metadata["epoch_index"] == 0
+        assert epochs[1].metadata["epoch_index"] == 1
+        # First epoch holds spikes at 5.0, 25.0 (shifted to 5.0, 25.0).
+        assert len(epochs[0].train[0]) == 2
+        # Second epoch holds spikes at 55.0, 85.0 (shifted to 5.0, 35.0).
+        assert len(epochs[1].train[0]) == 2
+
+    def test_split_epochs_with_rec_chunk_names(self):
+        """
+        split_epochs with rec_chunk_names sets source_file metadata.
+
+        Tests:
+            (Test Case 1) Each epoch's metadata['source_file'] matches the
+                corresponding chunk name.
+        """
+        sd = SpikeData(
+            [[5.0, 55.0]],
+            length=100.0,
+            metadata={
+                "rec_chunks_ms": [(0.0, 50.0), (50.0, 100.0)],
+                "rec_chunk_names": ["recA", "recB"],
+            },
+        )
+        epochs = sd.split_epochs()
+        assert epochs[0].metadata["source_file"] == "recA"
+        assert epochs[1].metadata["source_file"] == "recB"
+
+    def test_split_epochs_independent_neuron_attributes(self):
+        """
+        split_epochs produces epochs whose neuron_attributes do not
+        share identity, so mutation of one does not affect the other.
+
+        Tests:
+            (Test Case 1) Mutating epoch[0].neuron_attributes[0] does not
+                change epoch[1].neuron_attributes[0].
+        """
+        sd = SpikeData(
+            [[5.0, 55.0]],
+            length=100.0,
+            metadata={"rec_chunks_ms": [(0.0, 50.0), (50.0, 100.0)]},
+            neuron_attributes=[{"unit_id": 0, "snr": 7.0}],
+        )
+        epochs = sd.split_epochs()
+        epochs[0].neuron_attributes[0]["snr"] = 99.0
+        assert epochs[1].neuron_attributes[0]["snr"] == 7.0
+
+
+class TestSpikeDataBinSizeZeroValidation:
+    """
+    Edge case tests pinning current bin_size=0 behavior across the
+    raster-family methods.
+
+    Notes:
+        - documents bug — see REVIEW.md
+        - bin_size=0 is not validated; calls fall through to numpy
+          ZeroDivisionError or scipy sparse matrix construction errors.
+    """
+
+    def test_sparse_raster_zero_bin_size_raises(self):
+        """
+        sparse_raster(0) currently raises (ZeroDivisionError or similar).
+
+        Tests:
+            (Test Case 1) Calling sparse_raster with bin_size=0 produces
+                an exception rather than silently accepting it.
+
+        Notes:
+            - documents bug — see REVIEW.md
+        """
+        sd = SpikeData([[1.0, 2.0]], length=10.0)
+        with pytest.raises(Exception):
+            sd.sparse_raster(bin_size=0)
+
+    def test_raster_zero_bin_size_raises(self):
+        """
+        raster(0) currently raises (delegates to sparse_raster).
+
+        Tests:
+            (Test Case 1) Calling raster with bin_size=0 produces an
+                exception.
+
+        Notes:
+            - documents bug — see REVIEW.md
+        """
+        sd = SpikeData([[1.0, 2.0]], length=10.0)
+        with pytest.raises(Exception):
+            sd.raster(bin_size=0)
+
+    def test_binned_meanrate_zero_bin_size_raises(self):
+        """
+        binned_meanrate(0) currently raises.
+
+        Tests:
+            (Test Case 1) Calling binned_meanrate with bin_size=0 produces
+                an exception (division-by-zero on the integer
+                ceil(length / 0)).
+
+        Notes:
+            - documents bug — see REVIEW.md
+        """
+        sd = SpikeData([[1.0, 2.0]], length=10.0)
+        with pytest.raises(Exception):
+            sd.binned_meanrate(bin_size=0)
+
+    def test_channel_raster_zero_bin_size_raises(self):
+        """
+        channel_raster(0) currently raises (delegates to raster).
+
+        Tests:
+            (Test Case 1) Calling channel_raster with bin_size=0 raises.
+
+        Notes:
+            - documents bug — see REVIEW.md
+        """
+        sd = SpikeData(
+            [[1.0, 2.0], [3.0, 4.0]],
+            length=10.0,
+            neuron_attributes=[
+                {"channel": 0},
+                {"channel": 1},
+            ],
+        )
+        with pytest.raises(Exception):
+            sd.channel_raster(bin_size=0)
