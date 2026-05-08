@@ -18,6 +18,7 @@ import sys
 import tempfile
 import zipfile
 from pathlib import Path
+from typing import List
 
 
 def _require_env(name: str) -> str:
@@ -25,6 +26,58 @@ def _require_env(name: str) -> str:
     if not value:
         raise RuntimeError(f"Required environment variable {name} is not set")
     return value
+
+
+def _find_workspace_h5(extract_dir: Path) -> Path:
+    """Locate the workspace .h5 by content signature.
+
+    Every SpikeLab workspace .h5 written by ``AnalysisWorkspace.save``
+    has the ``__workspace_id__`` attribute at the file root (see
+    ``workspace.hdf5_io.dump_workspace``). Filename is not canonical
+    because ``submit_workspace_job`` preserves the user's chosen base
+    path when they pass a string instead of an AnalysisWorkspace
+    object, so any .h5 in the bundle could carry an arbitrary name —
+    including names that collide with extra ``bundle_input_paths``
+    .h5 files like recordings.
+
+    Parameters:
+        extract_dir (Path): Directory containing the extracted bundle.
+
+    Returns:
+        Path: Path to the unique workspace .h5 in the bundle.
+
+    Raises:
+        FileNotFoundError: If no .h5 in the bundle has the
+            ``__workspace_id__`` attribute.
+        RuntimeError: If more than one .h5 in the bundle matches —
+            the bundle layout is ambiguous and the entrypoint refuses
+            to guess.
+    """
+    import h5py
+
+    candidates: List[Path] = []
+    for h5_path in extract_dir.rglob("*.h5"):
+        try:
+            with h5py.File(h5_path, "r") as f:
+                if "__workspace_id__" in f.attrs:
+                    candidates.append(h5_path)
+        except OSError:
+            # Not a valid HDF5 file (e.g. truncated, wrong format) —
+            # skip; clearly not a workspace.
+            continue
+    if not candidates:
+        raise FileNotFoundError(
+            "No SpikeLab workspace .h5 found in input bundle. "
+            "Expected a file with the __workspace_id__ attribute "
+            "(written by AnalysisWorkspace.save)."
+        )
+    if len(candidates) > 1:
+        raise RuntimeError(
+            f"Multiple workspace .h5 candidates in bundle: "
+            f"{[str(p) for p in candidates]}. Each bundle should "
+            f"contain exactly one workspace."
+        )
+    return candidates[0]
 
 
 def main() -> None:
@@ -55,11 +108,12 @@ def main() -> None:
         with zipfile.ZipFile(bundle_zip, "r") as zf:
             zf.extractall(extract_dir)
 
-        # Find the workspace base path (look for *.h5 inside the bundle)
-        h5_files = list(extract_dir.rglob("*.h5"))
-        if not h5_files:
-            raise FileNotFoundError("No .h5 workspace file found in input bundle")
-        workspace_h5 = h5_files[0]
+        # Find the workspace .h5 by its content signature (the
+        # __workspace_id__ attribute), not by filename — bundles can
+        # contain other .h5 files (recordings, intermediate outputs)
+        # via ``bundle_input_paths``, and the workspace's name follows
+        # whatever base path the caller chose.
+        workspace_h5 = _find_workspace_h5(extract_dir)
         workspace_base = str(workspace_h5.with_suffix(""))
 
         # Find the analysis script

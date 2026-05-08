@@ -4548,3 +4548,214 @@ class TestPlotUnitFootprintsOptionalKwargs:
                 show=False,
             )
             assert mock_show.call_count == 0
+
+
+class TestSpikeDataPlotUnitFootprintsAttributeFallback:
+    """
+    Tests for SpikeData.plot_unit_footprints behaviour when the
+    per-unit ``neuron_attributes`` entries are missing one of the
+    documented keys (``unit_id``, ``template_full``, ``channel``).
+    """
+
+    def _make_sd(
+        self,
+        n_channels: int = 12,
+        n_units: int = 2,
+        with_unit_id: bool = True,
+        with_template_full: bool = True,
+        with_channel: bool = True,
+    ):
+        chan_xy, templates_full, primary = _make_footprint_inputs(
+            n_channels=n_channels, n_units=n_units
+        )
+        rng = np.random.default_rng(0)
+        trains = [
+            sorted(rng.uniform(0, 100.0, size=4).tolist()) for _ in range(n_units)
+        ]
+        neuron_attributes = []
+        for u in range(n_units):
+            entry = {}
+            if with_unit_id:
+                entry["unit_id"] = u
+            if with_template_full:
+                entry["template_full"] = templates_full[u]
+            if with_channel:
+                entry["channel"] = int(primary[u])
+            neuron_attributes.append(entry)
+        sd = SpikeData(
+            trains,
+            N=n_units,
+            length=100.0,
+            metadata={"channel_locations": chan_xy},
+            neuron_attributes=neuron_attributes,
+        )
+        return sd, primary
+
+    def test_no_unit_id_anywhere_raises(self):
+        """
+        If no entry in ``neuron_attributes`` carries a ``unit_id`` key,
+        ``uid_to_row`` is empty and the wrapper raises a ValueError
+        naming ``unit_id`` so the user knows which key to populate.
+
+        Tests:
+            (Test Case 1) No unit_id keys: ValueError mentioning unit_id.
+        """
+        sd, _ = self._make_sd(n_units=2, with_unit_id=False)
+        with pytest.raises(ValueError, match="unit_id"):
+            sd.plot_unit_footprints([0, 1])
+
+    def test_template_full_missing_warns_and_hides_subplot(self):
+        """
+        A unit whose ``neuron_attributes`` entry has no
+        ``template_full`` key flows through ``attr.get('template_full')
+        -> None`` into the underlying ``plot_unit_footprints``, which
+        emits a UserWarning and hides that unit's subplot.
+
+        Tests:
+            (Test Case 1) Missing template_full produces a UserWarning.
+            (Test Case 2) The corresponding subplot is hidden.
+        """
+        import warnings as _warnings
+
+        sd, _ = self._make_sd(n_units=2, with_template_full=False)
+        with _warnings.catch_warnings(record=True) as w:
+            _warnings.simplefilter("always")
+            fig = sd.plot_unit_footprints([0], min_amplitude_uv=0.5)
+        msgs = [str(rec.message) for rec in w]
+        assert any("template_full is None" in m for m in msgs), msgs
+        # The single requested unit was skipped, so no axes should be
+        # visible in the produced figure.
+        visible = [ax for ax in fig.axes if ax.get_visible()]
+        assert visible == []
+
+    def test_channel_missing_warns_and_hides_subplot(self):
+        """
+        A unit without a ``channel`` key has ``attr.get('channel', -1)``
+        return -1, which falls into the ``primary_channels out of
+        range`` branch in the underlying plot helper. The corresponding
+        subplot is hidden and a UserWarning is emitted.
+
+        Tests:
+            (Test Case 1) Missing channel: UserWarning naming
+                "primary channel".
+            (Test Case 2) The corresponding subplot is hidden.
+        """
+        import warnings as _warnings
+
+        sd, _ = self._make_sd(n_units=2, with_channel=False)
+        with _warnings.catch_warnings(record=True) as w:
+            _warnings.simplefilter("always")
+            fig = sd.plot_unit_footprints([0], min_amplitude_uv=0.5)
+        msgs = [str(rec.message) for rec in w]
+        assert any("primary channel" in m for m in msgs), msgs
+        visible = [ax for ax in fig.axes if ax.get_visible()]
+        assert visible == []
+
+    def test_kwargs_forwarded_to_underlying_plot(self):
+        """
+        The wrapper forwards arbitrary ``**kwargs`` to
+        ``plot_unit_footprints``. Passing ``n_cols_grid`` (a
+        non-default kwarg) reaches the underlying function and shapes
+        the subplot grid accordingly.
+
+        Tests:
+            (Test Case 1) ``n_cols_grid=2`` produces a 2-column grid
+                regardless of n_units.
+            (Test Case 2) ``waveform_box_um`` is forwarded and shrinks
+                the primary line's x-extent (smoke check that the
+                kwarg reaches the underlying call).
+        """
+        sd, _ = self._make_sd(n_units=4)
+
+        fig_grid = sd.plot_unit_footprints(
+            [0, 1, 2, 3],
+            min_amplitude_uv=0.5,
+            n_cols_grid=2,
+            show_amplitude_scale_bar=False,
+        )
+        gs = fig_grid.axes[0].get_subplotspec().get_gridspec()
+        assert gs.ncols == 2
+
+        fig_small = sd.plot_unit_footprints(
+            [0],
+            min_amplitude_uv=0.5,
+            waveform_box_um=(4.0, 8.0),
+            show_amplitude_scale_bar=False,
+        )
+        fig_big = sd.plot_unit_footprints(
+            [0],
+            min_amplitude_uv=0.5,
+            waveform_box_um=(40.0, 8.0),
+            show_amplitude_scale_bar=False,
+        )
+
+        def _primary_xspan(fig):
+            ax = [a for a in fig.axes if a.get_visible()][0]
+            cands = [ln for ln in ax.lines if ln.get_color() == "tab:red"]
+            assert cands, "primary waveform line not found"
+            xs = cands[0].get_xdata()
+            return float(np.max(xs) - np.min(xs))
+
+        assert _primary_xspan(fig_big) > _primary_xspan(fig_small)
+
+    def test_save_path_kwarg_forwarded(self, tmp_path):
+        """
+        ``save_path`` kwarg is forwarded; the wrapper produces a file
+        on disk when invoked with it.
+
+        Tests:
+            (Test Case 1) After calling with save_path, the file
+                exists with non-zero size.
+        """
+        sd, _ = self._make_sd(n_units=1)
+        save_path = tmp_path / "wrapper_footprint.png"
+        sd.plot_unit_footprints(
+            [0], min_amplitude_uv=0.5, save_path=str(save_path)
+        )
+        assert save_path.exists()
+        assert save_path.stat().st_size > 0
+
+
+class TestPlotUnitFootprintsExternalFig:
+    """
+    Tests for ``plot_unit_footprints`` when the caller supplies a
+    pre-built ``fig`` but no ``axes`` — the function builds its own
+    grid of axes inside the supplied figure.
+    """
+
+    def test_external_fig_no_axes_creates_grid_inside(self):
+        """
+        Passing ``fig`` without ``axes`` causes ``plot_unit_footprints``
+        to add a fresh n_rows x n_cols grid via ``fig.subplots(...)``.
+        The supplied figure's identity is preserved (the function does
+        not silently replace it) and the resulting axes are owned by it.
+
+        Tests:
+            (Test Case 1) The returned figure is the same object as the
+                supplied fig.
+            (Test Case 2) The figure now has the expected number of
+                axes for the requested ``n_units``.
+            (Test Case 3) Each visible axes belongs to the supplied
+                figure.
+        """
+        chan_xy, templates_full, primary = _make_footprint_inputs(
+            n_channels=12, n_units=4
+        )
+        external_fig = plt.figure(figsize=(8.0, 8.0))
+        returned = plot_unit_footprints(
+            chan_xy,
+            templates_full,
+            primary,
+            min_amplitude_uv=0.5,
+            fig=external_fig,
+            n_cols_grid=2,
+            show_amplitude_scale_bar=False,
+        )
+        assert returned is external_fig
+        # 4 units in a 2x2 grid → 4 axes, all visible.
+        visible = [ax for ax in returned.axes if ax.get_visible()]
+        assert len(visible) == 4
+        # All axes were created inside the external figure.
+        for ax in returned.axes:
+            assert ax.figure is external_fig
+        plt.close(external_fig)

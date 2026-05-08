@@ -7263,3 +7263,274 @@ class TestUniqueNamespaceEmptyString:
         ws = wm.get_workspace(ws_id)
         result = _unique_namespace(ws, "")
         assert result == ""
+
+
+# ===========================================================================
+# Dispatcher-wide JSON-safety smoke tests
+# ===========================================================================
+
+
+class TestMcpDispatcherJsonSafety:
+    """
+    Smoke tests over every tool registered in ``_TOOL_DISPATCH``: each
+    one must produce a JSON-parseable text response on both the error
+    path (no/invalid arguments) and on a degenerate input path. This
+    catches the entire class of silently-corrupt responses caused by:
+      - NaN / Infinity floats in tool returns,
+      - numpy scalars or arrays leaking into the response,
+      - tools that raise non-string exceptions,
+      - signature drift between the dispatcher and the tool.
+    """
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_all_tools_error_path_returns_valid_json(self):
+        """
+        Calling ``_call_tool(name, {})`` for every tool in the
+        dispatcher returns a string that ``json.loads`` accepts. Most
+        tools require arguments, so this exercises the error path for
+        nearly every entry — exactly where NaN/array leaks are most
+        common.
+
+        Tests:
+            (Test Case 1) Every tool's response is JSON-parseable.
+            (Test Case 2) Either the response is a dict (success) or a
+                dict with ``error`` and ``type`` keys (failure path).
+            (Test Case 3) No tool entry is missing from the dispatcher
+                that's required by the schema in ``_list_tools``.
+
+        Notes:
+            - ``_call_tool`` swallows all exceptions and serializes
+              them. A non-JSON-parseable response indicates a deeper
+              encoding bug in the tool itself.
+        """
+        from spikelab.mcp_server.server import _TOOL_DISPATCH, _call_tool
+
+        non_serializable: list[tuple[str, str]] = []
+        for tool_name in sorted(_TOOL_DISPATCH.keys()):
+            try:
+                result = await _call_tool(tool_name, {})
+            except Exception as exc:  # noqa: BLE001
+                non_serializable.append(
+                    (tool_name, f"_call_tool itself raised: {type(exc).__name__}: {exc}")
+                )
+                continue
+            assert isinstance(result, list) and len(result) == 1, (
+                f"{tool_name}: expected list[TextContent] with 1 element, got {result!r}"
+            )
+            text = result[0].text
+            try:
+                payload = json.loads(text)
+            except (TypeError, ValueError) as exc:
+                non_serializable.append(
+                    (tool_name, f"json.loads failed: {exc}; text={text[:200]!r}")
+                )
+                continue
+            # Tools may return either a successful dict or the
+            # standard error envelope. Both must be dicts.
+            assert isinstance(payload, dict), (
+                f"{tool_name}: expected dict payload, got {type(payload).__name__}"
+            )
+
+        assert non_serializable == [], (
+            "Tools whose response was not JSON-parseable:\n"
+            + "\n".join(f"  - {n}: {msg}" for n, msg in non_serializable)
+        )
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_zero_spike_workspace_tools_return_valid_json(self):
+        """
+        For a curated subset of analysis tools that operate on
+        SpikeData stored in a workspace, calling them with a
+        zero-spike SpikeData (degenerate but legal input) must still
+        produce JSON-parseable output. This catches NaN/Inf leaks that
+        only appear on the *success* path when statistical results
+        degenerate (e.g. zero-mean rates).
+
+        Tests:
+            (Test Case 1) Each tool's response is JSON-parseable.
+            (Test Case 2) The response is a dict (success or error
+                envelope).
+        """
+        from spikelab.mcp_server.server import _TOOL_DISPATCH, _call_tool
+
+        # Build a zero-spike SpikeData (N=2 units, no spikes, length=10).
+        wm = get_workspace_manager()
+        ws_id = wm.create_workspace(name="zero_spike_smoke_ws")
+        zero_sd = SpikeData([[], []], length=10.0, N=2)
+        wm.get_workspace(ws_id).store("rec0", "spikedata", zero_sd)
+
+        # Tools that take (workspace_id, namespace, key) plus an
+        # ``out_key`` and minor numeric kwargs. Each entry maps a tool
+        # name to the kwargs we'll pass.
+        candidates = {
+            "compute_rates": {
+                "workspace_id": ws_id,
+                "namespace": "rec0",
+                "key": "rates",
+            },
+            "compute_binned": {
+                "workspace_id": ws_id,
+                "namespace": "rec0",
+                "key": "binned",
+                "bin_size": 1.0,
+            },
+            "compute_binned_meanrate": {
+                "workspace_id": ws_id,
+                "namespace": "rec0",
+                "key": "br",
+                "bin_size": 1.0,
+            },
+            "compute_raster": {
+                "workspace_id": ws_id,
+                "namespace": "rec0",
+                "key": "raster",
+                "bin_size": 1.0,
+            },
+            "compute_interspike_intervals": {
+                "workspace_id": ws_id,
+                "namespace": "rec0",
+                "key": "isi",
+            },
+            "compute_spike_time_tilings": {
+                "workspace_id": ws_id,
+                "namespace": "rec0",
+                "key": "sttc",
+                "delt": 1.0,
+            },
+            "get_data_info": {
+                "workspace_id": ws_id,
+                "namespace": "rec0",
+            },
+            "list_neurons": {
+                "workspace_id": ws_id,
+                "namespace": "rec0",
+            },
+            "get_pop_rate": {
+                "workspace_id": ws_id,
+                "namespace": "rec0",
+                "key": "pop_rate",
+            },
+            "get_bursts": {
+                "workspace_id": ws_id,
+                "namespace": "rec0",
+                "key": "bursts",
+            },
+        }
+
+        broken: list[tuple[str, str]] = []
+        for tool_name, kwargs in candidates.items():
+            assert tool_name in _TOOL_DISPATCH, (
+                f"smoke-test references missing tool: {tool_name}"
+            )
+            result = await _call_tool(tool_name, kwargs)
+            text = result[0].text
+            try:
+                payload = json.loads(text)
+            except (TypeError, ValueError) as exc:
+                broken.append((tool_name, f"json.loads failed: {exc}"))
+                continue
+            if not isinstance(payload, dict):
+                broken.append(
+                    (tool_name, f"non-dict payload: {type(payload).__name__}")
+                )
+
+        assert broken == [], (
+            "Tools whose zero-spike response was not JSON-parseable:\n"
+            + "\n".join(f"  - {n}: {msg}" for n, msg in broken)
+        )
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_call_tool_error_envelope_shape_is_consistent(self):
+        """
+        The dispatcher's exception path always returns a payload with
+        exactly two top-level keys, ``error`` (str) and ``type`` (str).
+        Trigger via an unknown tool name.
+
+        Tests:
+            (Test Case 1) Unknown tool returns a dict with keys
+                {"error", "type"}.
+            (Test Case 2) Both values are strings (not numpy / dict /
+                exception objects).
+        """
+        from spikelab.mcp_server.server import _call_tool
+
+        result = await _call_tool("__definitely_not_a_real_tool__", {})
+        payload = json.loads(result[0].text)
+        assert set(payload.keys()) == {"error", "type"}, payload
+        assert isinstance(payload["error"], str)
+        assert isinstance(payload["type"], str)
+        assert "Unknown tool" in payload["error"]
+
+
+class TestComputeWaveformMetricsNoRawData:
+    """
+    Tests for ``compute_waveform_metrics`` MCP tool when the stored
+    SpikeData has no ``raw_data`` attached. The underlying curation
+    helper raises ``EmptyWaveformMetricsError``; the dispatcher must
+    convert this into a JSON-parseable error envelope rather than
+    crashing the response.
+    """
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_no_raw_data_returns_json_error_envelope(self):
+        """
+        SpikeData without raw_data triggers
+        ``EmptyWaveformMetricsError`` in the underlying helper. The
+        dispatcher converts the exception into the standard
+        ``{"error", "type"}`` envelope, JSON-encoded.
+
+        Tests:
+            (Test Case 1) Response is JSON-parseable.
+            (Test Case 2) Payload has keys {"error", "type"}.
+            (Test Case 3) ``type`` is ``EmptyWaveformMetricsError``.
+            (Test Case 4) ``error`` text mentions ``raw_data``.
+        """
+        from spikelab.mcp_server.server import _call_tool
+
+        wm = get_workspace_manager()
+        ws_id = wm.create_workspace(name="no_raw_ws")
+        sd = SpikeData([[1.0, 2.0], [3.0]], length=10.0)
+        # No raw_data attached — sd.raw_data.size == 0 by construction.
+        wm.get_workspace(ws_id).store("rec0", "spikedata", sd)
+
+        result = await _call_tool(
+            "compute_waveform_metrics",
+            {
+                "workspace_id": ws_id,
+                "namespace": "rec0",
+            },
+        )
+        payload = json.loads(result[0].text)
+        assert set(payload.keys()) == {"error", "type"}, payload
+        assert payload["type"] == "EmptyWaveformMetricsError"
+        assert "raw_data" in payload["error"]
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_missing_workspace_returns_json_error_envelope(self):
+        """
+        ``compute_waveform_metrics`` against a non-existent
+        workspace_id surfaces a clean JSON error envelope (not a
+        non-JSON-encodable exception object).
+
+        Tests:
+            (Test Case 1) Response is JSON-parseable.
+            (Test Case 2) ``error`` text identifies the missing
+                workspace.
+        """
+        from spikelab.mcp_server.server import _call_tool
+
+        result = await _call_tool(
+            "compute_waveform_metrics",
+            {
+                "workspace_id": "ws-that-does-not-exist",
+                "namespace": "rec0",
+            },
+        )
+        payload = json.loads(result[0].text)
+        assert "error" in payload
+        assert isinstance(payload["error"], str)

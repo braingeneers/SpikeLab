@@ -2541,6 +2541,167 @@ class TestWorkspaceEntrypoint:
         assert "s3://bucket/outputs/run-1/workspace.json" in uploaded_uris
 
 
+class TestFindWorkspaceH5:
+    """
+    ``_find_workspace_h5`` identifies the workspace by content
+    signature (the __workspace_id__ HDF5 attribute) rather than by
+    filename. Bundles can contain other .h5 inputs (recordings,
+    intermediate data) via ``bundle_input_paths``, and the workspace
+    itself can be saved under any base path the caller chose.
+    """
+
+    def _make_workspace_h5(self, path):
+        """Write a minimal SpikeLab workspace signature to ``path``."""
+        import h5py
+
+        with h5py.File(path, "w") as f:
+            f.attrs["__workspace_id__"] = "ws-test-123"
+            f.attrs["__workspace_name__"] = "test"
+            f.attrs["__created_at__"] = 0.0
+
+    def _make_recording_h5(self, path):
+        """Write an .h5 file that is NOT a SpikeLab workspace."""
+        import h5py
+        import numpy as np
+
+        with h5py.File(path, "w") as f:
+            f.create_dataset("traces", data=np.zeros((10, 4)))
+
+    def test_picks_workspace_with_arbitrary_name(self, tmp_path):
+        """
+        _find_workspace_h5 picks the workspace .h5 even when it has
+        a custom name (not 'workspace.h5'), because identification
+        is content-based.
+
+        Tests:
+            (Test Case 1) A bundle with my_analysis.h5 (the workspace)
+                + recording.h5 (no signature) returns my_analysis.h5.
+        """
+        try:
+            import h5py  # noqa: F401
+        except ImportError:
+            pytest.skip("h5py not installed")
+        from spikelab.batch_jobs.entrypoints.workspace import _find_workspace_h5
+
+        bundle = tmp_path / "bundle"
+        bundle.mkdir()
+        ws = bundle / "my_analysis.h5"
+        rec = bundle / "recording.h5"
+        self._make_workspace_h5(ws)
+        self._make_recording_h5(rec)
+
+        result = _find_workspace_h5(bundle)
+        assert result == ws
+
+    def test_ignores_non_workspace_h5_files(self, tmp_path):
+        """
+        Files without __workspace_id__ are skipped, so extra .h5
+        inputs (recordings, intermediate data) don't confuse the
+        identification.
+
+        Tests:
+            (Test Case 1) Bundle with workspace.h5 + extra rec.h5
+                returns workspace.h5 (not the first-rglob result).
+        """
+        try:
+            import h5py  # noqa: F401
+        except ImportError:
+            pytest.skip("h5py not installed")
+        from spikelab.batch_jobs.entrypoints.workspace import _find_workspace_h5
+
+        bundle = tmp_path / "bundle"
+        bundle.mkdir()
+        # Use names where the recording sorts BEFORE the workspace
+        # alphabetically, to exercise the "wrong-rglob-order" case.
+        ws = bundle / "workspace.h5"
+        rec1 = bundle / "aaa_recording.h5"
+        rec2 = bundle / "zzz_intermediate.h5"
+        self._make_workspace_h5(ws)
+        self._make_recording_h5(rec1)
+        self._make_recording_h5(rec2)
+
+        result = _find_workspace_h5(bundle)
+        assert result == ws
+
+    def test_no_workspace_raises_clear_error(self, tmp_path):
+        """
+        A bundle with no .h5 carrying __workspace_id__ raises
+        FileNotFoundError naming the expected attribute so operators
+        can debug the bundle layout.
+
+        Tests:
+            (Test Case 1) Bundle with only non-workspace .h5 raises.
+            (Test Case 2) The error names "__workspace_id__".
+        """
+        try:
+            import h5py  # noqa: F401
+        except ImportError:
+            pytest.skip("h5py not installed")
+        from spikelab.batch_jobs.entrypoints.workspace import _find_workspace_h5
+
+        bundle = tmp_path / "bundle"
+        bundle.mkdir()
+        self._make_recording_h5(bundle / "rec.h5")
+
+        with pytest.raises(FileNotFoundError, match="__workspace_id__"):
+            _find_workspace_h5(bundle)
+
+    def test_multiple_workspaces_raises_clear_error(self, tmp_path):
+        """
+        Two .h5 files both carrying __workspace_id__ are an
+        ambiguous bundle layout — refuse to guess and name both
+        candidates so the operator can fix the inputs.
+
+        Tests:
+            (Test Case 1) Two workspace files raise RuntimeError.
+            (Test Case 2) The error names both candidate paths.
+        """
+        try:
+            import h5py  # noqa: F401
+        except ImportError:
+            pytest.skip("h5py not installed")
+        from spikelab.batch_jobs.entrypoints.workspace import _find_workspace_h5
+
+        bundle = tmp_path / "bundle"
+        bundle.mkdir()
+        ws1 = bundle / "first.h5"
+        ws2 = bundle / "second.h5"
+        self._make_workspace_h5(ws1)
+        self._make_workspace_h5(ws2)
+
+        with pytest.raises(RuntimeError) as exc_info:
+            _find_workspace_h5(bundle)
+        msg = str(exc_info.value)
+        assert "first.h5" in msg
+        assert "second.h5" in msg
+
+    def test_malformed_h5_silently_skipped(self, tmp_path):
+        """
+        A non-HDF5 file with .h5 extension (e.g. corrupt download) is
+        silently skipped — h5py raises OSError, the helper continues
+        scanning, and a sibling valid workspace is still found.
+
+        Tests:
+            (Test Case 1) Bundle with a corrupt foo.h5 + a real
+                workspace returns the workspace.
+        """
+        try:
+            import h5py  # noqa: F401
+        except ImportError:
+            pytest.skip("h5py not installed")
+        from spikelab.batch_jobs.entrypoints.workspace import _find_workspace_h5
+
+        bundle = tmp_path / "bundle"
+        bundle.mkdir()
+        ws = bundle / "ws.h5"
+        corrupt = bundle / "corrupt.h5"
+        self._make_workspace_h5(ws)
+        corrupt.write_bytes(b"not an HDF5 file")
+
+        result = _find_workspace_h5(bundle)
+        assert result == ws
+
+
 class TestSortingEntrypoint:
     def test_require_env_raises_on_missing(self):
         """
