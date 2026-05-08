@@ -4751,3 +4751,60 @@ class TestLoadSpikedataFromIblAllFallbacksFail:
                 eid="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
                 pid="11111111-2222-3333-4444-555555555555",
             )
+
+
+class TestS3UrlEdgeCases:
+    """Boundary tests for is_s3_url and parse_s3_url covering whitespace,
+    case sensitivity, MinIO/localhost URLs, and bucket-only URLs."""
+
+    def test_is_s3_url_with_whitespace_returns_false(self):
+        """
+        is_s3_url does not strip leading/trailing whitespace, so a value
+        like "  s3://bucket/key  " is not recognised as an S3 URL.
+
+        Tests:
+            (Test Case 1) Whitespace-padded s3:// URL returns False.
+        """
+        from spikelab.data_loaders.s3_utils import is_s3_url
+
+        assert is_s3_url("  s3://bucket/key  ") is False
+
+    def test_is_s3_url_uppercase_scheme_returns_false(self):
+        """
+        is_s3_url is case-sensitive. "S3://bucket/key" (uppercase scheme)
+        is not recognised.
+
+        Tests:
+            (Test Case 1) Uppercase S3:// URL returns False.
+        """
+        from spikelab.data_loaders.s3_utils import is_s3_url
+
+        assert is_s3_url("S3://bucket/key") is False
+
+    def test_is_s3_url_minio_endpoint_returns_false(self):
+        """
+        is_s3_url checks for the amazonaws.com host or the s3:// scheme,
+        so MinIO/LocalStack-style endpoints (e.g. localhost:9000) are not
+        recognised. Documents that custom S3-compatible endpoints are
+        unsupported.
+
+        Tests:
+            (Test Case 1) http://localhost:9000/bucket/key returns False.
+        """
+        from spikelab.data_loaders.s3_utils import is_s3_url
+
+        assert is_s3_url("http://localhost:9000/bucket/key") is False
+
+    def test_parse_s3_url_bucket_only_raises(self):
+        """
+        parse_s3_url("s3://") raises ValueError because the URL has no
+        object key.
+
+        Tests:
+            (Test Case 1) "s3://" alone raises ValueError naming "no
+                object key".
+        """
+        from spikelab.data_loaders.s3_utils import parse_s3_url
+
+        with pytest.raises(ValueError, match="no object key"):
+            parse_s3_url("s3://")

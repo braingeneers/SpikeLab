@@ -5150,3 +5150,49 @@ class TestDumpNeuronAttributesCorruptionPaths:
             if rec.category is UserWarning and "indistinguishable" in str(rec.message)
         ]
         assert warn_msgs == []
+
+
+class TestMakeSummaryNone:
+    """Boundary test for _make_summary covering None input."""
+
+    def test_make_summary_none_value(self):
+        """
+        _make_summary on None falls through to the unknown-type branch,
+        returning a summary with type "NoneType".
+
+        Tests:
+            (Test Case 1) _make_summary(None) returns dict with
+                type="NoneType".
+        """
+        s = _make_summary(None)
+        assert s["type"] == "NoneType"
+
+
+class TestDumpNeuronAttributesBoolCoercion:
+    """Round-trip test for bool-typed neuron attribute values."""
+
+    def test_bool_attribute_round_trips_as_float(self, tmp_path):
+        """
+        _dump_neuron_attributes coerces bool values to float64 via float(v),
+        so a True attribute reloads as 1.0 (the bool dtype is lost).
+
+        Tests:
+            (Test Case 1) attr["passed"] = True is dumped + loaded as 1.0.
+            (Test Case 2) The reloaded value's type is float, not bool.
+        """
+        if not H5PY_AVAILABLE:
+            pytest.skip("h5py not installed")
+        import h5py
+
+        from spikelab.workspace.hdf5_io import _dump_spikedata, _load_spikedata
+
+        sd = SpikeData([[1.0, 2.0]], length=10.0, neuron_attributes=[{"passed": True}])
+        path = str(tmp_path / "bool_attr.h5")
+        with h5py.File(path, "w") as f:
+            grp = f.create_group("sd")
+            _dump_spikedata(grp, sd)
+        with h5py.File(path, "r") as f:
+            loaded = _load_spikedata(f["sd"])
+        assert loaded.neuron_attributes[0]["passed"] == 1.0
+        assert isinstance(loaded.neuron_attributes[0]["passed"], float)
+        assert not isinstance(loaded.neuron_attributes[0]["passed"], bool)

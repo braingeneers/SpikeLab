@@ -3553,3 +3553,93 @@ class TestBuildJobNameRfc1123Compliance:
 
         name2 = RunSession._build_job_name("foo--")
         assert name2.startswith("foo-")
+
+
+class TestSleepDetectionEdgeCases:
+    """Boundary tests for _contains_disallowed_sleep covering NaN durations,
+    -infinity, mixed case, and whitespace-padded tokens."""
+
+    def test_nan_duration_not_flagged(self):
+        """
+        ``sleep NaN`` parses as float("NaN") successfully but the
+        comparison ``NaN >= 86400`` is always False, so the heuristic
+        does not flag a NaN duration. Pin current behaviour.
+
+        Tests:
+            (Test Case 1) ['sleep', 'NaN'] is not flagged as disallowed.
+        """
+        from spikelab.batch_jobs.policy import _contains_disallowed_sleep
+
+        assert _contains_disallowed_sleep(["sleep", "NaN"], []) is False
+
+    def test_negative_infinity_duration_not_flagged(self):
+        """
+        ``sleep -infinity`` parses as float("-infinity") successfully;
+        ``-inf >= 86400`` is False, so the heuristic does not flag this
+        counter-intuitive idle pattern. Documented gap; pin current
+        behaviour.
+
+        Tests:
+            (Test Case 1) ['sleep', '-infinity'] is not flagged.
+        """
+        from spikelab.batch_jobs.policy import _contains_disallowed_sleep
+
+        assert _contains_disallowed_sleep(["sleep", "-infinity"], []) is False
+
+    def test_mixed_case_sleep_infinity_flagged(self):
+        """
+        The token-pair check lowercases both sides, so ``SLEEP infinity``
+        is correctly flagged.
+
+        Tests:
+            (Test Case 1) ['SLEEP', 'infinity'] is flagged.
+        """
+        from spikelab.batch_jobs.policy import _contains_disallowed_sleep
+
+        assert _contains_disallowed_sleep(["SLEEP", "infinity"], []) is True
+
+    def test_whitespace_padded_sleep_token_flagged(self):
+        """
+        Tokens are split on whitespace before the bare-sleep check, so
+        a single token with internal whitespace ("  sleep  ") is split
+        into ["sleep"] and triggers the bare-sleep branch.
+
+        Tests:
+            (Test Case 1) [' sleep '] alone is flagged as bare-sleep.
+        """
+        from spikelab.batch_jobs.policy import _contains_disallowed_sleep
+
+        assert _contains_disallowed_sleep([" sleep "], []) is True
+
+
+class TestRedactSensitiveMapBoundary:
+    """Boundary test for redact_sensitive_map covering an empty mapping."""
+
+    def test_empty_mapping_returns_empty_dict(self):
+        """
+        redact_sensitive_map on an empty input returns an empty dict
+        rather than raising.
+
+        Tests:
+            (Test Case 1) {} returns {}.
+        """
+        assert redact_sensitive_map({}) == {}
+
+
+class TestProfilesEdgeCases:
+    """Boundary tests for load_profile_from_name covering whitespace and
+    empty-string inputs."""
+
+    def test_load_profile_with_whitespace_name(self):
+        """
+        load_profile_from_name strips leading/trailing whitespace and
+        lowercases before matching, so "  NRP  " resolves to the nrp
+        profile.
+
+        Tests:
+            (Test Case 1) "  NRP  " loads the nrp.yaml profile.
+        """
+        from spikelab.batch_jobs.profiles import load_profile_from_name
+
+        prof = load_profile_from_name("  NRP  ")
+        assert prof.name == "nrp"

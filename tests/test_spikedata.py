@@ -7812,3 +7812,80 @@ class TestSpikeDataBinSizeZeroValidation:
         )
         with pytest.raises(ValueError, match="bin_size must be > 0"):
             sd.channel_raster(bin_size=0)
+
+
+class TestSpikeDataLatenciesBoundary:
+    """Boundary tests for SpikeData.latencies covering NaN times and degenerate windows."""
+
+    def test_latencies_with_nan_time_silently_returns_empty(self):
+        """
+        latencies with a NaN query time: abs(NaN) <= window_ms is False so
+        no latency is recorded (silent empty list per unit).
+
+        Tests:
+            (Test Case 1) Query times = [NaN] returns one empty latency
+                list per unit, with no error.
+        """
+        sd = SpikeData([[5.0, 10.0]], length=20.0)
+        result = sd.latencies([float("nan")], window_ms=100.0)
+        assert result == [[]]
+
+    def test_latencies_with_negative_window_returns_empty_per_unit(self):
+        """
+        latencies with negative window_ms admits no spikes (abs_diff <= window_ms
+        is False for any non-negative abs_diff against a negative bound).
+
+        Tests:
+            (Test Case 1) window_ms=-1 yields one empty latency list per unit.
+        """
+        sd = SpikeData([[5.0, 10.0]], length=20.0)
+        result = sd.latencies([5.0], window_ms=-1.0)
+        assert result == [[]]
+
+    def test_latencies_with_window_zero_keeps_only_exact_matches(self):
+        """
+        latencies with window_ms=0 only retains spikes coinciding exactly
+        with a query time.
+
+        Tests:
+            (Test Case 1) Query time matches a spike: latency 0.0 is kept.
+            (Test Case 2) Query time off-spike: no latency is kept.
+        """
+        sd = SpikeData([[5.0, 10.0]], length=20.0)
+        # Exact match at 5.0 → latency 0.0 retained.
+        result_exact = sd.latencies([5.0], window_ms=0.0)
+        assert result_exact == [[0.0]]
+        # Off-spike at 5.5 → empty.
+        result_off = sd.latencies([5.5], window_ms=0.0)
+        assert result_off == [[]]
+
+
+class TestSpikeDataSubsetEdgeCases:
+    """Edge-case tests for SpikeData.subset covering empty set and float indices."""
+
+    def test_subset_with_literal_empty_set(self):
+        """
+        subset(units=set()) accepts an empty set and produces a 0-unit
+        SpikeData equivalent to the empty-list path.
+
+        Tests:
+            (Test Case 1) Result has N=0.
+            (Test Case 2) length is preserved.
+        """
+        sd = SpikeData([[1.0], [2.0], [3.0]], length=50.0)
+        sub = sd.subset(units=set())
+        assert sub.N == 0
+        assert len(sub.train) == 0
+        np.testing.assert_equal(sub.length, 50.0)
+
+    def test_subset_with_float_unit_indices_implicit_cast(self):
+        """
+        subset(units=[1.0, 2.0]) is accepted because Python int/float equality
+        means int 1 in {1.0} returns True. Result has the expected N.
+
+        Tests:
+            (Test Case 1) Float indices select two units.
+        """
+        sd = SpikeData([[1.0], [2.0], [3.0]], length=10.0)
+        sub = sd.subset(units=[1.0, 2.0])
+        assert sub.N == 2

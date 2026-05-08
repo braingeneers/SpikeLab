@@ -7172,3 +7172,94 @@ class TestLoadFromIblShortEidRejected:
         )
         ns = result.get("namespace")
         assert ns.startswith("custom")
+
+
+class TestNamespaceFromPathEdgeCases:
+    """Boundary tests for _namespace_from_path covering hidden files,
+    multi-dot filenames, separator-only paths, and whitespace basenames."""
+
+    def test_hidden_dotfile_returns_dotted_basename(self):
+        """
+        Hidden Unix-style files (e.g. /data/.hidden) have splitext leave
+        the leading dot intact, so the returned namespace begins with a
+        dot.
+
+        Tests:
+            (Test Case 1) "/data/.hidden" returns ".hidden".
+        """
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+        from spikelab.mcp_server.tools.data_loaders import _namespace_from_path
+
+        assert _namespace_from_path("/data/.hidden", "") == ".hidden"
+
+    def test_multi_dot_filename_only_strips_final_extension(self):
+        """
+        splitext only strips the last extension, so a filename like
+        "recording.session.1.h5" yields "recording.session.1".
+
+        Tests:
+            (Test Case 1) Multi-dot filename keeps interior dots.
+        """
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+        from spikelab.mcp_server.tools.data_loaders import _namespace_from_path
+
+        assert (
+            _namespace_from_path("recording.session.1.h5", "") == "recording.session.1"
+        )
+
+    def test_separator_only_path_falls_back_to_recording(self):
+        """
+        A path that is only a separator ("/" or "\\") rstrips to "" and
+        the basename fallback returns "recording".
+
+        Tests:
+            (Test Case 1) "/" returns "recording".
+        """
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+        from spikelab.mcp_server.tools.data_loaders import _namespace_from_path
+
+        assert _namespace_from_path("/", "") == "recording"
+
+    def test_whitespace_only_basename_passes_through(self):
+        """
+        A path whose basename is only whitespace (e.g. "/data/   .h5")
+        leaves the whitespace through after splitext, so the namespace
+        is whitespace-only rather than the "recording" fallback. Pin
+        current behaviour.
+
+        Tests:
+            (Test Case 1) "/data/   .h5" returns "   " (three spaces).
+        """
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+        from spikelab.mcp_server.tools.data_loaders import _namespace_from_path
+
+        result = _namespace_from_path("/data/   .h5", "")
+        assert result == "   "
+
+
+class TestUniqueNamespaceEmptyString:
+    """Boundary test for _unique_namespace with an empty namespace input."""
+
+    def test_empty_namespace_passes_through_when_unused(self):
+        """
+        _unique_namespace does not enforce a non-empty namespace; an
+        empty string passes through unchanged when no other key under
+        that namespace exists in the workspace. Documents the latent
+        gap (the caller is responsible for substituting "recording").
+
+        Tests:
+            (Test Case 1) Empty workspace + namespace="" returns "".
+        """
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+        from spikelab.mcp_server.tools.data_loaders import _unique_namespace
+
+        wm = get_workspace_manager()
+        ws_id = wm.create_workspace(name="empty_ns_passthrough_ws")
+        ws = wm.get_workspace(ws_id)
+        result = _unique_namespace(ws, "")
+        assert result == ""

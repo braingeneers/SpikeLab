@@ -860,3 +860,86 @@ class TestRunCanaryInterPathBoundaries:
         assert any(
             nonexistent in p.parents or p.parent == nonexistent for p in mkdir_paths
         )
+
+
+class TestExtractUnitCount:
+    """Boundary tests for _extract_unit_count covering tuple, list, None,
+    and numpy-int N values."""
+
+    def test_extract_unit_count_none_returns_none(self):
+        """
+        _extract_unit_count on None returns None because the candidate
+        lacks an N attribute.
+
+        Tests:
+            (Test Case 1) result=None returns None.
+        """
+        from spikelab.spike_sorting.canary import _extract_unit_count
+
+        assert _extract_unit_count(None) is None
+
+    def test_extract_unit_count_empty_tuple_returns_none(self):
+        """
+        _extract_unit_count on an empty tuple skips the tuple branch
+        (because ``result and ...`` is False) and the candidate (the
+        empty tuple itself) has no N attribute.
+
+        Tests:
+            (Test Case 1) result=() returns None.
+        """
+        from spikelab.spike_sorting.canary import _extract_unit_count
+
+        assert _extract_unit_count(()) is None
+
+    def test_extract_unit_count_two_tuple_returns_curated_count(self):
+        """
+        _extract_unit_count on a (sd, sd_curated) tuple returns the
+        curated SpikeData's N (the last entry).
+
+        Tests:
+            (Test Case 1) (sd_raw, sd_curated) returns sd_curated.N.
+        """
+        from spikelab.spike_sorting.canary import _extract_unit_count
+
+        class _FakeSD:
+            def __init__(self, n):
+                self.N = n
+
+        assert _extract_unit_count((_FakeSD(10), _FakeSD(7))) == 7
+
+    def test_extract_unit_count_list_returns_none(self):
+        """
+        _extract_unit_count only unwraps tuples, not lists. A list
+        result is treated as a candidate object, which lacks an N
+        attribute, so the helper returns None.
+
+        Tests:
+            (Test Case 1) result=[sd] returns None.
+        """
+        from spikelab.spike_sorting.canary import _extract_unit_count
+
+        class _FakeSD:
+            def __init__(self, n):
+                self.N = n
+
+        assert _extract_unit_count([_FakeSD(5)]) is None
+
+    def test_extract_unit_count_numpy_int_n_returns_none(self):
+        """
+        _extract_unit_count uses isinstance(n, int), which is False for
+        numpy scalar types. A SpikeData-like object with N=np.int64(5)
+        therefore returns None and the log line silently loses the
+        unit count.
+
+        Tests:
+            (Test Case 1) candidate.N as np.int64 returns None.
+        """
+        import numpy as _np
+
+        from spikelab.spike_sorting.canary import _extract_unit_count
+
+        class _FakeSD:
+            def __init__(self, n):
+                self.N = n
+
+        assert _extract_unit_count(_FakeSD(_np.int64(5))) is None
