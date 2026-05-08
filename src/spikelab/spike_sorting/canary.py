@@ -308,8 +308,7 @@ def run_canary(
             # a hard gate. Log and let the full sort proceed; live
             # watchdogs handle resource-shaped issues at runtime.
             _logger.warning(
-                "non-classified failure (%s: %s); proceeding with the "
-                "full sort.",
+                "non-classified failure (%s: %s); proceeding with the " "full sort.",
                 type(exc).__name__,
                 exc,
             )
@@ -317,9 +316,7 @@ def run_canary(
             return None
 
         if isinstance(result, _CLASSIFIED_FAILURES):
-            _logger.warning(
-                "classified failure: %s: %s", type(result).__name__, result
-            )
+            _logger.warning("classified failure: %s: %s", type(result).__name__, result)
             _wipe_canary_folder(canary_root)
             return result
         if isinstance(result, (KeyboardInterrupt, SystemExit)):
@@ -330,8 +327,7 @@ def run_canary(
             raise result
         if isinstance(result, BaseException):
             _logger.warning(
-                "non-classified failure (%s: %s); proceeding with the "
-                "full sort.",
+                "non-classified failure (%s: %s); proceeding with the " "full sort.",
                 type(result).__name__,
                 result,
             )

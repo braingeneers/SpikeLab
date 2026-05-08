@@ -2135,8 +2135,9 @@ class TestRecChunksFromConcatOverride:
         rec = _make_mock_recording(num_samples=200000)
         monkeypatch.setattr(recording_io, "BaseRecording", type(rec), raising=False)
 
-        monkeypatch.setattr(_globals, "REC_CHUNKS", [(0, 1000), (1000, 2500)],
-                            raising=False)
+        monkeypatch.setattr(
+            _globals, "REC_CHUNKS", [(0, 1000), (1000, 2500)], raising=False
+        )
         monkeypatch.setattr(_globals, "REC_CHUNKS_FROM_CONCAT", True, raising=False)
         monkeypatch.setattr(_globals, "REC_CHUNKS_S", [], raising=False)
         monkeypatch.setattr(_globals, "START_TIME_S", 0.0, raising=False)
@@ -2147,9 +2148,7 @@ class TestRecChunksFromConcatOverride:
         # ``load_single_recording`` returns ``rec`` unchanged (we are
         # bypassing the scale + bandpass for this unit test — the
         # focus is the chunks-vs-time override logic).
-        monkeypatch.setattr(
-            recording_io, "load_single_recording", lambda p: rec
-        )
+        monkeypatch.setattr(recording_io, "load_single_recording", lambda p: rec)
 
         # Capture the frame_slice call to confirm the time-based
         # chunk replaced the auto-populated ones.
@@ -2202,9 +2201,7 @@ class TestRecChunksFromConcatOverride:
         monkeypatch.setattr(_globals, "FIRST_N_MINS", None, raising=False)
         monkeypatch.setattr(_globals, "MEA_Y_MAX", None, raising=False)
 
-        monkeypatch.setattr(
-            recording_io, "load_single_recording", lambda p: rec
-        )
+        monkeypatch.setattr(recording_io, "load_single_recording", lambda p: rec)
 
         with pytest.raises(ValueError, match="frame-based"):
             recording_io.load_recording(rec)
