@@ -54,6 +54,8 @@ import time
 from pathlib import Path
 from typing import Any, Optional
 
+import numpy as np
+
 from ._exceptions import CLASSIFIED_FAILURES as _CLASSIFIED_FAILURES
 
 _logger = logging.getLogger(__name__)
@@ -312,6 +314,9 @@ def _extract_unit_count(result: Any) -> Optional[int]:
         # Prefer the curated SpikeData if present (last entry).
         candidate = result[-1]
     n = getattr(candidate, "N", None)
-    if isinstance(n, int):
-        return n
+    # Accept numpy integer types (np.int64, etc.) as well as Python int.
+    # SpikeData.N is sometimes assigned from numpy operations such as
+    # np.unique(...).size, which returns a numpy scalar.
+    if isinstance(n, (int, np.integer)):
+        return int(n)
     return None

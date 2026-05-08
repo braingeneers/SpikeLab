@@ -4988,18 +4988,16 @@ class TestDumpNeuronAttributesCorruptionPaths:
           deep errors.
     """
 
-    def test_dict_valued_attribute_raises(self, tmp_path):
+    def test_dict_valued_attribute_raises_value_error(self, tmp_path):
         """
-        _dump_neuron_attributes with dict-valued entries currently
-        raises a deep TypeError from inside float(v).
+        _dump_neuron_attributes rejects dict-valued attributes upfront
+        with a ValueError naming the attribute key and offending type,
+        instead of letting a deep TypeError surface from float(v).
 
         Tests:
-            (Test Case 1) A neuron_attributes list where one unit has a
-                dict value for a key falls into the float() branch,
-                raising a TypeError.
-
-        Notes:
-            - documents bug — see REVIEW.md
+            (Test Case 1) Dict-valued attribute raises ValueError.
+            (Test Case 2) The error names the offending attribute key.
+            (Test Case 3) The error names the offending type ("dict").
         """
         try:
             import h5py  # noqa: F811
@@ -5015,63 +5013,83 @@ class TestDumpNeuronAttributesCorruptionPaths:
         path = str(tmp_path / "dict_attr.h5")
         with h5py.File(path, "w") as f:
             grp = f.create_group("test")
-            with pytest.raises((TypeError, Exception)):
+            with pytest.raises(ValueError) as exc_info:
                 _dump_neuron_attributes(grp, attrs)
+        msg = str(exc_info.value)
+        assert "meta" in msg
+        assert "dict" in msg
 
-    def test_slash_in_attribute_key_creates_nested_group(self, tmp_path):
+    def test_unsupported_set_value_raises_value_error(self, tmp_path):
         """
-        _dump_neuron_attributes with a slash in the attribute key
-        creates an unintended HDF5 nested hierarchy. On reload the
-        loader crashes because it iterates top-level keys and tries
-        to slice the resulting Group as if it were a Dataset.
+        _dump_neuron_attributes rejects other unsupported types (e.g.
+        set) with the same ValueError pattern, naming the offending
+        type.
 
         Tests:
-            (Test Case 1) Attribute key 'meta/info' is interpreted by
-                h5py as a nested path; the dataset is created at
-                'neuron_attributes/meta/info' instead of as a literal
-                key.
-            (Test Case 2) Reload via _load_neuron_attributes raises
-                TypeError because na_grp[<group_name>][:] is invalid.
-
-        Notes:
-            - documents bug — see REVIEW.md
+            (Test Case 1) Set-valued attribute raises ValueError.
+            (Test Case 2) The error names the offending type ("set").
         """
         try:
             import h5py  # noqa: F811
         except ImportError:
             pytest.skip("h5py not installed")
 
-        from spikelab.workspace.hdf5_io import (
-            _dump_neuron_attributes,
-            _load_neuron_attributes,
-        )
+        from spikelab.workspace.hdf5_io import _dump_neuron_attributes
+
+        attrs = [{"tags": {"a", "b"}}, {"tags": {"c"}}]
+        path = str(tmp_path / "set_attr.h5")
+        with h5py.File(path, "w") as f:
+            grp = f.create_group("test")
+            with pytest.raises(ValueError) as exc_info:
+                _dump_neuron_attributes(grp, attrs)
+        assert "set" in str(exc_info.value)
+
+    def test_slash_in_attribute_key_raises(self, tmp_path):
+        """
+        _dump_neuron_attributes rejects forward-slash-in-key with a
+        ValueError naming the offending key and the underlying h5py
+        path-separator behavior.
+
+        Tests:
+            (Test Case 1) Slash-in-key raises ValueError.
+            (Test Case 2) The error names the offending key.
+            (Test Case 3) The error mentions the h5py path-separator
+                behavior so the user knows why.
+        """
+        try:
+            import h5py  # noqa: F811
+        except ImportError:
+            pytest.skip("h5py not installed")
+
+        from spikelab.workspace.hdf5_io import _dump_neuron_attributes
 
         attrs = [{"meta/info": 1.0}, {"meta/info": 2.0}]
         path = str(tmp_path / "slash_key.h5")
         with h5py.File(path, "w") as f:
             grp = f.create_group("test")
-            _dump_neuron_attributes(grp, attrs)
-            # The slash creates a nested 'meta' group with an 'info' dataset.
-            assert "neuron_attributes/meta/info" in f["test"]
+            with pytest.raises(ValueError) as exc_info:
+                _dump_neuron_attributes(grp, attrs)
+        msg = str(exc_info.value)
+        assert "meta/info" in msg
+        assert "/" in msg or "slash" in msg.lower()
 
-        # Reload: the loader iterates na_grp.keys(), encounters 'meta'
-        # (a Group, not a Dataset), and crashes on the [:] slice.
-        with h5py.File(path, "r") as f:
-            with pytest.raises(TypeError):
-                _load_neuron_attributes(f["test"])
-
-    def test_legitimate_nan_attribute_is_silently_dropped(self, tmp_path):
+    def test_legitimate_nan_attribute_warns_at_dump(self, tmp_path):
         """
-        _dump_neuron_attributes with a legitimate float('nan') value
-        round-trips as missing because NaN is the missing-sentinel.
+        _dump_neuron_attributes emits a UserWarning at dump time when
+        a legitimate float('nan') value is supplied for a numeric
+        attribute, surfacing that NaN doubles as the missing-entry
+        sentinel and will be silently dropped on reload.
 
         Tests:
-            (Test Case 1) Storing attr['snr'] = nan and reloading produces
-                a unit dict where the 'snr' key is absent.
-
-        Notes:
-            - documents bug — see REVIEW.md
+            (Test Case 1) A UserWarning is emitted whose message names
+                the offending attribute key.
+            (Test Case 2) The round-trip behavior is unchanged: NaN
+                values are still dropped on reload (current contract;
+                refactoring to a missing-mask is deferred).
+            (Test Case 3) Valid (non-NaN) values are preserved.
         """
+        import warnings as _warnings
+
         try:
             import h5py  # noqa: F811
         except ImportError:
@@ -5084,14 +5102,209 @@ class TestDumpNeuronAttributesCorruptionPaths:
 
         attrs = [{"snr": float("nan")}, {"snr": 5.0}]
         path = str(tmp_path / "nan_attr.h5")
-        with h5py.File(path, "w") as f:
-            grp = f.create_group("test")
-            _dump_neuron_attributes(grp, attrs)
+        with _warnings.catch_warnings(record=True) as w:
+            _warnings.simplefilter("always")
+            with h5py.File(path, "w") as f:
+                grp = f.create_group("test")
+                _dump_neuron_attributes(grp, attrs)
+
+        warn_msgs = [str(rec.message) for rec in w if rec.category is UserWarning]
+        assert any("snr" in m for m in warn_msgs), warn_msgs
+
         with h5py.File(path, "r") as f:
             loaded = _load_neuron_attributes(f["test"])
-
         assert loaded is not None
-        # The legitimate NaN value is silently dropped on reload.
+        # Round-trip behavior unchanged: NaN still dropped on reload.
         assert "snr" not in loaded[0]
-        # The valid float value is preserved.
         assert loaded[1]["snr"] == 5.0
+
+    def test_no_warning_when_only_missing_entries(self, tmp_path):
+        """
+        _dump_neuron_attributes does NOT warn when NaN values arise
+        only from missing-entry None defaults (the legitimate use of
+        the sentinel).
+
+        Tests:
+            (Test Case 1) Mix of None and 5.0 produces no UserWarning.
+        """
+        import warnings as _warnings
+
+        try:
+            import h5py  # noqa: F811
+        except ImportError:
+            pytest.skip("h5py not installed")
+
+        from spikelab.workspace.hdf5_io import _dump_neuron_attributes
+
+        attrs = [{"snr": 5.0}, {}]  # second unit has no 'snr' → None → NaN sentinel
+        path = str(tmp_path / "missing_only.h5")
+        with _warnings.catch_warnings(record=True) as w:
+            _warnings.simplefilter("always")
+            with h5py.File(path, "w") as f:
+                grp = f.create_group("test")
+                _dump_neuron_attributes(grp, attrs)
+
+        warn_msgs = [
+            str(rec.message)
+            for rec in w
+            if rec.category is UserWarning and "indistinguishable" in str(rec.message)
+        ]
+        assert warn_msgs == []
+
+
+class TestMakeSummaryNone:
+    """Boundary test for _make_summary covering None input."""
+
+    def test_make_summary_none_value(self):
+        """
+        _make_summary on None falls through to the unknown-type branch,
+        returning a summary with type "NoneType".
+
+        Tests:
+            (Test Case 1) _make_summary(None) returns dict with
+                type="NoneType".
+        """
+        s = _make_summary(None)
+        assert s["type"] == "NoneType"
+
+
+class TestDumpNeuronAttributesBoolCoercion:
+    """Round-trip test for bool-typed neuron attribute values."""
+
+    def test_bool_attribute_round_trips_as_float(self, tmp_path):
+        """
+        _dump_neuron_attributes coerces bool values to float64 via float(v),
+        so a True attribute reloads as 1.0 (the bool dtype is lost).
+
+        Tests:
+            (Test Case 1) attr["passed"] = True is dumped + loaded as 1.0.
+            (Test Case 2) The reloaded value's type is float, not bool.
+        """
+        if not H5PY_AVAILABLE:
+            pytest.skip("h5py not installed")
+        import h5py
+
+        from spikelab.workspace.hdf5_io import _dump_spikedata, _load_spikedata
+
+        sd = SpikeData([[1.0, 2.0]], length=10.0, neuron_attributes=[{"passed": True}])
+        path = str(tmp_path / "bool_attr.h5")
+        with h5py.File(path, "w") as f:
+            grp = f.create_group("sd")
+            _dump_spikedata(grp, sd)
+        with h5py.File(path, "r") as f:
+            loaded = _load_spikedata(f["sd"])
+        assert loaded.neuron_attributes[0]["passed"] == 1.0
+        assert isinstance(loaded.neuron_attributes[0]["passed"], float)
+        assert not isinstance(loaded.neuron_attributes[0]["passed"], bool)
+
+
+class TestDumpDictKeyValidation:
+    """
+    Tests that _dump_dict rejects dict keys h5py would mishandle: empty
+    strings, non-strings, and slash-containing keys (which h5py treats
+    as a path separator and silently corrupts the round-trip).
+    """
+
+    def test_empty_string_key_raises(self, tmp_path):
+        """
+        _dump_dict({"": ...}) raises ValueError naming "empty".
+
+        Tests:
+            (Test Case 1) Empty-string key raises ValueError.
+        """
+        if not H5PY_AVAILABLE:
+            pytest.skip("h5py not installed")
+        import h5py
+
+        from spikelab.workspace.hdf5_io import _dump_dict
+
+        path = str(tmp_path / "empty_key.h5")
+        with h5py.File(path, "w") as f:
+            grp = f.create_group("test")
+            with pytest.raises(ValueError, match="empty"):
+                _dump_dict(grp, {"": 1}, created_at=0.0)
+
+    def test_non_string_key_raises(self, tmp_path):
+        """
+        _dump_dict with a non-string key raises ValueError naming the
+        offending type.
+
+        Tests:
+            (Test Case 1) Integer key raises ValueError naming "int".
+            (Test Case 2) Tuple key raises ValueError naming "tuple".
+        """
+        if not H5PY_AVAILABLE:
+            pytest.skip("h5py not installed")
+        import h5py
+
+        from spikelab.workspace.hdf5_io import _dump_dict
+
+        path = str(tmp_path / "non_str_key.h5")
+        with h5py.File(path, "w") as f:
+            grp = f.create_group("test")
+            with pytest.raises(ValueError, match="int"):
+                _dump_dict(grp, {7: "value"}, created_at=0.0)
+            with pytest.raises(ValueError, match="tuple"):
+                _dump_dict(grp, {(1, 2): "value"}, created_at=0.0)
+
+    def test_slash_in_key_raises(self, tmp_path):
+        """
+        _dump_dict with a slash-containing key raises ValueError naming
+        the h5py path-separator behavior, instead of silently producing
+        a nested group hierarchy.
+
+        Tests:
+            (Test Case 1) Key 'a/b' raises ValueError.
+            (Test Case 2) The error names the offending key and the
+                slash semantics.
+        """
+        if not H5PY_AVAILABLE:
+            pytest.skip("h5py not installed")
+        import h5py
+
+        from spikelab.workspace.hdf5_io import _dump_dict
+
+        path = str(tmp_path / "slash_key.h5")
+        with h5py.File(path, "w") as f:
+            grp = f.create_group("test")
+            with pytest.raises(ValueError) as exc_info:
+                _dump_dict(grp, {"a/b": 1}, created_at=0.0)
+        msg = str(exc_info.value)
+        assert "a/b" in msg
+        assert "slash" in msg.lower() or "/" in msg
+
+    def test_valid_keys_still_work(self, tmp_path):
+        """
+        Valid string keys (including ones with dots and underscores)
+        still round-trip — no regression for the happy path.
+
+        Tests:
+            (Test Case 1) Mixed scalar / str values with well-formed
+                keys round-trip via _dump_dict / _load_dict.
+        """
+        if not H5PY_AVAILABLE:
+            pytest.skip("h5py not installed")
+        import h5py
+
+        from spikelab.workspace.hdf5_io import _dump_dict, _load_dict
+
+        d = {
+            "scalar_int": 42,
+            "scalar_float": 3.14,
+            "scalar_bool": True,
+            "string_val": "hello",
+            "with.dot": 1,
+            "with_underscore": 2,
+        }
+        path = str(tmp_path / "valid_keys.h5")
+        with h5py.File(path, "w") as f:
+            grp = f.create_group("test")
+            _dump_dict(grp, d, created_at=0.0)
+        with h5py.File(path, "r") as f:
+            loaded = _load_dict(f["test"])
+        assert loaded["scalar_int"] == 42
+        assert loaded["scalar_float"] == 3.14
+        assert loaded["scalar_bool"] is True
+        assert loaded["string_val"] == "hello"
+        assert loaded["with.dot"] == 1
+        assert loaded["with_underscore"] == 2

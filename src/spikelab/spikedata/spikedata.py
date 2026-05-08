@@ -615,7 +615,8 @@ class SpikeData:
         """Calculate the mean firing rate across the population in each time bin.
 
         Parameters:
-            bin_size (float): Size of the time bin in milliseconds.
+            bin_size (float): Size of the time bin in milliseconds. Must be
+                strictly positive.
             unit (str): Unit of the firing rate ('Hz' or 'kHz').
 
         Returns:
@@ -626,6 +627,8 @@ class SpikeData:
             - The rate is calculated as the number of events in each bin
               divided by the bin size and number of units.
         """
+        if bin_size <= 0:
+            raise ValueError(f"bin_size must be > 0, got {bin_size}.")
         if self.N == 0:
             return np.zeros(int(np.ceil(self.length / bin_size)))
         binned_rate = self.binned(bin_size) / self.N / bin_size
@@ -971,6 +974,11 @@ class SpikeData:
         """
         end_time = self.start_time + self.length
 
+        if shift_to is not None and not np.isfinite(shift_to):
+            raise ValueError(
+                f"shift_to ({shift_to}) must be a finite number, not NaN or inf."
+            )
+
         if start is None or start is Ellipsis:
             start = self.start_time
         elif start < 0 and self.start_time >= 0:
@@ -995,6 +1003,15 @@ class SpikeData:
         elif end > end_time:
             raise ValueError(
                 f"end ({end}) exceeds recording end ({end_time}). "
+                f"Recording range is [{self.start_time}, {end_time}]."
+            )
+
+        # Reject start below the recording's earliest time. For
+        # event-centered data (start_time < 0) the literal-time branch
+        # above lets through values below start_time; this guards them.
+        if start < self.start_time:
+            raise ValueError(
+                f"start ({start}) is below recording start ({self.start_time}). "
                 f"Recording range is [{self.start_time}, {end_time}]."
             )
 
@@ -1102,7 +1119,8 @@ class SpikeData:
         corresponds to ``start_time``.
 
         Parameters:
-            bin_size (float): Size of the time bin in milliseconds.
+            bin_size (float): Size of the time bin in milliseconds. Must
+                be strictly positive.
             time_offset (float): Additional offset added to all spike times
                 before binning (default 0.0). Use this to place spikes at
                 their absolute recording position, e.g. ``time_offset=500``
@@ -1119,6 +1137,8 @@ class SpikeData:
             - The number of bins is always
               ceil((length + time_offset) / bin_size).
         """
+        if bin_size <= 0:
+            raise ValueError(f"bin_size must be > 0, got {bin_size}.")
         # Shift spike times so start_time → 0 before binning
         shift = -self.start_time + time_offset
         indices = np.hstack(
@@ -1659,17 +1679,22 @@ class SpikeData:
                         dist_matrix[i, j] = np.array([], dtype=np.float64)
                     continue
 
-                # For each spike in train_i, find the closest spike in train_j
-                idx = np.searchsorted(train_j, train_i)
-                np.clip(idx, 1, len(train_j) - 1, out=idx)
+                if len(train_j) == 1:
+                    # No predecessor/successor choice when train_j has a
+                    # single spike; pair every spike in train_i with it.
+                    latencies = train_j[0] - train_i
+                else:
+                    # For each spike in train_i, find the closest spike in train_j.
+                    idx = np.searchsorted(train_j, train_i)
+                    np.clip(idx, 1, len(train_j) - 1, out=idx)
 
-                # Check both the candidate and its predecessor
-                dt_right = train_j[idx] - train_i
-                dt_left = train_j[idx - 1] - train_i
+                    # Check both the candidate and its predecessor.
+                    dt_right = train_j[idx] - train_i
+                    dt_left = train_j[idx - 1] - train_i
 
-                # Pick whichever is closer in absolute value
-                use_left = np.abs(dt_left) < np.abs(dt_right)
-                latencies = np.where(use_left, dt_left, dt_right)
+                    # Pick whichever is closer in absolute value.
+                    use_left = np.abs(dt_left) < np.abs(dt_right)
+                    latencies = np.where(use_left, dt_left, dt_right)
 
                 # Apply window filter
                 if window_ms is not None:

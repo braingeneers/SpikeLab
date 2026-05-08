@@ -2635,17 +2635,18 @@ class TestHDF5Loader:
                 spike_times_unit="ms",
             )
 
-    def test_group_per_unit_lexicographic_sort(self, tmp_path):
+    def test_group_per_unit_natural_sort(self, tmp_path):
         """
-        Group-per-unit loader with non-numeric dataset names uses lexicographic sort.
+        Group-per-unit loader uses natural (numeric-aware) sort so unit
+        identity is preserved across round-trip at N>=10.
 
         Tests:
-            (Test Case 1) Keys ["1", "10", "2"] are sorted as ["1", "10", "2"]
-                not [1, 2, 10].
+            (Test Case 1) Keys ["1", "10", "2"] are loaded in
+                numerical order [1, 2, 10] (not lex [1, 10, 2]).
         """
         import h5py
 
-        path = str(tmp_path / "lexico.h5")
+        path = str(tmp_path / "natural_sort.h5")
         with h5py.File(path, "w") as f:
             grp = f.create_group("units")
             grp.create_dataset("1", data=[1.0, 2.0])
@@ -2657,10 +2658,10 @@ class TestHDF5Loader:
             path, group_per_unit="units", group_time_unit="ms"
         )
         assert sd.N == 3
-        # First unit in lexicographic order is "1", then "10", then "2"
+        # Natural order: ["1", "2", "10"] → trains in that order.
         np.testing.assert_array_equal(sd.train[0], [1.0, 2.0])
-        np.testing.assert_array_equal(sd.train[1], [3.0, 4.0])
-        np.testing.assert_array_equal(sd.train[2], [5.0, 6.0])
+        np.testing.assert_array_equal(sd.train[1], [5.0, 6.0])
+        np.testing.assert_array_equal(sd.train[2], [3.0, 4.0])
 
     def test_paired_gaps_in_unit_indices(self, tmp_path):
         """
@@ -4597,27 +4598,22 @@ class TestS3Utils4:
 @skip_no_pandas
 class TestKilosortEmptyClusterInfoTsv:
     """
-    Tests current behavior when cluster_info.tsv is empty (zero bytes).
-    The loader catches the parse failure via the existing
-    (IOError, ValueError, KeyError) handler — pandas.errors.EmptyDataError
-    is a ValueError subclass — emits a UserWarning and falls through with
-    keep_clusters=None so all clusters are kept.
+    Tests that an empty cluster_info.tsv produces a clear ValueError
+    rather than letting pandas.errors.EmptyDataError propagate from
+    deep inside the loader.
     """
 
-    def test_empty_cluster_info_tsv_warns_and_keeps_all_clusters(self, tmp_path):
+    def test_empty_cluster_info_tsv_raises_value_error(self, tmp_path):
         """
-        Empty cluster_info.tsv produces a UserWarning and a SpikeData
-        containing all clusters (no filtering applied).
+        Empty cluster_info.tsv raises ValueError with a clear message
+        naming the empty file and pointing at the workaround.
 
         Tests:
-            (Test Case 1) The loader returns without raising.
-            (Test Case 2) sd.N equals the number of unique clusters in
-                spike_clusters.npy (no filtering applied).
-            (Test Case 3) A UserWarning naming "cluster info TSV" is
-                emitted.
+            (Test Case 1) Zero-byte cluster_info_tsv raises ValueError.
+            (Test Case 2) The error message names the offending path.
+            (Test Case 3) The error message suggests omitting
+                cluster_info_tsv as a workaround.
         """
-        import warnings as _warnings
-
         d = str(tmp_path / "ks_empty_tsv")
         os.makedirs(d)
         spike_times = np.array([10, 20, 15])
@@ -4627,49 +4623,54 @@ class TestKilosortEmptyClusterInfoTsv:
         tsv_path = os.path.join(d, "cluster_info.tsv")
         open(tsv_path, "w").close()
 
-        with _warnings.catch_warnings(record=True) as w:
-            _warnings.simplefilter("always")
-            sd = loaders.load_spikedata_from_kilosort(
+        with pytest.raises(ValueError) as exc_info:
+            loaders.load_spikedata_from_kilosort(
                 d,
                 fs_Hz=1000.0,
                 cluster_info_tsv="cluster_info.tsv",
             )
+        msg = str(exc_info.value)
+        assert "empty" in msg.lower()
+        assert "cluster_info.tsv" in msg
 
+    def test_omit_cluster_info_tsv_loads_normally(self, tmp_path):
+        """
+        Omitting cluster_info_tsv loads spikes normally (no crash) — the
+        suggested workaround in the empty-TSV error message.
+
+        Tests:
+            (Test Case 1) Loader returns a SpikeData with the expected
+                number of units when cluster_info_tsv is None.
+        """
+        d = str(tmp_path / "ks_no_tsv")
+        os.makedirs(d)
+        spike_times = np.array([10, 20, 15])
+        spike_clusters = np.array([0, 0, 1])
+        np.save(os.path.join(d, "spike_times.npy"), spike_times)
+        np.save(os.path.join(d, "spike_clusters.npy"), spike_clusters)
+        sd = loaders.load_spikedata_from_kilosort(
+            d, fs_Hz=1000.0, cluster_info_tsv=None
+        )
         assert sd.N == 2
-        warn_msgs = [str(rec.message) for rec in w if rec.category is UserWarning]
-        assert any("cluster info TSV" in m for m in warn_msgs), warn_msgs
 
 
 @skip_no_h5py
-class TestHDF5GroupPerUnitLargeN:
+class TestHDF5GroupPerUnitNaturalSort:
     """
-    Edge case test pinning lexicographic-sort behavior for the
-    group-per-unit loader at N>=10.
-
-    Notes:
-        - documents bug — see REVIEW.md
-        - The exporter writes unit datasets as str(i) keys; on reload the
-          loader calls sorted(...) which orders the keys lexicographically.
-          With N>=10 the order becomes ["0","1","10","2",...] — so unit
-          identity is permuted across round-trip.
+    Tests that the group-per-unit loader sorts numerically (natural sort),
+    preserving unit identity across round-trip at N>=10.
     """
 
-    def test_group_per_unit_lexicographic_sort_with_10_units(self, tmp_path):
+    def test_group_per_unit_natural_sort_with_11_units(self, tmp_path):
         """
-        Group-per-unit loader with N=10 keys produces lexicographically
-        sorted output (current behavior).
+        Group-per-unit loader with 11 numeric keys returns trains in
+        numerical (not lexicographic) order.
 
         Tests:
-            (Test Case 1) Keys "0".."9" are sorted lexicographically;
-                with N=10, key "10" sorts after "1" and before "2".
-            (Test Case 2) Loaded train at index 1 has the spikes from key "1"
-                if "10" sorts after "1" (correct) — but the output ordering
-                does not match numerical index order.
-
-        Notes:
-            - documents bug — see REVIEW.md
+            (Test Case 1) sd.train[i] holds the spikes from key str(i)
+                for i in 0..10.
         """
-        path = str(tmp_path / "lex_n10.h5")
+        path = str(tmp_path / "natural_sort_n11.h5")
         # Create 11 units with distinct spike times so ordering is observable.
         with h5py.File(path, "w") as f:  # type: ignore
             grp = f.create_group("units")
@@ -4681,10 +4682,33 @@ class TestHDF5GroupPerUnitLargeN:
             path, group_per_unit="units", group_time_unit="ms"
         )
         assert sd.N == 11
-        # Lexicographic order of "0".."10" is ["0","1","10","2","3",...,"9"].
-        # So train[2] should hold the spikes for key "10" (value 110.0)
-        # rather than for key "2" (value 30.0).
-        np.testing.assert_array_equal(sd.train[2], [110.0])
+        # Natural order: train[i] holds key str(i) → spike at (i+1)*10.
+        for i in range(11):
+            np.testing.assert_array_equal(sd.train[i], [float(i + 1) * 10.0])
+
+    def test_group_per_unit_natural_sort_mixed_prefix(self, tmp_path):
+        """
+        Natural sort works with prefixed keys like "unit_2" / "unit_10".
+
+        Tests:
+            (Test Case 1) Keys "unit_1" .. "unit_11" load in numerical
+                order; train[1] holds the spike from "unit_2" and
+                train[9] holds the spike from "unit_10".
+        """
+        path = str(tmp_path / "natural_sort_prefixed.h5")
+        with h5py.File(path, "w") as f:  # type: ignore
+            grp = f.create_group("units")
+            for i in range(1, 12):
+                grp.create_dataset(f"unit_{i}", data=np.array([float(i) * 10.0]))
+            grp.attrs["time_unit"] = "ms"
+
+        sd = loaders.load_spikedata_from_hdf5(
+            path, group_per_unit="units", group_time_unit="ms"
+        )
+        assert sd.N == 11
+        # train[i] holds unit_(i+1).
+        for i in range(11):
+            np.testing.assert_array_equal(sd.train[i], [float(i + 1) * 10.0])
 
 
 class TestLoadSpikedataFromIblAllFallbacksFail:
@@ -4723,3 +4747,60 @@ class TestLoadSpikedataFromIblAllFallbacksFail:
                 eid="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
                 pid="11111111-2222-3333-4444-555555555555",
             )
+
+
+class TestS3UrlEdgeCases:
+    """Boundary tests for is_s3_url and parse_s3_url covering whitespace,
+    case sensitivity, MinIO/localhost URLs, and bucket-only URLs."""
+
+    def test_is_s3_url_with_whitespace_returns_false(self):
+        """
+        is_s3_url does not strip leading/trailing whitespace, so a value
+        like "  s3://bucket/key  " is not recognised as an S3 URL.
+
+        Tests:
+            (Test Case 1) Whitespace-padded s3:// URL returns False.
+        """
+        from spikelab.data_loaders.s3_utils import is_s3_url
+
+        assert is_s3_url("  s3://bucket/key  ") is False
+
+    def test_is_s3_url_uppercase_scheme_returns_false(self):
+        """
+        is_s3_url is case-sensitive. "S3://bucket/key" (uppercase scheme)
+        is not recognised.
+
+        Tests:
+            (Test Case 1) Uppercase S3:// URL returns False.
+        """
+        from spikelab.data_loaders.s3_utils import is_s3_url
+
+        assert is_s3_url("S3://bucket/key") is False
+
+    def test_is_s3_url_minio_endpoint_returns_false(self):
+        """
+        is_s3_url checks for the amazonaws.com host or the s3:// scheme,
+        so MinIO/LocalStack-style endpoints (e.g. localhost:9000) are not
+        recognised. Documents that custom S3-compatible endpoints are
+        unsupported.
+
+        Tests:
+            (Test Case 1) http://localhost:9000/bucket/key returns False.
+        """
+        from spikelab.data_loaders.s3_utils import is_s3_url
+
+        assert is_s3_url("http://localhost:9000/bucket/key") is False
+
+    def test_parse_s3_url_bucket_only_raises(self):
+        """
+        parse_s3_url("s3://") raises ValueError because the URL has no
+        object key.
+
+        Tests:
+            (Test Case 1) "s3://" alone raises ValueError naming "no
+                object key".
+        """
+        from spikelab.data_loaders.s3_utils import parse_s3_url
+
+        with pytest.raises(ValueError, match="no object key"):
+            parse_s3_url("s3://")

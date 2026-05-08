@@ -1570,26 +1570,19 @@ class TestPolicyBoundary:
 
 
 class TestBuildJobName:
-    def test_empty_prefix(self):
-        """Empty prefix produces a name that is just '-<token>'."""
+    def test_empty_prefix_raises(self):
+        """Empty prefix raises ValueError (would produce a leading-hyphen name)."""
         from spikelab.batch_jobs.session import RunSession
 
-        name = RunSession._build_job_name("")
-        # Empty string rstripped of hyphens is still empty, so name is "-<8hex>"
-        assert len(name) <= 63
-        token = name.split("-")[-1]
-        assert len(token) == 8
-        int(token, 16)
+        with pytest.raises(ValueError, match="alphanumeric"):
+            RunSession._build_job_name("")
 
-    def test_all_hyphens_prefix(self):
-        """Prefix like '---' is rstripped to empty, producing '-<token>'."""
+    def test_all_hyphens_prefix_raises(self):
+        """All-hyphen prefix raises ValueError (rstrip reduces it to empty)."""
         from spikelab.batch_jobs.session import RunSession
 
-        name = RunSession._build_job_name("---")
-        assert len(name) <= 63
-        token = name.split("-")[-1]
-        assert len(token) == 8
-        int(token, 16)
+        with pytest.raises(ValueError, match="empty string"):
+            RunSession._build_job_name("---")
 
     def test_prefix_exactly_at_max_length(self):
         """54-char prefix fits exactly (54 + 1 + 8 = 63)."""
@@ -3359,17 +3352,13 @@ class TestCredentialExtended:
         assert redacted["AWS_ACCESS_KEY_ID"] == "AKIAEXAMPLE"
 
 
-class TestRetrieveSortingBareExceptSilencesErrors:
+class TestRetrieveSortingWarnsOnCorruptOutputs:
     """
-    Edge case tests pinning current behavior of _retrieve_sorting when
-    pickle / JSON load fails: the bare `except Exception:` swallows the
-    error and the workspace ends up missing those entries.
-
-    Notes:
-        - documents bug — see REVIEW.md
-        - A corrupt sorting output produces an empty workspace with no
-          warning. The user cannot tell a "no output" job from a
-          "corrupt output" job.
+    Tests that _retrieve_sorting emits a UserWarning naming the corrupt
+    file when a pickle or JSON output fails to load, instead of silently
+    swallowing the error. The retrieval still completes (continuing
+    through the remaining files) so a single bad output does not abort
+    the whole batch.
     """
 
     def _make_session(self):
@@ -3391,18 +3380,19 @@ class TestRetrieveSortingBareExceptSilencesErrors:
         )
         return session, storage
 
-    def test_corrupt_pickle_silently_skipped(self, tmp_path):
+    def test_corrupt_pickle_warns_and_skips(self, tmp_path):
         """
-        _retrieve_sorting silently skips a corrupt .pkl file, producing
-        an empty workspace.
+        _retrieve_sorting emits a UserWarning naming the corrupt pickle
+        and continues; the workspace ends up without that entry.
 
         Tests:
-            (Test Case 1) The output workspace is empty (no spikedata
-                stored) when the pickle is corrupt.
-
-        Notes:
-            - documents bug — see REVIEW.md
+            (Test Case 1) A UserWarning is emitted whose message names
+                the corrupt file.
+            (Test Case 2) The workspace is returned (no exception) and
+                contains no spikedata entry from the corrupt pickle.
         """
+        import warnings
+
         from spikelab.batch_jobs.models import SubmitResult
         from spikelab.workspace.workspace import AnalysisWorkspace
 
@@ -3439,23 +3429,29 @@ class TestRetrieveSortingBareExceptSilencesErrors:
             job_type="sorting",
         )
 
-        # Should not raise; the bare except swallows the pickle error.
-        result_ws = session.retrieve_result(submit_result, str(local_dir))
-        assert isinstance(result_ws, AnalysisWorkspace)
-        # The corrupt pickle was silently dropped: no namespaces stored.
-        assert len(result_ws._index) == 0
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            result_ws = session.retrieve_result(submit_result, str(local_dir))
 
-    def test_corrupt_json_silently_skipped(self, tmp_path):
+        assert isinstance(result_ws, AnalysisWorkspace)
+        assert len(result_ws._index) == 0
+        # A UserWarning naming the corrupt pickle was emitted.
+        warn_msgs = [str(rec.message) for rec in w if rec.category is UserWarning]
+        assert any("bad.pkl" in m for m in warn_msgs), warn_msgs
+
+    def test_corrupt_json_warns_and_skips(self, tmp_path):
         """
-        _retrieve_sorting silently skips a corrupt .json metadata file.
+        _retrieve_sorting emits a UserWarning naming the unreadable JSON
+        and continues; the workspace ends up without that entry.
 
         Tests:
-            (Test Case 1) Workspace ends empty when the only output is
-                an unparseable JSON file.
-
-        Notes:
-            - documents bug — see REVIEW.md
+            (Test Case 1) A UserWarning is emitted whose message names
+                the unreadable JSON file.
+            (Test Case 2) The workspace is returned and contains no
+                metadata entry from the corrupt JSON.
         """
+        import warnings
+
         from spikelab.batch_jobs.models import SubmitResult
         from spikelab.workspace.workspace import AnalysisWorkspace
 
@@ -3489,59 +3485,163 @@ class TestRetrieveSortingBareExceptSilencesErrors:
             job_type="sorting",
         )
 
-        result_ws = session.retrieve_result(submit_result, str(local_dir))
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            result_ws = session.retrieve_result(submit_result, str(local_dir))
+
         assert isinstance(result_ws, AnalysisWorkspace)
-        # The corrupt JSON was silently dropped.
         assert len(result_ws._index) == 0
+        warn_msgs = [str(rec.message) for rec in w if rec.category is UserWarning]
+        assert any("metadata.json" in m for m in warn_msgs), warn_msgs
 
 
 class TestBuildJobNameRfc1123Compliance:
     """
-    Edge case tests pinning current K8s-name compliance behavior of
-    _build_job_name.
-
-    Notes:
-        - documents bug — see REVIEW.md
-        - K8s job names must conform to RFC 1123: a sequence of
-          `[a-z0-9-]` starting with a letter and not ending with a
-          hyphen. Empty / all-hyphen prefixes currently produce names
-          that start with `-`.
+    Tests that _build_job_name rejects prefixes that would produce an
+    RFC 1123-invalid Kubernetes job name (leading hyphen) instead of
+    letting the cluster reject the manifest at apply time.
     """
 
-    def test_empty_prefix_produces_invalid_k8s_name(self):
+    def test_empty_prefix_raises(self):
         """
-        _build_job_name("") currently returns a string starting with '-',
-        which is not RFC 1123 compliant.
+        _build_job_name("") raises ValueError naming "alphanumeric".
 
         Tests:
-            (Test Case 1) Resulting name starts with a hyphen.
-
-        Notes:
-            - documents bug — see REVIEW.md
-            - K8s would reject this name at apply time with an opaque
-              error.
+            (Test Case 1) Empty prefix raises ValueError.
+            (Test Case 2) The error names the offending input and the
+                reason (RFC 1123 / alphanumeric).
         """
         from spikelab.batch_jobs.session import RunSession
 
-        name = RunSession._build_job_name("")
-        # Documents that the result starts with '-' (the truncated
-        # prefix is the empty string after rstrip).
-        assert name.startswith("-")
-        # Non-compliant: the leading char is not a letter [a-z].
-        assert not name[0].isalpha()
+        with pytest.raises(ValueError) as exc_info:
+            RunSession._build_job_name("")
+        msg = str(exc_info.value)
+        assert "''" in msg or "empty" in msg.lower()
+        assert "alphanumeric" in msg.lower() or "RFC 1123" in msg
 
-    def test_all_hyphens_prefix_produces_invalid_k8s_name(self):
+    def test_all_hyphens_prefix_raises(self):
         """
-        _build_job_name("---") currently returns '-<token>', not RFC 1123.
+        _build_job_name("---") raises ValueError because trailing-hyphen
+        stripping reduces it to the empty string.
 
         Tests:
-            (Test Case 1) Resulting name starts with a hyphen.
-
-        Notes:
-            - documents bug — see REVIEW.md
+            (Test Case 1) All-hyphen prefix raises ValueError.
         """
         from spikelab.batch_jobs.session import RunSession
 
-        name = RunSession._build_job_name("---")
-        assert name.startswith("-")
-        assert not name[0].isalpha()
+        with pytest.raises(ValueError, match="empty string"):
+            RunSession._build_job_name("---")
+
+    def test_valid_prefix_succeeds(self):
+        """
+        Valid prefixes still produce well-formed job names — no
+        regression for the happy path.
+
+        Tests:
+            (Test Case 1) "spikelab-sort" produces a name starting with
+                "spikelab-sort-" and containing the 8-char hex token.
+            (Test Case 2) Total length ≤ 63 (K8s job name limit).
+            (Test Case 3) Trailing-hyphen prefix "foo--" still works
+                because "foo" is left after rstrip.
+        """
+        from spikelab.batch_jobs.session import RunSession
+
+        name = RunSession._build_job_name("spikelab-sort")
+        assert name.startswith("spikelab-sort-")
+        assert len(name) <= 63
+        assert name[0].isalpha()
+
+        name2 = RunSession._build_job_name("foo--")
+        assert name2.startswith("foo-")
+
+
+class TestSleepDetectionEdgeCases:
+    """Boundary tests for _contains_disallowed_sleep covering NaN durations,
+    -infinity, mixed case, and whitespace-padded tokens."""
+
+    def test_nan_duration_flagged(self):
+        """
+        ``sleep NaN`` is flagged as a disallowed sleep pattern — NaN is
+        not a finite duration; the actual sleep binary rejects it, but
+        a job spec containing it is suspicious (bug or obfuscation
+        around the literal 'inf'/'infinity' check).
+
+        Tests:
+            (Test Case 1) ['sleep', 'NaN'] is flagged.
+        """
+        from spikelab.batch_jobs.policy import _contains_disallowed_sleep
+
+        assert _contains_disallowed_sleep(["sleep", "NaN"], []) is True
+
+    def test_negative_infinity_duration_flagged(self):
+        """
+        ``sleep -infinity`` is flagged as a disallowed sleep pattern —
+        non-finite duration suggests intent to bypass the literal
+        'inf'/'infinity' string check.
+
+        Tests:
+            (Test Case 1) ['sleep', '-infinity'] is flagged.
+            (Test Case 2) ['sleep', '-inf'] is flagged.
+        """
+        from spikelab.batch_jobs.policy import _contains_disallowed_sleep
+
+        assert _contains_disallowed_sleep(["sleep", "-infinity"], []) is True
+        assert _contains_disallowed_sleep(["sleep", "-inf"], []) is True
+
+    def test_mixed_case_sleep_infinity_flagged(self):
+        """
+        The token-pair check lowercases both sides, so ``SLEEP infinity``
+        is correctly flagged.
+
+        Tests:
+            (Test Case 1) ['SLEEP', 'infinity'] is flagged.
+        """
+        from spikelab.batch_jobs.policy import _contains_disallowed_sleep
+
+        assert _contains_disallowed_sleep(["SLEEP", "infinity"], []) is True
+
+    def test_whitespace_padded_sleep_token_flagged(self):
+        """
+        Tokens are split on whitespace before the bare-sleep check, so
+        a single token with internal whitespace ("  sleep  ") is split
+        into ["sleep"] and triggers the bare-sleep branch.
+
+        Tests:
+            (Test Case 1) [' sleep '] alone is flagged as bare-sleep.
+        """
+        from spikelab.batch_jobs.policy import _contains_disallowed_sleep
+
+        assert _contains_disallowed_sleep([" sleep "], []) is True
+
+
+class TestRedactSensitiveMapBoundary:
+    """Boundary test for redact_sensitive_map covering an empty mapping."""
+
+    def test_empty_mapping_returns_empty_dict(self):
+        """
+        redact_sensitive_map on an empty input returns an empty dict
+        rather than raising.
+
+        Tests:
+            (Test Case 1) {} returns {}.
+        """
+        assert redact_sensitive_map({}) == {}
+
+
+class TestProfilesEdgeCases:
+    """Boundary tests for load_profile_from_name covering whitespace and
+    empty-string inputs."""
+
+    def test_load_profile_with_whitespace_name(self):
+        """
+        load_profile_from_name strips leading/trailing whitespace and
+        lowercases before matching, so "  NRP  " resolves to the nrp
+        profile.
+
+        Tests:
+            (Test Case 1) "  NRP  " loads the nrp.yaml profile.
+        """
+        from spikelab.batch_jobs.profiles import load_profile_from_name
+
+        prof = load_profile_from_name("  NRP  ")
+        assert prof.name == "nrp"

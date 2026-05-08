@@ -2489,3 +2489,60 @@ class TestPairwiseCoreReview:
         for s in range(5):
             assert np.isnan(result.stack[1, 2, s])  # 0.3 < 0.4 → replaced
             assert not np.isnan(result.stack[0, 2, s])  # 0.5 >= 0.4 → kept
+
+
+class TestPairwiseCompMatrixThresholdInf:
+    """Boundary tests for PairwiseCompMatrix.threshold with infinite threshold."""
+
+    def test_threshold_infinity(self):
+        """
+        threshold(inf): np.abs(matrix) > inf is always False for finite
+        matrices, producing an all-zero binary result.
+
+        Tests:
+            (Test Case 1) Result matrix is entirely zero.
+            (Test Case 2) Metadata records the threshold as inf.
+        """
+        pcm = PairwiseCompMatrix(
+            matrix=np.array([[1.0, 0.5, 0.9], [0.5, 1.0, 0.7], [0.9, 0.7, 1.0]])
+        )
+        result = pcm.threshold(float("inf"))
+        np.testing.assert_array_equal(result.matrix, 0)
+        assert result.metadata["threshold"] == float("inf")
+        assert result.metadata["binary"] is True
+
+
+class TestPairwiseCompMatrixNormalizeBoundary:
+    """Boundary tests for PairwiseCompMatrix.normalize on a single-cell matrix."""
+
+    def test_normalize_min_max_1x1_matrix_returns_zero(self):
+        """
+        min_max normalize on a 1x1 matrix has lo == hi so the range is
+        zero. The implementation returns a zero-valued single cell rather
+        than NaN.
+
+        Tests:
+            (Test Case 1) Single-cell matrix produces a (1,1) zero matrix
+                without raising or NaN-propagation.
+        """
+        pcm = PairwiseCompMatrix(matrix=np.array([[5.0]]))
+        result = pcm.normalize(method="min_max")
+        assert result.matrix.shape == (1, 1)
+        np.testing.assert_array_equal(result.matrix, [[0.0]])
+
+
+class TestPairwiseCompMatrixExtractPairsByGroupBoundary:
+    """Boundary tests for PairwiseCompMatrix.extract_pairs_by_group."""
+
+    def test_extract_pairs_by_group_single_label_1x1(self):
+        """
+        extract_pairs_by_group on a 1x1 matrix with one label has no
+        unordered pairs (np.triu_indices(1, k=1) is empty), so the
+        function returns an empty dict.
+
+        Tests:
+            (Test Case 1) Result is an empty dict for a (1,1) matrix.
+        """
+        pcm = PairwiseCompMatrix(matrix=np.array([[1.0]]))
+        result = pcm.extract_pairs_by_group([0])
+        assert result == {}

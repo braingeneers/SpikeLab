@@ -4095,3 +4095,24 @@ class TestUtilsCoreReview:
         # Only 1 slice has both units valid → overlap=1 < min_overlap=2
         assert np.isnan(corr.matrix[0, 1])
         assert np.isnan(corr.matrix[1, 0])
+
+
+class TestResampledIsiEmptyTimes:
+    """Boundary tests for _resampled_isi with degenerate ``times`` arrays."""
+
+    def test_resampled_isi_empty_times_with_multi_spikes_raises(self):
+        """
+        _resampled_isi falls into the single-time branch when len(times) < 2,
+        but a length-0 ``times`` array makes the times[0] access raise
+        IndexError. Pin current behaviour.
+
+        Tests:
+            (Test Case 1) Multi-spike train with len(times)==0 raises
+                IndexError out of times[0].
+        """
+        from spikelab.spikedata.utils import _resampled_isi
+
+        spikes = [1.0, 2.0, 3.0]
+        times = np.array([], dtype=float)
+        with pytest.raises(IndexError):
+            _resampled_isi(spikes, times, sigma_ms=1.0)

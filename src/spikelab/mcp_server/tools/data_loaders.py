@@ -714,6 +714,13 @@ async def load_from_ibl(
     Returns:
         Dictionary with workspace_id, namespace, workspace_key, and info.
     """
+    if not namespace and len(eid) < 8:
+        raise ValueError(
+            f"eid ({eid!r}) is too short to derive a namespace; "
+            f"IBL eids are UUIDs (length 36). Pass an explicit namespace "
+            f"argument or supply a full eid."
+        )
+
     spikedata = load_spikedata_from_ibl(eid, pid, length_ms=length_ms)
 
     ns_derived = namespace or eid[:8]
