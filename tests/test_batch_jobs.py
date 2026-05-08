@@ -827,6 +827,71 @@ class TestS3StorageClient:
         uri = client.build_uri(run_id="run-1", filename="my file (1).pkl")
         assert "my file (1).pkl" in uri
 
+    def test_prefixless_client_supports_download_upload(self):
+        """
+        S3StorageClient(prefix=None) supports the entrypoint pattern:
+        the container constructs a prefixless client and exercises only
+        download_file / upload_file with fully-formed S3 URIs. The
+        prefix-templating methods are off-limits in this mode.
+
+        Tests:
+            (Test Case 1) download_file works with prefix=None.
+            (Test Case 2) upload_file works with prefix=None.
+            (Test Case 3) self.prefix is None (not coerced).
+        """
+        with patch("spikelab.batch_jobs.storage_s3.boto3") as mock_boto3:
+            mock_s3 = MagicMock()
+            mock_boto3.client.return_value = mock_s3
+            client = S3StorageClient(prefix=None)
+        assert client.prefix is None
+
+        client.download_file(
+            s3_uri="s3://bucket/outputs/run-1/data.pkl",
+            local_path="/tmp/data.pkl",
+        )
+        mock_s3.download_file.assert_called_once_with(
+            "bucket", "outputs/run-1/data.pkl", "/tmp/data.pkl"
+        )
+
+        result = client.upload_file(
+            local_path="/tmp/out.pkl",
+            s3_uri="s3://bucket/outputs/run-1/out.pkl",
+        )
+        mock_s3.upload_file.assert_called_once_with(
+            "/tmp/out.pkl", "bucket", "outputs/run-1/out.pkl"
+        )
+        assert result == "s3://bucket/outputs/run-1/out.pkl"
+
+    def test_prefixless_client_rejects_template_methods(self):
+        """
+        Calling prefix-templating methods on a prefix=None client
+        raises ValueError naming the missing prefix — this is the
+        intended fail-fast for the container path so a future
+        refactor that accidentally calls build_uri / upload_bundle
+        in the entrypoint surfaces the bug instead of silently
+        producing double-templated URIs.
+
+        Tests:
+            (Test Case 1) build_uri raises.
+            (Test Case 2) upload_bundle raises (it composes build_uri).
+            (Test Case 3) output_prefix_for_run / logs_prefix_for_run
+                return empty string (documented existing behaviour).
+        """
+        with patch("spikelab.batch_jobs.storage_s3.boto3") as mock_boto3:
+            mock_boto3.client.return_value = MagicMock()
+            client = S3StorageClient(prefix=None)
+
+        with pytest.raises(ValueError, match="S3 prefix is not configured"):
+            client.build_uri(run_id="run-1", filename="data.pkl")
+        with pytest.raises(ValueError, match="S3 prefix is not configured"):
+            client.upload_bundle(local_zip="/tmp/x.zip", run_id="run-1")
+
+        # The two *_prefix_for_run methods return empty strings rather
+        # than raising — preserved as the documented existing behaviour
+        # (see test_output_prefix_no_prefix_returns_empty above).
+        assert client.output_prefix_for_run("run-1") == ""
+        assert client.logs_prefix_for_run("run-1") == ""
+
 
 # ---------------------------------------------------------------------------
 # backend_k8s tests (no real cluster)
@@ -2754,6 +2819,271 @@ class TestSortingEntrypoint:
         config_dict = dataclasses.asdict(config)
         reconstructed = _reconstruct_config(config_dict)
         assert reconstructed.recording.freq_min == 200
+
+
+class TestSortingEntrypointMain:
+    """
+    End-to-end test for the ``main`` function in
+    ``spikelab.batch_jobs.entrypoints.sorting``. Mirrors the
+    ``TestWorkspaceEntrypoint.test_main_runs_script_with_workspace``
+    pattern: build a real bundle, mock S3 + ``sort_recording``, and
+    verify that ``main()`` downloads, sorts, and uploads as
+    documented.
+    """
+
+    def test_main_downloads_sorts_and_uploads(self, tmp_path, monkeypatch):
+        """
+        ``main()`` reads INPUT_URI / OUTPUT_PREFIX, downloads the
+        bundle zip, runs ``sort_recording`` on extracted recordings,
+        and uploads each curated SpikeData pickle plus a
+        ``sorting_report.json`` to ``output_prefix``.
+
+        Tests:
+            (Test Case 1) ``S3StorageClient.download_file`` is called
+                with INPUT_URI.
+            (Test Case 2) ``sort_recording`` receives the recording
+                file paths, the reconstructed config, and the auto-
+                generated intermediate / results folders.
+            (Test Case 3) Each returned SpikeData is uploaded as
+                ``{name}_curated.pkl`` under OUTPUT_PREFIX.
+            (Test Case 4) ``sorting_report.json`` is uploaded with
+                the expected metadata.
+        """
+        import dataclasses
+        import json
+        import pickle
+        import shutil
+        import zipfile
+        from unittest.mock import MagicMock
+
+        import numpy as np
+
+        from spikelab.batch_jobs.entrypoints.sorting import main as sorting_main
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+        from spikelab.spikedata import SpikeData
+
+        # --- Build a tiny bundle: one recording file + sorting_config.json ---
+        bundle_dir = tmp_path / "bundle"
+        bundle_dir.mkdir(parents=True)
+
+        config = SortingPipelineConfig()
+        config_dict = dataclasses.asdict(config)
+        (bundle_dir / "sorting_config.json").write_text(
+            json.dumps(config_dict), encoding="utf-8"
+        )
+
+        # Recording file is opaque to the entrypoint; a placeholder
+        # byte-blob is enough to exercise the file-discovery loop.
+        rec_a = bundle_dir / "rec_a.bin"
+        rec_a.write_bytes(b"binary recording payload")
+        # A second .bin to verify multi-recording handling.
+        rec_b = bundle_dir / "rec_b.bin"
+        rec_b.write_bytes(b"second recording payload")
+        # Manifest is excluded by the entrypoint's recording-file
+        # discovery loop.
+        (bundle_dir / "manifest.json").write_text("{}", encoding="utf-8")
+
+        zip_path = tmp_path / "bundle.zip"
+        with zipfile.ZipFile(zip_path, "w") as zf:
+            for path in bundle_dir.iterdir():
+                zf.write(path, path.name)
+
+        # --- Mock the S3 client: download = local copy; upload = capture ---
+        # Capture each upload's bytes immediately, since main()'s
+        # tempfile.TemporaryDirectory cleans up local_path on exit.
+        upload_calls: list[tuple[str, str, bytes]] = []
+
+        def fake_download(*, s3_uri, local_path):
+            shutil.copy2(zip_path, local_path)
+            return local_path
+
+        def fake_upload(*, local_path, s3_uri):
+            with open(local_path, "rb") as f:
+                payload = f.read()
+            upload_calls.append((local_path, s3_uri, payload))
+            return s3_uri
+
+        mock_storage = MagicMock()
+        mock_storage.download_file.side_effect = fake_download
+        mock_storage.upload_file.side_effect = fake_upload
+
+        monkeypatch.setattr(
+            "spikelab.batch_jobs.storage_s3.S3StorageClient",
+            lambda **kwargs: mock_storage,
+        )
+
+        # --- Mock sort_recording with a stub that returns one SpikeData per recording ---
+        sort_calls: list[dict] = []
+
+        def fake_sort_recording(
+            recording_files,
+            config,
+            intermediate_folders,
+            results_folders,
+        ):
+            # Snapshot existence-at-call-time: the temp dir holding
+            # these folders is cleaned up when main() returns, so
+            # later existence checks would be misleading.
+            folders_existed = all(
+                Path(p).exists() and Path(p).is_dir()
+                for p in list(intermediate_folders) + list(results_folders)
+            )
+            sort_calls.append(
+                {
+                    "recording_files": list(recording_files),
+                    "intermediate_folders": list(intermediate_folders),
+                    "results_folders": list(results_folders),
+                    "config": config,
+                    "folders_existed_at_call": folders_existed,
+                }
+            )
+            return [SpikeData([[1.0, 2.0]], length=10.0) for _ in recording_files]
+
+        monkeypatch.setattr(
+            "spikelab.spike_sorting.pipeline.sort_recording",
+            fake_sort_recording,
+        )
+
+        # --- Env vars consumed by main() ---
+        monkeypatch.setenv("INPUT_URI", "s3://bucket/input/bundle.zip")
+        monkeypatch.setenv("OUTPUT_PREFIX", "s3://bucket/outputs/run-1/")
+
+        sorting_main()
+
+        # --- Assertions on the orchestration ---
+        # Test Case 1: download_file invoked with INPUT_URI.
+        download_args = mock_storage.download_file.call_args
+        assert download_args.kwargs["s3_uri"] == "s3://bucket/input/bundle.zip"
+
+        # Test Case 2: sort_recording received the two recording files.
+        assert len(sort_calls) == 1
+        call = sort_calls[0]
+        rec_names = {Path(p).name for p in call["recording_files"]}
+        assert rec_names == {"rec_a.bin", "rec_b.bin"}
+        # Per-recording intermediate / results folders were materialised
+        # (existence captured inside the sort_recording stub before the
+        # tempdir was cleaned up).
+        assert len(call["intermediate_folders"]) == 2
+        assert len(call["results_folders"]) == 2
+        assert call["folders_existed_at_call"] is True
+        assert isinstance(call["config"], SortingPipelineConfig)
+
+        # Test Case 3: per-recording curated pickles uploaded.
+        uploaded_uris = {uri for _, uri, _ in upload_calls}
+        assert "s3://bucket/outputs/run-1/rec_a_curated.pkl" in uploaded_uris
+        assert "s3://bucket/outputs/run-1/rec_b_curated.pkl" in uploaded_uris
+
+        # Test Case 4: sorting_report.json uploaded with the expected metadata.
+        report_uploads = [
+            (local, uri, payload)
+            for local, uri, payload in upload_calls
+            if uri.endswith("sorting_report.json")
+        ]
+        assert len(report_uploads) == 1
+        _, _, report_bytes = report_uploads[0]
+        meta = json.loads(report_bytes.decode("utf-8"))
+        assert meta["n_recordings"] == 2
+        assert meta["n_results"] == 2
+        assert set(meta["recording_names"]) == {"rec_a", "rec_b"}
+        assert meta["sorter"] == config.sorter.sorter_name
+
+        # The pickled SpikeData should round-trip from the upload payloads.
+        pkl_uploads = [
+            payload for _, uri, payload in upload_calls if uri.endswith(".pkl")
+        ]
+        for payload in pkl_uploads:
+            loaded = pickle.loads(payload)
+            assert isinstance(loaded, SpikeData)
+
+    def test_main_raises_on_missing_sorting_config(self, tmp_path, monkeypatch):
+        """
+        ``main()`` raises FileNotFoundError when the bundle contains
+        no ``sorting_config.json``. The error must surface clearly so
+        the operator can repair the bundle.
+
+        Tests:
+            (Test Case 1) Bundle without sorting_config.json raises
+                FileNotFoundError mentioning the missing file.
+        """
+        import shutil
+        import zipfile
+        from unittest.mock import MagicMock
+
+        from spikelab.batch_jobs.entrypoints.sorting import main as sorting_main
+
+        bundle_dir = tmp_path / "bundle_no_cfg"
+        bundle_dir.mkdir(parents=True)
+        (bundle_dir / "rec.bin").write_bytes(b"recording")
+
+        zip_path = tmp_path / "bundle.zip"
+        with zipfile.ZipFile(zip_path, "w") as zf:
+            for path in bundle_dir.iterdir():
+                zf.write(path, path.name)
+
+        def fake_download(*, s3_uri, local_path):
+            shutil.copy2(zip_path, local_path)
+            return local_path
+
+        mock_storage = MagicMock()
+        mock_storage.download_file.side_effect = fake_download
+
+        monkeypatch.setattr(
+            "spikelab.batch_jobs.storage_s3.S3StorageClient",
+            lambda **kwargs: mock_storage,
+        )
+        monkeypatch.setenv("INPUT_URI", "s3://bucket/input/bundle.zip")
+        monkeypatch.setenv("OUTPUT_PREFIX", "s3://bucket/outputs/run-1/")
+
+        with pytest.raises(FileNotFoundError, match="sorting_config.json"):
+            sorting_main()
+
+    def test_main_raises_on_no_recording_files(self, tmp_path, monkeypatch):
+        """
+        ``main()`` raises FileNotFoundError when the bundle contains
+        ``sorting_config.json`` but no recording files. Documents the
+        ``"No recording files found in input bundle"`` branch.
+
+        Tests:
+            (Test Case 1) Config-only bundle raises FileNotFoundError.
+        """
+        import dataclasses
+        import json
+        import shutil
+        import zipfile
+        from unittest.mock import MagicMock
+
+        from spikelab.batch_jobs.entrypoints.sorting import main as sorting_main
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+
+        bundle_dir = tmp_path / "bundle_no_rec"
+        bundle_dir.mkdir(parents=True)
+        config_dict = dataclasses.asdict(SortingPipelineConfig())
+        (bundle_dir / "sorting_config.json").write_text(
+            json.dumps(config_dict), encoding="utf-8"
+        )
+        (bundle_dir / "manifest.json").write_text("{}", encoding="utf-8")
+
+        zip_path = tmp_path / "bundle.zip"
+        with zipfile.ZipFile(zip_path, "w") as zf:
+            for path in bundle_dir.iterdir():
+                zf.write(path, path.name)
+
+        def fake_download(*, s3_uri, local_path):
+            shutil.copy2(zip_path, local_path)
+            return local_path
+
+        mock_storage = MagicMock()
+        mock_storage.download_file.side_effect = fake_download
+
+        monkeypatch.setattr(
+            "spikelab.batch_jobs.storage_s3.S3StorageClient",
+            lambda **kwargs: mock_storage,
+        )
+        monkeypatch.setenv("INPUT_URI", "s3://bucket/input/bundle.zip")
+        monkeypatch.setenv("OUTPUT_PREFIX", "s3://bucket/outputs/run-1/")
+
+        with pytest.raises(FileNotFoundError, match="recording files"):
+            sorting_main()
 
 
 # ---------------------------------------------------------------------------

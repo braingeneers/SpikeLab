@@ -76,6 +76,26 @@ class RateData:
 
         if not isinstance(times, np.ndarray):
             times = np.array(times)
+        # Validate times: must be all-finite and monotonically non-decreasing.
+        # Non-finite ``times`` causes silent filter-mask failures (NaN compares
+        # False) downstream in ``subtime``; unsorted ``times`` produces non-
+        # monotonic outputs that violate the documented contract.
+        if len(times) > 0:
+            # Check finite only on numeric dtypes — string/object arrays are
+            # accepted by the existing API and cannot be NaN-tested.
+            if np.issubdtype(times.dtype, np.number) and not np.all(np.isfinite(times)):
+                raise ValueError(
+                    "times must be all-finite (no NaN or inf). Got at least "
+                    "one non-finite entry."
+                )
+            if np.issubdtype(times.dtype, np.number) and not np.all(
+                np.diff(times) >= 0
+            ):
+                raise ValueError(
+                    "times must be monotonically non-decreasing. Sort the "
+                    "array (and the matching columns of inst_Frate_data) "
+                    "before constructing RateData."
+                )
         self.inst_Frate_data = np.array(inst_Frate_data, dtype=float)
         self.times = times
         self.rate_unit = rate_unit
@@ -240,17 +260,28 @@ class RateData:
 
         Parameters:
             length (float): Length of each window in milliseconds.
-            overlap (float): Overlap between consecutive windows in milliseconds. Default 0.
+            overlap (float): Overlap between consecutive windows in
+                milliseconds. Default 0. Must be in ``[0, length)``.
 
         Returns:
             stack (RateSliceStack): Stack of rate data windows, one per frame.
 
         Notes:
-            - Windows that would extend past the end of the recording are excluded.
-            - overlap must be strictly less than length.
+            - Windows that would extend past the end of the recording are
+              excluded.
+            - overlap must be non-negative and strictly less than length.
+              Negative overlap (i.e. gaps between windows) is rejected
+              because the parameter semantically means an overlap, not a
+              stride.
         """
         from .rateslicestack import RateSliceStack
 
+        if overlap < 0:
+            raise ValueError(
+                f"overlap must be non-negative, got {overlap}. The parameter "
+                "represents an overlap, not a stride; use a smaller `length` "
+                "and post-filter slices for gapped windows."
+            )
         step = length - overlap
         if step <= 0:
             raise ValueError("overlap must be less than length")

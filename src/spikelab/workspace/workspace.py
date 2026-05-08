@@ -374,9 +374,16 @@ class AnalysisWorkspace:
         entire file.
 
         Parameters:
-            path (str): Base path without file extension.
+            path (str): Base path without file extension. A trailing
+                ``.h5`` is stripped so passing ``"foo.h5"`` and
+                ``"foo"`` produce identical ``foo.h5`` / ``foo.json``
+                pairs.
         """
         from .hdf5_io import dump_workspace
+
+        # Strip the trailing .h5 so foo.h5 doesn't become foo.h5.h5.
+        if path.endswith(".h5"):
+            path = path[:-3]
 
         dump_workspace(self, path)
 
@@ -684,8 +691,12 @@ class LazyAnalysisWorkspace(AnalysisWorkspace):
         """Save the workspace to disk by copying the temp HDF5 file.
 
         Parameters:
-            path (str): Base path without file extension.
+            path (str): Base path without file extension. A trailing
+                ``.h5`` is stripped so ``"foo.h5"`` produces ``foo.h5``
+                rather than ``foo.h5.h5``.
         """
+        if path.endswith(".h5"):
+            path = path[:-3]
         shutil.copy2(self._h5_path, f"{path}.h5")
         json_path = f"{path}.json"
         with open(json_path, "w", encoding="utf-8") as f:

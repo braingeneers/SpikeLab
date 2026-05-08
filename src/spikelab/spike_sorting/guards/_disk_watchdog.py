@@ -32,6 +32,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, List, Optional, Tuple
 
+import numpy as np
+
 from .._exceptions import DiskExhaustionError
 from ._audit import append_audit_event
 
@@ -226,16 +228,21 @@ class DiskUsageWatchdog:
         kill_callback: Optional[Callable[[], None]] = None,
         kill_grace_s: float = 5.0,
     ) -> None:
+        if np.isnan(warn_free_gb) or np.isnan(abort_free_gb):
+            raise ValueError(
+                f"warn_free_gb and abort_free_gb must be finite, got "
+                f"warn_free_gb={warn_free_gb}, abort_free_gb={abort_free_gb}."
+            )
         if warn_free_gb <= abort_free_gb:
             raise ValueError(
                 f"warn_free_gb ({warn_free_gb}) must be greater than "
                 f"abort_free_gb ({abort_free_gb})."
             )
-        if poll_interval_s <= 0.0:
+        if np.isnan(poll_interval_s) or poll_interval_s <= 0.0:
             raise ValueError(
                 f"poll_interval_s must be positive, got {poll_interval_s}."
             )
-        if kill_grace_s < 0.0:
+        if np.isnan(kill_grace_s) or kill_grace_s < 0.0:
             raise ValueError(f"kill_grace_s must be non-negative, got {kill_grace_s}.")
 
         self.folder = Path(folder)
