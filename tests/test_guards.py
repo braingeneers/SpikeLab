@@ -5119,6 +5119,310 @@ class TestIOStallWatchdogProperties:
         assert wd._kill_callbacks == []
 
 
+class TestIOStallWatchdogProcessMode:
+    """Process-mode (``pids=...``) parsing, registration, and reading.
+
+    Process mode trips on per-PID ``io_counters()`` rather than the
+    device-wide counter — useful when a sort process hangs while
+    other processes on the same disk stay busy. These tests cover
+    the construction + registration surface; the polling/trip
+    behaviour is exercised in :class:`TestIOStallProcessModePollLoop`
+    below.
+    """
+
+    def test_construction_requires_folder_or_pids(self):
+        """
+        ``IOStallWatchdog()`` with neither folder nor pids raises.
+
+        Tests:
+            (Test Case 1) Empty constructor → ValueError mentioning
+                both modes.
+        """
+        with pytest.raises(ValueError, match="folder.*pids|pids.*folder"):
+            IOStallWatchdog()
+
+    def test_pids_only_selects_process_mode(self):
+        """
+        Constructing with only ``pids`` selects process mode and
+        leaves ``folder`` as None.
+
+        Tests:
+            (Test Case 1) ``IOStallWatchdog(pids=[123])``:
+                ``mode() == "process"``, ``folder is None``,
+                ``pids() == [123]``.
+        """
+        wd = IOStallWatchdog(pids=[123], stall_s=1.0, poll_interval_s=0.1)
+        assert wd.mode() == "process"
+        assert wd.folder is None
+        assert wd.pids() == [123]
+
+    def test_folder_only_selects_device_mode(self, tmp_path):
+        """
+        Constructing with only ``folder`` keeps the legacy device
+        mode behaviour.
+
+        Tests:
+            (Test Case 1) ``IOStallWatchdog(tmp_path)``:
+                ``mode() == "device"`` and ``pids()`` is empty.
+        """
+        wd = IOStallWatchdog(folder=tmp_path, stall_s=1.0, poll_interval_s=0.1)
+        assert wd.mode() == "device"
+        assert wd.pids() == []
+
+    def test_both_folder_and_pids_picks_process_mode(self, tmp_path):
+        """
+        When *both* folder and pids are provided, process mode wins
+        (we have stronger signal from per-process counters).
+
+        Tests:
+            (Test Case 1) folder + pids → process mode.
+        """
+        wd = IOStallWatchdog(
+            folder=tmp_path,
+            pids=[123],
+            stall_s=1.0,
+            poll_interval_s=0.1,
+        )
+        assert wd.mode() == "process"
+
+    def test_pids_validates_non_positive(self, tmp_path):
+        """
+        Non-positive PIDs at construction raise immediately.
+
+        Tests:
+            (Test Case 1) pids=[0] → ValueError.
+            (Test Case 2) pids=[-1] → ValueError.
+        """
+        with pytest.raises(ValueError, match="positive integer"):
+            IOStallWatchdog(pids=[0], stall_s=1.0)
+        with pytest.raises(ValueError, match="positive integer"):
+            IOStallWatchdog(pids=[-1], stall_s=1.0)
+
+    def test_register_pid_appends(self):
+        """
+        ``register_pid`` adds new PIDs in order; duplicates are
+        ignored.
+
+        Tests:
+            (Test Case 1) Initial pids=[1]; register_pid(2);
+                pids() == [1, 2].
+            (Test Case 2) Re-register an existing PID — list
+                unchanged.
+        """
+        wd = IOStallWatchdog(pids=[1], stall_s=1.0, poll_interval_s=0.1)
+        wd.register_pid(2)
+        assert wd.pids() == [1, 2]
+        wd.register_pid(1)
+        assert wd.pids() == [1, 2]
+
+    def test_register_pid_validates_non_positive(self):
+        """
+        ``register_pid`` rejects zero and negative PIDs.
+
+        Tests:
+            (Test Case 1) register_pid(0) → ValueError.
+        """
+        wd = IOStallWatchdog(pids=[1], stall_s=1.0, poll_interval_s=0.1)
+        with pytest.raises(ValueError, match="positive integer"):
+            wd.register_pid(0)
+
+    def test_register_pid_no_op_in_device_mode(self, tmp_path, caplog):
+        """
+        ``register_pid`` on a device-mode watchdog is a debug-logged
+        no-op so misuse doesn't silently flip the mode.
+
+        Tests:
+            (Test Case 1) Device-mode watchdog + register_pid(123):
+                pids() returns [] and the watchdog stays in device
+                mode.
+        """
+        wd = IOStallWatchdog(folder=tmp_path, stall_s=1.0, poll_interval_s=0.1)
+        wd.register_pid(123)
+        assert wd.pids() == []
+        assert wd.mode() == "device"
+
+    def test_unregister_pid_removes(self):
+        """
+        ``unregister_pid`` removes the matching PID; unknown PIDs
+        are silently ignored.
+
+        Tests:
+            (Test Case 1) pids=[1, 2]; unregister_pid(1) → pids()=[2].
+            (Test Case 2) unregister_pid(99) → no raise, list
+                unchanged.
+        """
+        wd = IOStallWatchdog(pids=[1, 2], stall_s=1.0, poll_interval_s=0.1)
+        wd.unregister_pid(1)
+        assert wd.pids() == [2]
+        wd.unregister_pid(99)
+        assert wd.pids() == [2]
+
+
+class TestIOStallProcessModeReadBytes:
+    """``_read_io_bytes_for_pids`` aggregates per-process counters."""
+
+    def test_sums_across_pids(self, monkeypatch):
+        """
+        ``_read_io_bytes_for_pids`` sums ``read_bytes + write_bytes``
+        across every alive PID.
+
+        Tests:
+            (Test Case 1) Two PIDs with counters → sum returned and
+                alive_count == 2.
+        """
+        from spikelab.spike_sorting.guards import _io_stall as iom
+
+        class _FakeIO:
+            def __init__(self, r, w):
+                self.read_bytes = r
+                self.write_bytes = w
+
+        class _FakeProc:
+            def __init__(self, pid, r, w):
+                self.pid = pid
+                self._io = _FakeIO(r, w)
+
+            def io_counters(self):
+                return self._io
+
+            def children(self, recursive=True):
+                return []
+
+        # Map PID -> stub
+        procs = {1001: _FakeProc(1001, 100, 200), 1002: _FakeProc(1002, 50, 75)}
+
+        class _FakePsutil:
+            class NoSuchProcess(Exception):
+                pass
+
+            class ZombieProcess(Exception):
+                pass
+
+            class AccessDenied(Exception):
+                pass
+
+            @staticmethod
+            def Process(pid):
+                if pid not in procs:
+                    raise _FakePsutil.NoSuchProcess(pid)
+                return procs[pid]
+
+        # Inject our fake module under ``import psutil``.
+        sys_modules_backup = sys.modules.get("psutil")
+        sys.modules["psutil"] = _FakePsutil  # type: ignore[assignment]
+        try:
+            total, alive = iom._read_io_bytes_for_pids([1001, 1002])
+        finally:
+            if sys_modules_backup is not None:
+                sys.modules["psutil"] = sys_modules_backup
+            else:
+                sys.modules.pop("psutil", None)
+        assert alive == 2
+        assert total == 100 + 200 + 50 + 75
+
+    def test_returns_none_when_no_pids_alive(self, monkeypatch):
+        """
+        When every registered PID is dead, returns ``(None, 0)`` so
+        the watchdog goes blind rather than tripping on a vanished
+        sort.
+
+        Tests:
+            (Test Case 1) All PIDs raise NoSuchProcess → (None, 0).
+        """
+        from spikelab.spike_sorting.guards import _io_stall as iom
+
+        class _FakePsutil:
+            class NoSuchProcess(Exception):
+                pass
+
+            class ZombieProcess(Exception):
+                pass
+
+            class AccessDenied(Exception):
+                pass
+
+            @staticmethod
+            def Process(pid):
+                raise _FakePsutil.NoSuchProcess(pid)
+
+        sys_modules_backup = sys.modules.get("psutil")
+        sys.modules["psutil"] = _FakePsutil  # type: ignore[assignment]
+        try:
+            total, alive = iom._read_io_bytes_for_pids([1, 2, 3])
+        finally:
+            if sys_modules_backup is not None:
+                sys.modules["psutil"] = sys_modules_backup
+            else:
+                sys.modules.pop("psutil", None)
+        assert total is None
+        assert alive == 0
+
+
+class TestIOStallProcessModePollLoop:
+    """Polling-loop behaviour in process mode against real PIDs."""
+
+    def test_trips_on_real_stalled_subprocess(self, tmp_path):
+        """
+        Spawn a Python subprocess that does an initial write then
+        sleeps; a process-mode watchdog should observe the per-PID
+        byte counter going flat and trip within tolerance.
+
+        Tests:
+            (Test Case 1) Real subprocess (``python -c
+                "open... time.sleep"``) + IOStallWatchdog with
+                ``pids=[child.pid]`` and ``stall_s=2`` — kill
+                callback fires within ~3 s of the stall starting.
+        """
+        # Worker writes a small file, then sleeps without touching
+        # any I/O. Per-process counters stay flat during sleep.
+        target = tmp_path / "out.bin"
+        worker_code = (
+            f"import os, time\n"
+            f"with open({str(target)!r}, 'wb') as f:\n"
+            f"    f.write(b'x' * (1024 * 1024))\n"
+            f"    f.flush()\n"
+            f"    os.fsync(f.fileno())\n"
+            f"time.sleep(15)\n"
+        )
+        proc = subprocess.Popen(
+            [sys.executable, "-c", worker_code],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        try:
+            # Give the subprocess a moment to do its initial write
+            # and hit the sleep.
+            time.sleep(0.5)
+            kill_event = threading.Event()
+            wd = IOStallWatchdog(
+                pids=[proc.pid],
+                stall_s=2.0,
+                poll_interval_s=0.25,
+                kill_grace_s=0.25,
+            )
+            wd.register_kill_callback(kill_event.set)
+            # The watchdog's trip cascade ends in
+            # ``_thread.interrupt_main()``. The kill callback fires
+            # first, but interrupt_main can race with our context
+            # exit and land here as KeyboardInterrupt — that is the
+            # documented behaviour, not a test failure. Catch it.
+            try:
+                with wd:
+                    fired = kill_event.wait(timeout=6.0)
+            except KeyboardInterrupt:
+                fired = kill_event.is_set()
+            assert fired, (
+                "Process-mode watchdog did not fire kill_callback "
+                "within 6 s for a stalled real subprocess."
+            )
+            assert wd.tripped()
+        finally:
+            try:
+                proc.kill()
+            finally:
+                proc.wait(timeout=5)
+
+
 class TestIOStallWatchdogMaybeWarn:
     """``IOStallWatchdog._maybe_warn`` logs a warning + audit event."""
 
