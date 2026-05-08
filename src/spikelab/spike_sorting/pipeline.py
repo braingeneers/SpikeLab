@@ -1536,7 +1536,10 @@ def sort_recording(
                 else:
                     rec_path = rec_loaded._kwargs["file_paths"][0]
 
-            rec_name = str(rec_path).split("/")[-1].split("\\")[-1].split(".")[0]
+            # Path.stem strips only the final suffix, preserving interior
+            # dots — so "my.session1.h5" yields "my.session1" rather than
+            # "my", which would silently collide with "my.session2.h5".
+            rec_name = Path(str(rec_path)).stem
 
             # Mirror stdout to a per-recording log file from start to finish.
             # The log captures the environment banner, every sorting stage, the

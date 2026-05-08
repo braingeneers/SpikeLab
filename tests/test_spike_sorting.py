@@ -7322,6 +7322,54 @@ class TestGetPaths:
         paths = get_paths(rec, inter, results, execution_config=None)
         assert len(paths) == 9
 
+    def test_rec_name_preserves_interior_dots(self, tmp_path):
+        """
+        get_paths derives rec_name via Path.stem so files with interior
+        dots produce distinct intermediate paths instead of silently
+        colliding via the old split('.')[0] truncation.
+
+        Tests:
+            (Test Case 1) "my.session1.h5" yields recording_dat_path
+                ending in "my.session1_scaled_filtered.dat".
+            (Test Case 2) "my.session2.h5" yields a DIFFERENT
+                recording_dat_path (no collision).
+        """
+        from spikelab.spike_sorting.sorting_utils import get_paths
+
+        rec_a = tmp_path / "my.session1.h5"
+        rec_b = tmp_path / "my.session2.h5"
+        rec_a.touch()
+        rec_b.touch()
+        inter = tmp_path / "inter"
+        results = tmp_path / "results"
+
+        paths_a = get_paths(rec_a, inter, results, execution_config=None)
+        paths_b = get_paths(rec_b, inter, results, execution_config=None)
+
+        # paths[2] is recording_dat_path
+        dat_a = paths_a[2]
+        dat_b = paths_b[2]
+        assert dat_a.name == "my.session1_scaled_filtered.dat"
+        assert dat_b.name == "my.session2_scaled_filtered.dat"
+        assert dat_a != dat_b
+
+    def test_rec_name_single_extension_unchanged(self, tmp_path):
+        """
+        Files with no interior dot (e.g. 'recording.h5') still produce
+        the expected stem — no regression for the simple case.
+
+        Tests:
+            (Test Case 1) "recording.h5" yields rec_name "recording".
+        """
+        from spikelab.spike_sorting.sorting_utils import get_paths
+
+        rec = tmp_path / "recording.h5"
+        rec.touch()
+        inter = tmp_path / "inter"
+        results = tmp_path / "results"
+        paths = get_paths(rec, inter, results, execution_config=None)
+        assert paths[2].name == "recording_scaled_filtered.dat"
+
 
 # ===========================================================================
 # Edge Case Tests -- WaveformExtractor.get_computed_template

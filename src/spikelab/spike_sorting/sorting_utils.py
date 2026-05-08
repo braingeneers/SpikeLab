@@ -213,7 +213,10 @@ def get_paths(
     print(f"Compiled results path: {results_path}")
 
     rec_path = Path(rec_path)
-    rec_name = rec_path.name.split(".")[0]
+    # Path.stem strips only the final suffix, preserving interior dots —
+    # so "my.session1.h5" yields "my.session1" rather than "my", which
+    # would silently collide with "my.session2.h5" intermediate files.
+    rec_name = rec_path.stem
 
     inter_path = Path(inter_path)
 
