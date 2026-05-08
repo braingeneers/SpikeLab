@@ -2034,6 +2034,205 @@ class TestConcatenateRecordingsValidation:
 
 
 # ===========================================================================
+# Auto-populated REC_CHUNKS interactions with time-based slicing
+# ===========================================================================
+
+
+@skip_no_spikeinterface
+class TestRecChunksFromConcatOverride:
+    """
+    Tests for the ``_globals.REC_CHUNKS_FROM_CONCAT`` flag added to
+    distinguish auto-populated per-file chunks (set by
+    ``concatenate_recordings``) from user-supplied frame-based
+    chunks. The loader must:
+
+      * raise the "frame-vs-time" guard only when the user *explicitly*
+        set ``rec_chunks`` and *also* a time-based slice — that
+        combination is genuinely ambiguous;
+      * silently let an explicit time slice replace any auto-populated
+        directory-concat chunks — that is exactly what the canary
+        relies on (``start_time_s=0`` / ``end_time_s=window_s`` over a
+        directory of recordings) and what a user gets when passing
+        ``first_n_mins`` / ``start_time_s`` to ``sort_recording`` with
+        a directory input.
+
+    These cases were silently broken before the flag existed: every
+    canary against a directory recording aborted on the conflict
+    check, taking down the full sort with it.
+    """
+
+    def test_concat_sets_from_concat_flag(self, tmp_path, monkeypatch):
+        """
+        ``concatenate_recordings`` sets ``REC_CHUNKS_FROM_CONCAT=True``
+        when it auto-populates ``REC_CHUNKS`` from a multi-file dir.
+
+        Tests:
+            (Test Case 1) Two-file dir → flag becomes True; chunks
+                hold the per-file boundaries.
+            (Test Case 2) Single-file dir → flag stays at its
+                pre-existing value (no auto-populate happened).
+        """
+        from spikelab.spike_sorting import _globals, recording_io
+
+        monkeypatch.setattr(_globals, "REC_CHUNKS", [], raising=False)
+        monkeypatch.setattr(_globals, "REC_CHUNKS_FROM_CONCAT", False, raising=False)
+        monkeypatch.setattr(_globals, "_REC_CHUNK_NAMES", [], raising=False)
+        monkeypatch.setattr(_globals, "STREAM_ID", None, raising=False)
+        monkeypatch.setattr(_globals, "GAIN_TO_UV", None, raising=False)
+        monkeypatch.setattr(_globals, "OFFSET_TO_UV", None, raising=False)
+        monkeypatch.setattr(_globals, "FREQ_MIN", 300, raising=False)
+        monkeypatch.setattr(_globals, "FREQ_MAX", 6000, raising=False)
+        monkeypatch.setattr(_globals, "FIRST_N_MINS", None, raising=False)
+        monkeypatch.setattr(_globals, "MEA_Y_MAX", None, raising=False)
+
+        # Two-file directory
+        (tmp_path / "a.raw.h5").touch()
+        (tmp_path / "b.raw.h5").touch()
+        rec_a = _make_mock_recording(num_samples=1000)
+        rec_b = _make_mock_recording(num_samples=1500)
+        idx = [0]
+
+        def _mock_load(_path):
+            r = [rec_a, rec_b][idx[0]]
+            idx[0] += 1
+            return r
+
+        monkeypatch.setattr(recording_io, "load_single_recording", _mock_load)
+        # Avoid pulling in real spikeinterface concatenate_recordings;
+        # the stub returns a recording-like wrapper of total length.
+        merged = _make_mock_recording(num_samples=2500)
+        monkeypatch.setattr(
+            recording_io.si_segmentutils,
+            "concatenate_recordings",
+            lambda recs: merged,
+        )
+
+        recording_io.concatenate_recordings(tmp_path)
+
+        assert _globals.REC_CHUNKS == [(0, 1000), (1000, 2500)]
+        assert _globals.REC_CHUNKS_FROM_CONCAT is True
+
+    def test_loader_overrides_concat_chunks_with_time_slice(self, monkeypatch):
+        """
+        With ``REC_CHUNKS_FROM_CONCAT=True`` and a non-empty
+        ``REC_CHUNKS`` populated by concat, supplying
+        ``start_time_s`` / ``end_time_s`` does *not* raise — the
+        time slice replaces the auto-populated boundaries.
+
+        Tests:
+            (Test Case 1) Auto-populated chunks + time slice →
+                REC_CHUNKS becomes the single time-based chunk.
+            (Test Case 2) ``REC_CHUNKS_FROM_CONCAT`` flips to False
+                so the resulting chunks are not re-overridden by a
+                later time-based call.
+        """
+        from spikelab.spike_sorting import _globals, recording_io
+
+        # Patch BaseRecording so the loader's ``isinstance`` check
+        # short-circuits on our SimpleNamespace mock; this avoids
+        # routing through ``Path(rec_path)`` and the file-system
+        # loader entirely.
+        rec = _make_mock_recording(num_samples=200000)
+        monkeypatch.setattr(recording_io, "BaseRecording", type(rec), raising=False)
+
+        monkeypatch.setattr(_globals, "REC_CHUNKS", [(0, 1000), (1000, 2500)],
+                            raising=False)
+        monkeypatch.setattr(_globals, "REC_CHUNKS_FROM_CONCAT", True, raising=False)
+        monkeypatch.setattr(_globals, "REC_CHUNKS_S", [], raising=False)
+        monkeypatch.setattr(_globals, "START_TIME_S", 0.0, raising=False)
+        monkeypatch.setattr(_globals, "END_TIME_S", 1.0, raising=False)
+        monkeypatch.setattr(_globals, "FIRST_N_MINS", None, raising=False)
+        monkeypatch.setattr(_globals, "MEA_Y_MAX", None, raising=False)
+
+        # ``load_single_recording`` returns ``rec`` unchanged (we are
+        # bypassing the scale + bandpass for this unit test — the
+        # focus is the chunks-vs-time override logic).
+        monkeypatch.setattr(
+            recording_io, "load_single_recording", lambda p: rec
+        )
+
+        # Capture the frame_slice call to confirm the time-based
+        # chunk replaced the auto-populated ones.
+        slice_calls = []
+        sliced = _make_mock_recording(num_samples=20000)
+        sliced.frame_slice = lambda start_frame, end_frame: sliced
+
+        def _frame_slice(*, start_frame, end_frame):
+            slice_calls.append((start_frame, end_frame))
+            return sliced
+
+        rec.frame_slice = _frame_slice
+        monkeypatch.setattr(
+            recording_io.si_segmentutils,
+            "concatenate_recordings",
+            lambda recs: sliced,
+        )
+
+        recording_io.load_recording(rec)
+
+        # fs is 20000 Hz, end_time_s=1.0 → end_frame=20000. The
+        # subsequent ``REC_CHUNKS`` loop frame_slices the recording
+        # to that exact range — that's the proof that time-based
+        # took over from the auto-populated [(0,1000),(1000,2500)].
+        assert _globals.REC_CHUNKS == [(0, 20000)]
+        assert _globals.REC_CHUNKS_FROM_CONCAT is False
+        assert slice_calls == [(0, 20000)]
+
+    def test_loader_raises_when_user_set_rec_chunks_collides_with_time(
+        self, monkeypatch
+    ):
+        """
+        With ``REC_CHUNKS_FROM_CONCAT=False`` and a non-empty
+        ``REC_CHUNKS`` (i.e. user-set), the time-based override
+        guard fires as before.
+
+        Tests:
+            (Test Case 1) User-set chunks + time slice → ValueError.
+        """
+        from spikelab.spike_sorting import _globals, recording_io
+
+        rec = _make_mock_recording(num_samples=200000)
+        monkeypatch.setattr(recording_io, "BaseRecording", type(rec), raising=False)
+
+        monkeypatch.setattr(_globals, "REC_CHUNKS", [(0, 1000)], raising=False)
+        monkeypatch.setattr(_globals, "REC_CHUNKS_FROM_CONCAT", False, raising=False)
+        monkeypatch.setattr(_globals, "REC_CHUNKS_S", [], raising=False)
+        monkeypatch.setattr(_globals, "START_TIME_S", 0.0, raising=False)
+        monkeypatch.setattr(_globals, "END_TIME_S", 1.0, raising=False)
+        monkeypatch.setattr(_globals, "FIRST_N_MINS", None, raising=False)
+        monkeypatch.setattr(_globals, "MEA_Y_MAX", None, raising=False)
+
+        monkeypatch.setattr(
+            recording_io, "load_single_recording", lambda p: rec
+        )
+
+        with pytest.raises(ValueError, match="frame-based"):
+            recording_io.load_recording(rec)
+
+    def test_sync_globals_resets_from_concat_flag(self, monkeypatch):
+        """
+        ``_sync_globals_from_config`` resets the
+        ``REC_CHUNKS_FROM_CONCAT`` flag so a stale True from a
+        previous sort cannot silently let a real frame/time
+        combination through.
+
+        Tests:
+            (Test Case 1) Pre-set the flag to True; sync; flag
+                becomes False.
+        """
+        from spikelab.spike_sorting import _globals
+        from spikelab.spike_sorting.backends._common import (
+            _sync_globals_from_config,
+        )
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+
+        monkeypatch.setattr(_globals, "REC_CHUNKS_FROM_CONCAT", True, raising=False)
+        cfg = SortingPipelineConfig()
+        _sync_globals_from_config(cfg, sorter_globals={})
+        assert _globals.REC_CHUNKS_FROM_CONCAT is False
+
+
+# ===========================================================================
 # Backend registry
 # ===========================================================================
 
