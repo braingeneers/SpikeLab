@@ -1848,8 +1848,11 @@
     <span class="p">)</span>
 
     <span class="c1"># -----------------------------------------------------------------------</span>
-    <span class="c1"># RateData-based analysis tools — load RateData from workspace</span>
-    <span class="c1"># Prerequisite: compute_resampled_isi</span>
+    <span class="c1"># Pairwise / manifold / framing analysis tools — mixed inputs</span>
+    <span class="c1"># RateData-based: compute_pairwise_fr_corr, compute_rate_manifold,</span>
+    <span class="c1">#     frames_rate_data (Prerequisite: compute_resampled_isi).</span>
+    <span class="c1"># SpikeData-based: compute_pairwise_ccg, compute_pairwise_latencies,</span>
+    <span class="c1">#     frames_spike_data (Prerequisite: any load_from_* tool).</span>
     <span class="c1"># -----------------------------------------------------------------------</span>
     <span class="n">tools</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
         <span class="p">[</span>
@@ -2328,8 +2331,8 @@
                 <span class="n">description</span><span class="o">=</span><span class="p">(</span>
                     <span class="s2">&quot;Compute unit-to-unit correlation and lag across event-aligned firing &quot;</span>
                     <span class="s2">&quot;rate slices. Loads RateSliceStack from (namespace, stack_key). &quot;</span>
-                    <span class="s2">&quot;Stores correlation PairwiseCompMatrixStack at out_key_corr and lag &quot;</span>
-                    <span class="s2">&quot;stack at out_key_lag. &quot;</span>
+                    <span class="s2">&quot;Stores correlation PairwiseCompMatrixStack (U, U, S) at out_key_corr &quot;</span>
+                    <span class="s2">&quot;and lag PairwiseCompMatrixStack (U, U, S) at out_key_lag. &quot;</span>
                     <span class="s2">&quot;Prerequisite: create_rate_slice_stack or frames_rate_data.&quot;</span>
                 <span class="p">),</span>
                 <span class="n">inputSchema</span><span class="o">=</span><span class="p">{</span>
