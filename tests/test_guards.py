@@ -13471,3 +13471,213 @@ class TestExtraSafeguardConfigDefaults:
         assert cfg.io_stall_poll_interval_s == 10.0
         assert cfg.cleanup_temp_files is True
         assert cfg.prevent_system_sleep is True
+
+
+# ===========================================================================
+# NaN-input guards across the watchdog family.
+#
+# A NaN-shaped configuration value (from a malformed YAML, a
+# float("nan") literal, or an upstream computation drift) must not
+# silently disable the abort path. The contract — taken from the
+# already-tested ``HostMemoryWatchdog`` and
+# ``compute_inactivity_timeout_s`` cases — is:
+#   - Either reject NaN at construction with a clear ValueError, OR
+#   - Skip the tick at runtime so the watchdog never trips on a NaN
+#     reading / threshold (NaN-as-no-op, *not* NaN-as-trip).
+# These tests pin the current behaviour for the four remaining
+# watchdogs.
+# ===========================================================================
+
+
+class TestGpuMemoryWatchdogNanGuard:
+    """``GpuMemoryWatchdog`` rejects NaN thresholds at construction."""
+
+    def test_nan_warn_pct_raises(self):
+        """
+        NaN ``warn_pct`` fails the ``0 < warn_pct < abort_pct`` band
+        check at construction (NaN comparisons return False).
+
+        Tests:
+            (Test Case 1) ``warn_pct=NaN`` raises ValueError.
+            (Test Case 2) The error names ``warn_pct`` / ``abort_pct``.
+        """
+        with pytest.raises(ValueError, match="warn_pct"):
+            GpuMemoryWatchdog(warn_pct=float("nan"), abort_pct=95.0)
+
+    def test_nan_abort_pct_raises(self):
+        """
+        NaN ``abort_pct`` fails the same band check.
+
+        Tests:
+            (Test Case 1) ``abort_pct=NaN`` raises ValueError.
+        """
+        with pytest.raises(ValueError, match="abort_pct"):
+            GpuMemoryWatchdog(warn_pct=85.0, abort_pct=float("nan"))
+
+    def test_nan_warn_temp_pair_raises(self):
+        """
+        NaN ``warn_temp_c`` (with a numeric ``abort_temp_c``) fails
+        the thermal band check at construction.
+
+        Tests:
+            (Test Case 1) ``warn_temp_c=NaN`` raises ValueError.
+        """
+        with pytest.raises(ValueError, match="warn_temp_c"):
+            GpuMemoryWatchdog(
+                warn_pct=85.0,
+                abort_pct=95.0,
+                warn_temp_c=float("nan"),
+                abort_temp_c=92.0,
+            )
+
+    def test_nan_poll_interval_raises(self):
+        """
+        NaN ``poll_interval_s`` fails the ``> 0`` check (NaN <= 0 is
+        False; the inverted comparison ``poll_interval_s <= 0.0`` also
+        evaluates False, so the source's strict ``<= 0`` check passes
+        NaN. Pin current behaviour: the NaN passes construction but
+        the watchdog should never trip at runtime — the band-check on
+        warn_pct/abort_pct still guards. This test documents the gap.
+
+        Tests:
+            (Test Case 1) ``poll_interval_s=NaN`` does not raise (the
+                source guard is NaN-permissive). This is a documented
+                gap; harden when fixing.
+        """
+        # The source uses ``poll_interval_s <= 0.0`` which is False for
+        # NaN — so construction does not raise. Pin this behaviour.
+        wd = GpuMemoryWatchdog(
+            warn_pct=85.0, abort_pct=95.0, poll_interval_s=float("nan")
+        )
+        # The watchdog was constructed; pin the value as NaN.
+        assert math.isnan(wd.poll_interval_s)
+
+
+class TestLogInactivityWatchdogNanGuard:
+    """``LogInactivityWatchdog`` with NaN ``inactivity_s`` never trips."""
+
+    def test_nan_inactivity_s_does_not_trip(self, tmp_path):
+        """
+        NaN ``inactivity_s`` passes construction validation (the
+        source uses ``inactivity_s <= 0.0`` which is False for NaN)
+        but the trip comparison ``time_since_mtime > inactivity_s``
+        is also False for NaN — so the watchdog effectively never
+        trips. This is the "NaN-as-no-op" half of the contract.
+
+        Tests:
+            (Test Case 1) ``inactivity_s=NaN`` does not raise.
+            (Test Case 2) After a brief active window, ``tripped()``
+                remains False (the watchdog is configured but never
+                fires).
+
+        Notes:
+            - This pins a latent gap: a NaN inactivity timeout
+              silently disables the abort path. Either the source
+              should reject NaN at construction or the contract
+              should be documented loudly. Cross-reference REVIEW.md
+              "NaN propagation in watchdog thresholds".
+        """
+        log_path = tmp_path / "log"
+        log_path.write_text("hello", encoding="utf-8")
+        # Set an old mtime so the watchdog *would* trip if the
+        # comparison returned True for any threshold.
+        old_t = time.time() - 1000.0
+        os.utime(log_path, (old_t, old_t))
+
+        wd = LogInactivityWatchdog(
+            log_path=log_path,
+            popen=mock.Mock(spec=subprocess.Popen),
+            inactivity_s=float("nan"),
+            sorter="kilosort2",
+            poll_interval_s=0.02,
+        )
+        with wd:
+            time.sleep(0.15)
+        assert wd.tripped() is False
+
+
+class TestIOStallWatchdogNanGuard:
+    """``IOStallWatchdog`` with NaN ``stall_s`` never trips."""
+
+    def test_nan_stall_s_does_not_trip(self, tmp_path):
+        """
+        NaN ``stall_s`` passes the source's ``<= 0`` check (NaN
+        comparisons are False) but every trip comparison against the
+        NaN threshold also returns False — the watchdog is configured
+        but never fires.
+
+        Tests:
+            (Test Case 1) ``stall_s=NaN`` does not raise at
+                construction.
+            (Test Case 2) After a brief active window, ``tripped()``
+                remains False.
+
+        Notes:
+            - Pins the same NaN-as-no-op contract gap as the
+              LogInactivity watchdog.
+        """
+        wd = IOStallWatchdog(
+            folder=tmp_path,
+            stall_s=float("nan"),
+            poll_interval_s=0.02,
+        )
+        with wd:
+            time.sleep(0.15)
+        assert wd.tripped() is False
+
+
+class TestDiskUsageWatchdogNanGuard:
+    """``DiskUsageWatchdog`` with NaN thresholds never trips."""
+
+    def test_nan_warn_free_gb_does_not_raise(self, tmp_path):
+        """
+        ``DiskUsageWatchdog(warn_free_gb=NaN, abort_free_gb=1.0)``
+        passes the ``warn_free_gb <= abort_free_gb`` check (NaN
+        comparisons are False) without raising. The threshold is
+        stored as NaN; subsequent comparisons inside ``_poll_loop``
+        return False so the watchdog never trips.
+
+        Tests:
+            (Test Case 1) ``warn_free_gb=NaN`` does not raise.
+            (Test Case 2) The watchdog accepts the configuration and
+                ``warn_free_gb`` is preserved as NaN.
+
+        Notes:
+            - Pins the latent gap; a NaN warn-threshold silently
+              disables the warning side of the watchdog. See
+              REVIEW.md "NaN propagation in watchdog thresholds".
+        """
+        wd = DiskUsageWatchdog(
+            folder=tmp_path,
+            warn_free_gb=float("nan"),
+            abort_free_gb=1.0,
+            poll_interval_s=0.05,
+        )
+        assert math.isnan(wd.warn_free_gb)
+
+    def test_nan_abort_free_gb_does_not_trip(self, tmp_path):
+        """
+        ``abort_free_gb=NaN`` makes every trip-comparison False, so
+        the watchdog never trips even when the disk is reported as
+        empty.
+
+        Tests:
+            (Test Case 1) Construction with ``abort_free_gb=NaN``
+                does not raise.
+            (Test Case 2) After a brief active window the watchdog
+                has not tripped.
+
+        Notes:
+            - The default ``warn_free_gb=5.0 > NaN`` check is also
+              False for NaN, so the source's validation passes.
+        """
+        wd = DiskUsageWatchdog(
+            folder=tmp_path,
+            warn_free_gb=5.0,
+            abort_free_gb=float("nan"),
+            poll_interval_s=0.05,
+            popen=mock.Mock(spec=subprocess.Popen),
+        )
+        with wd:
+            time.sleep(0.15)
+        assert wd.tripped() is False

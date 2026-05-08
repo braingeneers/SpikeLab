@@ -45,6 +45,8 @@ import time
 from pathlib import Path
 from typing import Callable, List, Optional, Sequence, Tuple
 
+import numpy as np
+
 from .._exceptions import IOStallError
 from ._audit import append_audit_event
 
@@ -365,13 +367,13 @@ class IOStallWatchdog:
                 "IOStallWatchdog requires either a folder (device mode) "
                 "or pids (process mode) to monitor."
             )
-        if stall_s <= 0.0:
+        if np.isnan(stall_s) or stall_s <= 0.0:
             raise ValueError(f"stall_s must be positive, got {stall_s}.")
-        if poll_interval_s <= 0.0:
+        if np.isnan(poll_interval_s) or poll_interval_s <= 0.0:
             raise ValueError(
                 f"poll_interval_s must be positive, got {poll_interval_s}."
             )
-        if kill_grace_s < 0.0:
+        if np.isnan(kill_grace_s) or kill_grace_s < 0.0:
             raise ValueError(f"kill_grace_s must be non-negative, got {kill_grace_s}.")
         self.folder = Path(folder) if folder is not None else None
         # Sanity-check pids early so a typo lands at construction

@@ -90,9 +90,14 @@ def main() -> None:
     from spikelab.data_loaders.s3_utils import parse_s3_url
     from spikelab.workspace.workspace import AnalysisWorkspace
 
-    # Build a minimal storage client from environment
+    # Container receives fully-formed S3 URIs (INPUT_URI, OUTPUT_PREFIX)
+    # from env vars — the host did the prefix templating before
+    # submission. The entrypoint only needs the raw download/upload
+    # primitives, not the prefix-templating methods, so prefix=None
+    # preserves the class invariant: ``S3StorageClient.prefix`` always
+    # means the bucket-level base, never a templated output URI.
     storage = S3StorageClient(
-        prefix=output_prefix,
+        prefix=None,
         endpoint_url=os.environ.get("S3_ENDPOINT_URL"),
         region_name=os.environ.get("AWS_DEFAULT_REGION"),
     )

@@ -1869,3 +1869,166 @@ class TestFindEdgeWithExplicitAnchor:
             neg_peak=default_neg_peak,
         )
         assert default_edge == explicit_edge
+
+
+# ===========================================================================
+# Polynomial detrend NaN-coefficient propagation
+# ===========================================================================
+
+
+class TestPolyfitAndSubtractNanCoefficients:
+    """
+    Tests for ``_polyfit_and_subtract``'s behaviour when
+    ``np.polyfit`` returns NaN coefficients (e.g. from a singular
+    linear system or NaN-contaminated upstream data).
+
+    Current behaviour (pinned to flag the gap):
+      - ``np.polyval(NaN_coeffs, x)`` yields NaN-valued samples.
+      - In-place subtraction propagates NaN into ``channel_trace``.
+      - The clamp guard ``float(np.max(np.abs(seg))) > clamp_threshold``
+        evaluates ``NaN > threshold == False``, so the segment is NOT
+        blanked and the clamp counter is NOT incremented.
+      - As a result, NaN-corrupted samples are shipped downstream
+        (silent data corruption flagged in REVIEW.md).
+    """
+
+    def test_nan_coefficients_propagate_through_segment(self, monkeypatch):
+        """
+        With ``np.polyfit`` patched to return NaN coefficients,
+        ``_polyfit_and_subtract`` writes NaN samples into
+        ``channel_trace[lo:hi]``.
+
+        Tests:
+            (Test Case 1) After the call, the post-fit segment is
+                all-NaN.
+            (Test Case 2) Samples outside [lo, hi) are unchanged.
+
+        Notes:
+            - This documents a bug. The recommended fix is to detect
+              NaN/inf in the post-subtraction segment, blank in that
+              case, and increment the clamp counter; the test should
+              be updated to assert blanking once the source is hardened.
+        """
+        from spikelab.spike_sorting.stim_sorting import (
+            artifact_removal as ar_mod,
+        )
+
+        n_samples = 200
+        channel_trace = np.linspace(-1.0, 1.0, n_samples).astype(np.float64)
+        original_outside = channel_trace[:50].copy()
+        blanked = np.zeros((1, n_samples), dtype=bool)
+        clamp_counter = [0]
+
+        def fake_polyfit(x, y, deg):
+            return np.full(deg + 1, np.nan, dtype=np.float64)
+
+        monkeypatch.setattr(ar_mod.np, "polyfit", fake_polyfit)
+
+        ar_mod._polyfit_and_subtract(
+            channel_trace=channel_trace,
+            blanked=blanked,
+            ch_idx=0,
+            lo=50,
+            hi=150,
+            poly_order=3,
+            clamp_threshold=1000.0,
+            clamp_counter=clamp_counter,
+        )
+
+        # Pinned: post-fit segment is all-NaN.
+        assert np.all(np.isnan(channel_trace[50:150]))
+        # Outside the window is unchanged.
+        np.testing.assert_array_equal(channel_trace[:50], original_outside)
+
+    def test_nan_segment_not_blanked_by_clamp_check(self, monkeypatch):
+        """
+        With NaN coefficients, the segment-level clamp check
+        (``float(np.max(np.abs(seg))) > clamp_threshold``) is False
+        because every comparison against NaN is False. The segment
+        is therefore NOT blanked and the clamp counter is NOT
+        incremented — the silent-corruption path.
+
+        Tests:
+            (Test Case 1) ``clamp_counter[0]`` is still 0.
+            (Test Case 2) ``blanked[ch_idx, lo:hi]`` is still False
+                for all samples (the bug).
+
+        Notes:
+            - Pins current behaviour. When the source is hardened
+              to detect NaN, this test must be updated to assert
+              that the segment IS blanked and the counter IS
+              incremented.
+        """
+        from spikelab.spike_sorting.stim_sorting import (
+            artifact_removal as ar_mod,
+        )
+
+        n_samples = 200
+        channel_trace = np.zeros(n_samples, dtype=np.float64)
+        blanked = np.zeros((1, n_samples), dtype=bool)
+        clamp_counter = [0]
+
+        monkeypatch.setattr(
+            ar_mod.np,
+            "polyfit",
+            lambda x, y, deg: np.full(deg + 1, np.nan, dtype=np.float64),
+        )
+
+        ar_mod._polyfit_and_subtract(
+            channel_trace=channel_trace,
+            blanked=blanked,
+            ch_idx=0,
+            lo=20,
+            hi=80,
+            poly_order=3,
+            clamp_threshold=10.0,
+            clamp_counter=clamp_counter,
+        )
+
+        # Bug: NaN propagates but the segment is not blanked.
+        assert clamp_counter[0] == 0
+        assert not blanked[0, 20:80].any()
+        # Confirm the NaN actually landed (the bug premise).
+        assert np.all(np.isnan(channel_trace[20:80]))
+
+    def test_finite_clamp_threshold_with_nan_segment_is_no_op(
+        self, monkeypatch
+    ):
+        """
+        Even with a generous (small) ``clamp_threshold``, a NaN
+        segment is not detected as out-of-bounds. Confirms the bug
+        does not depend on the threshold magnitude.
+
+        Tests:
+            (Test Case 1) clamp_threshold=0.0 with NaN segment:
+                still no blanking, still no counter increment.
+        """
+        from spikelab.spike_sorting.stim_sorting import (
+            artifact_removal as ar_mod,
+        )
+
+        n_samples = 100
+        channel_trace = np.zeros(n_samples, dtype=np.float64)
+        blanked = np.zeros((1, n_samples), dtype=bool)
+        clamp_counter = [0]
+
+        monkeypatch.setattr(
+            ar_mod.np,
+            "polyfit",
+            lambda x, y, deg: np.full(deg + 1, np.nan, dtype=np.float64),
+        )
+
+        ar_mod._polyfit_and_subtract(
+            channel_trace=channel_trace,
+            blanked=blanked,
+            ch_idx=0,
+            lo=10,
+            hi=60,
+            poly_order=3,
+            clamp_threshold=0.0,
+            clamp_counter=clamp_counter,
+        )
+
+        assert clamp_counter[0] == 0
+        assert not blanked[0, 10:60].any()
+        assert np.all(np.isnan(channel_trace[10:60]))
