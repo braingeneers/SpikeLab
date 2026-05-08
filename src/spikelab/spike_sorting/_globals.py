@@ -21,6 +21,14 @@ GAIN_TO_UV: Optional[float] = None
 OFFSET_TO_UV: Optional[float] = None
 REC_CHUNKS: List = []
 REC_CHUNKS_S: List = []
+# True when ``REC_CHUNKS`` was auto-populated by
+# ``concatenate_recordings`` from the per-file frame boundaries of a
+# directory input (rather than supplied by the user). The loader
+# treats explicit time slicing (``start_time_s`` / ``end_time_s`` /
+# ``rec_chunks_s``) as an override of these auto-populated chunks and
+# only raises the "cannot combine frame- and time-based" error when
+# the user *did* set ``rec_chunks`` themselves.
+REC_CHUNKS_FROM_CONCAT: bool = False
 START_TIME_S: Optional[float] = None
 END_TIME_S: Optional[float] = None
 _REC_CHUNK_NAMES: List[str] = []

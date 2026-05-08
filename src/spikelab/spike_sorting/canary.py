@@ -56,9 +56,44 @@ from typing import Any, Optional
 
 import numpy as np
 
+from . import _globals
 from ._exceptions import CLASSIFIED_FAILURES as _CLASSIFIED_FAILURES
 
 _logger = logging.getLogger(__name__)
+
+
+def _snapshot_pipeline_globals() -> dict:
+    """Capture the current state of all uppercase-named globals in
+    :mod:`._globals`. The canary backend mutates these via
+    ``_sync_globals_from_config`` to apply its overrides; without a
+    matching restore the next sort would inherit canary values
+    (curation flags off, narrowed time window, etc.) since the full
+    backend's ``_sync_globals`` is only called at ``__init__`` and
+    not before the next ``load_recording`` / ``sort``.
+    """
+    snapshot: dict = {}
+    for name in vars(_globals):
+        if name.startswith("__"):
+            continue
+        if not (name[:1].isupper() or name == "_REC_CHUNK_NAMES"):
+            continue
+        value = getattr(_globals, name)
+        if isinstance(value, list):
+            snapshot[name] = list(value)
+        elif isinstance(value, dict):
+            snapshot[name] = dict(value)
+        else:
+            snapshot[name] = value
+    return snapshot
+
+
+def _restore_pipeline_globals(snapshot: dict) -> None:
+    """Restore globals from a snapshot taken by
+    :func:`_snapshot_pipeline_globals`. Mirrors the original list /
+    dict identities are not preserved (callers should treat the
+    globals as opaque values), but the values are correct."""
+    for name, value in snapshot.items():
+        setattr(_globals, name, value)
 
 
 def _build_canary_config(config: Any, canary_window_s: float) -> Any:
@@ -93,6 +128,12 @@ def _build_canary_config(config: Any, canary_window_s: float) -> Any:
     overrides = {
         # Restrict to the leading window; clear any rec_chunks that
         # would otherwise force the loader into a multi-segment path.
+        # Note: ``start_time_s`` / ``end_time_s`` are allowed to
+        # coexist with the per-file rec_chunks that directory
+        # concatenation auto-populates — the loader treats time
+        # slicing as an explicit override of those auto-populated
+        # boundaries (see ``load_recording`` and the
+        # ``REC_CHUNKS_FROM_CONCAT`` flag).
         "start_time_s": 0.0,
         "end_time_s": float(canary_window_s),
         "rec_chunks": [],
@@ -200,104 +241,117 @@ def run_canary(
     if math.isnan(canary_window_s) or canary_window_s <= 0:
         return None
 
-    canary_config = _build_canary_config(config, canary_window_s)
-    # Per-pid subfolder so two direct callers of run_canary against
-    # the same inter_path cannot race on the wipe + mkdir. The
-    # standard pipeline flow already serialises via acquire_sort_lock
-    # on inter_path, but run_canary is also exposed as a public
-    # function and direct callers have no such protection.
-    canary_root = Path(inter_path) / f"_canary_{os.getpid()}"
-    # Strict wipe at entry — running the canary against a
-    # partially-cleaned folder could mask sorter behaviour. The
-    # cleanup-phase wipe at exit stays best-effort.
-    _wipe_canary_folder(canary_root, strict=True)
-    canary_root.mkdir(parents=True, exist_ok=True)
-    canary_inter = canary_root / "inter"
-    canary_results = canary_root / "results"
-
-    sorter = sorter_name or getattr(config.sorter, "sorter_name", "")
-    _logger.info(
-        "running %.1fs smoke test for %s via %s",
-        canary_window_s,
-        rec_name,
-        sorter,
-    )
-
-    started_t = time.monotonic()
+    # Snapshot the live ``_globals`` state. The canary backend's
+    # ``__init__`` (below) re-syncs globals from the canary config —
+    # narrower curation, no figures, etc. — and the next sort's
+    # already-initialised backend does not re-sync before
+    # ``load_recording``. Without this snapshot/restore the canary's
+    # values would silently bleed into the full sort.
+    globals_snapshot = _snapshot_pipeline_globals()
     try:
-        from .backends import get_backend_class
-        from .pipeline import process_recording
+        canary_config = _build_canary_config(config, canary_window_s)
+        # Per-pid subfolder so two direct callers of run_canary
+        # against the same inter_path cannot race on the wipe +
+        # mkdir. The standard pipeline flow already serialises via
+        # acquire_sort_lock on inter_path, but run_canary is also
+        # exposed as a public function and direct callers have no
+        # such protection.
+        canary_root = Path(inter_path) / f"_canary_{os.getpid()}"
+        # Strict wipe at entry — running the canary against a
+        # partially-cleaned folder could mask sorter behaviour. The
+        # cleanup-phase wipe at exit stays best-effort.
+        _wipe_canary_folder(canary_root, strict=True)
+        canary_root.mkdir(parents=True, exist_ok=True)
+        canary_inter = canary_root / "inter"
+        canary_results = canary_root / "results"
 
-        backend_cls = get_backend_class(sorter)
-        canary_backend = backend_cls(canary_config)
-
-        result = process_recording(
-            canary_backend,
-            canary_config,
+        sorter = sorter_name or getattr(config.sorter, "sorter_name", "")
+        _logger.info(
+            "running %.1fs smoke test for %s via %s",
+            canary_window_s,
             rec_name,
-            rec_path,
-            canary_inter,
-            canary_results,
-            rec_loaded=recording,
-            rec_chunks=None,
-            rec_chunk_names=None,
-            rng=rng,
+            sorter,
         )
-    except _CLASSIFIED_FAILURES as exc:
-        _logger.warning("classified failure: %s: %s", type(exc).__name__, exc)
-        _wipe_canary_folder(canary_root)
-        return exc
-    except (KeyboardInterrupt, SystemExit):
-        # User abort or watchdog interrupt — never swallow. Clean up
-        # the canary folder and let the interrupt propagate so the
-        # outer pipeline tears down promptly.
-        _wipe_canary_folder(canary_root)
-        raise
-    except Exception as exc:
-        # Unexpected failure — the canary is a smoke test, not a
-        # hard gate. Log and let the full sort proceed; live
-        # watchdogs handle resource-shaped issues at runtime.
-        _logger.warning(
-            "non-classified failure (%s: %s); proceeding with the " "full sort.",
-            type(exc).__name__,
-            exc,
-        )
+
+        started_t = time.monotonic()
+        try:
+            from .backends import get_backend_class
+            from .pipeline import process_recording
+
+            backend_cls = get_backend_class(sorter)
+            canary_backend = backend_cls(canary_config)
+
+            result = process_recording(
+                canary_backend,
+                canary_config,
+                rec_name,
+                rec_path,
+                canary_inter,
+                canary_results,
+                rec_loaded=recording,
+                rec_chunks=None,
+                rec_chunk_names=None,
+                rng=rng,
+            )
+        except _CLASSIFIED_FAILURES as exc:
+            _logger.warning("classified failure: %s: %s", type(exc).__name__, exc)
+            _wipe_canary_folder(canary_root)
+            return exc
+        except (KeyboardInterrupt, SystemExit):
+            # User abort or watchdog interrupt — never swallow.
+            # Clean up the canary folder and let the interrupt
+            # propagate so the outer pipeline tears down promptly.
+            _wipe_canary_folder(canary_root)
+            raise
+        except Exception as exc:
+            # Unexpected failure — the canary is a smoke test, not
+            # a hard gate. Log and let the full sort proceed; live
+            # watchdogs handle resource-shaped issues at runtime.
+            _logger.warning(
+                "non-classified failure (%s: %s); proceeding with the " "full sort.",
+                type(exc).__name__,
+                exc,
+            )
+            _wipe_canary_folder(canary_root)
+            return None
+
+        if isinstance(result, _CLASSIFIED_FAILURES):
+            _logger.warning("classified failure: %s: %s", type(result).__name__, result)
+            _wipe_canary_folder(canary_root)
+            return result
+        if isinstance(result, (KeyboardInterrupt, SystemExit)):
+            # process_recording returned the interrupt as a value
+            # rather than raising; surface it the same way as the
+            # raised path.
+            _wipe_canary_folder(canary_root)
+            raise result
+        if isinstance(result, BaseException):
+            _logger.warning(
+                "non-classified failure (%s: %s); proceeding with the " "full sort.",
+                type(result).__name__,
+                result,
+            )
+            _wipe_canary_folder(canary_root)
+            return None
+
+        elapsed_s = time.monotonic() - started_t
+        n_units = _extract_unit_count(result)
+        if n_units is None:
+            _logger.info(
+                "passed in %.1fs; proceeding with the full sort.",
+                elapsed_s,
+            )
+        else:
+            _logger.info(
+                "passed: produced %d unit(s) in %.1fs; proceeding with "
+                "the full sort.",
+                n_units,
+                elapsed_s,
+            )
         _wipe_canary_folder(canary_root)
         return None
-
-    if isinstance(result, _CLASSIFIED_FAILURES):
-        _logger.warning("classified failure: %s: %s", type(result).__name__, result)
-        _wipe_canary_folder(canary_root)
-        return result
-    if isinstance(result, (KeyboardInterrupt, SystemExit)):
-        # process_recording returned the interrupt as a value rather
-        # than raising; surface it the same way as the raised path.
-        _wipe_canary_folder(canary_root)
-        raise result
-    if isinstance(result, BaseException):
-        _logger.warning(
-            "non-classified failure (%s: %s); proceeding with the " "full sort.",
-            type(result).__name__,
-            result,
-        )
-        _wipe_canary_folder(canary_root)
-        return None
-
-    elapsed_s = time.monotonic() - started_t
-    n_units = _extract_unit_count(result)
-    if n_units is None:
-        _logger.info(
-            "passed in %.1fs; proceeding with the full sort.",
-            elapsed_s,
-        )
-    else:
-        _logger.info(
-            "passed: produced %d unit(s) in %.1fs; proceeding with " "the full sort.",
-            n_units,
-            elapsed_s,
-        )
-    _wipe_canary_folder(canary_root)
-    return None
+    finally:
+        _restore_pipeline_globals(globals_snapshot)
 
 
 def _extract_unit_count(result: Any) -> Optional[int]:
