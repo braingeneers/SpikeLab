@@ -446,19 +446,37 @@
 
 <span class="sd">Network-mounted recordings (S3-fuse, NFS, SMB) can hang at the</span>
 <span class="sd">kernel level while still accepting file handles. The :class:`IOStallWatchdog`</span>
-<span class="sd">polls ``psutil.disk_io_counters()`` for the volume holding the</span>
-<span class="sd">intermediate folder; when read+write byte counters stop changing</span>
-<span class="sd">for the configured tolerance window, it trips just like the other</span>
-<span class="sd">watchdogs.</span>
+<span class="sd">detects stalls by polling read+write byte counters at one of two</span>
+<span class="sd">scopes:</span>
 
-<span class="sd">This complements but does not replace the inactivity watchdog —</span>
-<span class="sd">the inactivity watchdog tracks log-file mtime, which catches</span>
-<span class="sd">sorters that go silent. The I/O stall watchdog catches sorters</span>
-<span class="sd">that keep printing while waiting for hung kernel I/O.</span>
+<span class="sd">* **Device mode** (``folder=...``): polls</span>
+<span class="sd">  ``psutil.disk_io_counters(perdisk=True)`` for the volume holding</span>
+<span class="sd">  the intermediate folder. Catches kernel-wide I/O hangs that</span>
+<span class="sd">  freeze the entire device, but background activity from any</span>
+<span class="sd">  other process on the same disk can mask a stall in the sort</span>
+<span class="sd">  process specifically.</span>
+<span class="sd">* **Process mode** (``pids=[...]``): polls</span>
+<span class="sd">  ``psutil.Process(pid).io_counters()`` summed across the</span>
+<span class="sd">  registered processes (and their descendants by default).</span>
+<span class="sd">  Immune to ambient I/O on the same device — a stalled sort</span>
+<span class="sd">  trips the watchdog even when other processes keep the disk</span>
+<span class="sd">  busy. Use this when you want to detect hangs *specifically* in</span>
+<span class="sd">  the sort process tree.</span>
+
+<span class="sd">Either *folder* or *pids* (or both) must be provided. When both</span>
+<span class="sd">are given, process mode wins.</span>
+
+<span class="sd">This watchdog complements but does not replace the inactivity</span>
+<span class="sd">watchdog — the inactivity watchdog tracks log-file mtime, which</span>
+<span class="sd">catches sorters that go silent. The I/O stall watchdog catches</span>
+<span class="sd">sorters that keep printing while waiting for hung kernel I/O.</span>
 
 <span class="sd">Detection requires ``psutil``. On platforms or filesystems where</span>
 <span class="sd">``disk_io_counters(perdisk=True)`` does not expose the relevant</span>
-<span class="sd">device, the watchdog reports as disabled and yields a no-op.</span>
+<span class="sd">device, device mode reports as disabled and yields a no-op;</span>
+<span class="sd">process mode is unaffected because per-process I/O counters are</span>
+<span class="sd">read from ``/proc/&lt;pid&gt;/io`` (Linux) or the equivalent on other</span>
+<span class="sd">platforms.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
@@ -469,7 +487,7 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">threading</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Tuple</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">.._exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">IOStallError</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">._audit</span><span class="w"> </span><span class="kn">import</span> <span class="n">append_audit_event</span>
@@ -537,6 +555,100 @@
     <span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">platform</span> <span class="o">==</span> <span class="s2">&quot;win32&quot;</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">dev</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\\</span><span class="s2">&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">dev</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;:</span><span class="se">\\</span><span class="s2">&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="n">dev</span>
     <span class="k">return</span> <span class="n">dev</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_read_io_bytes_for_pids</span><span class="p">(</span>
+    <span class="n">pids</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">include_descendants</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="nb">int</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Sum read+write bytes across *pids* (and optionally descendants).</span>
+
+<span class="sd">    Used by :class:`IOStallWatchdog` in process mode. Returns a</span>
+<span class="sd">    ``(total_bytes, alive_count)`` pair:</span>
+
+<span class="sd">    * ``total_bytes`` is the sum of ``read_bytes + write_bytes``</span>
+<span class="sd">      across every reachable process. Returns ``None`` when none</span>
+<span class="sd">      of the registered PIDs are alive (all dead → counter</span>
+<span class="sd">      unreadable, watchdog goes blind rather than tripping on a</span>
+<span class="sd">      vanished sort).</span>
+<span class="sd">    * ``alive_count`` is the number of registered PIDs that</span>
+<span class="sd">      were observed alive during this scan (excluding descendants).</span>
+<span class="sd">      Useful for telemetry but not for the trip decision.</span>
+
+<span class="sd">    Per-process ``io_counters()`` accumulates bytes for the</span>
+<span class="sd">    process&#39;s lifetime — so the value only ever grows or stays</span>
+<span class="sd">    flat, which is what the stall detector wants. ``AccessDenied``</span>
+<span class="sd">    on individual processes is silently skipped (a single</span>
+<span class="sd">    permission-denied PID should not blind the whole watchdog).</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        - On Linux, the underlying counter is ``/proc/&lt;pid&gt;/io``</span>
+<span class="sd">          (read_bytes / write_bytes). These count syscall I/O —</span>
+<span class="sd">          NOT page-cache hits — so a sort that&#39;s reading from RAM</span>
+<span class="sd">          cache will look idle. That matches the watchdog&#39;s</span>
+<span class="sd">          intent: the watchdog cares about *device-bound* I/O</span>
+<span class="sd">          progress, and a fully cached read is not device-bound.</span>
+<span class="sd">        - Children that spawn between the parent enumeration and</span>
+<span class="sd">          their ``io_counters()`` call may be missed in this scan</span>
+<span class="sd">          but picked up in the next. Bounded blindness window =</span>
+<span class="sd">          ``poll_interval_s``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">psutil</span>
+    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="mi">0</span>
+
+    <span class="n">total</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">alive</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">pid</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">pids</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">proc</span> <span class="o">=</span> <span class="n">psutil</span><span class="o">.</span><span class="n">Process</span><span class="p">(</span><span class="n">pid</span><span class="p">)</span>
+            <span class="n">io</span> <span class="o">=</span> <span class="n">proc</span><span class="o">.</span><span class="n">io_counters</span><span class="p">()</span>
+            <span class="n">total</span> <span class="o">+=</span> <span class="nb">int</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">read_bytes</span><span class="p">)</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">write_bytes</span><span class="p">)</span>
+            <span class="n">alive</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">except</span> <span class="p">(</span><span class="n">psutil</span><span class="o">.</span><span class="n">NoSuchProcess</span><span class="p">,</span> <span class="n">psutil</span><span class="o">.</span><span class="n">ZombieProcess</span><span class="p">):</span>
+            <span class="k">continue</span>
+        <span class="k">except</span> <span class="n">psutil</span><span class="o">.</span><span class="n">AccessDenied</span><span class="p">:</span>
+            <span class="c1"># The PID is alive but we can&#39;t read its counters.</span>
+            <span class="c1"># Treat as alive so the watchdog stays armed; the</span>
+            <span class="c1"># process&#39;s I/O contribution is invisible to us, which</span>
+            <span class="c1"># is a known limitation worth a debug log.</span>
+            <span class="n">alive</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                <span class="s2">&quot;io_counters denied for pid=</span><span class="si">%d</span><span class="s2">; skipping its &quot;</span>
+                <span class="s2">&quot;contribution this poll.&quot;</span><span class="p">,</span>
+                <span class="n">pid</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">continue</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="c1"># Defensive: an unexpected psutil failure on one PID</span>
+            <span class="c1"># should not bring down the whole watchdog.</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;unexpected io_counters error for pid=</span><span class="si">%d</span><span class="s2">: </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">pid</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
+            <span class="k">continue</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">include_descendants</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">children</span> <span class="o">=</span> <span class="n">proc</span><span class="o">.</span><span class="n">children</span><span class="p">(</span><span class="n">recursive</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span><span class="n">psutil</span><span class="o">.</span><span class="n">NoSuchProcess</span><span class="p">,</span> <span class="n">psutil</span><span class="o">.</span><span class="n">ZombieProcess</span><span class="p">):</span>
+            <span class="k">continue</span>
+        <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">children</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">cio</span> <span class="o">=</span> <span class="n">child</span><span class="o">.</span><span class="n">io_counters</span><span class="p">()</span>
+                <span class="n">total</span> <span class="o">+=</span> <span class="nb">int</span><span class="p">(</span><span class="n">cio</span><span class="o">.</span><span class="n">read_bytes</span><span class="p">)</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="n">cio</span><span class="o">.</span><span class="n">write_bytes</span><span class="p">)</span>
+            <span class="k">except</span> <span class="p">(</span><span class="n">psutil</span><span class="o">.</span><span class="n">NoSuchProcess</span><span class="p">,</span> <span class="n">psutil</span><span class="o">.</span><span class="n">ZombieProcess</span><span class="p">,</span> <span class="n">psutil</span><span class="o">.</span><span class="n">AccessDenied</span><span class="p">):</span>
+                <span class="k">continue</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                <span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                    <span class="s2">&quot;unexpected io_counters error for child pid=</span><span class="si">%d</span><span class="s2">: &quot;</span> <span class="s2">&quot;</span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span>
+                    <span class="n">child</span><span class="o">.</span><span class="n">pid</span><span class="p">,</span>
+                    <span class="n">exc</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="k">continue</span>
+    <span class="k">if</span> <span class="n">alive</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="mi">0</span>
+    <span class="k">return</span> <span class="n">total</span><span class="p">,</span> <span class="n">alive</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_read_io_bytes</span><span class="p">(</span><span class="n">device</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
@@ -609,18 +721,48 @@
 <div class="viewcode-block" id="IOStallWatchdog">
 <a class="viewcode-back" href="../../../../api/spike_sorting.html#spikelab.spike_sorting.guards.IOStallWatchdog">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">IOStallWatchdog</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Daemon-thread watchdog that aborts the sort on disk I/O stalls.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Daemon-thread watchdog that aborts the sort on I/O stalls.</span>
 
-<span class="sd">    Use as a context manager around the per-recording sort. Polls</span>
-<span class="sd">    ``read_bytes + write_bytes`` for the volume holding *folder*</span>
-<span class="sd">    every ``poll_interval_s``. If the counter does not change for</span>
-<span class="sd">    ``stall_s`` seconds, builds an :class:`IOStallError`,</span>
+<span class="sd">    Use as a context manager around the per-recording sort.</span>
+<span class="sd">    Operates in one of two modes (chosen at construction):</span>
+
+<span class="sd">    * **Device mode** — pass *folder*: polls</span>
+<span class="sd">      ``read_bytes + write_bytes`` for the volume holding the</span>
+<span class="sd">      folder every ``poll_interval_s``. Catches kernel-wide I/O</span>
+<span class="sd">      hangs but is sensitive to ambient I/O on the same disk.</span>
+<span class="sd">    * **Process mode** — pass *pids*: polls</span>
+<span class="sd">      ``psutil.Process(pid).io_counters()`` summed across the</span>
+<span class="sd">      registered PIDs (and their descendants by default). Detects</span>
+<span class="sd">      stalls in the sort process tree specifically; immune to</span>
+<span class="sd">      ambient I/O from unrelated processes on the same device.</span>
+
+<span class="sd">    Either *folder* or *pids* (or both) must be provided. When</span>
+<span class="sd">    both are given, process mode is used. Additional PIDs can be</span>
+<span class="sd">    registered after construction via :meth:`register_pid` —</span>
+<span class="sd">    useful for catching e.g. a Docker container PID after the</span>
+<span class="sd">    container actually starts.</span>
+
+<span class="sd">    On stall, the watchdog builds an :class:`IOStallError`,</span>
 <span class="sd">    terminates registered subprocesses, runs kill callbacks, and</span>
 <span class="sd">    raises into the main thread via ``_thread.interrupt_main``.</span>
 
 <span class="sd">    Parameters:</span>
-<span class="sd">        folder (Path): A path on the volume to monitor (typically</span>
-<span class="sd">            the per-recording intermediate folder).</span>
+<span class="sd">        folder (Path or None): A path on the volume to monitor</span>
+<span class="sd">            (typically the per-recording intermediate folder).</span>
+<span class="sd">            Provide for device-mode monitoring. ``None`` to skip</span>
+<span class="sd">            device monitoring entirely.</span>
+<span class="sd">        pids (Sequence[int] or None): Process IDs to monitor in</span>
+<span class="sd">            process mode. Defaults to ``None`` (device mode). The</span>
+<span class="sd">            watchdog sums I/O bytes across these processes and</span>
+<span class="sd">            (if ``include_descendants``) their entire descendant</span>
+<span class="sd">            trees on every poll.</span>
+<span class="sd">        include_descendants (bool): When in process mode, recurse</span>
+<span class="sd">            into each registered PID&#39;s children on every poll so</span>
+<span class="sd">            subprocesses spawned by the sort (e.g. spikeinterface</span>
+<span class="sd">            workers, KS2 MATLAB child) are accounted for. Defaults</span>
+<span class="sd">            to ``True``. Set ``False`` if you want to detect a</span>
+<span class="sd">            stall in *only* the registered PIDs without their</span>
+<span class="sd">            descendants — rare; mostly useful for debugging.</span>
 <span class="sd">        stall_s (float): Inactivity tolerance for the byte</span>
 <span class="sd">            counter, in seconds. Defaults to ``300`` (5 min) —</span>
 <span class="sd">            long enough to span normal write bursts and quiet</span>
@@ -633,32 +775,44 @@
 <span class="sd">            ``kill()`` for registered subprocesses.</span>
 
 <span class="sd">    Notes:</span>
-<span class="sd">        - Disabled (no-op) when ``psutil`` is missing or when no</span>
-<span class="sd">          device can be resolved for *folder*. To skip the I/O-stall</span>
+<span class="sd">        - Process mode requires ``psutil``. Device mode is also</span>
+<span class="sd">          disabled when ``psutil`` is missing or when no device</span>
+<span class="sd">          can be resolved for *folder*. To skip the I/O-stall</span>
 <span class="sd">          check intentionally, omit any ``register_kill_callback``</span>
-<span class="sd">          calls — the watchdog still polls but has nothing to abort.</span>
-<span class="sd">        - Unlike :class:`HostMemoryWatchdog`, this watchdog does not</span>
-<span class="sd">          accept subprocess registrations — only kill callbacks. A</span>
-<span class="sd">          Docker-backed sort whose container is registered with the</span>
-<span class="sd">          host watchdog will not have its container killed when the</span>
-<span class="sd">          I/O stall watchdog trips. Callers should rely on the</span>
-<span class="sd">          per-recording watchdog hierarchy (host watchdog kills</span>
-<span class="sd">          subprocesses; I/O stall fires callbacks for in-process</span>
-<span class="sd">          sorters) rather than expecting symmetric subprocess</span>
-<span class="sd">          teardown across all watchdogs.</span>
+<span class="sd">          calls — the watchdog still polls but has nothing to</span>
+<span class="sd">          abort.</span>
+<span class="sd">        - Unlike :class:`HostMemoryWatchdog`, this watchdog does</span>
+<span class="sd">          not accept subprocess registrations — only kill</span>
+<span class="sd">          callbacks. A Docker-backed sort whose container is</span>
+<span class="sd">          registered with the host watchdog will not have its</span>
+<span class="sd">          container killed when the I/O stall watchdog trips.</span>
+<span class="sd">        - Docker container processes are visible to the host&#39;s</span>
+<span class="sd">          ``psutil`` but are NOT children of the orchestrating</span>
+<span class="sd">          Python process — Docker daemon is the parent. To</span>
+<span class="sd">          monitor a Docker-backed sort in process mode, register</span>
+<span class="sd">          the container&#39;s main PID explicitly via</span>
+<span class="sd">          :meth:`register_pid` once it&#39;s known</span>
+<span class="sd">          (``docker inspect --format &#39;{{.State.Pid}}&#39; &lt;id&gt;``).</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
 <div class="viewcode-block" id="IOStallWatchdog.__init__">
 <a class="viewcode-back" href="../../../../api/spike_sorting.html#spikelab.spike_sorting.guards.IOStallWatchdog.__init__">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">folder</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span>
+        <span class="n">folder</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="o">*</span><span class="p">,</span>
+        <span class="n">pids</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">include_descendants</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="n">stall_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">300.0</span><span class="p">,</span>
         <span class="n">poll_interval_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">10.0</span><span class="p">,</span>
         <span class="n">warn_repeat_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">60.0</span><span class="p">,</span>
         <span class="n">kill_grace_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">5.0</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">folder</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">pids</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;IOStallWatchdog requires either a folder (device mode) &quot;</span>
+                <span class="s2">&quot;or pids (process mode) to monitor.&quot;</span>
+            <span class="p">)</span>
         <span class="k">if</span> <span class="n">stall_s</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;stall_s must be positive, got </span><span class="si">{</span><span class="n">stall_s</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">poll_interval_s</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">:</span>
@@ -667,7 +821,22 @@
             <span class="p">)</span>
         <span class="k">if</span> <span class="n">kill_grace_s</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;kill_grace_s must be non-negative, got </span><span class="si">{</span><span class="n">kill_grace_s</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">folder</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">folder</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">folder</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">folder</span><span class="p">)</span> <span class="k">if</span> <span class="n">folder</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="c1"># Sanity-check pids early so a typo lands at construction</span>
+        <span class="c1"># rather than when the polling thread starts.</span>
+        <span class="n">cleaned_pids</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">pid</span> <span class="ow">in</span> <span class="n">pids</span> <span class="ow">or</span> <span class="p">[]:</span>
+            <span class="n">pid_int</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">pid</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">pid_int</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;PIDs must be positive integers, got </span><span class="si">{</span><span class="n">pid</span><span class="si">!r}</span><span class="s2">.&quot;</span><span class="p">)</span>
+            <span class="n">cleaned_pids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pid_int</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pids</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">cleaned_pids</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">include_descendants</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">include_descendants</span><span class="p">)</span>
+        <span class="c1"># Process mode is implied by a non-empty pids list at</span>
+        <span class="c1"># construction. Adding pids later via register_pid does</span>
+        <span class="c1"># not retroactively switch from device to process mode —</span>
+        <span class="c1"># the mode is chosen once at __enter__.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_mode</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;process&quot;</span> <span class="k">if</span> <span class="n">cleaned_pids</span> <span class="k">else</span> <span class="s2">&quot;device&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">stall_s</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">stall_s</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">poll_interval_s</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">poll_interval_s</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">warn_repeat_s</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">warn_repeat_s</span><span class="p">)</span>
@@ -725,6 +894,21 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_device</span></div>
 
 
+<div class="viewcode-block" id="IOStallWatchdog.mode">
+<a class="viewcode-back" href="../../../../api/spike_sorting.html#spikelab.spike_sorting.guards.IOStallWatchdog.mode">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">mode</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the active polling mode: ``&quot;device&quot;`` or ``&quot;process&quot;``.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mode</span></div>
+
+
+<div class="viewcode-block" id="IOStallWatchdog.pids">
+<a class="viewcode-back" href="../../../../api/spike_sorting.html#spikelab.spike_sorting.guards.IOStallWatchdog.pids">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">pids</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Snapshot of the currently registered PIDs (process mode).&quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_pids</span><span class="p">)</span></div>
+
+
 <div class="viewcode-block" id="IOStallWatchdog.make_error">
 <a class="viewcode-back" href="../../../../api/spike_sorting.html#spikelab.spike_sorting.guards.IOStallWatchdog.make_error">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">make_error</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">IOStallError</span><span class="p">:</span>
@@ -732,11 +916,22 @@
         <span class="k">if</span> <span class="n">message</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">stall</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stall_at_trip</span>
             <span class="n">stall_str</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">stall</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">stall</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s2">&quot;?&quot;</span>
-            <span class="n">message</span> <span class="o">=</span> <span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;I/O on device </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_device</span><span class="si">!r}</span><span class="s2"> stalled for </span><span class="si">{</span><span class="n">stall_str</span><span class="si">}</span><span class="s2">s &quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;(tolerance: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">stall_s</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">s). Likely a hung &quot;</span>
-                <span class="s2">&quot;network mount or unresponsive storage. Sort aborted.&quot;</span>
-            <span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mode</span> <span class="o">==</span> <span class="s2">&quot;process&quot;</span><span class="p">:</span>
+                <span class="n">pid_str</span> <span class="o">=</span> <span class="s2">&quot;,&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">pids</span><span class="p">())</span> <span class="ow">or</span> <span class="s2">&quot;?&quot;</span>
+                <span class="n">message</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Sort process tree (pids=</span><span class="si">{</span><span class="n">pid_str</span><span class="si">}</span><span class="s2">) stalled for &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">stall_str</span><span class="si">}</span><span class="s2">s (tolerance: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">stall_s</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">s). &quot;</span>
+                    <span class="s2">&quot;The process(es) issued no read/write syscalls in &quot;</span>
+                    <span class="s2">&quot;this window — likely an internal deadlock, a hung &quot;</span>
+                    <span class="s2">&quot;kernel I/O wait, or a CUDA / sorter binary hang.&quot;</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">message</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;I/O on device </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_device</span><span class="si">!r}</span><span class="s2"> stalled for &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">stall_str</span><span class="si">}</span><span class="s2">s (tolerance: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">stall_s</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">s). &quot;</span>
+                    <span class="s2">&quot;Likely a hung network mount or unresponsive &quot;</span>
+                    <span class="s2">&quot;storage. Sort aborted.&quot;</span>
+                <span class="p">)</span>
         <span class="k">return</span> <span class="n">IOStallError</span><span class="p">(</span>
             <span class="n">message</span><span class="p">,</span>
             <span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_device</span><span class="p">,</span>
@@ -765,52 +960,140 @@
             <span class="p">]</span></div>
 
 
+<div class="viewcode-block" id="IOStallWatchdog.register_pid">
+<a class="viewcode-back" href="../../../../api/spike_sorting.html#spikelab.spike_sorting.guards.IOStallWatchdog.register_pid">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">register_pid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pid</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Add a PID to the process-mode poll set.</span>
+
+<span class="sd">        Useful for tracking processes that don&#39;t exist yet at</span>
+<span class="sd">        watchdog construction — e.g. registering the Docker</span>
+<span class="sd">        container&#39;s main PID once the container has actually</span>
+<span class="sd">        started, or registering a sorter subprocess after</span>
+<span class="sd">        ``Popen`` returns.</span>
+
+<span class="sd">        No-op when called in device mode (the watchdog isn&#39;t</span>
+<span class="sd">        polling per-PID counters there). The PID is added</span>
+<span class="sd">        atomically; the next poll picks it up.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            pid (int): The PID to monitor. Must be a positive</span>
+<span class="sd">                integer.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            ValueError: If *pid* is not a positive integer.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">pid_int</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">pid</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">pid_int</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;pid must be a positive integer, got </span><span class="si">{</span><span class="n">pid</span><span class="si">!r}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mode</span> <span class="o">!=</span> <span class="s2">&quot;process&quot;</span><span class="p">:</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                <span class="s2">&quot;register_pid(</span><span class="si">%d</span><span class="s2">) called on a device-mode watchdog &quot;</span> <span class="s2">&quot;— no-op.&quot;</span><span class="p">,</span>
+                <span class="n">pid_int</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">return</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">pid_int</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pids</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_pids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pid_int</span><span class="p">)</span>
+                <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                    <span class="s2">&quot;now tracking pid=</span><span class="si">%d</span><span class="s2"> (total </span><span class="si">%d</span><span class="s2"> pid(s))&quot;</span><span class="p">,</span>
+                    <span class="n">pid_int</span><span class="p">,</span>
+                    <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_pids</span><span class="p">),</span>
+                <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="IOStallWatchdog.unregister_pid">
+<a class="viewcode-back" href="../../../../api/spike_sorting.html#spikelab.spike_sorting.guards.IOStallWatchdog.unregister_pid">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">unregister_pid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pid</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Remove a PID from the process-mode poll set.</span>
+
+<span class="sd">        No-op when *pid* is not currently registered or when</span>
+<span class="sd">        called in device mode.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">pid_int</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">pid</span><span class="p">)</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_pids</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pids</span> <span class="k">if</span> <span class="n">p</span> <span class="o">!=</span> <span class="n">pid_int</span><span class="p">]</span></div>
+
+
     <span class="c1"># ------------------------------------------------------------------</span>
     <span class="c1"># Context manager</span>
     <span class="c1"># ------------------------------------------------------------------</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;IOStallWatchdog&quot;</span><span class="p">:</span>
-        <span class="n">device</span> <span class="o">=</span> <span class="n">_resolve_device_for_path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">folder</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">device</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                <span class="s2">&quot;could not resolve a block device for </span><span class="si">%s</span><span class="s2"> (psutil &quot;</span>
-                <span class="s2">&quot;missing or no matching mountpoint) — disabled. The &quot;</span>
-                <span class="s2">&quot;log inactivity watchdog still covers most stall cases.&quot;</span><span class="p">,</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">folder</span><span class="p">,</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mode</span> <span class="o">==</span> <span class="s2">&quot;process&quot;</span><span class="p">:</span>
+            <span class="c1"># Probe once to confirm we can read at least one PID&#39;s</span>
+            <span class="c1"># counters. If none of the registered PIDs are alive</span>
+            <span class="c1"># at entry, disable rather than running a watchdog</span>
+            <span class="c1"># that&#39;s perpetually blind.</span>
+            <span class="n">initial</span><span class="p">,</span> <span class="n">alive</span> <span class="o">=</span> <span class="n">_read_io_bytes_for_pids</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_pids</span><span class="p">,</span> <span class="n">include_descendants</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">include_descendants</span>
             <span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_enabled</span> <span class="o">=</span> <span class="kc">False</span>
-            <span class="k">return</span> <span class="bp">self</span>
-        <span class="c1"># Probe once to confirm we can read counters for the device.</span>
-        <span class="k">if</span> <span class="n">_read_io_bytes</span><span class="p">(</span><span class="n">device</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                <span class="s2">&quot;device </span><span class="si">%r</span><span class="s2"> is not exposed by &quot;</span>
-                <span class="s2">&quot;psutil.disk_io_counters(perdisk=True) — disabled. &quot;</span>
-                <span class="s2">&quot;Common on Linux NVMe setups where only the parent &quot;</span>
-                <span class="s2">&quot;disk is reported; consider monitoring at the parent &quot;</span>
-                <span class="s2">&quot;device instead.&quot;</span><span class="p">,</span>
+            <span class="k">if</span> <span class="n">initial</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="s2">&quot;no live registered PIDs at entry (initial: </span><span class="si">%s</span><span class="s2">) &quot;</span>
+                    <span class="s2">&quot;— disabled. Process-mode IOStallWatchdog needs &quot;</span>
+                    <span class="s2">&quot;at least one alive PID to be useful.&quot;</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_pids</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_enabled</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="k">return</span> <span class="bp">self</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_enabled</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">thread_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;IOStallWatchdog[pids=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_pids</span><span class="si">}</span><span class="s2">]&quot;</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">&quot;active: mode=process pids=</span><span class="si">%s</span><span class="s2"> descendants=</span><span class="si">%s</span><span class="s2"> &quot;</span>
+                <span class="s2">&quot;stall_s=</span><span class="si">%.1f</span><span class="s2"> poll=</span><span class="si">%.1f</span><span class="s2">s (initial bytes=</span><span class="si">%d</span><span class="s2">, &quot;</span>
+                <span class="s2">&quot;alive_pids=</span><span class="si">%d</span><span class="s2">)&quot;</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_pids</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">include_descendants</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">stall_s</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">poll_interval_s</span><span class="p">,</span>
+                <span class="n">initial</span><span class="p">,</span>
+                <span class="n">alive</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">folder</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="n">device</span> <span class="o">=</span> <span class="n">_resolve_device_for_path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">folder</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">device</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="s2">&quot;could not resolve a block device for </span><span class="si">%s</span><span class="s2"> (psutil &quot;</span>
+                    <span class="s2">&quot;missing or no matching mountpoint) — disabled. &quot;</span>
+                    <span class="s2">&quot;The log inactivity watchdog still covers most &quot;</span>
+                    <span class="s2">&quot;stall cases.&quot;</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">folder</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_enabled</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="k">return</span> <span class="bp">self</span>
+            <span class="c1"># Probe once to confirm we can read counters for the device.</span>
+            <span class="k">if</span> <span class="n">_read_io_bytes</span><span class="p">(</span><span class="n">device</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="s2">&quot;device </span><span class="si">%r</span><span class="s2"> is not exposed by &quot;</span>
+                    <span class="s2">&quot;psutil.disk_io_counters(perdisk=True) — disabled. &quot;</span>
+                    <span class="s2">&quot;Common on Linux NVMe setups where only the parent &quot;</span>
+                    <span class="s2">&quot;disk is reported; consider monitoring at the parent &quot;</span>
+                    <span class="s2">&quot;device instead.&quot;</span><span class="p">,</span>
+                    <span class="n">device</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_enabled</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="k">return</span> <span class="bp">self</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_device</span> <span class="o">=</span> <span class="n">device</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_enabled</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">thread_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;IOStallWatchdog[</span><span class="si">{</span><span class="n">device</span><span class="si">}</span><span class="s2">]&quot;</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">&quot;active: mode=device device=</span><span class="si">%s</span><span class="s2"> folder=</span><span class="si">%s</span><span class="s2"> &quot;</span> <span class="s2">&quot;stall_s=</span><span class="si">%.1f</span><span class="s2"> poll=</span><span class="si">%.1f</span><span class="s2">s&quot;</span><span class="p">,</span>
                 <span class="n">device</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">folder</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">stall_s</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">poll_interval_s</span><span class="p">,</span>
             <span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_enabled</span> <span class="o">=</span> <span class="kc">False</span>
-            <span class="k">return</span> <span class="bp">self</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_device</span> <span class="o">=</span> <span class="n">device</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_enabled</span> <span class="o">=</span> <span class="kc">True</span>
         <span class="c1"># Publish the active watchdog so the per-recording</span>
         <span class="c1"># ``KeyboardInterrupt`` catch site can convert a</span>
         <span class="c1"># ``_thread.interrupt_main`` from this watchdog into a</span>
         <span class="c1"># classified ``IOStallError`` rather than letting it</span>
         <span class="c1"># bubble up raw.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_token</span> <span class="o">=</span> <span class="n">_active_io_stall_watchdog</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-            <span class="s2">&quot;active: device=</span><span class="si">%s</span><span class="s2"> folder=</span><span class="si">%s</span><span class="s2"> stall_s=</span><span class="si">%.1f</span><span class="s2"> poll=</span><span class="si">%.1f</span><span class="s2">s&quot;</span><span class="p">,</span>
-            <span class="n">device</span><span class="p">,</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">folder</span><span class="p">,</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">stall_s</span><span class="p">,</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">poll_interval_s</span><span class="p">,</span>
-        <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_stop_event</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_thread</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="p">(</span>
             <span class="n">target</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_poll_loop</span><span class="p">,</span>
-            <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;IOStallWatchdog[</span><span class="si">{</span><span class="n">device</span><span class="si">}</span><span class="s2">]&quot;</span><span class="p">,</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">thread_name</span><span class="p">,</span>
             <span class="n">daemon</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_thread</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
@@ -835,17 +1118,35 @@
     <span class="c1"># Internals</span>
     <span class="c1"># ------------------------------------------------------------------</span>
 
+    <span class="k">def</span><span class="w"> </span><span class="nf">_read_bytes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Read the current byte counter from the active source.</span>
+
+<span class="sd">        In process mode, sums over the registered PIDs (snapshotted</span>
+<span class="sd">        under the lock so a concurrent ``register_pid`` doesn&#39;t</span>
+<span class="sd">        race with the read). In device mode, falls back to the</span>
+<span class="sd">        cached device.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mode</span> <span class="o">==</span> <span class="s2">&quot;process&quot;</span><span class="p">:</span>
+            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+                <span class="n">pids_snapshot</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_pids</span><span class="p">)</span>
+            <span class="n">total</span><span class="p">,</span> <span class="n">_alive</span> <span class="o">=</span> <span class="n">_read_io_bytes_for_pids</span><span class="p">(</span>
+                <span class="n">pids_snapshot</span><span class="p">,</span>
+                <span class="n">include_descendants</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">include_descendants</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">total</span>
+        <span class="k">return</span> <span class="n">_read_io_bytes</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_device</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+
     <span class="k">def</span><span class="w"> </span><span class="nf">_poll_loop</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Polling loop: warn, then trip, then exit.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stop_event</span><span class="o">.</span><span class="n">wait</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">poll_interval_s</span><span class="p">):</span>
             <span class="k">return</span>
-        <span class="n">last_bytes</span> <span class="o">=</span> <span class="n">_read_io_bytes</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_device</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="n">last_bytes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_read_bytes</span><span class="p">()</span>
         <span class="n">last_change_t</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
         <span class="n">last_warn_t</span> <span class="o">=</span> <span class="mf">0.0</span>
         <span class="n">blind_started_t</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="n">blind_warned</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="k">while</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stop_event</span><span class="o">.</span><span class="n">is_set</span><span class="p">():</span>
-            <span class="n">current</span> <span class="o">=</span> <span class="n">_read_io_bytes</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_device</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+            <span class="n">current</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_read_bytes</span><span class="p">()</span>
             <span class="n">now</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
             <span class="k">if</span> <span class="n">current</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="c1"># Counters unreadable this poll. Reset last_change_t so</span>
@@ -881,34 +1182,43 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">_maybe_warn</span><span class="p">(</span><span class="n">stalled_for</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_stop_event</span><span class="o">.</span><span class="n">wait</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">poll_interval_s</span><span class="p">)</span>
 
+    <span class="k">def</span><span class="w"> </span><span class="nf">_scope_label</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Human-readable label of the polling scope for log lines.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mode</span> <span class="o">==</span> <span class="s2">&quot;process&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;sort process tree (pids=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_pids</span><span class="si">}</span><span class="s2">)&quot;</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;device </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_device</span><span class="si">!r}</span><span class="s2">&quot;</span>
+
     <span class="k">def</span><span class="w"> </span><span class="nf">_maybe_warn</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stalled_for</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-            <span class="s2">&quot;device </span><span class="si">%r</span><span class="s2"> idle for </span><span class="si">%.1f</span><span class="s2">s (will abort at </span><span class="si">%.1f</span><span class="s2">s).&quot;</span><span class="p">,</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_device</span><span class="p">,</span>
+            <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> idle for </span><span class="si">%.1f</span><span class="s2">s (will abort at </span><span class="si">%.1f</span><span class="s2">s).&quot;</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_scope_label</span><span class="p">(),</span>
             <span class="n">stalled_for</span><span class="p">,</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">stall_s</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="n">append_audit_event</span><span class="p">(</span>
             <span class="n">watchdog</span><span class="o">=</span><span class="s2">&quot;io_stall&quot;</span><span class="p">,</span>
             <span class="n">event</span><span class="o">=</span><span class="s2">&quot;warn&quot;</span><span class="p">,</span>
+            <span class="n">mode</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_mode</span><span class="p">,</span>
             <span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_device</span><span class="p">,</span>
+            <span class="n">pids</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_pids</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mode</span> <span class="o">==</span> <span class="s2">&quot;process&quot;</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">stalled_for_s</span><span class="o">=</span><span class="n">stalled_for</span><span class="p">,</span>
             <span class="n">tolerance_s</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">stall_s</span><span class="p">,</span>
         <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_warn_blind</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">blind_for</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-            <span class="s2">&quot;I/O counter for device </span><span class="si">%r</span><span class="s2"> unreadable for </span><span class="si">%.1f</span><span class="s2">s — &quot;</span>
-            <span class="s2">&quot;watchdog is blind to stalls until counters become &quot;</span>
-            <span class="s2">&quot;readable again. Other watchdogs (log inactivity, host &quot;</span>
-            <span class="s2">&quot;memory) still apply.&quot;</span><span class="p">,</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_device</span><span class="p">,</span>
+            <span class="s2">&quot;I/O counter for </span><span class="si">%s</span><span class="s2"> unreadable for </span><span class="si">%.1f</span><span class="s2">s — watchdog is &quot;</span>
+            <span class="s2">&quot;blind to stalls until counters become readable again. &quot;</span>
+            <span class="s2">&quot;Other watchdogs (log inactivity, host memory) still apply.&quot;</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_scope_label</span><span class="p">(),</span>
             <span class="n">blind_for</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="n">append_audit_event</span><span class="p">(</span>
             <span class="n">watchdog</span><span class="o">=</span><span class="s2">&quot;io_stall&quot;</span><span class="p">,</span>
             <span class="n">event</span><span class="o">=</span><span class="s2">&quot;blind_warn&quot;</span><span class="p">,</span>
+            <span class="n">mode</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_mode</span><span class="p">,</span>
             <span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_device</span><span class="p">,</span>
+            <span class="n">pids</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_pids</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mode</span> <span class="o">==</span> <span class="s2">&quot;process&quot;</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">blind_for_s</span><span class="o">=</span><span class="n">blind_for</span><span class="p">,</span>
             <span class="n">tolerance_s</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">stall_s</span><span class="p">,</span>
         <span class="p">)</span>
@@ -917,15 +1227,17 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_tripped</span> <span class="o">=</span> <span class="kc">True</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_stall_at_trip</span> <span class="o">=</span> <span class="n">stalled_for</span>
         <span class="n">_logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
-            <span class="s2">&quot;TRIP: device </span><span class="si">%r</span><span class="s2"> stalled for </span><span class="si">%.1f</span><span class="s2">s (&gt;= </span><span class="si">%.1f</span><span class="s2">s). Aborting sort.&quot;</span><span class="p">,</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_device</span><span class="p">,</span>
+            <span class="s2">&quot;TRIP: </span><span class="si">%s</span><span class="s2"> stalled for </span><span class="si">%.1f</span><span class="s2">s (&gt;= </span><span class="si">%.1f</span><span class="s2">s). Aborting sort.&quot;</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_scope_label</span><span class="p">(),</span>
             <span class="n">stalled_for</span><span class="p">,</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">stall_s</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="n">append_audit_event</span><span class="p">(</span>
             <span class="n">watchdog</span><span class="o">=</span><span class="s2">&quot;io_stall&quot;</span><span class="p">,</span>
             <span class="n">event</span><span class="o">=</span><span class="s2">&quot;abort&quot;</span><span class="p">,</span>
+            <span class="n">mode</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_mode</span><span class="p">,</span>
             <span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_device</span><span class="p">,</span>
+            <span class="n">pids</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_pids</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mode</span> <span class="o">==</span> <span class="s2">&quot;process&quot;</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">stalled_for_s</span><span class="o">=</span><span class="n">stalled_for</span><span class="p">,</span>
             <span class="n">tolerance_s</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">stall_s</span><span class="p">,</span>
         <span class="p">)</span>

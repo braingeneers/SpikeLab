@@ -2112,11 +2112,41 @@
                 <span class="kn">from</span><span class="w"> </span><span class="nn">.guards</span><span class="w"> </span><span class="kn">import</span> <span class="n">IOStallWatchdog</span>
 
                 <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">exe_cfg</span><span class="p">,</span> <span class="s2">&quot;io_stall_watchdog&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">):</span>
-                    <span class="n">io_stall_wd</span> <span class="o">=</span> <span class="n">IOStallWatchdog</span><span class="p">(</span>
-                        <span class="n">folder</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="n">inter_path</span><span class="p">),</span>
-                        <span class="n">stall_s</span><span class="o">=</span><span class="n">exe_cfg</span><span class="o">.</span><span class="n">io_stall_s</span><span class="p">,</span>
-                        <span class="n">poll_interval_s</span><span class="o">=</span><span class="n">exe_cfg</span><span class="o">.</span><span class="n">io_stall_poll_interval_s</span><span class="p">,</span>
-                    <span class="p">)</span>
+                    <span class="n">io_stall_mode</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">exe_cfg</span><span class="p">,</span> <span class="s2">&quot;io_stall_mode&quot;</span><span class="p">,</span> <span class="s2">&quot;process&quot;</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">io_stall_mode</span> <span class="o">==</span> <span class="s2">&quot;process&quot;</span><span class="p">:</span>
+                        <span class="c1"># Process-mode: track this orchestrating</span>
+                        <span class="c1"># python process&#39;s I/O. Descendants are</span>
+                        <span class="c1"># included by default so a sorter child or</span>
+                        <span class="c1"># spikeinterface worker is covered.</span>
+                        <span class="c1"># Docker-backed sorters: the daemon is the</span>
+                        <span class="c1"># parent of the container, NOT this process,</span>
+                        <span class="c1"># so a separate ``register_pid`` happens</span>
+                        <span class="c1"># downstream once the container is known</span>
+                        <span class="c1"># (see ks2_runner). The fallback is the</span>
+                        <span class="c1"># log-inactivity watchdog, which always</span>
+                        <span class="c1"># covers the case where the container</span>
+                        <span class="c1"># silently hangs.</span>
+                        <span class="n">io_stall_wd</span> <span class="o">=</span> <span class="n">IOStallWatchdog</span><span class="p">(</span>
+                            <span class="n">pids</span><span class="o">=</span><span class="p">[</span><span class="n">os</span><span class="o">.</span><span class="n">getpid</span><span class="p">()],</span>
+                            <span class="n">include_descendants</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span>
+                                <span class="n">exe_cfg</span><span class="p">,</span>
+                                <span class="s2">&quot;io_stall_include_descendants&quot;</span><span class="p">,</span>
+                                <span class="kc">True</span><span class="p">,</span>
+                            <span class="p">),</span>
+                            <span class="n">stall_s</span><span class="o">=</span><span class="n">exe_cfg</span><span class="o">.</span><span class="n">io_stall_s</span><span class="p">,</span>
+                            <span class="n">poll_interval_s</span><span class="o">=</span><span class="n">exe_cfg</span><span class="o">.</span><span class="n">io_stall_poll_interval_s</span><span class="p">,</span>
+                        <span class="p">)</span>
+                    <span class="k">elif</span> <span class="n">io_stall_mode</span> <span class="o">==</span> <span class="s2">&quot;device&quot;</span><span class="p">:</span>
+                        <span class="n">io_stall_wd</span> <span class="o">=</span> <span class="n">IOStallWatchdog</span><span class="p">(</span>
+                            <span class="n">folder</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="n">inter_path</span><span class="p">),</span>
+                            <span class="n">stall_s</span><span class="o">=</span><span class="n">exe_cfg</span><span class="o">.</span><span class="n">io_stall_s</span><span class="p">,</span>
+                            <span class="n">poll_interval_s</span><span class="o">=</span><span class="n">exe_cfg</span><span class="o">.</span><span class="n">io_stall_poll_interval_s</span><span class="p">,</span>
+                        <span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">&quot;Unknown io_stall_mode=</span><span class="si">{</span><span class="n">io_stall_mode</span><span class="si">!r}</span><span class="s2">; &quot;</span>
+                            <span class="s2">&quot;must be &#39;process&#39; or &#39;device&#39;.&quot;</span>
+                        <span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="n">io_stall_wd</span> <span class="o">=</span> <span class="n">nullcontext</span><span class="p">()</span>
 

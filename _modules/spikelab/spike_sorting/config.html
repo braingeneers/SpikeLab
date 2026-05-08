@@ -764,6 +764,22 @@
     <span class="n">io_stall_watchdog</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
     <span class="n">io_stall_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">300.0</span>
     <span class="n">io_stall_poll_interval_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">10.0</span>
+    <span class="c1"># Polling scope:</span>
+    <span class="c1">#   &quot;process&quot; (default) — track read/write byte counters of the</span>
+    <span class="c1">#     orchestrating Python process and its descendants; immune</span>
+    <span class="c1">#     to ambient I/O on the same disk. Default because the</span>
+    <span class="c1">#     interesting failure mode is the sort process itself</span>
+    <span class="c1">#     hanging, not the device hanging globally.</span>
+    <span class="c1">#   &quot;device&quot; — legacy mode; polls the volume-wide</span>
+    <span class="c1">#     ``disk_io_counters`` for the inter folder. Catches kernel</span>
+    <span class="c1">#     I/O hangs that freeze the device, but background activity</span>
+    <span class="c1">#     from unrelated processes can mask a stall in the sort.</span>
+    <span class="n">io_stall_mode</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;process&quot;</span>
+    <span class="c1"># When True (default) and ``io_stall_mode=&quot;process&quot;``, the</span>
+    <span class="c1"># watchdog walks each registered PID&#39;s descendants on every poll</span>
+    <span class="c1"># so subprocesses spawned by the sort (spikeinterface workers,</span>
+    <span class="c1"># KS2 MATLAB child) contribute to the byte counter.</span>
+    <span class="n">io_stall_include_descendants</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
 
     <span class="c1"># ------------------------------------------------------------------</span>
     <span class="c1"># Temp-file cleanup at sort end (guards/_tempfile_cleanup.py)</span>
@@ -1109,6 +1125,11 @@
             <span class="s2">&quot;io_stall_watchdog&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;io_stall_watchdog&quot;</span><span class="p">),</span>
             <span class="s2">&quot;io_stall_s&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;io_stall_s&quot;</span><span class="p">),</span>
             <span class="s2">&quot;io_stall_poll_interval_s&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;io_stall_poll_interval_s&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;io_stall_mode&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;io_stall_mode&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;io_stall_include_descendants&quot;</span><span class="p">:</span> <span class="p">(</span>
+                <span class="s2">&quot;execution&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;io_stall_include_descendants&quot;</span><span class="p">,</span>
+            <span class="p">),</span>
             <span class="c1"># ExecutionConfig — temp-file cleanup</span>
             <span class="s2">&quot;cleanup_temp_files&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;cleanup_temp_files&quot;</span><span class="p">),</span>
             <span class="c1"># ExecutionConfig — Windows sleep prevention</span>
