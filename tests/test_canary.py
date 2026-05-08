@@ -924,15 +924,18 @@ class TestExtractUnitCount:
 
         assert _extract_unit_count([_FakeSD(5)]) is None
 
-    def test_extract_unit_count_numpy_int_n_returns_none(self):
+    def test_extract_unit_count_numpy_int_n_returns_python_int(self):
         """
-        _extract_unit_count uses isinstance(n, int), which is False for
-        numpy scalar types. A SpikeData-like object with N=np.int64(5)
-        therefore returns None and the log line silently loses the
-        unit count.
+        _extract_unit_count accepts numpy integer types (np.int64,
+        np.int32, etc.) — SpikeData.N can be assigned from numpy
+        operations like np.unique(...).size.
 
         Tests:
-            (Test Case 1) candidate.N as np.int64 returns None.
+            (Test Case 1) np.int64(5) returns Python int 5.
+            (Test Case 2) np.int32(7) returns Python int 7.
+            (Test Case 3) The returned type is exactly Python int
+                (not a numpy scalar) so JSON serializers don't trip
+                on it.
         """
         import numpy as _np
 
@@ -942,4 +945,10 @@ class TestExtractUnitCount:
             def __init__(self, n):
                 self.N = n
 
-        assert _extract_unit_count(_FakeSD(_np.int64(5))) is None
+        result_int64 = _extract_unit_count(_FakeSD(_np.int64(5)))
+        assert result_int64 == 5
+        assert type(result_int64) is int
+
+        result_int32 = _extract_unit_count(_FakeSD(_np.int32(7)))
+        assert result_int32 == 7
+        assert type(result_int32) is int
