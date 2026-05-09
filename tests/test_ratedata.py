@@ -1730,3 +1730,50 @@ class TestRateDataCoreReview:
         assert isinstance(stack, RateSliceStack)
         # step = 20 - 19 = 1; starts = 0,1,2,...,80 = 81 frames
         assert stack.event_stack.shape[2] == 81
+
+
+class TestRateDataConstructorTimeSequenceEdges:
+    """Constructor validation for ``RateData.times``."""
+
+    def test_nan_in_times_rejected(self):
+        """
+        ``RateData`` rejects ``times`` containing NaN or inf with a
+        ValueError naming "finite".
+
+        Tests:
+            (Test Case 1) NaN in times raises ValueError.
+            (Test Case 2) ``inf`` in times raises ValueError.
+        """
+        data = np.array([[0.1, 0.2, 0.3]])
+        with pytest.raises(ValueError, match="finite"):
+            RateData(data, np.array([0.0, np.nan, 2.0]))
+        with pytest.raises(ValueError, match="finite"):
+            RateData(data, np.array([0.0, np.inf, 2.0]))
+
+    def test_unsorted_times_rejected(self):
+        """
+        ``RateData`` rejects unsorted ``times`` with a ValueError
+        naming "monotonic".
+
+        Tests:
+            (Test Case 1) Reverse-sorted times raise ValueError.
+            (Test Case 2) Locally-out-of-order times raise ValueError.
+        """
+        data = np.array([[0.1, 0.2, 0.3, 0.4]])
+        with pytest.raises(ValueError, match="monotonic"):
+            RateData(data, np.array([3.0, 2.0, 1.0, 0.0]))
+        with pytest.raises(ValueError, match="monotonic"):
+            RateData(data, np.array([0.0, 2.0, 1.0, 3.0]))
+
+    def test_equal_times_accepted(self):
+        """
+        Monotonic non-decreasing allows duplicates (``np.diff >= 0``);
+        repeated time values are accepted.
+
+        Tests:
+            (Test Case 1) ``times = [0, 1, 1, 2]`` constructs without
+                error.
+        """
+        data = np.array([[0.1, 0.2, 0.3, 0.4]])
+        rd = RateData(data, np.array([0.0, 1.0, 1.0, 2.0]))
+        np.testing.assert_array_equal(rd.times, np.array([0.0, 1.0, 1.0, 2.0]))

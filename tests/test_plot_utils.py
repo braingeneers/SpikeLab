@@ -803,12 +803,14 @@ class TestPlotRecording:
         plot_recording with N=0 units.
 
         Tests:
-            (Test Case 1) Zero-unit SpikeData does not crash plot_recording.
+            (Test Case 1) Zero-unit SpikeData does not crash
+                plot_recording — the source now handles the empty-units
+                case gracefully and returns a Figure.
         """
         sd = SpikeData([], length=100.0)
-        # N=0 SpikeData crashes sparse_raster due to empty hstack
-        with pytest.raises(ValueError):
-            plot_recording(sd, show=False)
+        # N=0 SpikeData is now handled gracefully by plot_recording.
+        fig = plot_recording(sd, show=False)
+        assert fig is not None
 
 
 # ---------------------------------------------------------------------------

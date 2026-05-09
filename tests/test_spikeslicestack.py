@@ -3200,3 +3200,92 @@ class TestSSSSubtimeByIndexNonIntegerSliceDuration:
         sss = SpikeSliceStack(sd, times_start_to_end=[(0.0, 12.0)])
         result = sss.subtime_by_index(0, 12)
         assert len(result.spike_stack) == 1
+
+
+class TestSpikeSliceStackUniformStartTime:
+    """
+    Constructor enforces uniform ``start_time`` across the
+    ``spike_stack`` to prevent silent mis-alignment of downstream
+    raster outputs.
+    """
+
+    def test_mixed_zero_based_and_event_centered_rejected(self):
+        """
+        Mixing a 0-based slice (``start_time=0``) with an event-
+        centered slice (``start_time<0``) raises ValueError naming
+        ``start_time``.
+
+        Tests:
+            (Test Case 1) Construction raises ValueError.
+            (Test Case 2) The error mentions ``start_time``.
+        """
+        zero_based = SpikeData([[2.0, 5.0]], length=10.0, start_time=0.0)
+        event_centered = SpikeData([[-3.0, 4.0]], length=10.0, start_time=-5.0)
+        with pytest.raises(ValueError, match="start_time"):
+            SpikeSliceStack(
+                spike_stack=[zero_based, event_centered],
+                times_start_to_end=[(0.0, 10.0), (10.0, 20.0)],
+            )
+
+    def test_mixed_event_centered_pre_windows_rejected(self):
+        """
+        Two event-centered slices with different ``pre`` windows
+        (``start_time=-5`` vs ``start_time=-2``) but the same total
+        duration are rejected because they use different time-origin
+        conventions.
+
+        Tests:
+            (Test Case 1) Construction raises ValueError mentioning
+                ``start_time``.
+        """
+        # Both slices have duration 10.0 to satisfy the "same window
+        # length" check, but their start_time values differ — one is
+        # event-centered with pre=5, the other with pre=2.
+        a = SpikeData([[-3.0, 4.0]], length=10.0, start_time=-5.0)
+        b = SpikeData([[-1.0, 7.0]], length=10.0, start_time=-2.0)
+        with pytest.raises(ValueError, match="start_time"):
+            SpikeSliceStack(
+                spike_stack=[a, b],
+                times_start_to_end=[(0.0, 10.0), (10.0, 20.0)],
+            )
+
+    def test_uniform_start_time_accepted(self):
+        """
+        A stack of slices that all share the same ``start_time`` is
+        accepted.
+
+        Tests:
+            (Test Case 1) Two 0-based slices construct successfully.
+            (Test Case 2) Two event-centered slices with the same
+                ``pre`` value construct successfully.
+        """
+        a = SpikeData([[1.0]], length=10.0, start_time=0.0)
+        b = SpikeData([[2.0]], length=10.0, start_time=0.0)
+        sss = SpikeSliceStack(
+            spike_stack=[a, b],
+            times_start_to_end=[(0.0, 10.0), (10.0, 20.0)],
+        )
+        assert len(sss.spike_stack) == 2
+
+        c = SpikeData([[-3.0]], length=10.0, start_time=-5.0)
+        d = SpikeData([[1.0]], length=10.0, start_time=-5.0)
+        sss2 = SpikeSliceStack(
+            spike_stack=[c, d],
+            times_start_to_end=[(0.0, 10.0), (10.0, 20.0)],
+        )
+        assert len(sss2.spike_stack) == 2
+
+    def test_single_slice_passes_uniformity_trivially(self):
+        """
+        A single-slice stack has nothing to compare; the uniformity
+        check should not fire.
+
+        Tests:
+            (Test Case 1) Single-slice stack with negative
+                ``start_time`` constructs successfully.
+        """
+        sd = SpikeData([[1.0]], length=10.0, start_time=-5.0)
+        sss = SpikeSliceStack(
+            spike_stack=[sd], times_start_to_end=[(0.0, 10.0)]
+        )
+        assert len(sss.spike_stack) == 1
