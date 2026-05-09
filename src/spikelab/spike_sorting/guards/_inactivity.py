@@ -314,9 +314,7 @@ class LogInactivityWatchdog:
         kill_grace_s: float = 5.0,
         kill_callback: Optional[Callable[[], None]] = None,
     ) -> None:
-        if inactivity_s is not None and (
-            np.isnan(inactivity_s) or inactivity_s <= 0.0
-        ):
+        if inactivity_s is not None and (np.isnan(inactivity_s) or inactivity_s <= 0.0):
             raise ValueError(
                 f"inactivity_s must be positive or None, got {inactivity_s}."
             )

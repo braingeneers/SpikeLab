@@ -7997,9 +7997,7 @@ class TestSpikeDataGetPairwiseCcgMaxLagClamp:
         sd = SpikeData([[1.0, 5.0, 9.0], [2.0, 6.0, 10.0]], length=20.0)
         with _warnings.catch_warnings(record=True) as caught:
             _warnings.simplefilter("always")
-            corr_pcm, lag_pcm = sd.get_pairwise_ccg(
-                bin_size=1.0, max_lag=10000.0
-            )
+            corr_pcm, lag_pcm = sd.get_pairwise_ccg(bin_size=1.0, max_lag=10000.0)
         msgs = [
             str(rec.message)
             for rec in caught

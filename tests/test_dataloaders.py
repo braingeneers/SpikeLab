@@ -4853,9 +4853,7 @@ class TestS3UrlEdgeCases:
         from spikelab.data_loaders.s3_utils import is_s3_url
 
         assert is_s3_url("  s3://bucket/key  ") is True
-        assert (
-            is_s3_url("\thttps://s3.amazonaws.com/bucket/key\n") is True
-        )
+        assert is_s3_url("\thttps://s3.amazonaws.com/bucket/key\n") is True
 
     def test_is_s3_url_uppercase_scheme_returns_true(self):
         """
@@ -4918,9 +4916,7 @@ class TestTrainsFromFlatIndexInputDtypes:
         flat = np.arange(10.0)
         end_indices = np.array([-2, 0, 5])
         with pytest.raises(ValueError, match="non-negative"):
-            loaders._trains_from_flat_index(
-                flat, end_indices, unit="ms", fs_Hz=None
-            )
+            loaders._trains_from_flat_index(flat, end_indices, unit="ms", fs_Hz=None)
 
     def test_float_end_indices_rejected_with_friendly_error(self):
         """
@@ -4936,9 +4932,7 @@ class TestTrainsFromFlatIndexInputDtypes:
         flat = np.arange(10.0)
         end_indices = np.array([2.0, 5.0])
         with pytest.raises(ValueError, match="integer array"):
-            loaders._trains_from_flat_index(
-                flat, end_indices, unit="ms", fs_Hz=None
-            )
+            loaders._trains_from_flat_index(flat, end_indices, unit="ms", fs_Hz=None)
 
 
 @skip_no_h5py

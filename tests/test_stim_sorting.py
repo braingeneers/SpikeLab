@@ -1747,9 +1747,7 @@ class TestFindEdgeWithExplicitAnchor:
         )
         ref[125:131] *= 1.5  # boost the second pulse so argmax prefers it
 
-        default_edge = _find_up_edge(
-            ref, lo=0, hi=200, prewindow_ms=1.0, fs_Hz=20000.0
-        )
+        default_edge = _find_up_edge(ref, lo=0, hi=200, prewindow_ms=1.0, fs_Hz=20000.0)
         override_edge = _find_up_edge(
             ref, lo=0, hi=200, prewindow_ms=1.0, fs_Hz=20000.0, pos_peak=60
         )
@@ -1991,9 +1989,7 @@ class TestPolyfitAndSubtractNanCoefficients:
         # Confirm the NaN actually landed (the bug premise).
         assert np.all(np.isnan(channel_trace[20:80]))
 
-    def test_finite_clamp_threshold_with_nan_segment_is_no_op(
-        self, monkeypatch
-    ):
+    def test_finite_clamp_threshold_with_nan_segment_is_no_op(self, monkeypatch):
         """
         Even with a generous (small) ``clamp_threshold``, a NaN
         segment is not detected as out-of-bounds. Confirms the bug

@@ -3285,7 +3285,5 @@ class TestSpikeSliceStackUniformStartTime:
                 ``start_time`` constructs successfully.
         """
         sd = SpikeData([[1.0]], length=10.0, start_time=-5.0)
-        sss = SpikeSliceStack(
-            spike_stack=[sd], times_start_to_end=[(0.0, 10.0)]
-        )
+        sss = SpikeSliceStack(spike_stack=[sd], times_start_to_end=[(0.0, 10.0)])
         assert len(sss.spike_stack) == 1

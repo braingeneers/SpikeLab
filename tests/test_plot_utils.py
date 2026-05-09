@@ -4711,9 +4711,7 @@ class TestSpikeDataPlotUnitFootprintsAttributeFallback:
         """
         sd, _ = self._make_sd(n_units=1)
         save_path = tmp_path / "wrapper_footprint.png"
-        sd.plot_unit_footprints(
-            [0], min_amplitude_uv=0.5, save_path=str(save_path)
-        )
+        sd.plot_unit_footprints([0], min_amplitude_uv=0.5, save_path=str(save_path))
         assert save_path.exists()
         assert save_path.stat().st_size > 0
 

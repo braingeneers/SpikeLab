@@ -7312,12 +7312,15 @@ class TestMcpDispatcherJsonSafety:
                 result = await _call_tool(tool_name, {})
             except Exception as exc:  # noqa: BLE001
                 non_serializable.append(
-                    (tool_name, f"_call_tool itself raised: {type(exc).__name__}: {exc}")
+                    (
+                        tool_name,
+                        f"_call_tool itself raised: {type(exc).__name__}: {exc}",
+                    )
                 )
                 continue
-            assert isinstance(result, list) and len(result) == 1, (
-                f"{tool_name}: expected list[TextContent] with 1 element, got {result!r}"
-            )
+            assert (
+                isinstance(result, list) and len(result) == 1
+            ), f"{tool_name}: expected list[TextContent] with 1 element, got {result!r}"
             text = result[0].text
             try:
                 payload = json.loads(text)
@@ -7328,13 +7331,14 @@ class TestMcpDispatcherJsonSafety:
                 continue
             # Tools may return either a successful dict or the
             # standard error envelope. Both must be dicts.
-            assert isinstance(payload, dict), (
-                f"{tool_name}: expected dict payload, got {type(payload).__name__}"
-            )
+            assert isinstance(
+                payload, dict
+            ), f"{tool_name}: expected dict payload, got {type(payload).__name__}"
 
-        assert non_serializable == [], (
-            "Tools whose response was not JSON-parseable:\n"
-            + "\n".join(f"  - {n}: {msg}" for n, msg in non_serializable)
+        assert (
+            non_serializable == []
+        ), "Tools whose response was not JSON-parseable:\n" + "\n".join(
+            f"  - {n}: {msg}" for n, msg in non_serializable
         )
 
     @pytestmark_server
@@ -7421,9 +7425,9 @@ class TestMcpDispatcherJsonSafety:
 
         broken: list[tuple[str, str]] = []
         for tool_name, kwargs in candidates.items():
-            assert tool_name in _TOOL_DISPATCH, (
-                f"smoke-test references missing tool: {tool_name}"
-            )
+            assert (
+                tool_name in _TOOL_DISPATCH
+            ), f"smoke-test references missing tool: {tool_name}"
             result = await _call_tool(tool_name, kwargs)
             text = result[0].text
             try:
@@ -7436,9 +7440,10 @@ class TestMcpDispatcherJsonSafety:
                     (tool_name, f"non-dict payload: {type(payload).__name__}")
                 )
 
-        assert broken == [], (
-            "Tools whose zero-spike response was not JSON-parseable:\n"
-            + "\n".join(f"  - {n}: {msg}" for n, msg in broken)
+        assert (
+            broken == []
+        ), "Tools whose zero-spike response was not JSON-parseable:\n" + "\n".join(
+            f"  - {n}: {msg}" for n, msg in broken
         )
 
     @pytestmark_server
