@@ -68,24 +68,51 @@ def _trains_from_flat_index(
     *,
     unit: str,
     fs_Hz: Optional[float],
+    n_units: Optional[int] = None,
 ) -> List[np.ndarray]:
     """Split a flat time array into per-unit trains using end indices and convert to ms.
 
     Two index conventions are accepted:
 
     * **Cumulative-end (length N)**: ``[c0, c0+c1, ..., total]`` —
-      the convention used by SpikeLab's HDF5 ragged exporter. Iterated
-      with an implicit ``start = 0`` for unit 0.
-    * **Leading-zero cumulative (length N+1)**: ``[0, c0, c0+c1, ...,
-      total]`` — common in NWB ``spike_times_index`` files in the
-      wild. Iterated with ``start = end_indices[i]; stop =
-      end_indices[i+1]``.
+      the convention used by SpikeLab's HDF5 ragged exporter and by
+      the NWB spec. Iterated with an implicit ``start = 0`` for
+      unit 0.
+    * **Leading-zero cumulative (length N+1)**: ``[0, c0, c0+c1,
+      ..., total]`` — common in NWB ``spike_times_index`` files in
+      the wild that don't strictly follow the NWB spec.
 
-    The leading-zero variant is auto-detected when ``end_indices[0] ==
-    0`` and ``len(end_indices) >= 2``. (A bare ``[0]`` is ambiguous
-    between a single empty unit and a leading-zero marker; we treat
-    it as the former for backwards compatibility, producing a single
-    empty train.)
+    Disambiguation rules:
+
+    * **With ``n_units``** (preferred — used by the NWB loader): the
+      length is checked against both candidates. Length ``n_units``
+      → cumulative-end. Length ``n_units + 1`` with leading 0 →
+      leading-zero. A mismatch with both raises ``ValueError``.
+    * **Without ``n_units``**: a heuristic auto-detect runs. The
+      leading-zero variant is selected when ``len(end_indices) >= 2``,
+      ``end_indices[0] == 0``, **and** ``end_indices[-1] > 0`` (i.e.
+      there is at least one non-empty unit). A bare ``[0]`` or an
+      all-zero array stays cumulative-end so existing
+      all-empty-trains fixtures continue to round-trip correctly.
+      Callers that can supply ``n_units`` should — the heuristic
+      cannot disambiguate ``[0, 5]`` (two units, first empty vs one
+      unit with five spikes).
+
+    Parameters:
+        flat_times (np.ndarray): Concatenated spike times.
+        end_indices (np.ndarray): Cumulative end indices, in either
+            of the two supported conventions.
+        unit (str): Time unit of ``flat_times`` (``"ms"``, ``"s"``,
+            or ``"samples"``).
+        fs_Hz (float or None): Sample rate, required when
+            ``unit == "samples"``.
+        n_units (int or None): Known number of units, used to
+            disambiguate the index convention. ``None`` triggers
+            the heuristic auto-detect described above.
+
+    Returns:
+        trains (list of np.ndarray): Per-unit spike-time arrays in
+            milliseconds.
     """
     end_indices = np.asarray(end_indices)
     if len(end_indices) > 0:
@@ -111,11 +138,24 @@ def _trains_from_flat_index(
                 f"flat_times length ({len(flat_times)})"
             )
 
-    # Auto-detect the NWB leading-zero convention. With an explicit
-    # leading 0 and at least one cumulative end, the array is
-    # length N+1 — strip the leading zero and use the remaining
-    # cumulative-end semantics.
-    if len(end_indices) >= 2 and end_indices[0] == 0:
+    if n_units is not None:
+        if len(end_indices) == n_units + 1 and (
+            len(end_indices) == 0 or end_indices[0] == 0
+        ):
+            # NWB leading-zero convention: strip the leading 0 to fall
+            # through to cumulative-end iteration.
+            end_indices = end_indices[1:]
+        elif len(end_indices) != n_units:
+            raise ValueError(
+                f"spike_times_index length {len(end_indices)} does not match "
+                f"n_units={n_units} for either cumulative-end (length N) or "
+                f"leading-zero (length N+1) convention."
+            )
+    elif len(end_indices) >= 2 and end_indices[0] == 0 and end_indices[-1] > 0:
+        # Heuristic auto-detect: leading 0 followed by at least one
+        # non-zero entry is unambiguously the leading-zero variant
+        # (cumulative-end with c0=0 produces the same prefix only
+        # when the array is entirely zero, which is excluded here).
         end_indices = end_indices[1:]
 
     trains: List[np.ndarray] = []
@@ -547,8 +587,19 @@ def load_spikedata_from_nwb(
 
         flat = np.asarray(unit_grp[st_key])
         index = np.asarray(unit_grp[idx_key])
+        # Read the unit-id table first so we know N upfront. NWB
+        # files in the wild use either the spec-compliant
+        # cumulative-end (length N) or a leading-zero (length N+1)
+        # convention; the unit count disambiguates them.
+        n_units = int(np.asarray(unit_grp["id"]).shape[0]) if "id" in unit_grp else None
         trains.extend(
-            _trains_from_flat_index(flat.astype(float), index, unit="s", fs_Hz=None)
+            _trains_from_flat_index(
+                flat.astype(float),
+                index,
+                unit="s",
+                fs_Hz=None,
+                n_units=n_units,
+            )
         )
 
         unit_ids = (
@@ -1180,6 +1231,27 @@ def load_spikedata_from_ibl(
             break
         except (ValueError, KeyError, FileNotFoundError):
             continue
+
+    # When every collection fallback failed and the Brain-Wide Map lists
+    # good units for this probe, the loader is about to return a
+    # SpikeData full of empty trains — a result that looks valid to
+    # downstream code (correct N, correct neuron_attributes, correct
+    # trial metadata) but contains zero actual spikes. Surface the
+    # silent failure with a loud UserWarning so it shows up in batch
+    # logs without crashing the calling script.
+    if spikes is None and len(good_units) > 0:
+        warnings.warn(
+            f"load_spikedata_from_ibl: failed to load spikes for "
+            f"eid={eid!r}, pid={pid!r} from any of the candidate "
+            f"collections: {ordered_collections}. The Brain-Wide Map "
+            f"lists {len(good_units)} good unit(s) for this probe — "
+            f"the returned SpikeData will have {len(good_units)} units "
+            f"but zero spikes. Verify the eid/pid pair on the IBL "
+            f"server, or check ``sd.train`` for the all-empty "
+            f"signature before using.",
+            UserWarning,
+            stacklevel=2,
+        )
 
     # Build per-unit spike trains (seconds → milliseconds).
     spike_trains: List[np.ndarray] = []

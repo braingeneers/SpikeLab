@@ -1501,13 +1501,18 @@ class TestIBLLoader:
     def test_ibl_all_collections_fail(self):
         """
         Verify that when all ONE API collection lookups fail, the loader
-        still returns a SpikeData with empty trains (one per good unit) rather
-        than crashing silently.
+        emits a UserWarning naming the eid/pid/collections and still
+        returns a SpikeData with empty trains so the calling script
+        does not crash. The warning gives the operator a clear signal
+        without forcing a hard error in batch jobs.
 
         Tests:
             (Test Case 1) Returns a SpikeData with the correct number of units.
             (Test Case 2) All spike trains are empty arrays.
+            (Test Case 3) A UserWarning is emitted naming the eid, pid,
+                and the candidate collections.
         """
+        import warnings as _warnings
         import pandas as pd
 
         eid, pid = "test-eid", "test-pid"
@@ -1569,12 +1574,24 @@ class TestIBLLoader:
                 "brainwidemap": mock_brainwidemap,
             },
         ):
-            sd = loaders.load_spikedata_from_ibl(eid, pid)
+            with _warnings.catch_warnings(record=True) as w:
+                _warnings.simplefilter("always")
+                sd = loaders.load_spikedata_from_ibl(eid, pid)
 
         assert isinstance(sd, SpikeData)
         assert sd.N == 2
         for train in sd.train:
             assert len(train) == 0
+
+        # A UserWarning was emitted naming the eid, pid, and the
+        # candidate collections so the silent-empty result is visible.
+        warn_msgs = [str(rec.message) for rec in w if rec.category is UserWarning]
+        relevant = [
+            m for m in warn_msgs if "load_spikedata_from_ibl" in m and "test-eid" in m
+        ]
+        assert relevant, warn_msgs
+        assert "test-pid" in relevant[0]
+        assert "alf" in relevant[0]
 
     def test_ec_dl_09_no_good_units(self):
         """
@@ -4873,3 +4890,302 @@ class TestS3UrlEdgeCases:
 
         with pytest.raises(ValueError, match="no object key"):
             parse_s3_url("s3://")
+
+
+class TestTrainsFromFlatIndexInputDtypes:
+    """``_trains_from_flat_index`` with unusual ``end_indices`` dtypes."""
+
+    def test_negative_end_indices_value_silently_misassigns(self):
+        """
+        A monotonic ``end_indices`` containing a negative value (e.g.
+        ``[-2, 0, 5]``) passes the ``np.diff >= 0`` check but Python's
+        ``flat_times[start:stop]`` slicing with a negative ``stop``
+        wraps around or returns an empty slice, producing silent
+        data-loss / wrong-unit-assignment.
+
+        Tests:
+            (Test Case 1) Negative entry is accepted at validation
+                time without error.
+            (Test Case 2) The function returns a list of trains
+                (silent slicing path).
+
+        Notes:
+            - Pinning current silent acceptance. A future hardening
+              that rejects negative ``end_indices`` entries would
+              update this test.
+        """
+        flat = np.arange(10.0)
+        end_indices = np.array([-2, 0, 5])
+        trains = loaders._trains_from_flat_index(
+            flat, end_indices, unit="ms", fs_Hz=None
+        )
+        # Pin: function returns without raising.
+        assert isinstance(trains, list)
+        # 3 entries because end_indices[0]==-2 (not 0), so the
+        # leading-zero auto-detect does not strip anything.
+        assert len(trains) == 3
+
+    def test_float_end_indices_raise_at_slicing_time(self):
+        """
+        Float-dtype ``end_indices`` (e.g. read from HDF5 as float64)
+        survive validation but raise ``TypeError`` later when used
+        as slice indices.
+
+        Tests:
+            (Test Case 1) Float ``end_indices`` raise ``TypeError``
+                when the function tries to slice ``flat_times``.
+        """
+        flat = np.arange(10.0)
+        end_indices = np.array([2.0, 5.0])
+        with pytest.raises(TypeError):
+            loaders._trains_from_flat_index(flat, end_indices, unit="ms", fs_Hz=None)
+
+
+@skip_no_h5py
+class TestReadRawArraysSamplesUnitWithZeroFs:
+    """``_read_raw_arrays`` with ``raw_time_unit='samples'`` and ``fs_Hz=0``."""
+
+    def test_samples_unit_with_zero_fs_raises(self, tmp_path):
+        """
+        ``fs_Hz=0`` is rejected by the ``if not fs_Hz`` guard. Pin
+        the current error message contract.
+
+        Tests:
+            (Test Case 1) ``raw_time_unit='samples'`` with ``fs_Hz=0``
+                raises ``ValueError`` mentioning ``fs_Hz``.
+        """
+        path = str(tmp_path / "raw_zero_fs.h5")
+        with h5py.File(path, "w") as f:
+            f.create_dataset("raw", data=np.zeros((2, 5)))
+            f.create_dataset("raw_t", data=np.arange(5))
+
+        with h5py.File(path, "r") as f:
+            with pytest.raises(ValueError, match="fs_Hz"):
+                loaders._read_raw_arrays(f, "raw", "raw_t", "samples", fs_Hz=0)
+
+
+@skip_no_h5py
+class TestLoadHdf5RasterEdgeShapes:
+    """``load_spikedata_from_hdf5(raster_dataset=...)`` shape edges."""
+
+    def test_zero_unit_raster_produces_zero_unit_spikedata(self, tmp_path):
+        """
+        A raster with shape ``(0, T)`` round-trips to a zero-unit
+        SpikeData with the expected length.
+
+        Tests:
+            (Test Case 1) Loaded SpikeData has ``N == 0``.
+            (Test Case 2) ``length`` equals ``T * raster_bin_size_ms``.
+        """
+        path = str(tmp_path / "zero_units.h5")
+        with h5py.File(path, "w") as f:
+            f.create_dataset("raster", data=np.zeros((0, 5), dtype=int))
+
+        sd = loaders.load_spikedata_from_hdf5(
+            path,
+            raster_dataset="raster",
+            raster_bin_size_ms=2.0,
+        )
+        assert sd.N == 0
+        assert sd.length == pytest.approx(10.0)
+
+    def test_3d_raster_rejected_with_clear_error(self, tmp_path):
+        """
+        A 3-D raster is rejected with the same "must be 2D" message
+        as 1-D inputs.
+
+        Tests:
+            (Test Case 1) 3-D raster raises ``ValueError``.
+        """
+        path = str(tmp_path / "raster_3d.h5")
+        with h5py.File(path, "w") as f:
+            f.create_dataset("raster", data=np.zeros((2, 5, 3), dtype=int))
+
+        with pytest.raises(ValueError):
+            loaders.load_spikedata_from_hdf5(
+                path,
+                raster_dataset="raster",
+                raster_bin_size_ms=1.0,
+            )
+
+    def test_explicit_length_ms_silently_ignored_in_raster_style(self, tmp_path):
+        """
+        The raster-style loader unconditionally derives ``length`` from
+        ``raster.shape[1] * raster_bin_size_ms``, silently overwriting
+        any user-supplied ``length_ms``.
+
+        Tests:
+            (Test Case 1) Explicit ``length_ms=999`` is replaced by
+                the shape-derived ``4.0``.
+
+        Notes:
+            - Pins silent override. A future hardening that warns
+              when ``length_ms`` differs from the computed value
+              would update this test.
+        """
+        path = str(tmp_path / "raster_len.h5")
+        with h5py.File(path, "w") as f:
+            f.create_dataset("raster", data=np.ones((2, 4), dtype=int))
+
+        sd = loaders.load_spikedata_from_hdf5(
+            path,
+            raster_dataset="raster",
+            raster_bin_size_ms=1.0,
+            length_ms=999.0,
+        )
+        assert sd.length == pytest.approx(4.0)
+
+
+@skip_no_h5py
+class TestLoadHdf5PairedMismatchedLengths:
+    """``load_spikedata_from_hdf5(paired)`` with mismatched array lengths."""
+
+    def test_paired_idces_times_length_mismatch_raises(self, tmp_path):
+        """
+        If ``idces`` and ``times`` have different lengths, the loader
+        forwards them through ``SpikeData.from_idces_times`` /
+        ``_train_from_i_t_list`` and surfaces an ``IndexError`` from
+        numpy boolean indexing. Pin this so a future hardening that
+        raises a friendlier ``ValueError`` upfront updates this test.
+
+        Tests:
+            (Test Case 1) Mismatched arrays raise ``IndexError`` (or
+                ``ValueError`` if a friendlier guard is added).
+
+        Notes:
+            - The current error message is opaque (numpy boolean-
+              index dimension mismatch). Better surfaced at the
+              loader call-site.
+        """
+        path = str(tmp_path / "paired_mismatch.h5")
+        with h5py.File(path, "w") as f:
+            f.create_dataset("idces", data=np.array([0, 1, 0]))
+            f.create_dataset("times", data=np.array([1.0, 2.0]))
+
+        with pytest.raises((IndexError, ValueError)):
+            loaders.load_spikedata_from_hdf5(
+                path,
+                idces_dataset="idces",
+                times_dataset="times",
+                times_unit="ms",
+            )
+
+
+@skip_no_h5py
+class TestLoadHdf5RaggedZeroLengthIndex:
+    """``load_spikedata_from_hdf5(ragged)`` with empty index dataset."""
+
+    def test_zero_length_index_produces_zero_unit_spikedata(self, tmp_path):
+        """
+        An empty ``spike_times_index`` dataset produces zero trains
+        and a zero-unit SpikeData.
+
+        Tests:
+            (Test Case 1) Loaded SpikeData has ``N == 0``.
+        """
+        path = str(tmp_path / "ragged_empty_index.h5")
+        with h5py.File(path, "w") as f:
+            f.create_dataset("st", data=np.array([], dtype=float))
+            f.create_dataset("idx", data=np.array([], dtype=int))
+
+        sd = loaders.load_spikedata_from_hdf5(
+            path,
+            spike_times_dataset="st",
+            spike_times_index_dataset="idx",
+            spike_times_unit="ms",
+        )
+        assert sd.N == 0
+
+
+class TestLoadKilosortMissingTsv:
+    """``load_spikedata_from_kilosort`` with a non-existent ``cluster_info_tsv``."""
+
+    def test_missing_tsv_silently_keeps_all_clusters(self, tmp_path):
+        """
+        A ``cluster_info_tsv`` path that does not exist is silently
+        ignored — the ``os.path.exists`` check returns False and the
+        loader keeps all clusters without warning.
+
+        Tests:
+            (Test Case 1) Loader succeeds; resulting SpikeData has
+                the full set of clusters (no filtering).
+
+        Notes:
+            - Pins silent acceptance. A future hardening should emit
+              a UserWarning when the path doesn't exist so users can
+              detect typos.
+        """
+        spike_times = np.array([10, 20, 30, 40], dtype=np.int64)
+        spike_clusters = np.array([0, 1, 0, 1], dtype=np.int64)
+        np.save(tmp_path / "spike_times.npy", spike_times)
+        np.save(tmp_path / "spike_clusters.npy", spike_clusters)
+
+        sd = loaders.load_spikedata_from_kilosort(
+            str(tmp_path),
+            fs_Hz=1000.0,
+            cluster_info_tsv=str(tmp_path / "does_not_exist.tsv"),
+        )
+        assert sd.N == 2
+
+
+class TestLoadSpikelabSortedNpzMissingKeys:
+    """``load_spikedata_from_spikelab_sorted_npz`` with missing required keys."""
+
+    def test_missing_units_key_raises(self, tmp_path):
+        """
+        An NPZ file without a ``"units"`` key raises a ``KeyError``
+        from the ``data["units"]`` access.
+
+        Tests:
+            (Test Case 1) Missing units key raises ``KeyError``.
+        """
+        path = str(tmp_path / "no_units.npz")
+        np.savez(path, fs=20000.0)
+        with pytest.raises(KeyError):
+            loaders.load_spikedata_from_spikelab_sorted_npz(path)
+
+    def test_missing_fs_key_raises(self, tmp_path):
+        """
+        An NPZ file without an ``"fs"`` key raises ``KeyError``.
+
+        Tests:
+            (Test Case 1) Missing fs key raises ``KeyError``.
+        """
+        path = str(tmp_path / "no_fs.npz")
+        np.savez(path, units=np.array([], dtype=object))
+        with pytest.raises(KeyError):
+            loaders.load_spikedata_from_spikelab_sorted_npz(path)
+
+
+class TestS3UtilsSchemeAndWhitespace:
+    """Boundary tests for ``is_s3_url`` covering scheme casing and whitespace."""
+
+    def test_is_s3_url_uppercase_scheme_returns_false(self):
+        """
+        ``is_s3_url`` is case-sensitive on the scheme prefix; ``S3://``
+        returns False even though it's a common typo.
+
+        Tests:
+            (Test Case 1) ``S3://bucket/key`` returns False.
+            (Test Case 2) ``s3://bucket/key`` returns True (control).
+
+        Notes:
+            - Pins case-sensitivity. A future case-insensitive
+              hardening would update this test.
+        """
+        from spikelab.data_loaders.s3_utils import is_s3_url
+
+        assert is_s3_url("S3://bucket/key") is False
+        assert is_s3_url("s3://bucket/key") is True
+
+    def test_is_s3_url_with_whitespace_returns_false(self):
+        """
+        ``is_s3_url`` does not strip whitespace; surrounding spaces
+        cause the prefix check to miss.
+
+        Tests:
+            (Test Case 1) ``"  s3://bucket/key  "`` returns False.
+        """
+        from spikelab.data_loaders.s3_utils import is_s3_url
+
+        assert is_s3_url("  s3://bucket/key  ") is False
