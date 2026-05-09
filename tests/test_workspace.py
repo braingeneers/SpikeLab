@@ -5308,3 +5308,59 @@ class TestDumpDictKeyValidation:
         assert loaded["string_val"] == "hello"
         assert loaded["with.dot"] == 1
         assert loaded["with_underscore"] == 2
+
+
+class TestAnalysisWorkspaceSaveStripsH5Suffix:
+    """``AnalysisWorkspace.save`` strips a trailing ``.h5`` from the path."""
+
+    def test_save_path_with_h5_suffix_does_not_double(self, tmp_path):
+        """
+        Calling ``save("foo.h5")`` produces ``foo.h5`` and ``foo.json``
+        (not ``foo.h5.h5`` and ``foo.h5.json``).
+
+        Tests:
+            (Test Case 1) ``foo.h5`` exists on disk after save.
+            (Test Case 2) ``foo.h5.h5`` does NOT exist.
+            (Test Case 3) ``foo.json`` exists on disk after save.
+            (Test Case 4) Round-trip via ``AnalysisWorkspace.load("foo")``
+                returns a workspace with the original name.
+        """
+        try:
+            import h5py  # noqa: F401
+        except ImportError:
+            pytest.skip("h5py not installed")
+        from spikelab.workspace.workspace import AnalysisWorkspace
+
+        ws = AnalysisWorkspace(name="strip-h5-suffix")
+        base = str(tmp_path / "foo.h5")
+        ws.save(base)
+
+        assert os.path.exists(base)  # foo.h5
+        assert not os.path.exists(base + ".h5")  # not foo.h5.h5
+        assert os.path.exists(str(tmp_path / "foo.json"))
+
+        loaded = AnalysisWorkspace.load(str(tmp_path / "foo"))
+        assert loaded.name == "strip-h5-suffix"
+
+    def test_save_path_without_h5_suffix_unchanged(self, tmp_path):
+        """
+        Calling ``save("foo")`` (no suffix) still produces ``foo.h5``
+        and ``foo.json`` — the strip is conditional on the suffix
+        being present.
+
+        Tests:
+            (Test Case 1) ``foo.h5`` exists on disk.
+            (Test Case 2) ``foo.json`` exists on disk.
+        """
+        try:
+            import h5py  # noqa: F401
+        except ImportError:
+            pytest.skip("h5py not installed")
+        from spikelab.workspace.workspace import AnalysisWorkspace
+
+        ws = AnalysisWorkspace(name="no-suffix")
+        base = str(tmp_path / "foo")
+        ws.save(base)
+
+        assert os.path.exists(base + ".h5")
+        assert os.path.exists(base + ".json")

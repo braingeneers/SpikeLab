@@ -4839,29 +4839,39 @@ class TestS3UrlEdgeCases:
     """Boundary tests for is_s3_url and parse_s3_url covering whitespace,
     case sensitivity, MinIO/localhost URLs, and bucket-only URLs."""
 
-    def test_is_s3_url_with_whitespace_returns_false(self):
+    def test_is_s3_url_with_whitespace_returns_true(self):
         """
-        is_s3_url does not strip leading/trailing whitespace, so a value
-        like "  s3://bucket/key  " is not recognised as an S3 URL.
+        ``is_s3_url`` strips leading/trailing whitespace before
+        matching the scheme prefix, so ``"  s3://bucket/key  "`` is
+        recognised as an S3 URL.
 
         Tests:
-            (Test Case 1) Whitespace-padded s3:// URL returns False.
+            (Test Case 1) Whitespace-padded s3:// URL returns True.
+            (Test Case 2) Whitespace-padded https amazonaws URL
+                returns True.
         """
         from spikelab.data_loaders.s3_utils import is_s3_url
 
-        assert is_s3_url("  s3://bucket/key  ") is False
+        assert is_s3_url("  s3://bucket/key  ") is True
+        assert (
+            is_s3_url("\thttps://s3.amazonaws.com/bucket/key\n") is True
+        )
 
-    def test_is_s3_url_uppercase_scheme_returns_false(self):
+    def test_is_s3_url_uppercase_scheme_returns_true(self):
         """
-        is_s3_url is case-sensitive. "S3://bucket/key" (uppercase scheme)
-        is not recognised.
+        ``is_s3_url`` matches the scheme prefix case-insensitively,
+        so ``"S3://bucket/key"`` (uppercase) is recognised.
 
         Tests:
-            (Test Case 1) Uppercase S3:// URL returns False.
+            (Test Case 1) Uppercase ``S3://`` URL returns True.
+            (Test Case 2) Mixed-case ``s3://`` URL returns True.
+            (Test Case 3) Lowercase control still returns True.
         """
         from spikelab.data_loaders.s3_utils import is_s3_url
 
-        assert is_s3_url("S3://bucket/key") is False
+        assert is_s3_url("S3://bucket/key") is True
+        assert is_s3_url("S3://bucket/key") is True
+        assert is_s3_url("s3://bucket/key") is True
 
     def test_is_s3_url_minio_endpoint_returns_false(self):
         """
@@ -4895,50 +4905,40 @@ class TestS3UrlEdgeCases:
 class TestTrainsFromFlatIndexInputDtypes:
     """``_trains_from_flat_index`` with unusual ``end_indices`` dtypes."""
 
-    def test_negative_end_indices_value_silently_misassigns(self):
+    def test_negative_end_indices_rejected(self):
         """
-        A monotonic ``end_indices`` containing a negative value (e.g.
-        ``[-2, 0, 5]``) passes the ``np.diff >= 0`` check but Python's
-        ``flat_times[start:stop]`` slicing with a negative ``stop``
-        wraps around or returns an empty slice, producing silent
-        data-loss / wrong-unit-assignment.
+        ``_trains_from_flat_index`` rejects negative entries upfront
+        with a ``ValueError`` naming "non-negative". Cumulative-end
+        indices represent spike counts and cannot be negative.
 
         Tests:
-            (Test Case 1) Negative entry is accepted at validation
-                time without error.
-            (Test Case 2) The function returns a list of trains
-                (silent slicing path).
-
-        Notes:
-            - Pinning current silent acceptance. A future hardening
-              that rejects negative ``end_indices`` entries would
-              update this test.
+            (Test Case 1) Negative entry raises ValueError naming
+                "non-negative".
         """
         flat = np.arange(10.0)
         end_indices = np.array([-2, 0, 5])
-        trains = loaders._trains_from_flat_index(
-            flat, end_indices, unit="ms", fs_Hz=None
-        )
-        # Pin: function returns without raising.
-        assert isinstance(trains, list)
-        # 3 entries because end_indices[0]==-2 (not 0), so the
-        # leading-zero auto-detect does not strip anything.
-        assert len(trains) == 3
+        with pytest.raises(ValueError, match="non-negative"):
+            loaders._trains_from_flat_index(
+                flat, end_indices, unit="ms", fs_Hz=None
+            )
 
-    def test_float_end_indices_raise_at_slicing_time(self):
+    def test_float_end_indices_rejected_with_friendly_error(self):
         """
-        Float-dtype ``end_indices`` (e.g. read from HDF5 as float64)
-        survive validation but raise ``TypeError`` later when used
-        as slice indices.
+        ``_trains_from_flat_index`` rejects float-dtype ``end_indices``
+        upfront with a ``ValueError`` instructing the caller to cast
+        to integers, rather than letting numpy raise a confusing
+        ``TypeError`` mid-loop.
 
         Tests:
-            (Test Case 1) Float ``end_indices`` raise ``TypeError``
-                when the function tries to slice ``flat_times``.
+            (Test Case 1) Float ``end_indices`` raises ValueError
+                naming "integer array".
         """
         flat = np.arange(10.0)
         end_indices = np.array([2.0, 5.0])
-        with pytest.raises(TypeError):
-            loaders._trains_from_flat_index(flat, end_indices, unit="ms", fs_Hz=None)
+        with pytest.raises(ValueError, match="integer array"):
+            loaders._trains_from_flat_index(
+                flat, end_indices, unit="ms", fs_Hz=None
+            )
 
 
 @skip_no_h5py
@@ -5157,35 +5157,7 @@ class TestLoadSpikelabSortedNpzMissingKeys:
             loaders.load_spikedata_from_spikelab_sorted_npz(path)
 
 
-class TestS3UtilsSchemeAndWhitespace:
-    """Boundary tests for ``is_s3_url`` covering scheme casing and whitespace."""
-
-    def test_is_s3_url_uppercase_scheme_returns_false(self):
-        """
-        ``is_s3_url`` is case-sensitive on the scheme prefix; ``S3://``
-        returns False even though it's a common typo.
-
-        Tests:
-            (Test Case 1) ``S3://bucket/key`` returns False.
-            (Test Case 2) ``s3://bucket/key`` returns True (control).
-
-        Notes:
-            - Pins case-sensitivity. A future case-insensitive
-              hardening would update this test.
-        """
-        from spikelab.data_loaders.s3_utils import is_s3_url
-
-        assert is_s3_url("S3://bucket/key") is False
-        assert is_s3_url("s3://bucket/key") is True
-
-    def test_is_s3_url_with_whitespace_returns_false(self):
-        """
-        ``is_s3_url`` does not strip whitespace; surrounding spaces
-        cause the prefix check to miss.
-
-        Tests:
-            (Test Case 1) ``"  s3://bucket/key  "`` returns False.
-        """
-        from spikelab.data_loaders.s3_utils import is_s3_url
-
-        assert is_s3_url("  s3://bucket/key  ") is False
+# NOTE: TestS3UtilsSchemeAndWhitespace removed — its scope now lives
+# in TestS3UrlEdgeCases (see test_is_s3_url_with_whitespace_returns_true
+# and test_is_s3_url_uppercase_scheme_returns_true), which assert the
+# corrected case-insensitive + whitespace-stripping contract.
