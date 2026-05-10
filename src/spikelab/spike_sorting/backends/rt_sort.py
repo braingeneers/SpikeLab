@@ -248,6 +248,7 @@ class RTSortBackend(SorterBackend):
                 rec_path=rec_path,
                 recording_dat_path=recording_dat_path,
                 output_folder=output_folder,
+                config=self.config,
             )
 
         if watchdog is None:

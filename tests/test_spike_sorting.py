@@ -3776,13 +3776,13 @@ class TestKilosort4BackendDockerBranch:
 
     def test_use_docker_true_passes_image_and_no_install(self, tmp_path, ks4_backend):
         """
-        When USE_DOCKER=True, run_sorter receives docker_image and installation_mode.
+        When config.sorter.use_docker=True, run_sorter receives docker_image and installation_mode.
 
         Tests:
             (Test Case 1) docker_image is auto-detected via get_docker_image.
             (Test Case 2) installation_mode is 'pypi' (SI 0.104 workaround).
         """
-        self._ks_mod.USE_DOCKER = True
+        ks4_backend.config.sorter.use_docker = True
         output_folder = tmp_path / "ks4_output"
         sorter_output = output_folder / "sorter_output"
         self._write_fake_phy_output(sorter_output)
@@ -3808,12 +3808,12 @@ class TestKilosort4BackendDockerBranch:
 
     def test_use_docker_custom_string(self, tmp_path, ks4_backend):
         """
-        When USE_DOCKER is a string, it is passed directly as docker_image.
+        When config.sorter.use_docker is a string, it is passed directly as docker_image.
 
         Tests:
             (Test Case 1) Custom image string bypasses auto-detection.
         """
-        self._ks_mod.USE_DOCKER = "my-custom-image:latest"
+        ks4_backend.config.sorter.use_docker = "my-custom-image:latest"
         output_folder = tmp_path / "ks4_output"
         sorter_output = output_folder / "sorter_output"
         self._write_fake_phy_output(sorter_output)
@@ -3832,13 +3832,13 @@ class TestKilosort4BackendDockerBranch:
 
     def test_no_docker_kwargs_when_disabled(self, tmp_path, ks4_backend):
         """
-        When USE_DOCKER is falsy, no docker_image or installation_mode is passed.
+        When config.sorter.use_docker is falsy, no docker_image or installation_mode is passed.
 
         Tests:
             (Test Case 1) docker_image not in kwargs.
             (Test Case 2) installation_mode not in kwargs.
         """
-        self._ks_mod.USE_DOCKER = False
+        ks4_backend.config.sorter.use_docker = False
         output_folder = tmp_path / "ks4_output"
         sorter_output = output_folder / "sorter_output"
         self._write_fake_phy_output(sorter_output)
@@ -4226,15 +4226,15 @@ class TestKilosort4BackendDocker:
         When get_docker_image raises RuntimeError, it is caught and returned.
 
         Tests:
-            (Test Case 1) USE_DOCKER=True with no GPU → RuntimeError returned,
-                not raised.
+            (Test Case 1) config.sorter.use_docker=True with no GPU →
+                RuntimeError returned, not raised.
 
         Notes:
             - The KS4 sort() method wraps run_sorter in try/except Exception
               and returns the exception. A failure in get_docker_image (called
               before run_sorter) is caught by the same handler.
         """
-        self._ks_mod.USE_DOCKER = True
+        ks4_backend.config.sorter.use_docker = True
         output_folder = tmp_path / "ks4_fail"
         output_folder.mkdir()
 
