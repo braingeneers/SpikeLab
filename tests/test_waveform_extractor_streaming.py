@@ -133,17 +133,31 @@ def _build_dataset(
     return rec, sorting, unit_waveforms, true_peak_times_arr, ks_folder
 
 
-def _set_globals(monkeypatch, *, streaming: bool, save_files: bool):
-    from spikelab.spike_sorting import _globals
+def _build_config(*, streaming: bool, save_files: bool):
+    """Build a :class:`SortingPipelineConfig` for the streaming tests.
 
-    monkeypatch.setattr(_globals, "WAVEFORMS_MS_BEFORE", 2.0)
-    monkeypatch.setattr(_globals, "WAVEFORMS_MS_AFTER", 2.0)
-    monkeypatch.setattr(_globals, "POS_PEAK_THRESH", 2.0)
-    monkeypatch.setattr(_globals, "MAX_WAVEFORMS_PER_UNIT", 100)
-    monkeypatch.setattr(_globals, "N_JOBS", 1)
-    monkeypatch.setattr(_globals, "TOTAL_MEMORY", "1G")
-    monkeypatch.setattr(_globals, "STREAMING_WAVEFORMS", streaming)
-    monkeypatch.setattr(_globals, "SAVE_WAVEFORM_FILES", save_files)
+    Replaces an earlier ``_set_globals`` helper that mutated module
+    globals; after Phase 5 of the ``_globals.py`` refactor those
+    globals no longer exist. Tests pass the returned config to
+    :meth:`WaveformExtractor.create_initial` via ``config=``.
+    """
+    from spikelab.spike_sorting.config import (
+        ExecutionConfig,
+        SortingPipelineConfig,
+        WaveformConfig,
+    )
+
+    return SortingPipelineConfig(
+        waveform=WaveformConfig(
+            ms_before=2.0,
+            ms_after=2.0,
+            pos_peak_thresh=2.0,
+            max_waveforms_per_unit=100,
+            streaming=streaming,
+            save_waveform_files=save_files,
+        ),
+        execution=ExecutionConfig(n_jobs=1, total_memory="1G"),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -157,7 +171,7 @@ class TestStreamingWaveformExtractor:
         """Per-unit average template's peak channel and amplitude match injection."""
         from spikelab.spike_sorting.waveform_extractor import WaveformExtractor
 
-        _set_globals(monkeypatch, streaming=True, save_files=True)
+        _wf_config = _build_config(streaming=True, save_files=True)
 
         rec, sorting, unit_waveforms, _, ks_folder = _build_dataset(tmp_path)
 
@@ -168,6 +182,7 @@ class TestStreamingWaveformExtractor:
             sorting=sorting,
             root_folder=root_folder,
             initial_folder=root_folder / "initial",
+            config=_wf_config,
         )
         we.run_extract_waveforms_streaming()
 
@@ -197,7 +212,7 @@ class TestStreamingWaveformExtractor:
         """Std template entries are finite and non-negative."""
         from spikelab.spike_sorting.waveform_extractor import WaveformExtractor
 
-        _set_globals(monkeypatch, streaming=True, save_files=True)
+        _wf_config = _build_config(streaming=True, save_files=True)
 
         rec, sorting, _, _, ks_folder = _build_dataset(tmp_path)
         root_folder = tmp_path / "wf_root"
@@ -207,6 +222,7 @@ class TestStreamingWaveformExtractor:
             sorting=sorting,
             root_folder=root_folder,
             initial_folder=root_folder / "initial",
+            config=_wf_config,
         )
         we.run_extract_waveforms_streaming()
 
@@ -219,7 +235,7 @@ class TestStreamingWaveformExtractor:
         """``SAVE_WAVEFORM_FILES=False`` writes templates only — no per-unit .npy."""
         from spikelab.spike_sorting.waveform_extractor import WaveformExtractor
 
-        _set_globals(monkeypatch, streaming=True, save_files=False)
+        _wf_config = _build_config(streaming=True, save_files=False)
 
         rec, sorting, _, _, ks_folder = _build_dataset(tmp_path)
         root_folder = tmp_path / "wf_root"
@@ -229,6 +245,7 @@ class TestStreamingWaveformExtractor:
             sorting=sorting,
             root_folder=root_folder,
             initial_folder=root_folder / "initial",
+            config=_wf_config,
         )
         we.run_extract_waveforms_streaming()
 
@@ -242,7 +259,7 @@ class TestStreamingWaveformExtractor:
         """``SAVE_WAVEFORM_FILES=True`` writes a per-unit waveform file."""
         from spikelab.spike_sorting.waveform_extractor import WaveformExtractor
 
-        _set_globals(monkeypatch, streaming=True, save_files=True)
+        _wf_config = _build_config(streaming=True, save_files=True)
 
         rec, sorting, _, _, ks_folder = _build_dataset(tmp_path)
         root_folder = tmp_path / "wf_root"
@@ -252,6 +269,7 @@ class TestStreamingWaveformExtractor:
             sorting=sorting,
             root_folder=root_folder,
             initial_folder=root_folder / "initial",
+            config=_wf_config,
         )
         we.run_extract_waveforms_streaming()
 
@@ -268,7 +286,7 @@ class TestStreamingWaveformExtractor:
         """Stored spike times offset from the peak get recentered on the peak."""
         from spikelab.spike_sorting.waveform_extractor import WaveformExtractor
 
-        _set_globals(monkeypatch, streaming=True, save_files=False)
+        _wf_config = _build_config(streaming=True, save_files=False)
 
         offset = 5
         rec, sorting, _, true_peak_times, ks_folder = _build_dataset(
@@ -281,6 +299,7 @@ class TestStreamingWaveformExtractor:
             sorting=sorting,
             root_folder=root_folder,
             initial_folder=root_folder / "initial",
+            config=_wf_config,
         )
         we.run_extract_waveforms_streaming()
 
@@ -304,7 +323,7 @@ class TestStreamingWaveformExtractor:
         """A unit whose only spikes fall inside the trim margin yields zero template (no crash)."""
         from spikelab.spike_sorting.waveform_extractor import WaveformExtractor
 
-        _set_globals(monkeypatch, streaming=True, save_files=False)
+        _wf_config = _build_config(streaming=True, save_files=False)
 
         rec, sorting, _, _, ks_folder = _build_dataset(
             tmp_path, n_units=2, n_spikes_per_unit=15
@@ -343,6 +362,7 @@ class TestStreamingWaveformExtractor:
             sorting=sorting2,
             root_folder=root_folder,
             initial_folder=root_folder / "initial",
+            config=_wf_config,
         )
         we.run_extract_waveforms_streaming()
 
@@ -368,7 +388,7 @@ class TestStreamingWaveformExtractor:
         from spikelab.spike_sorting.waveform_extractor import WaveformExtractor
 
         # ----- chunked run -----
-        _set_globals(monkeypatch, streaming=False, save_files=True)
+        _wf_config = _build_config(streaming=False, save_files=True)
         rec, sorting, _, _, ks_folder = _build_dataset(tmp_path)
         root_chunked = tmp_path / "wf_chunked"
         we_chunked = WaveformExtractor.create_initial(
@@ -377,6 +397,7 @@ class TestStreamingWaveformExtractor:
             sorting=sorting,
             root_folder=root_chunked,
             initial_folder=root_chunked / "initial",
+            config=_wf_config,
         )
         we_chunked.run_extract_waveforms(n_jobs=1)
         we_chunked.compute_templates(modes=("average", "std"), n_jobs=1)
@@ -392,7 +413,7 @@ class TestStreamingWaveformExtractor:
         )
 
         # ----- streaming run, same inputs -----
-        _set_globals(monkeypatch, streaming=True, save_files=True)
+        _wf_config = _build_config(streaming=True, save_files=True)
         # Re-build the sorting (cached attributes from chunked may differ)
         from spikelab.spike_sorting.sorting_extractor import KilosortSortingExtractor
 
@@ -404,6 +425,7 @@ class TestStreamingWaveformExtractor:
             sorting=sorting2,
             root_folder=root_streaming,
             initial_folder=root_streaming / "initial",
+            config=_wf_config,
         )
         we_streaming.run_extract_waveforms_streaming()
         streaming_avg = we_streaming.template_cache["average"].copy()
@@ -439,7 +461,7 @@ class TestStreamingWaveformExtractor:
         from spikelab.spike_sorting import recording_io
         from spikelab.spike_sorting.waveform_extractor import WaveformExtractor
 
-        _set_globals(monkeypatch, streaming=True, save_files=False)
+        _wf_config = _build_config(streaming=True, save_files=False)
 
         rec, sorting, _, _, ks_folder = _build_dataset(tmp_path)
         root_folder = tmp_path / "wf_root_dispatch"

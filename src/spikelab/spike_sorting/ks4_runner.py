@@ -7,11 +7,11 @@ should delegate sorting to a dedicated runner module.
 
 from contextlib import nullcontext
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict, Optional, Union
 
-from . import _globals
 from ._classifier import classify_ks4_failure
 from ._exceptions import SpikeSortingClassifiedError
+from .config import SortingPipelineConfig
 from .docker_utils import get_docker_image, patched_container_client
 from .sorting_extractor import KilosortSortingExtractor
 from .sorting_utils import Stopwatch, Tee, print_stage
@@ -22,13 +22,16 @@ def spike_sort(
     rec_path: Any,
     recording_dat_path: Any,
     output_folder: Any,
+    *,
+    config: Optional[SortingPipelineConfig] = None,
 ) -> Any:
     """Run Kilosort4 spike sorting on a single recording.
 
     Uses ``spikeinterface.sorters.run_sorter("kilosort4", ...)`` which
     handles binary conversion, parameter passing, and result loading.
-    When ``_globals.USE_DOCKER`` is truthy, runs in a Docker container
-    using an auto-detected image (or a user-supplied image string).
+    When ``config.sorter.use_docker`` is truthy, runs in a Docker
+    container using an auto-detected image (or a user-supplied image
+    string).
 
     Parameters:
         rec_cache: Scaled and filtered SpikeInterface recording.
@@ -37,6 +40,9 @@ def spike_sort(
         recording_dat_path: Path to the binary .dat file (unused, kept
             for interface parity).
         output_folder (Path): Directory for Kilosort4 output files.
+        config (SortingPipelineConfig or None): Pipeline configuration.
+            When ``None``, a default :class:`SortingPipelineConfig` is
+            used.
 
     Returns:
         sorting: A ``KilosortSortingExtractor`` pointing at the output
@@ -47,10 +53,25 @@ def spike_sort(
     """
     import spikeinterface.sorters as ss
 
+    if config is None:
+        config = SortingPipelineConfig()
+    # Apply the same backend-level defaults the Kilosort4Backend used to
+    # bake in via _sync_globals, so the runner's view of the params
+    # matches the production sort.
+    from .backends.kilosort4 import DEFAULT_KILOSORT4_PARAMS
+
+    recompute_sorting = config.execution.recompute_sorting
+    use_docker: Union[bool, str] = config.sorter.use_docker
+    kilosort_params: Dict[str, Any] = {
+        **DEFAULT_KILOSORT4_PARAMS,
+        **(config.sorter.sorter_params or {}),
+    }
+    pos_peak_thresh = config.waveform.pos_peak_thresh
+
     print_stage("SPIKE SORTING WITH KILOSORT4")
     stopwatch = Stopwatch()
 
-    sorter_params = dict(_globals.KILOSORT_PARAMS)
+    sorter_params = dict(kilosort_params or {})
 
     output_folder_path = output_folder
     if hasattr(output_folder, "__fspath__") or isinstance(output_folder, str):
@@ -62,7 +83,7 @@ def spike_sort(
     with Tee(log_path, file_mode="w"):
         # Reuse existing results if present and we're not forced to recompute
         if (
-            not _globals.RECOMPUTE_SORTING
+            not recompute_sorting
             and output_folder_path.exists()
             and (output_folder_path / "spike_times.npy").exists()
         ):
@@ -70,20 +91,19 @@ def spike_sort(
             sorting = KilosortSortingExtractor(
                 folder_path=output_folder_path,
                 keep_good_only=bool(
-                    _globals.KILOSORT_PARAMS
-                    and _globals.KILOSORT_PARAMS.get("keep_good_only")
+                    kilosort_params and kilosort_params.get("keep_good_only")
                 ),
-                pos_peak_thresh=_globals.POS_PEAK_THRESH,
+                pos_peak_thresh=pos_peak_thresh,
             )
             stopwatch.log_time("Done loading existing results.")
             return sorting
 
         try:
             docker_kwargs = {}
-            if _globals.USE_DOCKER:
+            if use_docker:
                 docker_kwargs["docker_image"] = (
-                    _globals.USE_DOCKER
-                    if isinstance(_globals.USE_DOCKER, str)
+                    use_docker
+                    if isinstance(use_docker, str)
                     else get_docker_image("kilosort4")
                 )
                 # Use "pypi" instead of "no-install" to work around an SI
@@ -97,7 +117,7 @@ def spike_sort(
             # in a container. No-op (yields without patching) for local runs.
             mem_cap_ctx = (
                 patched_container_client(mem_limit_frac=0.8)
-                if _globals.USE_DOCKER
+                if use_docker
                 else nullcontext()
             )
             with mem_cap_ctx:
@@ -131,10 +151,9 @@ def spike_sort(
         sorting = KilosortSortingExtractor(
             folder_path=sorter_output,
             keep_good_only=bool(
-                _globals.KILOSORT_PARAMS
-                and _globals.KILOSORT_PARAMS.get("keep_good_only")
+                kilosort_params and kilosort_params.get("keep_good_only")
             ),
-            pos_peak_thresh=_globals.POS_PEAK_THRESH,
+            pos_peak_thresh=pos_peak_thresh,
         )
         stopwatch.log_time("Done sorting with Kilosort4.")
         return sorting

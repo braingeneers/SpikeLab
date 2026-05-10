@@ -1792,7 +1792,10 @@ def sort_recording(
                                 inter_path,
                                 res_path,
                                 rec_loaded=rec_loaded,
-                                rec_chunks=config.recording.rec_chunks or None,
+                                rec_chunks=getattr(
+                                    backend, "rec_chunks_effective", None
+                                )
+                                or None,
                                 rec_chunk_names=getattr(
                                     backend, "rec_chunk_names", None
                                 ),

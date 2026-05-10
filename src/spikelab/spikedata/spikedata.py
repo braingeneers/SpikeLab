@@ -230,7 +230,17 @@ class SpikeData:
             )
 
         if hysteresis:
-            raster = np.diff(np.array(raster, dtype=int), axis=1) == 1
+            # np.diff trims the time axis by 1 sample; without padding,
+            # the resulting raster is one bin shorter than raw_data
+            # (length mismatch) AND every rising-edge spike ends up one
+            # bin earlier than its actual crossing time (since diff
+            # shifts everything left by one). Prepend a False column to
+            # restore both: the raster regains its original (N, T)
+            # shape, and a rising edge at original sample t+1 maps
+            # back to raster bin t+1. The prepended column is a true
+            # statement — a rising edge cannot occur at sample 0.
+            diff = np.diff(np.array(raster, dtype=int), axis=1) == 1
+            raster = np.hstack([np.zeros((diff.shape[0], 1), dtype=bool), diff])
 
         return SpikeData.from_raster(
             raster, 1e3 / fs_Hz, raw_data=data, raw_time=fs_Hz / 1e3

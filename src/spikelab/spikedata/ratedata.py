@@ -286,9 +286,30 @@ class RateData:
         if step <= 0:
             raise ValueError("overlap must be less than length")
 
+        if len(self.times) < 2:
+            raise ValueError(
+                "Cannot frame a RateData with fewer than 2 time points; "
+                f"got {len(self.times)}. At least 2 time points are "
+                "required to infer the bin step_size."
+            )
+
         t0 = float(self.times[0])
         t_end = float(self.times[-1])
-        step_size = float(self.times[1] - self.times[0]) if len(self.times) > 1 else 1.0
+        step_size = float(self.times[1] - self.times[0])
+
+        # frames() places windows on the uniform grid implied by
+        # times[1] - times[0]. Validate the rest of the grid matches —
+        # non-uniform times silently misalign frame boundaries with
+        # bins, and the downstream np.stack in RateSliceStack fails
+        # opaquely on the resulting shape-mismatched frames.
+        diffs = np.diff(np.asarray(self.times, dtype=float))
+        if not np.allclose(diffs, step_size, rtol=1e-6, atol=1e-9):
+            raise ValueError(
+                "RateData.frames requires uniformly-spaced times; got "
+                f"min step {diffs.min():g}, max step {diffs.max():g} "
+                f"(first-pair step {step_size:g}). Resample to a "
+                "uniform grid before framing."
+            )
 
         upper = t_end - length + step_size + 1e-9
         times = [

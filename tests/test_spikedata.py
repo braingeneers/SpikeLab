@@ -563,6 +563,71 @@ class TestSpikeDataConstruction:
         with pytest.raises((ValueError, np.exceptions.AxisError, IndexError)):
             SpikeData.from_thresholding(data, fs_Hz=20000.0, filter=False)
 
+    def test_from_thresholding_hysteresis_length_matches_raw_data(self):
+        """
+        from_thresholding(hysteresis=True) preserves the raster length
+        so the SpikeData's ``length`` matches ``raw_data``'s time
+        extent. Without the prepend-False fix, np.diff trims the
+        raster by one bin and length is off by 1e3/fs_Hz ms.
+
+        Tests:
+            (Test Case 1) sd.length equals n_samples * 1e3/fs_Hz with
+                hysteresis=True (matches the no-hysteresis case).
+            (Test Case 2) sd.raw_data spans n_samples and
+                sd.raw_time[-1] is consistent with sd.length.
+        """
+        rng = np.random.default_rng(42)
+        fs_Hz = 10000.0
+        n_samples = 1000
+        raw = rng.normal(0, 1, (2, n_samples))
+        raw[0, 500] = 20.0  # one large spike
+
+        sd_h = SpikeData.from_thresholding(
+            raw, fs_Hz=fs_Hz, threshold_sigma=5.0, filter=False, hysteresis=True
+        )
+        sd_no = SpikeData.from_thresholding(
+            raw, fs_Hz=fs_Hz, threshold_sigma=5.0, filter=False, hysteresis=False
+        )
+        # Both must report the same recording length (n_samples bins).
+        assert sd_h.length == pytest.approx(n_samples * 1e3 / fs_Hz)
+        assert sd_h.length == pytest.approx(sd_no.length)
+        # raw_data is preserved at full length.
+        assert sd_h.raw_data.shape == (2, n_samples)
+        assert len(sd_h.raw_time) == n_samples
+
+    def test_from_thresholding_hysteresis_spike_time_alignment(self):
+        """
+        With hysteresis=True, a rising-edge sample at index k produces
+        a spike at time k * 1e3/fs_Hz — i.e. aligned with the raw_data
+        sample where the threshold was crossed, not one bin earlier as
+        the unfixed np.diff result would produce.
+
+        Tests:
+            (Test Case 1) Rising edge at sample k=500 (10 kHz) yields
+                a spike near 50.0 ms (500 * 0.1 ms/sample), not 49.9.
+        """
+        fs_Hz = 10000.0
+        n_samples = 1000
+        # Below-threshold baseline, then a sustained above-threshold
+        # plateau starting at sample 500 — a clean rising edge.
+        raw = np.zeros((1, n_samples))
+        raw[0, 500:] = 20.0
+        sd = SpikeData.from_thresholding(
+            raw, fs_Hz=fs_Hz, threshold_sigma=1.0, filter=False, hysteresis=True
+        )
+        # Hysteresis should detect exactly one rising-edge spike at
+        # sample 500 → time 500 * 1e3 / 10000 = 50.0 ms.
+        # from_raster places a single spike at the bin midpoint, so
+        # the actual time is between 50.0 and 50.1 ms (bin width
+        # 0.1 ms). Either way, it must NOT be at ~49.9 ms (the
+        # off-by-one signature).
+        assert sd.N == 1
+        assert len(sd.train[0]) == 1
+        spike_t = sd.train[0][0]
+        assert 50.0 <= spike_t < 50.1, (
+            f"spike at {spike_t} ms; off-by-one signature would put " f"it near 49.9 ms"
+        )
+
     def test_nan_spike_times_rejected(self):
         """
         SpikeData constructor rejects NaN spike times with ValueError.
