@@ -1887,7 +1887,7 @@ class TestConcatenateRecordingsValidation:
         call_count = [0]
         recordings = [rec_a, rec_b]
 
-        def mock_load(path):
+        def mock_load(path, **_kw):
             rec = recordings[call_count[0]]
             call_count[0] += 1
             return rec
@@ -1915,7 +1915,7 @@ class TestConcatenateRecordingsValidation:
         call_count = [0]
         recordings = [rec_a, rec_b]
 
-        def mock_load(path):
+        def mock_load(path, **_kw):
             rec = recordings[call_count[0]]
             call_count[0] += 1
             return rec
@@ -1944,7 +1944,7 @@ class TestConcatenateRecordingsValidation:
         call_count = [0]
         recordings = [rec_a, rec_b]
 
-        def mock_load(path):
+        def mock_load(path, **_kw):
             rec = recordings[call_count[0]]
             call_count[0] += 1
             return rec
@@ -1981,7 +1981,7 @@ class TestConcatenateRecordingsValidation:
         call_count = [0]
         recordings = [rec_a, rec_b]
 
-        def mock_load(path):
+        def mock_load(path, **_kw):
             rec = recordings[call_count[0]]
             call_count[0] += 1
             return rec
@@ -2016,7 +2016,7 @@ class TestConcatenateRecordingsValidation:
         call_count = [0]
         recordings = [rec_a, rec_b]
 
-        def mock_load(path):
+        def mock_load(path, **_kw):
             rec = recordings[call_count[0]]
             call_count[0] += 1
             return rec
@@ -2092,7 +2092,7 @@ class TestRecChunksFromConcatOverride:
         rec_b = _make_mock_recording(num_samples=1500)
         idx = [0]
 
-        def _mock_load(_path):
+        def _mock_load(_path, **_kw):
             r = [rec_a, rec_b][idx[0]]
             idx[0] += 1
             return r
@@ -2148,7 +2148,7 @@ class TestRecChunksFromConcatOverride:
         # ``load_single_recording`` returns ``rec`` unchanged (we are
         # bypassing the scale + bandpass for this unit test — the
         # focus is the chunks-vs-time override logic).
-        monkeypatch.setattr(recording_io, "load_single_recording", lambda p: rec)
+        monkeypatch.setattr(recording_io, "load_single_recording", lambda p, **_kw: rec)
 
         # Capture the frame_slice call to confirm the time-based
         # chunk replaced the auto-populated ones.
@@ -2201,7 +2201,7 @@ class TestRecChunksFromConcatOverride:
         monkeypatch.setattr(_globals, "FIRST_N_MINS", None, raising=False)
         monkeypatch.setattr(_globals, "MEA_Y_MAX", None, raising=False)
 
-        monkeypatch.setattr(recording_io, "load_single_recording", lambda p: rec)
+        monkeypatch.setattr(recording_io, "load_single_recording", lambda p, **_kw: rec)
 
         with pytest.raises(ValueError, match="frame-based"):
             recording_io.load_recording(rec)

@@ -10,7 +10,7 @@ use ``pipeline.py`` and ``sort_recording()``."""
 import os
 import warnings
 from pathlib import Path
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, List, NamedTuple, Optional, Tuple, Union
 
 import numpy as np
 
@@ -45,11 +45,116 @@ except ImportError:  # pragma: no cover
     _SI_AVAILABLE = False
 
 from . import _globals
+from .config import RecordingConfig, SortingPipelineConfig
 from .sorting_utils import (
     Stopwatch,
     print_stage,
 )
 from .waveform_extractor import WaveformExtractor
+
+
+class LoadRecordingResult(NamedTuple):
+    """Internal return shape of :func:`_load_recording_with_state`.
+
+    Carries the loaded recording plus the two pieces of per-recording
+    state the caller (the backend) used to read out of ``_globals``
+    after each ``load_recording`` call.
+
+    Attributes:
+        recording: The loaded SpikeInterface recording.
+        rec_chunks: Effective frame-based chunk list applied to the
+            recording (either user-supplied, time-derived, or
+            auto-populated by directory concatenation).
+        recording_names: File names contributing to the recording when
+            it was assembled by directory concatenation; empty list
+            when a single file or pre-loaded ``BaseRecording`` was
+            passed in.
+    """
+
+    recording: Any
+    rec_chunks: List[Tuple[int, int]]
+    recording_names: List[str]
+
+
+def _legacy_recording_config_from_globals() -> RecordingConfig:
+    """Build a :class:`RecordingConfig` snapshot of the current globals.
+
+    Used when callers invoke ``load_recording`` / ``load_single_recording`` /
+    ``concatenate_recordings`` / ``extract_waveforms`` without a config
+    argument. Each such call emits a ``DeprecationWarning`` first; the
+    fallback then runs the migrated logic against this snapshot so the
+    function bodies have a single uniform code path.
+    """
+    return RecordingConfig(
+        stream_id=_globals.STREAM_ID,
+        first_n_mins=_globals.FIRST_N_MINS,
+        mea_y_max=_globals.MEA_Y_MAX,
+        gain_to_uv=_globals.GAIN_TO_UV,
+        offset_to_uv=_globals.OFFSET_TO_UV,
+        rec_chunks=list(_globals.REC_CHUNKS),
+        rec_chunks_s=list(_globals.REC_CHUNKS_S),
+        start_time_s=_globals.START_TIME_S,
+        end_time_s=_globals.END_TIME_S,
+        freq_min=_globals.FREQ_MIN,
+        freq_max=_globals.FREQ_MAX,
+    )
+
+
+def _resolve_config(
+    config: Optional[SortingPipelineConfig],
+    *,
+    func_name: str,
+) -> Tuple[SortingPipelineConfig, bool, bool]:
+    """Return ``(config, legacy_mode, legacy_rec_chunks_from_concat)``.
+
+    When *config* is ``None``, build a transitional config from the
+    current ``_globals`` and emit a ``DeprecationWarning`` so call
+    sites that have not been migrated yet remain visible at runtime.
+    When *config* is a real config, ``legacy_mode`` is ``False`` and
+    the function does not touch globals.
+
+    ``legacy_rec_chunks_from_concat`` mirrors the
+    ``_globals.REC_CHUNKS_FROM_CONCAT`` flag so the legacy fallback
+    can still distinguish a stale auto-populated ``REC_CHUNKS``
+    (left over by a previous ``concatenate_recordings`` call in the
+    same process) from explicit user-supplied frame chunks. The
+    config-driven path does not need this signal because each call
+    receives a fresh config — auto-populated chunks come back from
+    ``_concatenate_recordings_with_state`` as a return value rather
+    than as shared state.
+    """
+    if config is not None:
+        return config, False, False
+    warnings.warn(
+        f"{func_name} called without an explicit `config`; "
+        "falling back to the legacy module-level globals in "
+        "spikelab.spike_sorting._globals. Pass config=<SortingPipelineConfig> "
+        "to silence this warning. The legacy path will be removed once "
+        "the _globals.py refactor lands (see iat/TO_IMPLEMENT.md).",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+    cfg = SortingPipelineConfig(recording=_legacy_recording_config_from_globals())
+    return cfg, True, bool(_globals.REC_CHUNKS_FROM_CONCAT)
+
+
+def _legacy_mirror_state_to_globals(
+    rec_chunks: List[Tuple[int, int]],
+    recording_names: List[str],
+    *,
+    auto_populated: bool,
+) -> None:
+    """Mirror post-load state back to ``_globals`` for legacy callers.
+
+    Phase 2.1 closes the recording leak chain for callers that pass a
+    ``config`` (the production sort pipeline). Callers that did not yet
+    migrate still expect ``_globals.REC_CHUNKS`` / ``_REC_CHUNK_NAMES``
+    / ``REC_CHUNKS_FROM_CONCAT`` to reflect the most recent
+    ``load_recording`` so existing behaviour is preserved.
+    """
+    _globals.REC_CHUNKS = list(rec_chunks)
+    _globals.REC_CHUNKS_FROM_CONCAT = bool(auto_populated)
+    _globals._REC_CHUNK_NAMES = list(recording_names)
 
 
 # Upstream `neo.rawio.maxwellrawio.auto_install_maxwell_hdf5_compression_plugin`
@@ -206,103 +311,156 @@ def _time_chunks_to_frames(
     return chunks
 
 
-def load_recording(rec_path: Any) -> BaseRecording:
+def load_recording(
+    rec_path: Any,
+    config: Optional[SortingPipelineConfig] = None,
+) -> BaseRecording:
     """Load a recording, apply optional truncation and coordinate transforms.
 
-    Loads a single recording file via ``load_single_recording``, or all
-    recordings in a directory via ``concatenate_recordings``. Then applies
-    the module-level configuration: truncation to ``FIRST_N_MINS``, frame
-    chunking via ``REC_CHUNKS``, y-coordinate flipping via ``MEA_Y_MAX``,
-    and custom gain/offset scaling.
+    Public entry point. Returns just the loaded recording so existing
+    callers (``trace_io.save_traces``, downstream tooling) remain
+    unaffected. Backends that need the effective chunk list and the
+    per-file recording names should call
+    :func:`_load_recording_with_state` directly to receive the full
+    :class:`LoadRecordingResult`.
 
     Parameters:
-        rec_path (str, Path, or BaseRecording): Path to a recording file,
-            a directory containing ``.raw.h5`` / ``.nwb`` files to
-            concatenate, or a pre-loaded ``BaseRecording``.
+        rec_path (str, Path, or BaseRecording): Path to a recording
+            file, a directory containing ``.raw.h5`` / ``.nwb`` files
+            to concatenate, or a pre-loaded ``BaseRecording``.
+        config (SortingPipelineConfig or None): Pipeline configuration
+            providing the recording loader settings. When ``None``,
+            falls back to the legacy module-level globals in
+            ``_globals.py`` and emits a ``DeprecationWarning``.
 
     Returns:
         rec (BaseRecording): The loaded and optionally transformed
             SpikeInterface recording object.
     """
+    return _load_recording_with_state(rec_path, config=config).recording
+
+
+def _load_recording_with_state(
+    rec_path: Any,
+    config: Optional[SortingPipelineConfig] = None,
+) -> LoadRecordingResult:
+    """Implementation of :func:`load_recording` returning effective state.
+
+    Backends call this to receive the effective frame chunks and
+    recording names that previously had to be read out of
+    ``_globals.REC_CHUNKS`` / ``_globals._REC_CHUNK_NAMES`` after the
+    public ``load_recording`` returned. Removing those reads is the
+    point of this Phase 2.1 migration.
+    """
+    config, legacy_mode, legacy_from_concat = _resolve_config(
+        config, func_name="load_recording"
+    )
+    rec_cfg = config.recording
+
     print_stage("LOADING RECORDING")
     print(f"Recording path: {rec_path}")
     stopwatch = Stopwatch()
+
+    auto_rec_chunks: List[Tuple[int, int]] = []
+    recording_names: List[str] = []
+
     if BaseRecording is not None and isinstance(rec_path, BaseRecording):
-        rec = load_single_recording(rec_path)
+        rec = load_single_recording(rec_path, config=config)
     else:
         rec_path = Path(rec_path)
         if rec_path.is_dir():
-            rec = concatenate_recordings(rec_path)
+            rec, auto_rec_chunks, recording_names = _concatenate_recordings_with_state(
+                rec_path, config=config
+            )
         else:
-            rec = load_single_recording(rec_path)
+            rec = load_single_recording(rec_path, config=config)
 
     print(f"Recording has {rec.get_num_channels()} channels")
 
     # Convert time-based slicing parameters (seconds) to frame tuples.
     time_chunks = _time_chunks_to_frames(
-        start_time_s=_globals.START_TIME_S,
-        end_time_s=_globals.END_TIME_S,
-        rec_chunks_s=_globals.REC_CHUNKS_S,
+        start_time_s=rec_cfg.start_time_s,
+        end_time_s=rec_cfg.end_time_s,
+        rec_chunks_s=list(rec_cfg.rec_chunks_s),
         fs=rec.get_sampling_frequency(),
         total_duration_s=rec.get_total_duration(),
     )
+
+    # Resolve the effective chunk list. User-supplied frame chunks
+    # cannot combine with time-based slicing (the original guard).
+    # Auto-populated chunks (from directory concatenation) are
+    # silently overridden by time-based slicing — that is what the
+    # canary relies on when narrowing a directory recording to its
+    # leading window.
+    #
+    # In the legacy fallback, ``user_rec_chunks`` may actually hold
+    # auto-populated values left over by a previous
+    # ``concatenate_recordings`` call; the ``legacy_from_concat`` flag
+    # carries that distinction over from ``_globals``.
+    user_rec_chunks = list(rec_cfg.rec_chunks)
+    is_user_supplied = bool(user_rec_chunks) and not legacy_from_concat
+    auto_populated = False
     if time_chunks:
-        if len(_globals.REC_CHUNKS) > 0 and not _globals.REC_CHUNKS_FROM_CONCAT:
+        if is_user_supplied:
             raise ValueError(
                 "Cannot combine frame-based 'rec_chunks' with time-based "
                 "'start_time_s'/'end_time_s'/'rec_chunks_s'. Use one or the "
                 "other."
             )
-        # Time-based slicing replaces any auto-populated per-file
-        # boundaries from directory concatenation. The flag is reset
-        # because the resulting chunks were chosen by the user
-        # (directly via ``start_time_s`` / ``end_time_s`` /
-        # ``rec_chunks_s`` or indirectly via the canary).
-        _globals.REC_CHUNKS = time_chunks
-        _globals.REC_CHUNKS_FROM_CONCAT = False
+        effective_rec_chunks = list(time_chunks)
+    elif user_rec_chunks:
+        effective_rec_chunks = list(user_rec_chunks)
+        # Carry the legacy FROM_CONCAT flag through so the mirror
+        # writes the right value back to globals when in legacy mode.
+        auto_populated = legacy_from_concat
+    elif auto_rec_chunks:
+        effective_rec_chunks = list(auto_rec_chunks)
+        auto_populated = True
+    else:
+        effective_rec_chunks = []
 
-    if _globals.FIRST_N_MINS is not None:
-        end_frame = _globals.FIRST_N_MINS * 60 * rec.get_sampling_frequency()
+    if rec_cfg.first_n_mins is not None:
+        end_frame = rec_cfg.first_n_mins * 60 * rec.get_sampling_frequency()
         if end_frame > rec.get_num_samples():
             print(
-                f"'first_n_mins' is set to {_globals.FIRST_N_MINS}, but recording is only {rec.get_total_duration() / 60:.2f} min long"
+                f"'first_n_mins' is set to {rec_cfg.first_n_mins}, but recording is only {rec.get_total_duration() / 60:.2f} min long"
             )
             print(
                 f"Using entire duration of recording: {rec.get_total_duration() / 60:.2f}min"
             )
         else:
-            print(f"Only analyzing the first {_globals.FIRST_N_MINS} min of recording")
+            print(f"Only analyzing the first {rec_cfg.first_n_mins} min of recording")
             rec = rec.frame_slice(start_frame=0, end_frame=end_frame)
     else:
         print(
             f"Using entire duration of recording: {rec.get_total_duration() / 60:.2f}min"
         )
 
-    if len(_globals.REC_CHUNKS) > 0:
-        print(f"Using {len(_globals.REC_CHUNKS)} chunks of the recording")
-        rec_chunks = []
-        for c, (start_frame, end_frame) in enumerate(_globals.REC_CHUNKS):
+    if effective_rec_chunks:
+        print(f"Using {len(effective_rec_chunks)} chunks of the recording")
+        rec_chunk_slices = []
+        for c, (start_frame, end_frame) in enumerate(effective_rec_chunks):
             print(f"Chunk {c}: {start_frame} to {end_frame} frame")
             chunk = rec.frame_slice(start_frame=start_frame, end_frame=end_frame)
-            rec_chunks.append(chunk)
-        rec = si_segmentutils.concatenate_recordings(rec_chunks)
+            rec_chunk_slices.append(chunk)
+        rec = si_segmentutils.concatenate_recordings(rec_chunk_slices)
     else:
         print(f"Using entire recording")
 
-    if _globals.MEA_Y_MAX is not None:
+    if rec_cfg.mea_y_max is not None:
         print(
-            f"Flipping y-coordinates of channel locations. MEA height: {_globals.MEA_Y_MAX}"
+            f"Flipping y-coordinates of channel locations. MEA height: {rec_cfg.mea_y_max}"
         )
         probes_all = []
         for probe in rec.get_probes():
             y_cords = probe._contact_positions[:, 1]
 
-            if _globals.MEA_Y_MAX is None:
+            if rec_cfg.mea_y_max is None:
                 y_cords_flipped = y_cords
-            elif _globals.MEA_Y_MAX == -1:
+            elif rec_cfg.mea_y_max == -1:
                 y_cords_flipped = max(y_cords) - y_cords
             else:
-                y_cords_flipped = _globals.MEA_Y_MAX - y_cords
+                y_cords_flipped = rec_cfg.mea_y_max - y_cords
 
             probe._contact_positions[np.arange(y_cords_flipped.size), 1] = (
                 y_cords_flipped
@@ -312,30 +470,54 @@ def load_recording(rec_path: Any) -> BaseRecording:
 
     stopwatch.log_time("Done loading recording.")
 
-    return rec
+    if legacy_mode:
+        # Mirror the resolved state back to globals so legacy callers
+        # (and the existing test suite that asserts on `_globals.*`
+        # after `load_recording`) keep observing the previous contract.
+        _legacy_mirror_state_to_globals(
+            effective_rec_chunks,
+            recording_names,
+            auto_populated=auto_populated,
+        )
+
+    return LoadRecordingResult(
+        recording=rec,
+        rec_chunks=effective_rec_chunks,
+        recording_names=recording_names,
+    )
 
 
-def load_single_recording(rec_path: Any) -> BaseRecording:
+def load_single_recording(
+    rec_path: Any,
+    config: Optional[SortingPipelineConfig] = None,
+) -> BaseRecording:
     """Load one recording file and return a scaled, bandpass-filtered recording.
 
     Supports Maxwell ``.h5`` files, NWB ``.nwb`` files, and pre-loaded
     SpikeInterface ``BaseRecording`` objects. The recording is scaled to
-    µV (using ``GAIN_TO_UV`` / ``OFFSET_TO_UV`` or the recording's own
-    gains) and bandpass-filtered between ``FREQ_MIN`` and ``FREQ_MAX``.
+    µV (using ``config.recording.gain_to_uv`` / ``offset_to_uv`` or the
+    recording's own gains) and bandpass-filtered between
+    ``config.recording.freq_min`` and ``freq_max``.
 
     Parameters:
         rec_path (str, Path, or BaseRecording): Path to a ``.h5`` or
             ``.nwb`` file, or an already-loaded ``BaseRecording``.
+        config (SortingPipelineConfig or None): Pipeline configuration.
+            When ``None``, falls back to ``_globals.*`` and emits a
+            ``DeprecationWarning``.
 
     Returns:
         rec (BaseRecording): Scaled and bandpass-filtered recording.
     """
+    config, _legacy_mode, _ = _resolve_config(config, func_name="load_single_recording")
+    rec_cfg = config.recording
+
     if isinstance(rec_path, BaseRecording):
         rec = rec_path
     elif str(rec_path).endswith(".h5"):
         maxwell_kwargs = {}
-        if _globals.STREAM_ID is not None:
-            maxwell_kwargs["stream_id"] = _globals.STREAM_ID
+        if rec_cfg.stream_id is not None:
+            maxwell_kwargs["stream_id"] = rec_cfg.stream_id
         used_native_fallback = False
         try:
             rec = MaxwellRecordingExtractor(rec_path, **maxwell_kwargs)
@@ -405,16 +587,16 @@ Setup options (choose one):
             "Divide the recording into separate single-segment recordings."
         )
 
-    if _globals.GAIN_TO_UV is not None:
-        gain = _globals.GAIN_TO_UV
+    if rec_cfg.gain_to_uv is not None:
+        gain = rec_cfg.gain_to_uv
     elif rec.get_channel_gains() is not None:
         gain = rec.get_channel_gains()
     else:
         print("Recording does not have channel gains to uV")
         gain = 1.0
 
-    if _globals.OFFSET_TO_UV is not None:
-        offset = _globals.OFFSET_TO_UV
+    if rec_cfg.offset_to_uv is not None:
+        offset = rec_cfg.offset_to_uv
     elif rec.get_channel_offsets() is not None:
         offset = rec.get_channel_offsets()
     else:
@@ -428,21 +610,28 @@ Setup options (choose one):
 
     rec = ScaleRecording(rec, gain=gain, offset=offset, dtype="float32")
 
-    rec = bandpass_filter(rec, freq_min=_globals.FREQ_MIN, freq_max=_globals.FREQ_MAX)
+    rec = bandpass_filter(rec, freq_min=rec_cfg.freq_min, freq_max=rec_cfg.freq_max)
 
     return rec
 
 
-def concatenate_recordings(rec_path: Path) -> BaseRecording:
+def concatenate_recordings(
+    rec_path: Path,
+    config: Optional[SortingPipelineConfig] = None,
+) -> BaseRecording:
     """Load and concatenate all recordings in a directory.
 
-    Scans *rec_path* for ``.raw.h5`` and ``.nwb`` files, loads each via
-    ``load_single_recording``, and concatenates them into a single
-    multi-segment recording. Updates the global ``REC_CHUNKS`` with the
-    frame boundaries of each constituent recording.
+    Public entry point. Returns just the concatenated recording so the
+    legacy contract (and the existing test suite that calls this
+    function directly) remains unchanged. Internal callers that need
+    the per-file frame boundaries and the file-name list should use
+    :func:`_concatenate_recordings_with_state` instead.
 
     Parameters:
         rec_path (Path): Directory containing recording files.
+        config (SortingPipelineConfig or None): Pipeline configuration.
+            When ``None``, falls back to ``_globals.*`` and emits a
+            ``DeprecationWarning``.
 
     Returns:
         rec (BaseRecording): The concatenated recording.
@@ -460,10 +649,30 @@ def concatenate_recordings(rec_path: Path) -> BaseRecording:
           However, differing electrode layouts will likely produce
           unreliable sorting results.
     """
+    return _concatenate_recordings_with_state(rec_path, config=config)[0]
+
+
+def _concatenate_recordings_with_state(
+    rec_path: Path,
+    config: Optional[SortingPipelineConfig] = None,
+) -> Tuple[BaseRecording, List[Tuple[int, int]], List[str]]:
+    """Implementation of :func:`concatenate_recordings` returning the
+    auto-populated chunk list and the per-file recording-name list.
+
+    The recording-leak chain in
+    `iat/_globals_audit.md <../_globals_audit.md>`_ identifies this
+    function as the source of three of the four leaky writes
+    (``REC_CHUNKS``, ``REC_CHUNKS_FROM_CONCAT``, ``_REC_CHUNK_NAMES``).
+    Returning the values closes the chain for callers that pass a
+    ``config``; legacy callers (``config is None``) still see the
+    globals updated for backward compatibility.
+    """
+    config, legacy_mode, _ = _resolve_config(config, func_name="concatenate_recordings")
+
     print("Concatenating recordings")
     recordings = []
 
-    new_rec_chunks = []
+    new_rec_chunks: List[Tuple[int, int]] = []
     start_frame = 0
 
     recording_names = natsorted(
@@ -475,7 +684,7 @@ def concatenate_recordings(rec_path: Path) -> BaseRecording:
     )
     for rec_name in recording_names:
         rec_file = [p for p in rec_path.iterdir() if p.name == rec_name][0]
-        rec = load_single_recording(rec_file)
+        rec = load_single_recording(rec_file, config=config)
         recordings.append(rec)
         print(
             f"{rec_name}: DURATION: {rec.get_num_frames() / rec.get_sampling_frequency()} s -- "
@@ -533,26 +742,32 @@ def concatenate_recordings(rec_path: Path) -> BaseRecording:
                     stacklevel=2,
                 )
 
+    auto_rec_chunks: List[Tuple[int, int]] = []
     if len(recordings) == 1:
         rec = recordings[0]
     else:
         rec = si_segmentutils.concatenate_recordings(recordings)
-        if len(_globals.REC_CHUNKS) == 0:
-            _globals.REC_CHUNKS = new_rec_chunks
-            # Mark these chunks as auto-populated so explicit time
-            # slicing (e.g. the canary's ``start_time_s`` /
-            # ``end_time_s``) can override them in ``load_recording``
-            # without tripping the "frame- vs time-based" guard.
-            _globals.REC_CHUNKS_FROM_CONCAT = True
+        # Single-recording inputs do not need per-file frame
+        # boundaries — the caller's `effective_rec_chunks` falls back
+        # to user-supplied / time-based slicing. Multi-file inputs
+        # auto-populate the per-file boundaries here so the canary
+        # and downstream metadata can address them.
+        auto_rec_chunks = list(new_rec_chunks)
 
     print(f"Done concatenating {len(recordings)} recordings")
     print(f"Total duration: {rec.get_total_duration()}s")
 
-    # Store file names globally so downstream code (build_spikedata) can
-    # include them in metadata for epoch splitting.
-    _globals._REC_CHUNK_NAMES = recording_names
+    if legacy_mode:
+        # Preserve the original contract for callers (and tests) that
+        # have not yet been migrated: write the per-file boundaries
+        # and the file names back to ``_globals``. The ``FROM_CONCAT``
+        # flag is set only when concatenation actually happened.
+        if auto_rec_chunks and len(_globals.REC_CHUNKS) == 0:
+            _globals.REC_CHUNKS = list(auto_rec_chunks)
+            _globals.REC_CHUNKS_FROM_CONCAT = True
+        _globals._REC_CHUNK_NAMES = list(recording_names)
 
-    return rec
+    return rec, auto_rec_chunks, recording_names
 
 
 def extract_waveforms(
@@ -562,6 +777,7 @@ def extract_waveforms(
     root_folder: Path,
     initial_folder: Path,
     rng: Any = None,
+    config: Optional[SortingPipelineConfig] = None,
     **job_kwargs: Any,
 ) -> Any:
     """
@@ -580,18 +796,38 @@ def extract_waveforms(
         The root folder of waveforms
     initial_folder: Path
         Folder representing units before curation
+    config: SortingPipelineConfig or None
+        Pipeline configuration. When ``None``, falls back to
+        ``_globals.STREAMING_WAVEFORMS`` and
+        ``_globals.REEXTRACT_WAVEFORMS`` and emits a
+        ``DeprecationWarning``.
 
     Returns
     -------
     we: WaveformExtractor
         The WaveformExtractor object that represents the waveforms
     """
+    if config is None:
+        warnings.warn(
+            "extract_waveforms called without an explicit `config`; "
+            "falling back to the legacy module-level globals in "
+            "spikelab.spike_sorting._globals. Pass config=<SortingPipelineConfig> "
+            "to silence this warning. The legacy path will be removed once "
+            "the _globals.py refactor lands (see iat/TO_IMPLEMENT.md).",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        streaming_waveforms = _globals.STREAMING_WAVEFORMS
+        reextract_waveforms = _globals.REEXTRACT_WAVEFORMS
+    else:
+        streaming_waveforms = config.waveform.streaming
+        reextract_waveforms = config.execution.reextract_waveforms
 
     print_stage("EXTRACTING WAVEFORMS")
     stopwatch = Stopwatch()
 
     if (
-        not _globals.REEXTRACT_WAVEFORMS and (root_folder / "waveforms").is_dir()
+        not reextract_waveforms and (root_folder / "waveforms").is_dir()
     ):  # Load saved waveform extractor
         print("Loading waveforms from folder")
         we = WaveformExtractor.load_from_folder(
@@ -602,7 +838,7 @@ def extract_waveforms(
         we = WaveformExtractor.create_initial(
             recording_path, recording, sorting, root_folder, initial_folder, rng=rng
         )
-        if _globals.STREAMING_WAVEFORMS:
+        if streaming_waveforms:
             # Streaming path: per-unit waveforms + templates in one pass.
             # Bounded peak RAM (one unit's buffer at a time); avoids the
             # 39 GB pre-allocated per-unit memmap pile that the parallel

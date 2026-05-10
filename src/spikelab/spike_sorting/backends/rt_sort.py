@@ -207,14 +207,12 @@ class RTSortBackend(SorterBackend):
 
         Uses the same Maxwell/NWB loader as the Kilosort backends.
         """
-        from ..recording_io import load_recording as _load_recording
+        from ..recording_io import _load_recording_with_state
 
-        recording = _load_recording(rec_path)
-
-        self.rec_chunk_names = list(_globals._REC_CHUNK_NAMES or [])
-        self.config.recording.rec_chunks = list(_globals.REC_CHUNKS or [])
-
-        return recording
+        result = _load_recording_with_state(rec_path, config=self.config)
+        self.rec_chunk_names = list(result.recording_names)
+        self.config.recording.rec_chunks = list(result.rec_chunks)
+        return result.recording
 
     def sort(
         self,
@@ -365,6 +363,7 @@ class RTSortBackend(SorterBackend):
             sorting=sorting,
             root_folder=waveforms_folder,
             initial_folder=curation_folder,
+            config=self.config,
             n_jobs=self.config.execution.n_jobs,
             total_memory=self.config.execution.total_memory,
             progress_bar=True,

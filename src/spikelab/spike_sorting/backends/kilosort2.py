@@ -73,18 +73,17 @@ class Kilosort2Backend(SorterBackend):
         and pre-loaded BaseRecording objects.
 
         After loading, ``self.rec_chunk_names`` and
-        ``self.config.recording.rec_chunks`` are updated if the
-        recording was concatenated from multiple files.
+        ``self.config.recording.rec_chunks`` are updated to reflect
+        the per-file boundaries when the recording was concatenated
+        from multiple files (or any explicit time/frame slicing the
+        loader applied).
         """
-        from ..recording_io import load_recording as _load_recording
+        from ..recording_io import _load_recording_with_state
 
-        recording = _load_recording(rec_path)
-
-        # Capture concatenation state set by load_recording/concatenate_recordings
-        self.rec_chunk_names = list(_globals._REC_CHUNK_NAMES or [])
-        self.config.recording.rec_chunks = list(_globals.REC_CHUNKS or [])
-
-        return recording
+        result = _load_recording_with_state(rec_path, config=self.config)
+        self.rec_chunk_names = list(result.recording_names)
+        self.config.recording.rec_chunks = list(result.rec_chunks)
+        return result.recording
 
     def sort(
         self, recording: Any, rec_path: Any, recording_dat_path: Any, output_folder: Any
@@ -198,6 +197,7 @@ class Kilosort2Backend(SorterBackend):
             sorting=sorting,
             root_folder=waveforms_folder,
             initial_folder=curation_folder,
+            config=self.config,
             n_jobs=self.config.execution.n_jobs,
             total_memory=self.config.execution.total_memory,
             progress_bar=True,
