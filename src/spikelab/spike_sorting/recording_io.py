@@ -836,7 +836,13 @@ def extract_waveforms(
         stopwatch.log_time("Done extracting waveforms.")
     else:  # Create new waveform extractor
         we = WaveformExtractor.create_initial(
-            recording_path, recording, sorting, root_folder, initial_folder, rng=rng
+            recording_path,
+            recording,
+            sorting,
+            root_folder,
+            initial_folder,
+            rng=rng,
+            config=config,
         )
         if streaming_waveforms:
             # Streaming path: per-unit waveforms + templates in one pass.

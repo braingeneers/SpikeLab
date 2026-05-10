@@ -4,6 +4,7 @@ import json
 import os
 import shutil
 import sys
+import warnings
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
@@ -12,7 +13,26 @@ import numpy as np
 from tqdm import tqdm
 
 from . import _globals
+from .config import SortingPipelineConfig
 from .sorting_utils import Stopwatch, create_folder, print_stage
+
+
+def _emit_legacy_warning(func_name: str) -> None:
+    """Emit a ``DeprecationWarning`` for callers that have not migrated
+    to the config-based API yet. The message names the entry point so
+    residual sites are easy to find at runtime.
+    """
+    warnings.warn(
+        f"{func_name} called without an explicit `config`; falling back "
+        "to the legacy module-level globals in spikelab.spike_sorting."
+        "_globals (WAVEFORMS_MS_BEFORE/AFTER, POS_PEAK_THRESH, "
+        "MAX_WAVEFORMS_PER_UNIT, N_JOBS, TOTAL_MEMORY, "
+        "SAVE_WAVEFORM_FILES). Pass config=<SortingPipelineConfig> to "
+        "silence this warning. The legacy path will be removed once the "
+        "_globals.py refactor lands (see iat/TO_IMPLEMENT.md).",
+        DeprecationWarning,
+        stacklevel=3,
+    )
 
 
 class WaveformExtractor:
@@ -64,6 +84,21 @@ class WaveformExtractor:
         )  # Total number of samples in waveform
         self.peak_ind = parameters["peak_ind"]
 
+        # Cache the remaining extraction params on the instance so
+        # streaming / sampling methods don't need to read globals. The
+        # JSON written by ``create_initial`` always contains these keys;
+        # the fallback to the live ``_globals`` is purely defensive for
+        # JSON files written by an older SpikeLab.
+        self.pos_peak_thresh = parameters.get(
+            "pos_peak_thresh", _globals.POS_PEAK_THRESH
+        )
+        self.max_waveforms_per_unit = parameters.get(
+            "max_waveforms_per_unit", _globals.MAX_WAVEFORMS_PER_UNIT
+        )
+        self.save_waveform_files = parameters.get(
+            "save_waveform_files", _globals.SAVE_WAVEFORM_FILES
+        )
+
         # Extract waveforms as µV when the recording supports scaling
         if recording.has_scaleable_traces():
             self.return_scaled = True
@@ -79,8 +114,34 @@ class WaveformExtractor:
 
     @classmethod
     def create_initial(
-        cls, recording_path, recording, sorting, root_folder, initial_folder, rng=None
+        cls,
+        recording_path,
+        recording,
+        sorting,
+        root_folder,
+        initial_folder,
+        rng=None,
+        *,
+        config: Optional[SortingPipelineConfig] = None,
     ):
+        if config is None:
+            _emit_legacy_warning("WaveformExtractor.create_initial")
+            ms_before = _globals.WAVEFORMS_MS_BEFORE
+            ms_after = _globals.WAVEFORMS_MS_AFTER
+            pos_peak_thresh = _globals.POS_PEAK_THRESH
+            max_waveforms_per_unit = _globals.MAX_WAVEFORMS_PER_UNIT
+            n_jobs = _globals.N_JOBS
+            total_memory = _globals.TOTAL_MEMORY
+            save_waveform_files = _globals.SAVE_WAVEFORM_FILES
+        else:
+            ms_before = config.waveform.ms_before
+            ms_after = config.waveform.ms_after
+            pos_peak_thresh = config.waveform.pos_peak_thresh
+            max_waveforms_per_unit = config.waveform.max_waveforms_per_unit
+            n_jobs = config.execution.n_jobs
+            total_memory = config.execution.total_memory
+            save_waveform_files = config.waveform.save_waveform_files
+
         # Create root waveform folder and data
         root_folder = Path(root_folder)
         create_folder(root_folder / "waveforms")
@@ -94,18 +155,15 @@ class WaveformExtractor:
         parameters = {
             "recording_path": str(recording_path.absolute()),
             "sampling_frequency": recording.get_sampling_frequency(),
-            "ms_before": _globals.WAVEFORMS_MS_BEFORE,
-            "ms_after": _globals.WAVEFORMS_MS_AFTER,
-            "peak_ind": int(
-                _globals.WAVEFORMS_MS_BEFORE
-                * recording.get_sampling_frequency()
-                / 1000.0
-            ),
-            "pos_peak_thresh": _globals.POS_PEAK_THRESH,
-            "max_waveforms_per_unit": _globals.MAX_WAVEFORMS_PER_UNIT,
+            "ms_before": ms_before,
+            "ms_after": ms_after,
+            "peak_ind": int(ms_before * recording.get_sampling_frequency() / 1000.0),
+            "pos_peak_thresh": pos_peak_thresh,
+            "max_waveforms_per_unit": max_waveforms_per_unit,
             "dtype": waveform_dtype,
-            "n_jobs": _globals.N_JOBS,
-            "total_memory": _globals.TOTAL_MEMORY,
+            "n_jobs": n_jobs,
+            "total_memory": total_memory,
+            "save_waveform_files": save_waveform_files,
         }
         with open(root_folder / "extraction_parameters.json", "w") as f:
             json.dump(parameters, f)
@@ -307,17 +365,22 @@ class WaveformExtractor:
         for mode in ("average", "std"):
             self.template_cache[mode] = np.zeros(templates_shape, dtype=self.dtype)
 
-        save_waveforms = _globals.SAVE_WAVEFORM_FILES
+        save_waveforms = self.save_waveform_files
         waveforms_dir = self.root_folder / "waveforms"
         nbefore = self.nbefore
         nafter = self.nafter
 
         spike_times_centered_all: Dict[int, int] = {}
 
+        max_wf = (
+            self.max_waveforms_per_unit
+            if self.max_waveforms_per_unit is not None
+            else 0
+        )
         print(
             f"[streaming] Extracting waveforms + templates for {len(unit_ids)} "
             f"units (peak RAM per unit ~"
-            f"{_globals.MAX_WAVEFORMS_PER_UNIT * self.nsamples * num_chans * 4 / 1024 / 1024:.0f} MB)"
+            f"{max_wf * self.nsamples * num_chans * 4 / 1024 / 1024:.0f} MB)"
         )
 
         for unit_id in tqdm(unit_ids, desc="units"):
@@ -471,10 +534,10 @@ class WaveformExtractor:
             ]
             cum_sum = [0] + np.cumsum(n_per_segment).tolist()
             total = np.sum(n_per_segment)
-            if _globals.MAX_WAVEFORMS_PER_UNIT is not None:
-                if total > _globals.MAX_WAVEFORMS_PER_UNIT:
+            if self.max_waveforms_per_unit is not None:
+                if total > self.max_waveforms_per_unit:
                     global_inds = self.rng.choice(
-                        total, size=_globals.MAX_WAVEFORMS_PER_UNIT, replace=False
+                        total, size=self.max_waveforms_per_unit, replace=False
                     )
                     global_inds = np.sort(global_inds)
                 else:
@@ -488,7 +551,7 @@ class WaveformExtractor:
                 )
                 inds = global_inds[in_segment] - cum_sum[segment_index]
 
-                if _globals.MAX_WAVEFORMS_PER_UNIT is not None:
+                if self.max_waveforms_per_unit is not None:
                     # clean border when sub selection
                     if self.nafter is None:
                         raise RuntimeError(
