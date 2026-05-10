@@ -523,14 +523,12 @@
     <span class="p">):</span>
         <span class="k">if</span> <span class="p">(</span><span class="n">data_obj</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">event_matrix</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;Must input either data_obj(option 1) or event_matrix(option 2)&quot;</span>
+                <span class="s2">&quot;Must input either data_obj (option 1) or event_matrix (option 2)&quot;</span>
             <span class="p">)</span>
         <span class="k">if</span> <span class="p">(</span><span class="n">data_obj</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">event_matrix</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">):</span>
-            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-                <span class="s2">&quot;User input both data_obj and event_matrix. Ignoring data_obj and using event_matrix instead.&quot;</span><span class="p">,</span>
-                <span class="ne">UserWarning</span><span class="p">,</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Provide exactly one of data_obj or event_matrix, not both.&quot;</span>
             <span class="p">)</span>
-            <span class="n">data_obj</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="k">if</span> <span class="n">sigma_ms</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">sigma_ms</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;sigma_ms must be non-negative&quot;</span><span class="p">)</span>

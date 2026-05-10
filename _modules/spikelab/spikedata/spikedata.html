@@ -940,7 +940,7 @@
 <span class="sd">        Parameters:</span>
 <span class="sd">            length (float): Length of each window in milliseconds.</span>
 <span class="sd">            overlap (float): Overlap between consecutive windows in</span>
-<span class="sd">                milliseconds (default: 0).</span>
+<span class="sd">                milliseconds (default: 0). Must be in ``[0, length)``.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            stack (SpikeSliceStack): Stack of SpikeData windows, one per</span>
@@ -949,10 +949,19 @@
 <span class="sd">        Notes:</span>
 <span class="sd">            - Windows that would extend past the end of the recording are</span>
 <span class="sd">              excluded.</span>
-<span class="sd">            - overlap must be strictly less than length.</span>
+<span class="sd">            - overlap must be non-negative and strictly less than length.</span>
+<span class="sd">              Negative overlap (i.e. gaps between windows) is rejected</span>
+<span class="sd">              because the parameter semantically means an overlap, not a</span>
+<span class="sd">              stride.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">.spikeslicestack</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpikeSliceStack</span>
 
+        <span class="k">if</span> <span class="n">overlap</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;overlap must be non-negative, got </span><span class="si">{</span><span class="n">overlap</span><span class="si">}</span><span class="s2">. The parameter &quot;</span>
+                <span class="s2">&quot;represents an overlap, not a stride; use a smaller `length` &quot;</span>
+                <span class="s2">&quot;and post-filter slices for gapped windows.&quot;</span>
+            <span class="p">)</span>
         <span class="n">step</span> <span class="o">=</span> <span class="n">length</span> <span class="o">-</span> <span class="n">overlap</span>
         <span class="k">if</span> <span class="n">step</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;overlap must be less than length&quot;</span><span class="p">)</span>
@@ -1647,6 +1656,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">bin_size</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;bin_size must be &gt; 0, got </span><span class="si">{</span><span class="n">bin_size</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="n">length</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">+</span> <span class="n">time_offset</span><span class="p">)</span> <span class="o">/</span> <span class="n">bin_size</span><span class="p">))</span>
+        <span class="c1"># N==0 short-circuit: np.hstack on an empty list raises, so</span>
+        <span class="c1"># build the empty (0, T) sparse matrix directly.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">N</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">sparse</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="n">length</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
         <span class="c1"># Shift spike times so start_time → 0 before binning</span>
         <span class="n">shift</span> <span class="o">=</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">start_time</span> <span class="o">+</span> <span class="n">time_offset</span>
         <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span>
@@ -1655,7 +1669,6 @@
         <span class="n">units</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">ts</span><span class="p">)</span> <span class="k">for</span> <span class="n">ts</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">])</span>
         <span class="n">indptr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">units</span><span class="p">)</span>
         <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">indices</span><span class="p">)</span>
-        <span class="n">length</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">+</span> <span class="n">time_offset</span><span class="p">)</span> <span class="o">/</span> <span class="n">bin_size</span><span class="p">))</span>
         <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">indices</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">length</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">indices</span><span class="p">)</span>
         <span class="c1"># Use csr_matrix for SciPy &lt; 1.8 compatibility (csr_array not available)</span>
         <span class="k">return</span> <span class="n">sparse</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">((</span><span class="n">values</span><span class="p">,</span> <span class="n">indices</span><span class="p">,</span> <span class="n">indptr</span><span class="p">),</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">,</span> <span class="n">length</span><span class="p">))</span></div>
@@ -2071,7 +2084,27 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">raster_matrix</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">raster</span><span class="p">(</span><span class="n">bin_size</span><span class="p">)</span>
         <span class="n">num_units</span> <span class="o">=</span> <span class="n">raster_matrix</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">raster_length</span> <span class="o">=</span> <span class="n">raster_matrix</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
         <span class="n">max_lag_bins</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">max_lag</span> <span class="o">/</span> <span class="n">bin_size</span><span class="p">))</span>
+
+        <span class="c1"># Clamp max_lag_bins to the raster length so the underlying</span>
+        <span class="c1"># cross-correlation never indexes outside the available signal</span>
+        <span class="c1"># (which produces silent NaN results from scipy.signal.correlate).</span>
+        <span class="c1"># Emit a single UserWarning so the caller knows the requested</span>
+        <span class="c1"># max_lag was reduced; this is far more useful than a per-pair</span>
+        <span class="c1"># NaN matrix.</span>
+        <span class="k">if</span> <span class="n">raster_length</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">max_lag_bins</span> <span class="o">&gt;</span> <span class="n">raster_length</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">original_max_lag</span> <span class="o">=</span> <span class="n">max_lag</span>
+            <span class="n">max_lag_bins</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">raster_length</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">clamped_max_lag</span> <span class="o">=</span> <span class="n">max_lag_bins</span> <span class="o">*</span> <span class="n">bin_size</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;max_lag=</span><span class="si">{</span><span class="n">original_max_lag</span><span class="si">}</span><span class="s2"> ms (</span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">original_max_lag</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">bin_size</span><span class="p">))</span><span class="si">}</span><span class="s2"> &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;bins) exceeds raster length (</span><span class="si">{</span><span class="n">raster_length</span><span class="si">}</span><span class="s2"> bins); &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;clamping to max_lag=</span><span class="si">{</span><span class="n">clamped_max_lag</span><span class="si">}</span><span class="s2"> ms (</span><span class="si">{</span><span class="n">max_lag_bins</span><span class="si">}</span><span class="s2"> bins).&quot;</span><span class="p">,</span>
+                <span class="ne">UserWarning</span><span class="p">,</span>
+                <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">max_lag</span> <span class="o">=</span> <span class="n">clamped_max_lag</span>
 
         <span class="n">corr_matrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">num_units</span><span class="p">,</span> <span class="n">num_units</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
         <span class="n">lag_matrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">num_units</span><span class="p">,</span> <span class="n">num_units</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>

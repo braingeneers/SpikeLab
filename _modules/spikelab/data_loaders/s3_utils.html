@@ -506,14 +506,19 @@
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Return True if url looks like an S3 URL (s3:// or https://...amazonaws.com).</span>
 
 <span class="sd">    Parameters:</span>
-<span class="sd">        url (str): URL string to check.</span>
+<span class="sd">        url (str): URL string to check. Surrounding whitespace is</span>
+<span class="sd">            stripped and the scheme prefix is matched</span>
+<span class="sd">            case-insensitively (so ``S3://``, ``  s3://...  `` etc.</span>
+<span class="sd">            are all recognised).</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        is_s3 (bool): True if the URL matches an S3 pattern.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="n">url</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;s3://&quot;</span><span class="p">):</span>
+    <span class="n">url</span> <span class="o">=</span> <span class="n">url</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+    <span class="n">lower</span> <span class="o">=</span> <span class="n">url</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">lower</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;s3://&quot;</span><span class="p">):</span>
         <span class="k">return</span> <span class="kc">True</span>
-    <span class="k">if</span> <span class="n">url</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;https://&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">url</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;http://&quot;</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">lower</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;https://&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">lower</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;http://&quot;</span><span class="p">):</span>
         <span class="n">parsed</span> <span class="o">=</span> <span class="n">urlparse</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
         <span class="c1"># Matches path-style and virtual-hosted-style S3 endpoints:</span>
         <span class="c1"># - s3.amazonaws.com</span>

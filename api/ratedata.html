@@ -648,7 +648,8 @@ indexing support, use <code class="docutils literal notranslate"><span class="pr
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>length</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Length of each window in milliseconds.</p></li>
-<li><p><strong>overlap</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Overlap between consecutive windows in milliseconds. Default 0.</p></li>
+<li><p><strong>overlap</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Overlap between consecutive windows in
+milliseconds. Default 0. Must be in <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">length)</span></code>.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -660,8 +661,12 @@ indexing support, use <code class="docutils literal notranslate"><span class="pr
 </dl>
 <p class="rubric">Notes</p>
 <ul class="simple">
-<li><p>Windows that would extend past the end of the recording are excluded.</p></li>
-<li><p>overlap must be strictly less than length.</p></li>
+<li><p>Windows that would extend past the end of the recording are
+excluded.</p></li>
+<li><p>overlap must be non-negative and strictly less than length.
+Negative overlap (i.e. gaps between windows) is rejected
+because the parameter semantically means an overlap, not a
+stride.</p></li>
 </ul>
 </dd></dl>
 

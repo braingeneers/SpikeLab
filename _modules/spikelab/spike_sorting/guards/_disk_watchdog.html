@@ -476,6 +476,8 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
 <span class="kn">from</span><span class="w"> </span><span class="nn">.._exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">DiskExhaustionError</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">._audit</span><span class="w"> </span><span class="kn">import</span> <span class="n">append_audit_event</span>
 
@@ -680,16 +682,21 @@
         <span class="n">kill_callback</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[],</span> <span class="kc">None</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">kill_grace_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">5.0</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">warn_free_gb</span><span class="p">)</span> <span class="ow">or</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">abort_free_gb</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;warn_free_gb and abort_free_gb must be finite, got &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;warn_free_gb=</span><span class="si">{</span><span class="n">warn_free_gb</span><span class="si">}</span><span class="s2">, abort_free_gb=</span><span class="si">{</span><span class="n">abort_free_gb</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
         <span class="k">if</span> <span class="n">warn_free_gb</span> <span class="o">&lt;=</span> <span class="n">abort_free_gb</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;warn_free_gb (</span><span class="si">{</span><span class="n">warn_free_gb</span><span class="si">}</span><span class="s2">) must be greater than &quot;</span>
                 <span class="sa">f</span><span class="s2">&quot;abort_free_gb (</span><span class="si">{</span><span class="n">abort_free_gb</span><span class="si">}</span><span class="s2">).&quot;</span>
             <span class="p">)</span>
-        <span class="k">if</span> <span class="n">poll_interval_s</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">poll_interval_s</span><span class="p">)</span> <span class="ow">or</span> <span class="n">poll_interval_s</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;poll_interval_s must be positive, got </span><span class="si">{</span><span class="n">poll_interval_s</span><span class="si">}</span><span class="s2">.&quot;</span>
             <span class="p">)</span>
-        <span class="k">if</span> <span class="n">kill_grace_s</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">kill_grace_s</span><span class="p">)</span> <span class="ow">or</span> <span class="n">kill_grace_s</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;kill_grace_s must be non-negative, got </span><span class="si">{</span><span class="n">kill_grace_s</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">folder</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">folder</span><span class="p">)</span>

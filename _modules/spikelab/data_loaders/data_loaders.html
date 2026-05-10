@@ -512,9 +512,68 @@
     <span class="o">*</span><span class="p">,</span>
     <span class="n">unit</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">fs_Hz</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
+    <span class="n">n_units</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Split a flat time array into per-unit trains using end indices and convert to ms.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Split a flat time array into per-unit trains using end indices and convert to ms.</span>
+
+<span class="sd">    Two index conventions are accepted:</span>
+
+<span class="sd">    * **Cumulative-end (length N)**: ``[c0, c0+c1, ..., total]`` —</span>
+<span class="sd">      the convention used by SpikeLab&#39;s HDF5 ragged exporter and by</span>
+<span class="sd">      the NWB spec. Iterated with an implicit ``start = 0`` for</span>
+<span class="sd">      unit 0.</span>
+<span class="sd">    * **Leading-zero cumulative (length N+1)**: ``[0, c0, c0+c1,</span>
+<span class="sd">      ..., total]`` — common in NWB ``spike_times_index`` files in</span>
+<span class="sd">      the wild that don&#39;t strictly follow the NWB spec.</span>
+
+<span class="sd">    Disambiguation rules:</span>
+
+<span class="sd">    * **With ``n_units``** (preferred — used by the NWB loader): the</span>
+<span class="sd">      length is checked against both candidates. Length ``n_units``</span>
+<span class="sd">      → cumulative-end. Length ``n_units + 1`` with leading 0 →</span>
+<span class="sd">      leading-zero. A mismatch with both raises ``ValueError``.</span>
+<span class="sd">    * **Without ``n_units``**: a heuristic auto-detect runs. The</span>
+<span class="sd">      leading-zero variant is selected when ``len(end_indices) &gt;= 2``,</span>
+<span class="sd">      ``end_indices[0] == 0``, **and** ``end_indices[-1] &gt; 0`` (i.e.</span>
+<span class="sd">      there is at least one non-empty unit). A bare ``[0]`` or an</span>
+<span class="sd">      all-zero array stays cumulative-end so existing</span>
+<span class="sd">      all-empty-trains fixtures continue to round-trip correctly.</span>
+<span class="sd">      Callers that can supply ``n_units`` should — the heuristic</span>
+<span class="sd">      cannot disambiguate ``[0, 5]`` (two units, first empty vs one</span>
+<span class="sd">      unit with five spikes).</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        flat_times (np.ndarray): Concatenated spike times.</span>
+<span class="sd">        end_indices (np.ndarray): Cumulative end indices, in either</span>
+<span class="sd">            of the two supported conventions.</span>
+<span class="sd">        unit (str): Time unit of ``flat_times`` (``&quot;ms&quot;``, ``&quot;s&quot;``,</span>
+<span class="sd">            or ``&quot;samples&quot;``).</span>
+<span class="sd">        fs_Hz (float or None): Sample rate, required when</span>
+<span class="sd">            ``unit == &quot;samples&quot;``.</span>
+<span class="sd">        n_units (int or None): Known number of units, used to</span>
+<span class="sd">            disambiguate the index convention. ``None`` triggers</span>
+<span class="sd">            the heuristic auto-detect described above.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        trains (list of np.ndarray): Per-unit spike-time arrays in</span>
+<span class="sd">            milliseconds.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">end_indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">end_indices</span><span class="p">)</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">end_indices</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="c1"># Reject float / non-integer dtype upfront with a friendly error;</span>
+        <span class="c1"># numpy slicing on float indices raises a confusing TypeError mid-loop.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">end_indices</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;spike_times_index must be an integer array, got dtype &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">end_indices</span><span class="o">.</span><span class="n">dtype</span><span class="si">}</span><span class="s2">. HDF5 datasets stored as float should &quot;</span>
+                <span class="s2">&quot;be cast (e.g. `np.asarray(f[idx_key]).astype(np.int64)`).&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">end_indices</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;spike_times_index entries must be non-negative; got &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">end_indices</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> at position 0. Cumulative-end indices &quot;</span>
+                <span class="s2">&quot;represent spike counts and cannot be negative.&quot;</span>
+            <span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">end_indices</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;spike_times_index must be monotonically non-decreasing&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">end_indices</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">flat_times</span><span class="p">):</span>
@@ -522,6 +581,27 @@
                 <span class="sa">f</span><span class="s2">&quot;spike_times_index final value (</span><span class="si">{</span><span class="n">end_indices</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">) exceeds &quot;</span>
                 <span class="sa">f</span><span class="s2">&quot;flat_times length (</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">flat_times</span><span class="p">)</span><span class="si">}</span><span class="s2">)&quot;</span>
             <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">n_units</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">end_indices</span><span class="p">)</span> <span class="o">==</span> <span class="n">n_units</span> <span class="o">+</span> <span class="mi">1</span> <span class="ow">and</span> <span class="p">(</span>
+            <span class="nb">len</span><span class="p">(</span><span class="n">end_indices</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">end_indices</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span>
+        <span class="p">):</span>
+            <span class="c1"># NWB leading-zero convention: strip the leading 0 to fall</span>
+            <span class="c1"># through to cumulative-end iteration.</span>
+            <span class="n">end_indices</span> <span class="o">=</span> <span class="n">end_indices</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+        <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">end_indices</span><span class="p">)</span> <span class="o">!=</span> <span class="n">n_units</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;spike_times_index length </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">end_indices</span><span class="p">)</span><span class="si">}</span><span class="s2"> does not match &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;n_units=</span><span class="si">{</span><span class="n">n_units</span><span class="si">}</span><span class="s2"> for either cumulative-end (length N) or &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;leading-zero (length N+1) convention.&quot;</span>
+            <span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">end_indices</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">2</span> <span class="ow">and</span> <span class="n">end_indices</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">end_indices</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="c1"># Heuristic auto-detect: leading 0 followed by at least one</span>
+        <span class="c1"># non-zero entry is unambiguously the leading-zero variant</span>
+        <span class="c1"># (cumulative-end with c0=0 produces the same prefix only</span>
+        <span class="c1"># when the array is entirely zero, which is excluded here).</span>
+        <span class="n">end_indices</span> <span class="o">=</span> <span class="n">end_indices</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+
     <span class="n">trains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">start</span> <span class="o">=</span> <span class="mi">0</span>
     <span class="k">for</span> <span class="n">stop</span> <span class="ow">in</span> <span class="n">end_indices</span><span class="p">:</span>
@@ -727,9 +807,22 @@
                 <span class="c1"># subtract the smallest representable spacing so the length is</span>
                 <span class="c1"># slightly less than the exact bin-aligned value and avoids</span>
                 <span class="c1"># triggering the extra empty bin in `SpikeData.raster`.</span>
-                <span class="n">length_ms</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">total_time</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">spacing</span><span class="p">(</span><span class="n">total_time</span><span class="p">),</span> <span class="mf">0.0</span><span class="p">)</span>
+                <span class="n">computed_length_ms</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">total_time</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">spacing</span><span class="p">(</span><span class="n">total_time</span><span class="p">),</span> <span class="mf">0.0</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="n">length_ms</span> <span class="o">=</span> <span class="mf">0.0</span>
+                <span class="n">computed_length_ms</span> <span class="o">=</span> <span class="mf">0.0</span>
+            <span class="c1"># Warn when the user supplied an explicit length_ms that</span>
+            <span class="c1"># differs from the shape-derived value — the raster style</span>
+            <span class="c1"># always derives length from the matrix, so an explicit</span>
+            <span class="c1"># length_ms is silently ignored.</span>
+            <span class="k">if</span> <span class="n">length_ms</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">length_ms</span> <span class="o">!=</span> <span class="n">computed_length_ms</span><span class="p">:</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;length_ms=</span><span class="si">{</span><span class="n">length_ms</span><span class="si">}</span><span class="s2"> ignored for raster style; &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;length is derived from raster.shape[1] * raster_bin_size_ms &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;= </span><span class="si">{</span><span class="n">computed_length_ms</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">,</span>
+                    <span class="ne">UserWarning</span><span class="p">,</span>
+                    <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="n">length_ms</span> <span class="o">=</span> <span class="n">computed_length_ms</span>
             <span class="n">sd</span> <span class="o">=</span> <span class="n">SpikeData</span><span class="o">.</span><span class="n">from_raster</span><span class="p">(</span>
                 <span class="n">raster</span><span class="p">,</span> <span class="n">raster_bin_size_ms</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="n">length_ms</span><span class="p">,</span> <span class="n">start_time</span><span class="o">=</span><span class="n">file_start_time</span>
             <span class="p">)</span>
@@ -772,6 +865,11 @@
         <span class="c1"># Style (4): paired indices and times arrays</span>
         <span class="n">idces</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">f</span><span class="p">[</span><span class="n">idces_dataset</span><span class="p">])</span>  <span class="c1"># type: ignore</span>
         <span class="n">times</span> <span class="o">=</span> <span class="n">to_ms</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">f</span><span class="p">[</span><span class="n">times_dataset</span><span class="p">]),</span> <span class="n">times_unit</span><span class="p">,</span> <span class="n">fs_Hz</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">idces</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">times</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;idces_dataset and times_dataset must have equal length; &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;got len(idces)=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">idces</span><span class="p">)</span><span class="si">}</span><span class="s2">, len(times)=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">times</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
         <span class="n">N</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">idces</span><span class="o">.</span><span class="n">max</span><span class="p">())</span> <span class="o">+</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">idces</span><span class="o">.</span><span class="n">size</span> <span class="k">else</span> <span class="mi">0</span>
         <span class="n">sd</span> <span class="o">=</span> <span class="n">SpikeData</span><span class="o">.</span><span class="n">from_idces_times</span><span class="p">(</span>
             <span class="n">idces</span><span class="p">,</span> <span class="n">times</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="n">N</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="n">length_ms</span><span class="p">,</span> <span class="n">start_time</span><span class="o">=</span><span class="n">file_start_time</span>
@@ -941,8 +1039,19 @@
 
         <span class="n">flat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">unit_grp</span><span class="p">[</span><span class="n">st_key</span><span class="p">])</span>
         <span class="n">index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">unit_grp</span><span class="p">[</span><span class="n">idx_key</span><span class="p">])</span>
+        <span class="c1"># Read the unit-id table first so we know N upfront. NWB</span>
+        <span class="c1"># files in the wild use either the spec-compliant</span>
+        <span class="c1"># cumulative-end (length N) or a leading-zero (length N+1)</span>
+        <span class="c1"># convention; the unit count disambiguates them.</span>
+        <span class="n">n_units</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">unit_grp</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="k">if</span> <span class="s2">&quot;id&quot;</span> <span class="ow">in</span> <span class="n">unit_grp</span> <span class="k">else</span> <span class="kc">None</span>
         <span class="n">trains</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
-            <span class="n">_trains_from_flat_index</span><span class="p">(</span><span class="n">flat</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">),</span> <span class="n">index</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="s2">&quot;s&quot;</span><span class="p">,</span> <span class="n">fs_Hz</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+            <span class="n">_trains_from_flat_index</span><span class="p">(</span>
+                <span class="n">flat</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">),</span>
+                <span class="n">index</span><span class="p">,</span>
+                <span class="n">unit</span><span class="o">=</span><span class="s2">&quot;s&quot;</span><span class="p">,</span>
+                <span class="n">fs_Hz</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                <span class="n">n_units</span><span class="o">=</span><span class="n">n_units</span><span class="p">,</span>
+            <span class="p">)</span>
         <span class="p">)</span>
 
         <span class="n">unit_ids</span> <span class="o">=</span> <span class="p">(</span>
@@ -1161,6 +1270,14 @@
     <span class="n">keep_clusters</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">set</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="k">if</span> <span class="n">cluster_info_tsv</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">tsv_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">folder</span><span class="p">,</span> <span class="n">cluster_info_tsv</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">tsv_path</span><span class="p">):</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;cluster_info_tsv path does not exist: </span><span class="si">{</span><span class="n">tsv_path</span><span class="si">}</span><span class="s2">. &quot;</span>
+                <span class="s2">&quot;Falling back to keeping all clusters; pass cluster_info_tsv=None &quot;</span>
+                <span class="s2">&quot;to silence this warning, or check the path for typos.&quot;</span><span class="p">,</span>
+                <span class="ne">UserWarning</span><span class="p">,</span>
+                <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+            <span class="p">)</span>
         <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">tsv_path</span><span class="p">):</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
@@ -1292,6 +1409,14 @@
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="n">allow_pickle</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
+    <span class="n">available_keys</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">files</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">required_key</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;units&quot;</span><span class="p">,</span> <span class="s2">&quot;fs&quot;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">required_key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">available_keys</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;NPZ file </span><span class="si">{</span><span class="n">filepath</span><span class="si">!r}</span><span class="s2"> is missing required key </span><span class="si">{</span><span class="n">required_key</span><span class="si">!r}</span><span class="s2">. &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Available keys: </span><span class="si">{</span><span class="n">available_keys</span><span class="si">}</span><span class="s2">. Verify the file was saved by &quot;</span>
+                <span class="s2">&quot;SpikeLab&#39;s sorter export pipeline.&quot;</span>
+            <span class="p">)</span>
     <span class="n">units</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;units&quot;</span><span class="p">]</span>
     <span class="n">fs_Hz</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;fs&quot;</span><span class="p">])</span>
     <span class="n">locations</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;locations&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
@@ -1576,6 +1701,27 @@
             <span class="k">break</span>
         <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">KeyError</span><span class="p">,</span> <span class="ne">FileNotFoundError</span><span class="p">):</span>
             <span class="k">continue</span>
+
+    <span class="c1"># When every collection fallback failed and the Brain-Wide Map lists</span>
+    <span class="c1"># good units for this probe, the loader is about to return a</span>
+    <span class="c1"># SpikeData full of empty trains — a result that looks valid to</span>
+    <span class="c1"># downstream code (correct N, correct neuron_attributes, correct</span>
+    <span class="c1"># trial metadata) but contains zero actual spikes. Surface the</span>
+    <span class="c1"># silent failure with a loud UserWarning so it shows up in batch</span>
+    <span class="c1"># logs without crashing the calling script.</span>
+    <span class="k">if</span> <span class="n">spikes</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">good_units</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;load_spikedata_from_ibl: failed to load spikes for &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;eid=</span><span class="si">{</span><span class="n">eid</span><span class="si">!r}</span><span class="s2">, pid=</span><span class="si">{</span><span class="n">pid</span><span class="si">!r}</span><span class="s2"> from any of the candidate &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;collections: </span><span class="si">{</span><span class="n">ordered_collections</span><span class="si">}</span><span class="s2">. The Brain-Wide Map &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;lists </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">good_units</span><span class="p">)</span><span class="si">}</span><span class="s2"> good unit(s) for this probe — &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;the returned SpikeData will have </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">good_units</span><span class="p">)</span><span class="si">}</span><span class="s2"> units &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;but zero spikes. Verify the eid/pid pair on the IBL &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;server, or check ``sd.train`` for the all-empty &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;signature before using.&quot;</span><span class="p">,</span>
+            <span class="ne">UserWarning</span><span class="p">,</span>
+            <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+        <span class="p">)</span>
 
     <span class="c1"># Build per-unit spike trains (seconds → milliseconds).</span>
     <span class="n">spike_trains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>

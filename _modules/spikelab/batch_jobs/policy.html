@@ -581,15 +581,32 @@
             <span class="p">)</span>
         <span class="p">)</span>
 
-    <span class="k">if</span> <span class="p">(</span>
-        <span class="n">job_spec</span><span class="o">.</span><span class="n">active_deadline_seconds</span>
-        <span class="ow">and</span> <span class="n">job_spec</span><span class="o">.</span><span class="n">active_deadline_seconds</span> <span class="o">&gt;</span> <span class="n">cfg</span><span class="o">.</span><span class="n">max_runtime_seconds</span>
-    <span class="p">):</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">job_spec</span><span class="o">.</span><span class="n">active_deadline_seconds</span><span class="p">:</span>
+        <span class="c1"># No deadline set; the cluster&#39;s own max applies via Kubernetes.</span>
+        <span class="c1"># Emit a PASS finding so the audit trail is complete.</span>
+        <span class="n">findings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="n">PolicyFinding</span><span class="p">(</span>
+                <span class="s2">&quot;long_runtime&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;PASS&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;No active_deadline_seconds set; cluster default applies.&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+    <span class="k">elif</span> <span class="n">job_spec</span><span class="o">.</span><span class="n">active_deadline_seconds</span> <span class="o">&gt;</span> <span class="n">cfg</span><span class="o">.</span><span class="n">max_runtime_seconds</span><span class="p">:</span>
         <span class="n">findings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
             <span class="n">PolicyFinding</span><span class="p">(</span>
                 <span class="s2">&quot;long_runtime&quot;</span><span class="p">,</span>
                 <span class="s2">&quot;WARN&quot;</span><span class="p">,</span>
-                <span class="sa">f</span><span class="s2">&quot;Runtime exceeds configured maximum (</span><span class="si">{</span><span class="n">cfg</span><span class="o">.</span><span class="n">max_runtime_seconds</span><span class="si">}</span><span class="s2">s).&quot;</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">&quot;Runtime (</span><span class="si">{</span><span class="n">job_spec</span><span class="o">.</span><span class="n">active_deadline_seconds</span><span class="si">}</span><span class="s2">s) exceeds &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;configured maximum (</span><span class="si">{</span><span class="n">cfg</span><span class="o">.</span><span class="n">max_runtime_seconds</span><span class="si">}</span><span class="s2">s).&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">findings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="n">PolicyFinding</span><span class="p">(</span>
+                <span class="s2">&quot;long_runtime&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;PASS&quot;</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">&quot;Runtime (</span><span class="si">{</span><span class="n">job_spec</span><span class="o">.</span><span class="n">active_deadline_seconds</span><span class="si">}</span><span class="s2">s) within &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;configured maximum (</span><span class="si">{</span><span class="n">cfg</span><span class="o">.</span><span class="n">max_runtime_seconds</span><span class="si">}</span><span class="s2">s).&quot;</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="p">)</span>
     <span class="k">return</span> <span class="n">findings</span></div>

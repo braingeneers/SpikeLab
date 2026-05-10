@@ -764,7 +764,10 @@ individual items can be loaded selectively without reading the
 entire file.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>path</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Base path without file extension.</p>
+<dd class="field-odd"><p><strong>path</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Base path without file extension. A trailing
+<code class="docutils literal notranslate"><span class="pre">.h5</span></code> is stripped so passing <code class="docutils literal notranslate"><span class="pre">&quot;foo.h5&quot;</span></code> and
+<code class="docutils literal notranslate"><span class="pre">&quot;foo&quot;</span></code> produce identical <code class="docutils literal notranslate"><span class="pre">foo.h5</span></code> / <code class="docutils literal notranslate"><span class="pre">foo.json</span></code>
+pairs.</p>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></span></p>
@@ -1003,7 +1006,9 @@ namespace.</p></li>
 <dd><p>Save the workspace to disk by copying the temp HDF5 file.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>path</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Base path without file extension.</p>
+<dd class="field-odd"><p><strong>path</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Base path without file extension. A trailing
+<code class="docutils literal notranslate"><span class="pre">.h5</span></code> is stripped so <code class="docutils literal notranslate"><span class="pre">&quot;foo.h5&quot;</span></code> produces <code class="docutils literal notranslate"><span class="pre">foo.h5</span></code>
+rather than <code class="docutils literal notranslate"><span class="pre">foo.h5.h5</span></code>.</p>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></span></p>

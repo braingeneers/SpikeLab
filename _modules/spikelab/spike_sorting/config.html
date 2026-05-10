@@ -739,6 +739,16 @@
     <span class="c1"># recording.</span>
     <span class="n">canary_first_n_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>
 
+    <span class="c1"># Skip the canary entirely when the recording is shorter than</span>
+    <span class="c1"># this many seconds. Below this threshold the full sort completes</span>
+    <span class="c1"># quickly enough that the canary&#39;s startup overhead outweighs its</span>
+    <span class="c1"># smoke-test value, and very short recordings can crash internal</span>
+    <span class="c1"># pipeline helpers (e.g. ``_get_noise_levels``, which samples</span>
+    <span class="c1"># random ``chunk_size``-sample windows). Default is 120 s</span>
+    <span class="c1"># (2 minutes); set to 0 to disable the floor and let</span>
+    <span class="c1"># ``canary_first_n_s`` alone gate the canary.</span>
+    <span class="n">canary_min_recording_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">120.0</span>
+
     <span class="c1"># ------------------------------------------------------------------</span>
     <span class="c1"># Docker image digest pinning (docker_utils.get_local_image_digest)</span>
     <span class="c1"># ------------------------------------------------------------------</span>
@@ -1111,6 +1121,7 @@
             <span class="s2">&quot;oom_retry_factor&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;oom_retry_factor&quot;</span><span class="p">),</span>
             <span class="c1"># ExecutionConfig — pipeline canary</span>
             <span class="s2">&quot;canary_first_n_s&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;canary_first_n_s&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;canary_min_recording_s&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;canary_min_recording_s&quot;</span><span class="p">),</span>
             <span class="c1"># ExecutionConfig — Docker image digest pinning</span>
             <span class="s2">&quot;docker_image_expected_digest&quot;</span><span class="p">:</span> <span class="p">(</span>
                 <span class="s2">&quot;execution&quot;</span><span class="p">,</span>

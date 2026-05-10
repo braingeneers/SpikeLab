@@ -1982,7 +1982,10 @@
                 <span class="k">else</span><span class="p">:</span>
                     <span class="n">rec_path</span> <span class="o">=</span> <span class="n">rec_loaded</span><span class="o">.</span><span class="n">_kwargs</span><span class="p">[</span><span class="s2">&quot;file_paths&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
 
-            <span class="n">rec_name</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">rec_path</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\\</span><span class="s2">&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="c1"># Path.stem strips only the final suffix, preserving interior</span>
+            <span class="c1"># dots — so &quot;my.session1.h5&quot; yields &quot;my.session1&quot; rather than</span>
+            <span class="c1"># &quot;my&quot;, which would silently collide with &quot;my.session2.h5&quot;.</span>
+            <span class="n">rec_name</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">rec_path</span><span class="p">))</span><span class="o">.</span><span class="n">stem</span>
 
             <span class="c1"># Mirror stdout to a per-recording log file from start to finish.</span>
             <span class="c1"># The log captures the environment banner, every sorting stage, the</span>
@@ -2163,9 +2166,18 @@
                     <span class="c1"># full sort. Catches MEX / preprocessing / Docker /</span>
                     <span class="c1"># model-loading failures in seconds rather than</span>
                     <span class="c1"># hours. Disabled by default; enabled by</span>
-                    <span class="c1"># ExecutionConfig.canary_first_n_s &gt; 0.</span>
+                    <span class="c1"># ExecutionConfig.canary_first_n_s &gt; 0. Additionally</span>
+                    <span class="c1"># gated by ExecutionConfig.canary_min_recording_s</span>
+                    <span class="c1"># (default 120 s) — for short recordings the full</span>
+                    <span class="c1"># sort is fast enough that canary overhead is not</span>
+                    <span class="c1"># worth it, and pipeline helpers like</span>
+                    <span class="c1"># ``_get_noise_levels`` can crash on</span>
+                    <span class="c1"># very-short windows.</span>
                     <span class="n">canary_window_s</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span>
                         <span class="nb">getattr</span><span class="p">(</span><span class="n">exe_cfg</span><span class="p">,</span> <span class="s2">&quot;canary_first_n_s&quot;</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span> <span class="ow">or</span> <span class="mf">0.0</span>
+                    <span class="p">)</span>
+                    <span class="n">canary_min_s</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span>
+                        <span class="nb">getattr</span><span class="p">(</span><span class="n">exe_cfg</span><span class="p">,</span> <span class="s2">&quot;canary_min_recording_s&quot;</span><span class="p">,</span> <span class="mf">120.0</span><span class="p">)</span> <span class="ow">or</span> <span class="mf">0.0</span>
                     <span class="p">)</span>
                     <span class="n">canary_result</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="ne">BaseException</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
                     <span class="k">if</span> <span class="n">canary_window_s</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
@@ -2178,12 +2190,25 @@
                                     <span class="n">rec_dur_s</span> <span class="o">=</span> <span class="n">n_smp</span> <span class="o">/</span> <span class="n">fs_hz</span>
                             <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
                                 <span class="n">rec_dur_s</span> <span class="o">=</span> <span class="kc">None</span>
-                        <span class="k">if</span> <span class="n">rec_dur_s</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">rec_dur_s</span> <span class="o">&lt;</span> <span class="n">canary_window_s</span><span class="p">:</span>
-                            <span class="nb">print</span><span class="p">(</span>
-                                <span class="sa">f</span><span class="s2">&quot;[canary] skipping </span><span class="si">{</span><span class="n">rec_name</span><span class="si">}</span><span class="s2">: recording &quot;</span>
-                                <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="n">rec_dur_s</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> s) is shorter than the &quot;</span>
-                                <span class="sa">f</span><span class="s2">&quot;canary window (</span><span class="si">{</span><span class="n">canary_window_s</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> s).&quot;</span>
-                            <span class="p">)</span>
+                        <span class="n">skip_reason</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+                        <span class="k">if</span> <span class="n">rec_dur_s</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                            <span class="k">if</span> <span class="n">rec_dur_s</span> <span class="o">&lt;</span> <span class="n">canary_window_s</span><span class="p">:</span>
+                                <span class="n">skip_reason</span> <span class="o">=</span> <span class="p">(</span>
+                                    <span class="sa">f</span><span class="s2">&quot;recording (</span><span class="si">{</span><span class="n">rec_dur_s</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> s) is &quot;</span>
+                                    <span class="sa">f</span><span class="s2">&quot;shorter than the canary window &quot;</span>
+                                    <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="n">canary_window_s</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> s)&quot;</span>
+                                <span class="p">)</span>
+                            <span class="k">elif</span> <span class="n">rec_dur_s</span> <span class="o">&lt;</span> <span class="n">canary_min_s</span><span class="p">:</span>
+                                <span class="n">skip_reason</span> <span class="o">=</span> <span class="p">(</span>
+                                    <span class="sa">f</span><span class="s2">&quot;recording (</span><span class="si">{</span><span class="n">rec_dur_s</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> s) is &quot;</span>
+                                    <span class="sa">f</span><span class="s2">&quot;shorter than the canary minimum &quot;</span>
+                                    <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="n">canary_min_s</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2"> s); full sort &quot;</span>
+                                    <span class="sa">f</span><span class="s2">&quot;is fast enough that canary &quot;</span>
+                                    <span class="sa">f</span><span class="s2">&quot;overhead outweighs the smoke-test &quot;</span>
+                                    <span class="sa">f</span><span class="s2">&quot;value&quot;</span>
+                                <span class="p">)</span>
+                        <span class="k">if</span> <span class="n">skip_reason</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[canary] skipping </span><span class="si">{</span><span class="n">rec_name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">skip_reason</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
                         <span class="k">else</span><span class="p">:</span>
                             <span class="kn">from</span><span class="w"> </span><span class="nn">.canary</span><span class="w"> </span><span class="kn">import</span> <span class="n">run_canary</span>
 
