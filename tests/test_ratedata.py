@@ -928,17 +928,20 @@ class TestRateDataFrames:
         assert isinstance(stack, RateSliceStack)
         assert stack.event_stack.shape[2] == 1
 
-    def test_frames_single_time_bin(self):
+    def test_frames_single_time_bin_raises(self):
         """
-        Verify that frames produces a valid single-slice stack for T=1 RateData.
+        frames() on a single-time-bin RateData raises ValueError —
+        a single time point cannot define a step_size and the
+        previous silent fallback to step_size=1.0 produced
+        misleading downstream errors.
 
         Tests:
-            (Test Case 1) A RateSliceStack with one slice and shape (U, 1, 1)
-                          is returned when the RateData has only one time bin.
+            (Test Case 1) Single-time-bin RateData raises ValueError
+                naming "fewer than 2 time points".
         """
         rd = make_ratedata(n_units=2, n_times=1)
-        result = rd.frames(length=1.0)
-        assert result.event_stack.shape == (2, 1, 1)
+        with pytest.raises(ValueError, match="fewer than 2 time points"):
+            rd.frames(length=1.0)
 
     def test_frames_length_zero(self):
         """
@@ -951,24 +954,45 @@ class TestRateDataFrames:
         with pytest.raises(ValueError, match="overlap must be less than length"):
             rd.frames(length=0, overlap=0)
 
-    def test_frames_single_time_point_step_size_fallback(self):
+    def test_frames_single_time_point_raises(self):
         """
-        frames() on a single-time-point RateData uses step_size=1.0 fallback.
+        frames() on a single-time-point RateData raises ValueError —
+        a single time point cannot define a step_size, so framing
+        is undefined.
 
         Tests:
-            (Test Case 1) RateData with T=1 and frames(length=1.0) succeeds.
-            (Test Case 2) Result has shape (U, 1, 1).
-
-        Notes:
-            When len(self.times) == 1, the code uses a fallback step_size of
-            1.0 instead of computing self.times[1] - self.times[0], which
-            would raise IndexError.
+            (Test Case 1) RateData with T=1 raises ValueError naming
+                "fewer than 2 time points".
         """
         data = np.ones((2, 1))
         times = np.array([5.0])
         rd = RateData(data, times)
-        result = rd.frames(length=1.0)
-        assert result.event_stack.shape == (2, 1, 1)
+        with pytest.raises(ValueError, match="fewer than 2 time points"):
+            rd.frames(length=1.0)
+
+    def test_frames_non_uniform_times_raises(self):
+        """
+        frames() on a RateData with non-uniformly-spaced times raises
+        ValueError naming the actual step range. The constructor
+        accepts non-uniform times (legitimate for event-aligned rate
+        data), but frames() requires a uniform grid for arange-based
+        window placement and downstream np.stack.
+
+        Tests:
+            (Test Case 1) Non-uniform times raise ValueError.
+            (Test Case 2) The error names the min and max steps so
+                the user can see the offending grid.
+        """
+        data = np.ones((2, 5))
+        # Steps: 1.0, 1.0, 2.0, 1.0 — non-uniform.
+        times = np.array([0.0, 1.0, 2.0, 4.0, 5.0])
+        rd = RateData(data, times)
+        with pytest.raises(ValueError) as exc_info:
+            rd.frames(length=2.0)
+        msg = str(exc_info.value)
+        assert "uniformly-spaced" in msg
+        # Min step 1.0, max step 2.0 should be visible.
+        assert "1" in msg and "2" in msg
 
     def test_frames_float_precision_boundaries(self):
         """
