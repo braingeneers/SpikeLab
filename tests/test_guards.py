@@ -13471,3 +13471,165 @@ class TestExtraSafeguardConfigDefaults:
         assert cfg.io_stall_poll_interval_s == 10.0
         assert cfg.cleanup_temp_files is True
         assert cfg.prevent_system_sleep is True
+
+
+# ===========================================================================
+# NaN-input guards across the watchdog family.
+#
+# A NaN-shaped configuration value (from a malformed YAML, a
+# float("nan") literal, or an upstream computation drift) must not
+# silently disable the abort path. The contract — taken from the
+# already-tested ``HostMemoryWatchdog`` and
+# ``compute_inactivity_timeout_s`` cases — is:
+#   - Either reject NaN at construction with a clear ValueError, OR
+#   - Skip the tick at runtime so the watchdog never trips on a NaN
+#     reading / threshold (NaN-as-no-op, *not* NaN-as-trip).
+# These tests pin the current behaviour for the four remaining
+# watchdogs.
+# ===========================================================================
+
+
+class TestGpuMemoryWatchdogNanGuard:
+    """``GpuMemoryWatchdog`` rejects NaN thresholds at construction."""
+
+    def test_nan_warn_pct_raises(self):
+        """
+        NaN ``warn_pct`` fails the ``0 < warn_pct < abort_pct`` band
+        check at construction (NaN comparisons return False).
+
+        Tests:
+            (Test Case 1) ``warn_pct=NaN`` raises ValueError.
+            (Test Case 2) The error names ``warn_pct`` / ``abort_pct``.
+        """
+        with pytest.raises(ValueError, match="warn_pct"):
+            GpuMemoryWatchdog(warn_pct=float("nan"), abort_pct=95.0)
+
+    def test_nan_abort_pct_raises(self):
+        """
+        NaN ``abort_pct`` fails the same band check.
+
+        Tests:
+            (Test Case 1) ``abort_pct=NaN`` raises ValueError.
+        """
+        with pytest.raises(ValueError, match="abort_pct"):
+            GpuMemoryWatchdog(warn_pct=85.0, abort_pct=float("nan"))
+
+    def test_nan_warn_temp_pair_raises(self):
+        """
+        NaN ``warn_temp_c`` (with a numeric ``abort_temp_c``) fails
+        the thermal band check at construction.
+
+        Tests:
+            (Test Case 1) ``warn_temp_c=NaN`` raises ValueError.
+        """
+        with pytest.raises(ValueError, match="warn_temp_c"):
+            GpuMemoryWatchdog(
+                warn_pct=85.0,
+                abort_pct=95.0,
+                warn_temp_c=float("nan"),
+                abort_temp_c=92.0,
+            )
+
+    def test_nan_poll_interval_raises(self):
+        """
+        NaN ``poll_interval_s`` is rejected at construction with a
+        ``ValueError`` naming ``poll_interval_s``. The source now
+        guards explicitly against NaN.
+
+        Tests:
+            (Test Case 1) ``poll_interval_s=NaN`` raises ValueError.
+        """
+        with pytest.raises(ValueError, match="poll_interval_s"):
+            GpuMemoryWatchdog(
+                warn_pct=85.0, abort_pct=95.0, poll_interval_s=float("nan")
+            )
+
+
+class TestLogInactivityWatchdogNanGuard:
+    """``LogInactivityWatchdog`` with NaN ``inactivity_s`` never trips."""
+
+    def test_nan_inactivity_s_does_not_trip(self, tmp_path):
+        """
+        NaN ``inactivity_s`` is rejected at construction with a
+        ``ValueError`` naming ``inactivity_s``. The source now
+        guards explicitly against NaN rather than allowing a silent
+        no-op watchdog.
+
+        Tests:
+            (Test Case 1) ``inactivity_s=NaN`` raises ValueError.
+        """
+        log_path = tmp_path / "log"
+        log_path.write_text("hello", encoding="utf-8")
+        old_t = time.time() - 1000.0
+        os.utime(log_path, (old_t, old_t))
+
+        with pytest.raises(ValueError, match="inactivity_s"):
+            LogInactivityWatchdog(
+                log_path=log_path,
+                popen=mock.Mock(spec=subprocess.Popen),
+                inactivity_s=float("nan"),
+                sorter="kilosort2",
+                poll_interval_s=0.02,
+            )
+
+
+class TestIOStallWatchdogNanGuard:
+    """``IOStallWatchdog`` with NaN ``stall_s`` never trips."""
+
+    def test_nan_stall_s_does_not_trip(self, tmp_path):
+        """
+        NaN ``stall_s`` is rejected at construction with a
+        ``ValueError`` naming ``stall_s``. The source now guards
+        explicitly against NaN rather than allowing a silent no-op
+        watchdog.
+
+        Tests:
+            (Test Case 1) ``stall_s=NaN`` raises ValueError.
+        """
+        with pytest.raises(ValueError, match="stall_s"):
+            IOStallWatchdog(
+                folder=tmp_path,
+                stall_s=float("nan"),
+                poll_interval_s=0.02,
+            )
+
+
+class TestDiskUsageWatchdogNanGuard:
+    """``DiskUsageWatchdog`` with NaN thresholds never trips."""
+
+    def test_nan_warn_free_gb_does_not_raise(self, tmp_path):
+        """
+        ``DiskUsageWatchdog(warn_free_gb=NaN, abort_free_gb=1.0)`` is
+        rejected at construction with a ``ValueError`` naming
+        ``warn_free_gb``. The source now guards explicitly against
+        NaN thresholds rather than allowing a silent no-op watchdog.
+
+        Tests:
+            (Test Case 1) ``warn_free_gb=NaN`` raises ValueError.
+        """
+        with pytest.raises(ValueError, match="warn_free_gb"):
+            DiskUsageWatchdog(
+                folder=tmp_path,
+                warn_free_gb=float("nan"),
+                abort_free_gb=1.0,
+                poll_interval_s=0.05,
+            )
+
+    def test_nan_abort_free_gb_does_not_trip(self, tmp_path):
+        """
+        ``abort_free_gb=NaN`` is rejected at construction with a
+        ``ValueError`` naming ``abort_free_gb``. The source now
+        guards explicitly against NaN thresholds rather than
+        allowing a silent no-op watchdog.
+
+        Tests:
+            (Test Case 1) ``abort_free_gb=NaN`` raises ValueError.
+        """
+        with pytest.raises(ValueError, match="abort_free_gb"):
+            DiskUsageWatchdog(
+                folder=tmp_path,
+                warn_free_gb=5.0,
+                abort_free_gb=float("nan"),
+                poll_interval_s=0.05,
+                popen=mock.Mock(spec=subprocess.Popen),
+            )

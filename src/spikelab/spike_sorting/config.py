@@ -272,6 +272,16 @@ class ExecutionConfig:
     # recording.
     canary_first_n_s: float = 0.0
 
+    # Skip the canary entirely when the recording is shorter than
+    # this many seconds. Below this threshold the full sort completes
+    # quickly enough that the canary's startup overhead outweighs its
+    # smoke-test value, and very short recordings can crash internal
+    # pipeline helpers (e.g. ``_get_noise_levels``, which samples
+    # random ``chunk_size``-sample windows). Default is 120 s
+    # (2 minutes); set to 0 to disable the floor and let
+    # ``canary_first_n_s`` alone gate the canary.
+    canary_min_recording_s: float = 120.0
+
     # ------------------------------------------------------------------
     # Docker image digest pinning (docker_utils.get_local_image_digest)
     # ------------------------------------------------------------------
@@ -635,6 +645,7 @@ class SortingPipelineConfig:
             "oom_retry_factor": ("execution", "oom_retry_factor"),
             # ExecutionConfig — pipeline canary
             "canary_first_n_s": ("execution", "canary_first_n_s"),
+            "canary_min_recording_s": ("execution", "canary_min_recording_s"),
             # ExecutionConfig — Docker image digest pinning
             "docker_image_expected_digest": (
                 "execution",

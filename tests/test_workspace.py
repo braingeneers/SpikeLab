@@ -5308,3 +5308,117 @@ class TestDumpDictKeyValidation:
         assert loaded["string_val"] == "hello"
         assert loaded["with.dot"] == 1
         assert loaded["with_underscore"] == 2
+
+
+class TestAnalysisWorkspaceSaveStripsH5Suffix:
+    """``AnalysisWorkspace.save`` strips a trailing ``.h5`` from the path."""
+
+    def test_save_path_with_h5_suffix_does_not_double(self, tmp_path):
+        """
+        Calling ``save("foo.h5")`` produces ``foo.h5`` and ``foo.json``
+        (not ``foo.h5.h5`` and ``foo.h5.json``).
+
+        Tests:
+            (Test Case 1) ``foo.h5`` exists on disk after save.
+            (Test Case 2) ``foo.h5.h5`` does NOT exist.
+            (Test Case 3) ``foo.json`` exists on disk after save.
+            (Test Case 4) Round-trip via ``AnalysisWorkspace.load("foo")``
+                returns a workspace with the original name.
+        """
+        try:
+            import h5py  # noqa: F401
+        except ImportError:
+            pytest.skip("h5py not installed")
+        from spikelab.workspace.workspace import AnalysisWorkspace
+
+        ws = AnalysisWorkspace(name="strip-h5-suffix")
+        base = str(tmp_path / "foo.h5")
+        ws.save(base)
+
+        assert os.path.exists(base)  # foo.h5
+        assert not os.path.exists(base + ".h5")  # not foo.h5.h5
+        assert os.path.exists(str(tmp_path / "foo.json"))
+
+        loaded = AnalysisWorkspace.load(str(tmp_path / "foo"))
+        assert loaded.name == "strip-h5-suffix"
+
+    def test_save_path_without_h5_suffix_unchanged(self, tmp_path):
+        """
+        Calling ``save("foo")`` (no suffix) still produces ``foo.h5``
+        and ``foo.json`` — the strip is conditional on the suffix
+        being present.
+
+        Tests:
+            (Test Case 1) ``foo.h5`` exists on disk.
+            (Test Case 2) ``foo.json`` exists on disk.
+        """
+        try:
+            import h5py  # noqa: F401
+        except ImportError:
+            pytest.skip("h5py not installed")
+        from spikelab.workspace.workspace import AnalysisWorkspace
+
+        ws = AnalysisWorkspace(name="no-suffix")
+        base = str(tmp_path / "foo")
+        ws.save(base)
+
+        assert os.path.exists(base + ".h5")
+        assert os.path.exists(base + ".json")
+
+
+class TestNumpyEncoder:
+    """Direct tests for the ``_NumpyEncoder`` JSON encoder."""
+
+    def test_numpy_scalars_round_trip_to_python_primitives(self):
+        """
+        ``_NumpyEncoder`` converts numpy scalar types to JSON-compatible
+        Python primitives (int, float, bool, str). Each branch in
+        ``default()`` is exercised directly.
+
+        Tests:
+            (Test Case 1) ``np.int64`` becomes a JSON integer.
+            (Test Case 2) ``np.float32`` becomes a JSON float.
+            (Test Case 3) ``np.bool_(True)`` becomes ``true``.
+            (Test Case 4) ``np.str_`` becomes a JSON string.
+            (Test Case 5) An ``np.ndarray`` becomes a JSON list.
+        """
+        import json
+        from spikelab.workspace.hdf5_io import _NumpyEncoder
+
+        payload = {
+            "i": np.int64(7),
+            "f": np.float32(2.5),
+            "b": np.bool_(True),
+            "s": np.str_("hello"),
+            "a": np.array([1, 2, 3]),
+        }
+        encoded = json.dumps(payload, cls=_NumpyEncoder)
+        decoded = json.loads(encoded)
+        assert decoded["i"] == 7 and isinstance(decoded["i"], int)
+        assert decoded["f"] == pytest.approx(2.5)
+        assert decoded["b"] is True
+        assert decoded["s"] == "hello"
+        assert decoded["a"] == [1, 2, 3]
+
+    def test_unsupported_type_raises_type_error(self):
+        """
+        ``_NumpyEncoder`` falls back to ``json.JSONEncoder.default`` for
+        unhandled types, which raises ``TypeError``. ``np.complex128``
+        is not in the encoder's handled list and surfaces this error.
+
+        Tests:
+            (Test Case 1) Encoding ``np.complex128`` raises TypeError.
+            (Test Case 2) Encoding an arbitrary user object raises
+                TypeError.
+        """
+        import json
+        from spikelab.workspace.hdf5_io import _NumpyEncoder
+
+        with pytest.raises(TypeError):
+            json.dumps({"c": np.complex128(1 + 2j)}, cls=_NumpyEncoder)
+
+        class Foo:
+            pass
+
+        with pytest.raises(TypeError):
+            json.dumps({"x": Foo()}, cls=_NumpyEncoder)

@@ -471,7 +471,7 @@ class SpikeData:
         Parameters:
             length (float): Length of each window in milliseconds.
             overlap (float): Overlap between consecutive windows in
-                milliseconds (default: 0).
+                milliseconds (default: 0). Must be in ``[0, length)``.
 
         Returns:
             stack (SpikeSliceStack): Stack of SpikeData windows, one per
@@ -480,10 +480,19 @@ class SpikeData:
         Notes:
             - Windows that would extend past the end of the recording are
               excluded.
-            - overlap must be strictly less than length.
+            - overlap must be non-negative and strictly less than length.
+              Negative overlap (i.e. gaps between windows) is rejected
+              because the parameter semantically means an overlap, not a
+              stride.
         """
         from .spikeslicestack import SpikeSliceStack
 
+        if overlap < 0:
+            raise ValueError(
+                f"overlap must be non-negative, got {overlap}. The parameter "
+                "represents an overlap, not a stride; use a smaller `length` "
+                "and post-filter slices for gapped windows."
+            )
         step = length - overlap
         if step <= 0:
             raise ValueError("overlap must be less than length")
@@ -1139,6 +1148,11 @@ class SpikeData:
         """
         if bin_size <= 0:
             raise ValueError(f"bin_size must be > 0, got {bin_size}.")
+        length = int(np.ceil((self.length + time_offset) / bin_size))
+        # N==0 short-circuit: np.hstack on an empty list raises, so
+        # build the empty (0, T) sparse matrix directly.
+        if self.N == 0:
+            return sparse.csr_matrix((0, length), dtype=int)
         # Shift spike times so start_time → 0 before binning
         shift = -self.start_time + time_offset
         indices = np.hstack(
@@ -1147,7 +1161,6 @@ class SpikeData:
         units = np.hstack([0] + [len(ts) for ts in self.train])
         indptr = np.cumsum(units)
         values = np.ones_like(indices)
-        length = int(np.ceil((self.length + time_offset) / bin_size))
         np.clip(indices, 0, length - 1, out=indices)
         # Use csr_matrix for SciPy < 1.8 compatibility (csr_array not available)
         return sparse.csr_matrix((values, indices, indptr), shape=(self.N, length))
@@ -1539,7 +1552,27 @@ class SpikeData:
         """
         raster_matrix = self.raster(bin_size)
         num_units = raster_matrix.shape[0]
+        raster_length = raster_matrix.shape[1]
         max_lag_bins = int(round(max_lag / bin_size))
+
+        # Clamp max_lag_bins to the raster length so the underlying
+        # cross-correlation never indexes outside the available signal
+        # (which produces silent NaN results from scipy.signal.correlate).
+        # Emit a single UserWarning so the caller knows the requested
+        # max_lag was reduced; this is far more useful than a per-pair
+        # NaN matrix.
+        if raster_length > 0 and max_lag_bins > raster_length - 1:
+            original_max_lag = max_lag
+            max_lag_bins = max(0, raster_length - 1)
+            clamped_max_lag = max_lag_bins * bin_size
+            warnings.warn(
+                f"max_lag={original_max_lag} ms ({int(round(original_max_lag / bin_size))} "
+                f"bins) exceeds raster length ({raster_length} bins); "
+                f"clamping to max_lag={clamped_max_lag} ms ({max_lag_bins} bins).",
+                UserWarning,
+                stacklevel=2,
+            )
+            max_lag = clamped_max_lag
 
         corr_matrix = np.full((num_units, num_units), np.nan)
         lag_matrix = np.full((num_units, num_units), np.nan)

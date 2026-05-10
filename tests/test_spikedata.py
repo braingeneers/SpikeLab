@@ -2479,23 +2479,27 @@ class TestSpikeDataRates:
 
     def test_sparse_raster_n_zero_units(self):
         """
-        sparse_raster on a SpikeData with N=0 units.
+        ``sparse_raster`` on a SpikeData with ``N=0`` units short-
+        circuits and returns an empty ``(0, T)`` sparse matrix, where
+        ``T = ceil(length / bin_size)``. Downstream methods like
+        ``binned``, ``raster``, and ``rates`` all rely on this.
 
         Tests:
-            (Test Case 1) Calling sparse_raster on subset([]) crashes because
-                np.hstack([]) raises ValueError.
-
-        Notes:
-            - This documents a bug: subset([]).sparse_raster() crashes with
-              ValueError from np.hstack on an empty list. This affects all
-              methods that call sparse_raster (binned, raster, rates).
+            (Test Case 1) Result has shape ``(0, T)`` with the correct
+                bin count.
+            (Test Case 2) ``binned()`` returns a length-T array.
+            (Test Case 3) ``raster()`` returns shape ``(0, T)``.
         """
         sd = SpikeData([[1.0, 2.0], [3.0]], length=10.0)
         empty_sd = sd.subset([])
         assert empty_sd.N == 0
 
-        with pytest.raises(ValueError):
-            empty_sd.sparse_raster()
+        sr = empty_sd.sparse_raster(bin_size=1.0)
+        assert sr.shape == (0, 10)
+        binned = empty_sd.binned(bin_size=1.0)
+        assert binned.shape == (10,)
+        rast = empty_sd.raster(bin_size=1.0)
+        assert rast.shape == (0, 10)
 
     def test_sparse_raster_very_small_bin_size(self):
         """
@@ -7889,3 +7893,141 @@ class TestSpikeDataSubsetEdgeCases:
         sd = SpikeData([[1.0], [2.0], [3.0]], length=10.0)
         sub = sd.subset(units=[1.0, 2.0])
         assert sub.N == 2
+
+
+class TestSpikeDataFullyEmpty:
+    """``SpikeData`` constructed with ``N=0`` short-circuits cleanly."""
+
+    def test_construct_zero_unit_spikedata(self):
+        """
+        ``SpikeData([], N=0, length=10.0)`` constructs cleanly.
+
+        Tests:
+            (Test Case 1) ``N == 0`` and ``length == 10.0``.
+            (Test Case 2) ``train`` is an empty list.
+        """
+        sd = SpikeData([], N=0, length=10.0)
+        assert sd.N == 0
+        assert sd.train == []
+        assert sd.length == 10.0
+
+    def test_zero_unit_binned_returns_zero_T_raster(self):
+        """
+        ``SpikeData(N=0).binned(bin_size)`` returns a length-T array
+        (T = ``ceil(length / bin_size)``) without raising.
+
+        Tests:
+            (Test Case 1) Shape is ``(T,)``.
+            (Test Case 2) The output is all zeros.
+        """
+        sd = SpikeData([], N=0, length=10.0)
+        b = sd.binned(bin_size=1.0)
+        assert b.shape == (10,)
+        np.testing.assert_array_equal(b, np.zeros(10))
+
+    def test_zero_unit_rates_and_sttc(self):
+        """
+        ``rates()`` and ``spike_time_tilings()`` on an N=0 SpikeData
+        produce an empty rates array and a ``(0, 0)`` PCM, respectively.
+
+        Tests:
+            (Test Case 1) ``rates()`` returns shape ``(0,)``.
+            (Test Case 2) ``spike_time_tilings(delt=1.0)`` returns a
+                PairwiseCompMatrix with ``(0, 0)`` matrix.
+        """
+        from spikelab.spikedata.pairwise import PairwiseCompMatrix
+
+        sd = SpikeData([], N=0, length=10.0)
+        assert sd.rates().shape == (0,)
+        pcm = sd.spike_time_tilings(delt=1.0)
+        assert isinstance(pcm, PairwiseCompMatrix)
+        assert pcm.matrix.shape == (0, 0)
+
+
+class TestSpikeDataFramesOverlapBoundary:
+    """Boundary tests for ``SpikeData.frames(length, overlap)``."""
+
+    def test_overlap_equals_length_raises(self):
+        """
+        ``overlap == length`` produces ``step == 0`` and is rejected.
+
+        Tests:
+            (Test Case 1) ``frames(10, overlap=10)`` raises ValueError.
+        """
+        sd = SpikeData([[1.0, 5.0, 9.0]], length=30.0)
+        with pytest.raises(ValueError):
+            sd.frames(10.0, overlap=10.0)
+
+    def test_negative_overlap_rejected(self):
+        """
+        Negative ``overlap`` is rejected because the parameter
+        semantically represents an overlap, not a stride. Passing a
+        negative value would silently produce gapped frames.
+
+        Tests:
+            (Test Case 1) ``frames(10, overlap=-5)`` raises ValueError.
+            (Test Case 2) The error message names ``overlap`` and
+                "non-negative".
+        """
+        sd = SpikeData([[1.0, 11.0, 21.0, 31.0]], length=40.0)
+        with pytest.raises(ValueError, match="overlap.*non-negative"):
+            sd.frames(10.0, overlap=-10.0)
+
+
+class TestSpikeDataGetPairwiseCcgMaxLagClamp:
+    """``get_pairwise_ccg`` clamps ``max_lag`` to the raster length."""
+
+    def test_max_lag_larger_than_raster_emits_warning_and_clamps(self):
+        """
+        When ``max_lag`` exceeds the raster length in bins, the call
+        emits a single ``UserWarning`` and clamps ``max_lag_bins`` to
+        ``raster_length - 1`` so the underlying cross-correlation
+        never indexes outside the available signal.
+
+        Tests:
+            (Test Case 1) The call returns valid PairwiseCompMatrices
+                (no NaN-only diagonal from out-of-range indexing).
+            (Test Case 2) A ``UserWarning`` mentioning "exceeds raster
+                length" is emitted exactly once.
+            (Test Case 3) The metadata records the clamped ``max_lag``,
+                not the original.
+        """
+        import warnings as _warnings
+
+        sd = SpikeData([[1.0, 5.0, 9.0], [2.0, 6.0, 10.0]], length=20.0)
+        with _warnings.catch_warnings(record=True) as caught:
+            _warnings.simplefilter("always")
+            corr_pcm, lag_pcm = sd.get_pairwise_ccg(bin_size=1.0, max_lag=10000.0)
+        msgs = [
+            str(rec.message)
+            for rec in caught
+            if "exceeds raster length" in str(rec.message)
+        ]
+        assert len(msgs) == 1
+        # Diagonal of corr is 1.0 (self-correlation), not NaN.
+        assert corr_pcm.matrix[0, 0] == pytest.approx(1.0)
+        assert corr_pcm.matrix[1, 1] == pytest.approx(1.0)
+        # Metadata records the clamped (smaller) max_lag.
+        assert corr_pcm.metadata["max_lag"] < 10000.0
+
+    def test_max_lag_within_raster_does_not_warn(self):
+        """
+        A reasonable ``max_lag`` (smaller than the raster length) does
+        not trigger the clamp warning.
+
+        Tests:
+            (Test Case 1) No "exceeds raster length" warning is fired
+                when ``max_lag=5`` against a 20-bin raster.
+        """
+        import warnings as _warnings
+
+        sd = SpikeData([[1.0, 5.0, 9.0], [2.0, 6.0, 10.0]], length=20.0)
+        with _warnings.catch_warnings(record=True) as caught:
+            _warnings.simplefilter("always")
+            sd.get_pairwise_ccg(bin_size=1.0, max_lag=5.0)
+        msgs = [
+            str(rec.message)
+            for rec in caught
+            if "exceeds raster length" in str(rec.message)
+        ]
+        assert msgs == []

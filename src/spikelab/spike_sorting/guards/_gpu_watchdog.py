@@ -31,6 +31,8 @@ import threading
 import time
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
+import numpy as np
+
 from .._exceptions import GpuMemoryWatchdogError, GpuThermalWatchdogError
 from ._audit import append_audit_event
 
@@ -500,11 +502,11 @@ class GpuMemoryWatchdog:
                 f"warn_pct ({warn_pct}) and abort_pct ({abort_pct}) must "
                 f"satisfy 0 < warn_pct < abort_pct <= 100."
             )
-        if poll_interval_s <= 0.0:
+        if np.isnan(poll_interval_s) or poll_interval_s <= 0.0:
             raise ValueError(
                 f"poll_interval_s must be positive, got {poll_interval_s}."
             )
-        if kill_grace_s < 0.0:
+        if np.isnan(kill_grace_s) or kill_grace_s < 0.0:
             raise ValueError(f"kill_grace_s must be non-negative, got {kill_grace_s}.")
         if (
             warn_temp_c is not None

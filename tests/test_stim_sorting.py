@@ -1645,3 +1645,386 @@ class TestSortStimRecordingMultiPeakDispatch:
         assert captured.get("multi_peak_threshold") == pytest.approx(0.55)
         assert captured.get("multi_peak_min_separation_ms") == pytest.approx(4.5)
         assert captured.get("peak_mode") == "abs_max"
+
+
+# ===========================================================================
+# _find_down_edge / _find_up_edge with caller-supplied neg_peak / pos_peak
+# (the multi-peak recentering anchor-override path).
+# ===========================================================================
+
+
+class TestFindEdgeWithExplicitAnchor:
+    """
+    Tests for ``_find_down_edge(neg_peak=...)`` and
+    ``_find_up_edge(pos_peak=...)`` — the optional caller-supplied
+    anchor used by the multi-peak recentering helper.
+    """
+
+    def _make_biphasic_pulse(
+        self,
+        n_samples: int,
+        pulse_centers: list[int],
+        polarity: str = "down",
+        amp: float = 50.0,
+        half_width: int = 5,
+    ) -> np.ndarray:
+        """Synthesize a reference trace with one or more biphasic pulses.
+
+        Each pulse has a positive lobe followed by a negative lobe (for
+        ``polarity='down'``) or the inverse (``polarity='up'``).  The
+        sample at ``center`` carries the trough/peak amplitude of the
+        second lobe; the two lobes are joined by a zero-crossing one
+        sample before the trough.
+        """
+        ref = np.zeros(n_samples, dtype=np.float64)
+        for c in pulse_centers:
+            for k in range(-half_width, half_width + 1):
+                idx = c + k
+                if idx < 0 or idx >= n_samples:
+                    continue
+                # Positive lobe to the left of c, negative lobe at and
+                # to the right (or inverted, for 'up').
+                if polarity == "down":
+                    val = amp if k < 0 else -amp
+                else:
+                    val = -amp if k < 0 else amp
+                ref[idx] = val
+        return ref
+
+    def test_find_down_edge_uses_supplied_neg_peak(self):
+        """
+        ``_find_down_edge`` with an explicit ``neg_peak`` overrides the
+        internal ``argmin`` and computes the zero-crossing relative to
+        the caller's anchor.
+
+        Tests:
+            (Test Case 1) Two pulses in window: default argmin picks
+                the larger-amplitude pulse; supplying ``neg_peak`` of
+                the smaller pulse moves the returned edge to that
+                pulse's zero-crossing.
+        """
+        from spikelab.spike_sorting.stim_sorting.recentering import (
+            _find_down_edge,
+        )
+
+        # Two negative-going pulses; second is larger so argmin picks it.
+        ref = self._make_biphasic_pulse(
+            200, pulse_centers=[60, 130], polarity="down", amp=50.0
+        )
+        ref[125:131] *= 1.5  # boost the second pulse so argmin prefers it
+
+        default_edge = _find_down_edge(
+            ref, lo=0, hi=200, prewindow_ms=1.0, fs_Hz=20000.0
+        )
+        # Override: anchor on the FIRST pulse's negative peak (sample 60).
+        override_edge = _find_down_edge(
+            ref, lo=0, hi=200, prewindow_ms=1.0, fs_Hz=20000.0, neg_peak=60
+        )
+        # Default attaches to the second pulse near sample 130.
+        assert default_edge >= 120
+        # Override attaches near the first pulse's transition (~sample 60).
+        assert 50 <= override_edge < 70
+        # Different from the default — the anchor really did shift it.
+        assert override_edge != default_edge
+
+    def test_find_up_edge_uses_supplied_pos_peak(self):
+        """
+        ``_find_up_edge`` with an explicit ``pos_peak`` overrides the
+        internal ``argmax`` and computes the zero-crossing relative
+        to the caller's anchor.
+
+        Tests:
+            (Test Case 1) Two positive-going pulses in window: an
+                explicit ``pos_peak`` on the smaller pulse shifts the
+                returned edge to that pulse.
+        """
+        from spikelab.spike_sorting.stim_sorting.recentering import (
+            _find_up_edge,
+        )
+
+        ref = self._make_biphasic_pulse(
+            200, pulse_centers=[60, 130], polarity="up", amp=50.0
+        )
+        ref[125:131] *= 1.5  # boost the second pulse so argmax prefers it
+
+        default_edge = _find_up_edge(ref, lo=0, hi=200, prewindow_ms=1.0, fs_Hz=20000.0)
+        override_edge = _find_up_edge(
+            ref, lo=0, hi=200, prewindow_ms=1.0, fs_Hz=20000.0, pos_peak=60
+        )
+        assert default_edge >= 120
+        assert 50 <= override_edge < 70
+        assert override_edge != default_edge
+
+    def test_find_down_edge_anchor_at_lo_returns_anchor(self):
+        """
+        ``_find_down_edge`` with ``neg_peak == lo`` produces an empty
+        pre-window (``pre_hi <= pre_lo``) and falls through to the
+        early-return branch, returning the supplied anchor verbatim.
+
+        Tests:
+            (Test Case 1) ``neg_peak=lo`` returns ``lo`` regardless of
+                the surrounding signal.
+        """
+        from spikelab.spike_sorting.stim_sorting.recentering import (
+            _find_down_edge,
+        )
+
+        ref = np.linspace(-1.0, 1.0, 100, dtype=np.float64)
+        result = _find_down_edge(
+            ref, lo=20, hi=80, prewindow_ms=1.0, fs_Hz=20000.0, neg_peak=20
+        )
+        assert result == 20
+
+    def test_find_up_edge_anchor_at_lo_returns_anchor(self):
+        """
+        ``_find_up_edge`` with ``pos_peak == lo`` produces an empty
+        pre-window and returns the anchor verbatim.
+
+        Tests:
+            (Test Case 1) ``pos_peak=lo`` returns ``lo``.
+        """
+        from spikelab.spike_sorting.stim_sorting.recentering import (
+            _find_up_edge,
+        )
+
+        ref = np.linspace(1.0, -1.0, 100, dtype=np.float64)
+        result = _find_up_edge(
+            ref, lo=20, hi=80, prewindow_ms=1.0, fs_Hz=20000.0, pos_peak=20
+        )
+        assert result == 20
+
+    def test_find_down_edge_anchor_near_hi_does_not_crash(self):
+        """
+        ``_find_down_edge`` with ``neg_peak`` near (but inside)
+        ``hi`` continues to look for a zero-crossing in the
+        ``[pos_peak, neg_peak+1)`` segment without indexing past
+        the end of ``reference``.
+
+        Tests:
+            (Test Case 1) ``neg_peak = hi - 1`` returns a sample in
+                ``[lo, hi]`` without raising IndexError.
+        """
+        from spikelab.spike_sorting.stim_sorting.recentering import (
+            _find_down_edge,
+        )
+
+        ref = self._make_biphasic_pulse(
+            200, pulse_centers=[60], polarity="down", amp=30.0
+        )
+        # Anchor at hi-1; zero-crossing must still be inside [lo, hi].
+        result = _find_down_edge(
+            ref, lo=0, hi=70, prewindow_ms=1.0, fs_Hz=20000.0, neg_peak=69
+        )
+        assert 0 <= result <= 69
+
+    def test_find_up_edge_anchor_near_hi_does_not_crash(self):
+        """
+        ``_find_up_edge`` with ``pos_peak`` near ``hi`` does not
+        crash when computing the segment ``[neg_peak, pos_peak+1)``.
+
+        Tests:
+            (Test Case 1) ``pos_peak = hi - 1`` returns a sample in
+                ``[lo, hi]`` without raising IndexError.
+        """
+        from spikelab.spike_sorting.stim_sorting.recentering import (
+            _find_up_edge,
+        )
+
+        ref = self._make_biphasic_pulse(
+            200, pulse_centers=[60], polarity="up", amp=30.0
+        )
+        result = _find_up_edge(
+            ref, lo=0, hi=70, prewindow_ms=1.0, fs_Hz=20000.0, pos_peak=69
+        )
+        assert 0 <= result <= 69
+
+    def test_find_down_edge_default_vs_explicit_match_when_equal(self):
+        """
+        ``_find_down_edge`` with ``neg_peak`` set to the same value
+        the default branch would compute returns identical results.
+
+        Tests:
+            (Test Case 1) Single-pulse trace: default and explicit
+                anchor produce the same edge.
+        """
+        from spikelab.spike_sorting.stim_sorting.recentering import (
+            _find_down_edge,
+        )
+
+        ref = self._make_biphasic_pulse(
+            200, pulse_centers=[100], polarity="down", amp=50.0
+        )
+        default_neg_peak = int(np.argmin(ref[0:200]))
+        default_edge = _find_down_edge(
+            ref, lo=0, hi=200, prewindow_ms=1.0, fs_Hz=20000.0
+        )
+        explicit_edge = _find_down_edge(
+            ref,
+            lo=0,
+            hi=200,
+            prewindow_ms=1.0,
+            fs_Hz=20000.0,
+            neg_peak=default_neg_peak,
+        )
+        assert default_edge == explicit_edge
+
+
+# ===========================================================================
+# Polynomial detrend NaN-coefficient propagation
+# ===========================================================================
+
+
+class TestPolyfitAndSubtractNanCoefficients:
+    """
+    Tests for ``_polyfit_and_subtract``'s behaviour when
+    ``np.polyfit`` returns NaN coefficients (e.g. from a singular
+    linear system or NaN-contaminated upstream data).
+
+    Current behaviour (pinned to flag the gap):
+      - ``np.polyval(NaN_coeffs, x)`` yields NaN-valued samples.
+      - In-place subtraction propagates NaN into ``channel_trace``.
+      - The clamp guard ``float(np.max(np.abs(seg))) > clamp_threshold``
+        evaluates ``NaN > threshold == False``, so the segment is NOT
+        blanked and the clamp counter is NOT incremented.
+      - As a result, NaN-corrupted samples are shipped downstream
+        (silent data corruption flagged in REVIEW.md).
+    """
+
+    def test_nan_coefficients_propagate_through_segment(self, monkeypatch):
+        """
+        With ``np.polyfit`` patched to return NaN coefficients,
+        ``_polyfit_and_subtract`` writes NaN samples into
+        ``channel_trace[lo:hi]``.
+
+        Tests:
+            (Test Case 1) After the call, the post-fit segment is
+                all-NaN.
+            (Test Case 2) Samples outside [lo, hi) are unchanged.
+
+        Notes:
+            - This documents a bug. The recommended fix is to detect
+              NaN/inf in the post-subtraction segment, blank in that
+              case, and increment the clamp counter; the test should
+              be updated to assert blanking once the source is hardened.
+        """
+        from spikelab.spike_sorting.stim_sorting import (
+            artifact_removal as ar_mod,
+        )
+
+        n_samples = 200
+        channel_trace = np.linspace(-1.0, 1.0, n_samples).astype(np.float64)
+        original_outside = channel_trace[:50].copy()
+        blanked = np.zeros((1, n_samples), dtype=bool)
+        clamp_counter = [0]
+
+        def fake_polyfit(x, y, deg):
+            return np.full(deg + 1, np.nan, dtype=np.float64)
+
+        monkeypatch.setattr(ar_mod.np, "polyfit", fake_polyfit)
+
+        ar_mod._polyfit_and_subtract(
+            channel_trace=channel_trace,
+            blanked=blanked,
+            ch_idx=0,
+            lo=50,
+            hi=150,
+            poly_order=3,
+            clamp_threshold=1000.0,
+            clamp_counter=clamp_counter,
+        )
+
+        # Pinned: post-fit segment is all-NaN.
+        assert np.all(np.isnan(channel_trace[50:150]))
+        # Outside the window is unchanged.
+        np.testing.assert_array_equal(channel_trace[:50], original_outside)
+
+    def test_nan_segment_not_blanked_by_clamp_check(self, monkeypatch):
+        """
+        With NaN coefficients, the segment-level clamp check
+        (``float(np.max(np.abs(seg))) > clamp_threshold``) is False
+        because every comparison against NaN is False. The segment
+        is therefore NOT blanked and the clamp counter is NOT
+        incremented — the silent-corruption path.
+
+        Tests:
+            (Test Case 1) ``clamp_counter[0]`` is still 0.
+            (Test Case 2) ``blanked[ch_idx, lo:hi]`` is still False
+                for all samples (the bug).
+
+        Notes:
+            - Pins current behaviour. When the source is hardened
+              to detect NaN, this test must be updated to assert
+              that the segment IS blanked and the counter IS
+              incremented.
+        """
+        from spikelab.spike_sorting.stim_sorting import (
+            artifact_removal as ar_mod,
+        )
+
+        n_samples = 200
+        channel_trace = np.zeros(n_samples, dtype=np.float64)
+        blanked = np.zeros((1, n_samples), dtype=bool)
+        clamp_counter = [0]
+
+        monkeypatch.setattr(
+            ar_mod.np,
+            "polyfit",
+            lambda x, y, deg: np.full(deg + 1, np.nan, dtype=np.float64),
+        )
+
+        ar_mod._polyfit_and_subtract(
+            channel_trace=channel_trace,
+            blanked=blanked,
+            ch_idx=0,
+            lo=20,
+            hi=80,
+            poly_order=3,
+            clamp_threshold=10.0,
+            clamp_counter=clamp_counter,
+        )
+
+        # Bug: NaN propagates but the segment is not blanked.
+        assert clamp_counter[0] == 0
+        assert not blanked[0, 20:80].any()
+        # Confirm the NaN actually landed (the bug premise).
+        assert np.all(np.isnan(channel_trace[20:80]))
+
+    def test_finite_clamp_threshold_with_nan_segment_is_no_op(self, monkeypatch):
+        """
+        Even with a generous (small) ``clamp_threshold``, a NaN
+        segment is not detected as out-of-bounds. Confirms the bug
+        does not depend on the threshold magnitude.
+
+        Tests:
+            (Test Case 1) clamp_threshold=0.0 with NaN segment:
+                still no blanking, still no counter increment.
+        """
+        from spikelab.spike_sorting.stim_sorting import (
+            artifact_removal as ar_mod,
+        )
+
+        n_samples = 100
+        channel_trace = np.zeros(n_samples, dtype=np.float64)
+        blanked = np.zeros((1, n_samples), dtype=bool)
+        clamp_counter = [0]
+
+        monkeypatch.setattr(
+            ar_mod.np,
+            "polyfit",
+            lambda x, y, deg: np.full(deg + 1, np.nan, dtype=np.float64),
+        )
+
+        ar_mod._polyfit_and_subtract(
+            channel_trace=channel_trace,
+            blanked=blanked,
+            ch_idx=0,
+            lo=10,
+            hi=60,
+            poly_order=3,
+            clamp_threshold=0.0,
+            clamp_counter=clamp_counter,
+        )
+
+        assert clamp_counter[0] == 0
+        assert not blanked[0, 10:60].any()
+        assert np.all(np.isnan(channel_trace[10:60]))
