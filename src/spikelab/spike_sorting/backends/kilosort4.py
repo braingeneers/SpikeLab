@@ -12,9 +12,7 @@ Requirements:
 
 from typing import Any
 
-from .. import _globals
 from ..config import SortingPipelineConfig
-from ._common import _sync_globals_from_config
 from .base import SorterBackend
 
 DEFAULT_KILOSORT4_PARAMS = {
@@ -54,27 +52,6 @@ class Kilosort4Backend(SorterBackend):
 
     def __init__(self, config: SortingPipelineConfig) -> None:
         super().__init__(config)
-        self._sync_globals()
-
-    def _sync_globals(self) -> None:
-        """Set module-level globals in _globals.py from the config.
-
-        The shared WaveformExtractor and recording loader still read
-        globals. This bridges the config-based architecture with those
-        functions.
-        """
-        sor = self.config.sorter
-        _sync_globals_from_config(
-            self.config,
-            sorter_globals={
-                "KILOSORT_PATH": sor.sorter_path,
-                "KILOSORT_PARAMS": {
-                    **DEFAULT_KILOSORT4_PARAMS,
-                    **(sor.sorter_params or {}),
-                },
-                "USE_DOCKER": sor.use_docker,
-            },
-        )
 
     def load_recording(self, rec_path: Any) -> Any:
         """Load and preprocess a recording via the shared loader.
@@ -178,7 +155,6 @@ class Kilosort4Backend(SorterBackend):
             return False
         params["batch_size"] = new_batch
         self.config.sorter.sorter_params = params
-        self._sync_globals()
         print(
             f"[oom retry] kilosort4: scaled batch_size {batch} -> "
             f"{new_batch} (factor={factor})."
@@ -193,11 +169,10 @@ class Kilosort4Backend(SorterBackend):
         }
 
     def restore_oom_params(self, snapshot: dict) -> None:
-        """Restore ``sorter_params`` from a snapshot and re-sync globals."""
+        """Restore ``sorter_params`` from a snapshot."""
         if not snapshot:
             return
         self.config.sorter.sorter_params = snapshot.get("sorter_params")
-        self._sync_globals()
 
     def extract_waveforms(
         self,

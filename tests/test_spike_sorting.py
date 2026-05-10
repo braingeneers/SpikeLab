@@ -5050,129 +5050,14 @@ class TestRTSortBackendDependencyCheck:
         assert "diptest" in msg
 
 
-@skip_no_spikeinterface
-class TestRTSortBackendSyncGlobals:
-    """
-    Tests for RTSortBackend._sync_globals() — the config → _globals bridge.
-    """
-
-    @pytest.fixture
-    def make_backend(self, monkeypatch):
-        """Skip the dep check so we can construct the backend without torch."""
-        from spikelab.spike_sorting.backends.rt_sort import RTSortBackend
-
-        monkeypatch.setattr(RTSortBackend, "_check_dependencies", lambda self: None)
-        return RTSortBackend
-
-    def test_sync_writes_rt_sort_globals(self, make_backend):
-        """
-        _sync_globals mirrors the RT-Sort sub-config fields to module globals.
-
-        Tests:
-            (Test Case 1) RT_SORT_DEVICE is taken from config.rt_sort.device.
-            (Test Case 2) RT_SORT_NUM_PROCESSES mirrors config.rt_sort.num_processes.
-            (Test Case 3) RT_SORT_RECORDING_WINDOW_MS mirrors the window.
-            (Test Case 4) RT_SORT_SAVE_PICKLE mirrors save_rt_sort_pickle.
-            (Test Case 5) RT_SORT_DELETE_INTER mirrors delete_inter.
-            (Test Case 6) RT_SORT_VERBOSE mirrors verbose.
-            (Test Case 7) RT_SORT_MODEL_PATH mirrors model_path.
-        """
-        from spikelab.spike_sorting import _globals
-        from spikelab.spike_sorting.config import (
-            RTSortConfig,
-            SortingPipelineConfig,
-            SorterConfig,
-        )
-
-        cfg = SortingPipelineConfig(
-            sorter=SorterConfig(sorter_name="rt_sort"),
-            rt_sort=RTSortConfig(
-                probe="mea",
-                device="cpu",
-                num_processes=2,
-                recording_window_ms=(0, 30_000),
-                save_rt_sort_pickle=False,
-                delete_inter=True,
-                verbose=False,
-                model_path="/tmp/m",
-            ),
-        )
-
-        make_backend(cfg)
-
-        assert _globals.RT_SORT_DEVICE == "cpu"
-        assert _globals.RT_SORT_NUM_PROCESSES == 2
-        assert _globals.RT_SORT_RECORDING_WINDOW_MS == (0, 30_000)
-        assert _globals.RT_SORT_SAVE_PICKLE is False
-        assert _globals.RT_SORT_DELETE_INTER is True
-        assert _globals.RT_SORT_VERBOSE is False
-        assert _globals.RT_SORT_MODEL_PATH == "/tmp/m"
-
-    def test_sync_merges_probe_into_params(self, make_backend):
-        """
-        _sync_globals merges the probe into RT_SORT_PARAMS so the runner can
-        read both from a single dict.
-
-        Tests:
-            (Test Case 1) RT_SORT_PARAMS["probe"] reflects the configured probe.
-            (Test Case 2) Override params from RTSortConfig.params are merged in.
-        """
-        from spikelab.spike_sorting import _globals
-        from spikelab.spike_sorting.config import (
-            RTSortConfig,
-            SortingPipelineConfig,
-            SorterConfig,
-        )
-
-        cfg = SortingPipelineConfig(
-            sorter=SorterConfig(sorter_name="rt_sort"),
-            rt_sort=RTSortConfig(
-                probe="neuropixels",
-                params={"stringent_thresh": 0.175, "loose_thresh": 0.075},
-            ),
-        )
-
-        make_backend(cfg)
-
-        assert _globals.RT_SORT_PARAMS["probe"] == "neuropixels"
-        assert _globals.RT_SORT_PARAMS["stringent_thresh"] == 0.175
-        assert _globals.RT_SORT_PARAMS["loose_thresh"] == 0.075
-
-    def test_sync_writes_recording_globals_including_time_slicing(self, make_backend):
-        """
-        _sync_globals also writes the standard recording globals.
-
-        Tests:
-            (Test Case 1) FREQ_MIN / FREQ_MAX mirror RecordingConfig.
-            (Test Case 2) REC_CHUNKS_S, START_TIME_S, END_TIME_S are mirrored.
-        """
-        from spikelab.spike_sorting import _globals
-        from spikelab.spike_sorting.config import (
-            RecordingConfig,
-            RTSortConfig,
-            SortingPipelineConfig,
-            SorterConfig,
-        )
-
-        cfg = SortingPipelineConfig(
-            recording=RecordingConfig(
-                freq_min=250,
-                freq_max=5000,
-                rec_chunks_s=[(0.0, 60.0), (120.0, 180.0)],
-                start_time_s=0.0,
-                end_time_s=200.0,
-            ),
-            sorter=SorterConfig(sorter_name="rt_sort"),
-            rt_sort=RTSortConfig(),
-        )
-
-        make_backend(cfg)
-
-        assert _globals.FREQ_MIN == 250
-        assert _globals.FREQ_MAX == 5000
-        assert _globals.REC_CHUNKS_S == [(0.0, 60.0), (120.0, 180.0)]
-        assert _globals.START_TIME_S == 0.0
-        assert _globals.END_TIME_S == 200.0
+# TestRTSortBackendSyncGlobals removed in Phase 3 of the _globals.py
+# refactor (iat/TO_IMPLEMENT.md): RTSortBackend no longer calls
+# _sync_globals on construction, so the test class — which asserted that
+# the constructor wrote specific values into _globals.RT_SORT_* — no
+# longer applies. Runner-level integration tests
+# (TestRTSortRunnerHelpers, TestNumpySortingToKsExtractor) and the
+# backend `sort` smoke tests cover the equivalent behaviour by checking
+# that config values reach the runner.
 
 
 @skip_no_spikeinterface

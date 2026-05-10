@@ -27,7 +27,6 @@ import numpy as np
 
 from .. import _globals
 from ..config import SortingPipelineConfig
-from ._common import _sync_globals_from_config
 from .base import SorterBackend
 
 
@@ -177,7 +176,6 @@ class RTSortBackend(SorterBackend):
     def __init__(self, config: SortingPipelineConfig) -> None:
         super().__init__(config)
         self._check_dependencies()
-        self._sync_globals()
 
     def _check_dependencies(self) -> None:
         """Raise a clear ImportError listing any missing RT-Sort deps."""
@@ -201,36 +199,6 @@ class RTSortBackend(SorterBackend):
                 "For PyTorch, install a CUDA-matching wheel from "
                 "https://pytorch.org/get-started/locally/"
             )
-
-    def _sync_globals(self) -> None:
-        """Set module-level globals in _globals.py from the config.
-
-        The shared recording loader and pipeline stages still read
-        globals for parameters they own.  RT-Sort-specific parameters
-        live under ``config.rt_sort``.
-        """
-        rts = self.config.rt_sort
-
-        # Merge the probe into params so the runner can read both from
-        # a single dict-shaped global.
-        merged_params = {"probe": rts.probe}
-        if rts.params:
-            merged_params.update(rts.params)
-
-        _sync_globals_from_config(
-            self.config,
-            sorter_globals={
-                "RT_SORT_MODEL_PATH": rts.model_path,
-                "RT_SORT_DEVICE": rts.device,
-                "RT_SORT_NUM_PROCESSES": rts.num_processes,
-                "RT_SORT_RECORDING_WINDOW_MS": rts.recording_window_ms,
-                "RT_SORT_SAVE_PICKLE": rts.save_rt_sort_pickle,
-                "RT_SORT_DELETE_INTER": rts.delete_inter,
-                "RT_SORT_VERBOSE": rts.verbose,
-                "RT_SORT_DETECTION_WINDOW_S": rts.detection_window_s,
-                "RT_SORT_PARAMS": merged_params,
-            },
-        )
 
     def load_recording(self, rec_path: Any) -> Any:
         """Load and preprocess a recording via the shared loader.
@@ -361,7 +329,6 @@ class RTSortBackend(SorterBackend):
         if new_n >= current:
             return False
         rt.num_processes = new_n
-        self._sync_globals()
         print(
             f"[oom retry] rt_sort: scaled num_processes {current} -> "
             f"{new_n} (factor={factor})."
@@ -377,7 +344,6 @@ class RTSortBackend(SorterBackend):
         if not snapshot:
             return
         self.config.rt_sort.num_processes = snapshot.get("num_processes")
-        self._sync_globals()
 
     def extract_waveforms(
         self,
