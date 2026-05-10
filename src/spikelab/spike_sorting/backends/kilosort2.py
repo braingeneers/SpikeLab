@@ -1,20 +1,15 @@
 """Kilosort2 sorter backend.
 
 Implements the ``SorterBackend`` interface by delegating to functions
-in ``ks2_runner`` and ``recording_io``. The underlying functions still
-read module-level globals from ``_globals.py``, so this backend sets
-those globals from the ``SortingPipelineConfig`` on construction.
-
-This is a transitional design. In a future cleanup, the underlying
-functions will be refactored to accept the config directly, and the
-global-setting logic will be removed.
+in ``ks2_runner`` and ``recording_io``. Those functions accept the
+``SortingPipelineConfig`` directly (Phase 2 of the ``_globals.py``
+removal in ``iat/TO_IMPLEMENT.md``), so this backend simply holds the
+config and threads it through to every call site.
 """
 
 from typing import Any
 
-from .. import _globals
 from ..config import SortingPipelineConfig
-from ._common import _sync_globals_from_config
 from .base import SorterBackend
 
 DEFAULT_KILOSORT2_PARAMS = {
@@ -44,27 +39,6 @@ class Kilosort2Backend(SorterBackend):
 
     def __init__(self, config: SortingPipelineConfig) -> None:
         super().__init__(config)
-        self._sync_globals()
-
-    def _sync_globals(self) -> None:
-        """Set module-level globals in _globals.py from the config.
-
-        This bridges the config-based architecture with functions that
-        still read globals. Will be removed once all functions accept
-        config directly.
-        """
-        sor = self.config.sorter
-        _sync_globals_from_config(
-            self.config,
-            sorter_globals={
-                "KILOSORT_PATH": sor.sorter_path,
-                "KILOSORT_PARAMS": {
-                    **DEFAULT_KILOSORT2_PARAMS,
-                    **(sor.sorter_params or {}),
-                },
-                "USE_DOCKER": sor.use_docker,
-            },
-        )
 
     def load_recording(self, rec_path: Any) -> Any:
         """Load and preprocess a recording.
@@ -136,11 +110,11 @@ class Kilosort2Backend(SorterBackend):
             return False
 
         params = dict(self.config.sorter.sorter_params or {})
-        # ``format_params`` resolves NT=None to (64*1024 + ntbuff)
-        # before the first sort. After that the value is concrete in
-        # _globals.KILOSORT_PARAMS, but we want to mutate the
-        # config's representation so subsequent sorts persist the
-        # scaled value rather than reverting to the default.
+        # ``RunKilosort.format_params`` resolves NT=None to
+        # (64*1024 + ntbuff) before the first sort. After that the
+        # value lives on ``self.config.sorter.sorter_params``; mutating
+        # it here lets subsequent sorts persist the scaled value
+        # rather than reverting to the default.
         nt = params.get("NT")
         if nt is None:
             ntbuff = params.get("ntbuff", 64)
@@ -156,8 +130,6 @@ class Kilosort2Backend(SorterBackend):
             return False
         params["NT"] = new_nt
         self.config.sorter.sorter_params = params
-        # Re-sync globals so the runner sees the scaled NT.
-        self._sync_globals()
         print(
             f"[oom retry] kilosort2: scaled NT {nt} -> {new_nt} " f"(factor={factor})."
         )
@@ -171,11 +143,10 @@ class Kilosort2Backend(SorterBackend):
         }
 
     def restore_oom_params(self, snapshot: dict) -> None:
-        """Restore ``sorter_params`` from a snapshot and re-sync globals."""
+        """Restore ``sorter_params`` from a snapshot."""
         if not snapshot:
             return
         self.config.sorter.sorter_params = snapshot.get("sorter_params")
-        self._sync_globals()
 
     def extract_waveforms(
         self,
