@@ -14,13 +14,11 @@ attributed to van der Molen, Lim et al. 2024 (PLOS ONE, DOI
 10.1371/journal.pone.0312438).
 """
 
-import warnings
 from pathlib import Path
 from typing import Any, Optional
 
 import numpy as np
 
-from . import _globals
 from ._classifier import classify_rt_sort_failure
 from ._exceptions import SpikeSortingClassifiedError
 from .config import SortingPipelineConfig
@@ -68,11 +66,9 @@ def spike_sort(
       2. ``RTSort.sort_offline`` — assigns spikes in the recording to
          the detected sequences.
 
-    Reads RT-Sort parameters from *config* (when provided) or from
-    the legacy module-level globals in ``_globals.py`` (populated by
-    ``RTSortBackend._sync_globals``). The serialized ``RTSort`` object
-    is optionally written to ``output_folder/rt_sort.pickle`` for reuse
-    by the Phase 2 stim-aware sorting pipeline.
+    Reads RT-Sort parameters from *config*. The serialized ``RTSort``
+    object is optionally written to ``output_folder/rt_sort.pickle``
+    for reuse by the Phase 2 stim-aware sorting pipeline.
 
     Parameters:
         rec_cache: Scaled and filtered SpikeInterface recording.
@@ -83,13 +79,8 @@ def spike_sort(
         output_folder (Path): Directory where RT-Sort intermediate
             files and the serialized ``RTSort`` object are stored.
         config (SortingPipelineConfig or None): Pipeline configuration.
-            When ``None``, falls back to the legacy module-level
-            globals (``RECOMPUTE_SORTING``, ``RT_SORT_MODEL_PATH``,
-            ``RT_SORT_DEVICE``, ``RT_SORT_NUM_PROCESSES``,
-            ``RT_SORT_RECORDING_WINDOW_MS``,
-            ``RT_SORT_DETECTION_WINDOW_S``, ``RT_SORT_VERBOSE``,
-            ``RT_SORT_DELETE_INTER``, ``RT_SORT_PARAMS``,
-            ``RT_SORT_SAVE_PICKLE``) and emits a ``DeprecationWarning``.
+            When ``None``, a default :class:`SortingPipelineConfig` is
+            used.
 
     Returns:
         sorting: A SpikeInterface ``NumpySorting`` with one unit per
@@ -99,44 +90,21 @@ def spike_sort(
     from .rt_sort import detect_sequences
 
     if config is None:
-        warnings.warn(
-            "rt_sort_runner.spike_sort called without an explicit "
-            "`config`; falling back to the legacy module-level globals "
-            "in spikelab.spike_sorting._globals. Pass "
-            "config=<SortingPipelineConfig> to silence this warning. "
-            "The legacy path will be removed once the _globals.py "
-            "refactor lands (see iat/TO_IMPLEMENT.md).",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        recompute_sorting = _globals.RECOMPUTE_SORTING
-        rt_model_path = _globals.RT_SORT_MODEL_PATH
-        rt_device = _globals.RT_SORT_DEVICE
-        rt_num_processes = _globals.RT_SORT_NUM_PROCESSES
-        sort_window_ms = _globals.RT_SORT_RECORDING_WINDOW_MS
-        det_window_s = _globals.RT_SORT_DETECTION_WINDOW_S
-        rt_verbose = _globals.RT_SORT_VERBOSE
-        rt_delete_inter = _globals.RT_SORT_DELETE_INTER
-        # Mirror RTSortBackend._sync_globals: the live RT_SORT_PARAMS
-        # already contains the merged probe key, so we use it directly.
-        rt_params = dict(_globals.RT_SORT_PARAMS or {})
-        save_rt_sort_pickle = _globals.RT_SORT_SAVE_PICKLE
-    else:
-        rts = config.rt_sort
-        recompute_sorting = config.execution.recompute_sorting
-        rt_model_path = rts.model_path
-        rt_device = rts.device
-        rt_num_processes = rts.num_processes
-        sort_window_ms = rts.recording_window_ms
-        det_window_s = rts.detection_window_s
-        rt_verbose = rts.verbose
-        rt_delete_inter = rts.delete_inter
-        # Mirror RTSortBackend._sync_globals: merge probe into params
-        # so the runner sees both as a single dict.
-        rt_params = {"probe": rts.probe}
-        if rts.params:
-            rt_params.update(rts.params)
-        save_rt_sort_pickle = rts.save_rt_sort_pickle
+        config = SortingPipelineConfig()
+    rts = config.rt_sort
+    recompute_sorting = config.execution.recompute_sorting
+    rt_model_path = rts.model_path
+    rt_device = rts.device
+    rt_num_processes = rts.num_processes
+    sort_window_ms = rts.recording_window_ms
+    det_window_s = rts.detection_window_s
+    rt_verbose = rts.verbose
+    rt_delete_inter = rts.delete_inter
+    # Merge probe into params so the runner sees both as a single dict.
+    rt_params = {"probe": rts.probe}
+    if rts.params:
+        rt_params.update(rts.params)
+    save_rt_sort_pickle = rts.save_rt_sort_pickle
 
     print_stage("SPIKE SORTING WITH RT-SORT")
     stopwatch = Stopwatch()

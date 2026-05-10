@@ -44,7 +44,6 @@ except ImportError:  # pragma: no cover
     ScaleRecording = None
     _SI_AVAILABLE = False
 
-from . import _globals
 from .config import RecordingConfig, SortingPipelineConfig
 from .sorting_utils import (
     Stopwatch,
@@ -74,87 +73,6 @@ class LoadRecordingResult(NamedTuple):
     recording: Any
     rec_chunks: List[Tuple[int, int]]
     recording_names: List[str]
-
-
-def _legacy_recording_config_from_globals() -> RecordingConfig:
-    """Build a :class:`RecordingConfig` snapshot of the current globals.
-
-    Used when callers invoke ``load_recording`` / ``load_single_recording`` /
-    ``concatenate_recordings`` / ``extract_waveforms`` without a config
-    argument. Each such call emits a ``DeprecationWarning`` first; the
-    fallback then runs the migrated logic against this snapshot so the
-    function bodies have a single uniform code path.
-    """
-    return RecordingConfig(
-        stream_id=_globals.STREAM_ID,
-        first_n_mins=_globals.FIRST_N_MINS,
-        mea_y_max=_globals.MEA_Y_MAX,
-        gain_to_uv=_globals.GAIN_TO_UV,
-        offset_to_uv=_globals.OFFSET_TO_UV,
-        rec_chunks=list(_globals.REC_CHUNKS),
-        rec_chunks_s=list(_globals.REC_CHUNKS_S),
-        start_time_s=_globals.START_TIME_S,
-        end_time_s=_globals.END_TIME_S,
-        freq_min=_globals.FREQ_MIN,
-        freq_max=_globals.FREQ_MAX,
-    )
-
-
-def _resolve_config(
-    config: Optional[SortingPipelineConfig],
-    *,
-    func_name: str,
-) -> Tuple[SortingPipelineConfig, bool, bool]:
-    """Return ``(config, legacy_mode, legacy_rec_chunks_from_concat)``.
-
-    When *config* is ``None``, build a transitional config from the
-    current ``_globals`` and emit a ``DeprecationWarning`` so call
-    sites that have not been migrated yet remain visible at runtime.
-    When *config* is a real config, ``legacy_mode`` is ``False`` and
-    the function does not touch globals.
-
-    ``legacy_rec_chunks_from_concat`` mirrors the
-    ``_globals.REC_CHUNKS_FROM_CONCAT`` flag so the legacy fallback
-    can still distinguish a stale auto-populated ``REC_CHUNKS``
-    (left over by a previous ``concatenate_recordings`` call in the
-    same process) from explicit user-supplied frame chunks. The
-    config-driven path does not need this signal because each call
-    receives a fresh config — auto-populated chunks come back from
-    ``_concatenate_recordings_with_state`` as a return value rather
-    than as shared state.
-    """
-    if config is not None:
-        return config, False, False
-    warnings.warn(
-        f"{func_name} called without an explicit `config`; "
-        "falling back to the legacy module-level globals in "
-        "spikelab.spike_sorting._globals. Pass config=<SortingPipelineConfig> "
-        "to silence this warning. The legacy path will be removed once "
-        "the _globals.py refactor lands (see iat/TO_IMPLEMENT.md).",
-        DeprecationWarning,
-        stacklevel=3,
-    )
-    cfg = SortingPipelineConfig(recording=_legacy_recording_config_from_globals())
-    return cfg, True, bool(_globals.REC_CHUNKS_FROM_CONCAT)
-
-
-def _legacy_mirror_state_to_globals(
-    rec_chunks: List[Tuple[int, int]],
-    recording_names: List[str],
-    *,
-    auto_populated: bool,
-) -> None:
-    """Mirror post-load state back to ``_globals`` for legacy callers.
-
-    Phase 2.1 closes the recording leak chain for callers that pass a
-    ``config`` (the production sort pipeline). Callers that did not yet
-    migrate still expect ``_globals.REC_CHUNKS`` / ``_REC_CHUNK_NAMES``
-    / ``REC_CHUNKS_FROM_CONCAT`` to reflect the most recent
-    ``load_recording`` so existing behaviour is preserved.
-    """
-    _globals.REC_CHUNKS = list(rec_chunks)
-    _globals.REC_CHUNKS_FROM_CONCAT = bool(auto_populated)
-    _globals._REC_CHUNK_NAMES = list(recording_names)
 
 
 # Upstream `neo.rawio.maxwellrawio.auto_install_maxwell_hdf5_compression_plugin`
@@ -329,9 +247,8 @@ def load_recording(
             file, a directory containing ``.raw.h5`` / ``.nwb`` files
             to concatenate, or a pre-loaded ``BaseRecording``.
         config (SortingPipelineConfig or None): Pipeline configuration
-            providing the recording loader settings. When ``None``,
-            falls back to the legacy module-level globals in
-            ``_globals.py`` and emits a ``DeprecationWarning``.
+            providing the recording loader settings. When ``None``, a
+            default :class:`SortingPipelineConfig` is used.
 
     Returns:
         rec (BaseRecording): The loaded and optionally transformed
@@ -352,9 +269,8 @@ def _load_recording_with_state(
     public ``load_recording`` returned. Removing those reads is the
     point of this Phase 2.1 migration.
     """
-    config, legacy_mode, legacy_from_concat = _resolve_config(
-        config, func_name="load_recording"
-    )
+    if config is None:
+        config = SortingPipelineConfig()
     rec_cfg = config.recording
 
     print_stage("LOADING RECORDING")
@@ -392,16 +308,9 @@ def _load_recording_with_state(
     # silently overridden by time-based slicing — that is what the
     # canary relies on when narrowing a directory recording to its
     # leading window.
-    #
-    # In the legacy fallback, ``user_rec_chunks`` may actually hold
-    # auto-populated values left over by a previous
-    # ``concatenate_recordings`` call; the ``legacy_from_concat`` flag
-    # carries that distinction over from ``_globals``.
     user_rec_chunks = list(rec_cfg.rec_chunks)
-    is_user_supplied = bool(user_rec_chunks) and not legacy_from_concat
-    auto_populated = False
     if time_chunks:
-        if is_user_supplied:
+        if user_rec_chunks:
             raise ValueError(
                 "Cannot combine frame-based 'rec_chunks' with time-based "
                 "'start_time_s'/'end_time_s'/'rec_chunks_s'. Use one or the "
@@ -410,12 +319,8 @@ def _load_recording_with_state(
         effective_rec_chunks = list(time_chunks)
     elif user_rec_chunks:
         effective_rec_chunks = list(user_rec_chunks)
-        # Carry the legacy FROM_CONCAT flag through so the mirror
-        # writes the right value back to globals when in legacy mode.
-        auto_populated = legacy_from_concat
     elif auto_rec_chunks:
         effective_rec_chunks = list(auto_rec_chunks)
-        auto_populated = True
     else:
         effective_rec_chunks = []
 
@@ -470,16 +375,6 @@ def _load_recording_with_state(
 
     stopwatch.log_time("Done loading recording.")
 
-    if legacy_mode:
-        # Mirror the resolved state back to globals so legacy callers
-        # (and the existing test suite that asserts on `_globals.*`
-        # after `load_recording`) keep observing the previous contract.
-        _legacy_mirror_state_to_globals(
-            effective_rec_chunks,
-            recording_names,
-            auto_populated=auto_populated,
-        )
-
     return LoadRecordingResult(
         recording=rec,
         rec_chunks=effective_rec_chunks,
@@ -503,13 +398,14 @@ def load_single_recording(
         rec_path (str, Path, or BaseRecording): Path to a ``.h5`` or
             ``.nwb`` file, or an already-loaded ``BaseRecording``.
         config (SortingPipelineConfig or None): Pipeline configuration.
-            When ``None``, falls back to ``_globals.*`` and emits a
-            ``DeprecationWarning``.
+            When ``None``, a default :class:`SortingPipelineConfig` is
+            used.
 
     Returns:
         rec (BaseRecording): Scaled and bandpass-filtered recording.
     """
-    config, _legacy_mode, _ = _resolve_config(config, func_name="load_single_recording")
+    if config is None:
+        config = SortingPipelineConfig()
     rec_cfg = config.recording
 
     if isinstance(rec_path, BaseRecording):
@@ -630,8 +526,8 @@ def concatenate_recordings(
     Parameters:
         rec_path (Path): Directory containing recording files.
         config (SortingPipelineConfig or None): Pipeline configuration.
-            When ``None``, falls back to ``_globals.*`` and emits a
-            ``DeprecationWarning``.
+            When ``None``, a default :class:`SortingPipelineConfig` is
+            used.
 
     Returns:
         rec (BaseRecording): The concatenated recording.
@@ -660,14 +556,13 @@ def _concatenate_recordings_with_state(
     auto-populated chunk list and the per-file recording-name list.
 
     The recording-leak chain in
-    `iat/_globals_audit.md <../_globals_audit.md>`_ identifies this
+    `iat/_globals_audit.md <../_globals_audit.md>`_ identified this
     function as the source of three of the four leaky writes
     (``REC_CHUNKS``, ``REC_CHUNKS_FROM_CONCAT``, ``_REC_CHUNK_NAMES``).
-    Returning the values closes the chain for callers that pass a
-    ``config``; legacy callers (``config is None``) still see the
-    globals updated for backward compatibility.
+    Returning the values instead of mutating globals closes the chain.
     """
-    config, legacy_mode, _ = _resolve_config(config, func_name="concatenate_recordings")
+    if config is None:
+        config = SortingPipelineConfig()
 
     print("Concatenating recordings")
     recordings = []
@@ -757,16 +652,6 @@ def _concatenate_recordings_with_state(
     print(f"Done concatenating {len(recordings)} recordings")
     print(f"Total duration: {rec.get_total_duration()}s")
 
-    if legacy_mode:
-        # Preserve the original contract for callers (and tests) that
-        # have not yet been migrated: write the per-file boundaries
-        # and the file names back to ``_globals``. The ``FROM_CONCAT``
-        # flag is set only when concatenation actually happened.
-        if auto_rec_chunks and len(_globals.REC_CHUNKS) == 0:
-            _globals.REC_CHUNKS = list(auto_rec_chunks)
-            _globals.REC_CHUNKS_FROM_CONCAT = True
-        _globals._REC_CHUNK_NAMES = list(recording_names)
-
     return rec, auto_rec_chunks, recording_names
 
 
@@ -797,10 +682,8 @@ def extract_waveforms(
     initial_folder: Path
         Folder representing units before curation
     config: SortingPipelineConfig or None
-        Pipeline configuration. When ``None``, falls back to
-        ``_globals.STREAMING_WAVEFORMS`` and
-        ``_globals.REEXTRACT_WAVEFORMS`` and emits a
-        ``DeprecationWarning``.
+        Pipeline configuration. When ``None``, a default
+        :class:`SortingPipelineConfig` is used.
 
     Returns
     -------
@@ -808,20 +691,9 @@ def extract_waveforms(
         The WaveformExtractor object that represents the waveforms
     """
     if config is None:
-        warnings.warn(
-            "extract_waveforms called without an explicit `config`; "
-            "falling back to the legacy module-level globals in "
-            "spikelab.spike_sorting._globals. Pass config=<SortingPipelineConfig> "
-            "to silence this warning. The legacy path will be removed once "
-            "the _globals.py refactor lands (see iat/TO_IMPLEMENT.md).",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        streaming_waveforms = _globals.STREAMING_WAVEFORMS
-        reextract_waveforms = _globals.REEXTRACT_WAVEFORMS
-    else:
-        streaming_waveforms = config.waveform.streaming
-        reextract_waveforms = config.execution.reextract_waveforms
+        config = SortingPipelineConfig()
+    streaming_waveforms = config.waveform.streaming
+    reextract_waveforms = config.execution.reextract_waveforms
 
     print_stage("EXTRACTING WAVEFORMS")
     stopwatch = Stopwatch()

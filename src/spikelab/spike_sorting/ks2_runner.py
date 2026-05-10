@@ -10,7 +10,6 @@ import sys
 import tempfile
 import time
 import traceback
-import warnings
 from math import ceil
 from pathlib import Path
 from types import MethodType
@@ -24,30 +23,12 @@ from spikeinterface.core import BaseRecording, write_binary_recording
 from spikeinterface.extractors.extractor_classes import BinaryRecordingExtractor
 from spikeinterface.sorters import run_sorter
 
-from . import _globals
 from ._classifier import classify_ks2_failure
 from ._exceptions import InsufficientActivityError, SpikeSortingClassifiedError
 from .config import SortingPipelineConfig
 from .docker_utils import get_docker_image
 from .sorting_extractor import KilosortSortingExtractor
 from .sorting_utils import Stopwatch, create_folder, print_stage
-
-
-def _emit_legacy_warning(func_name: str) -> None:
-    """Emit a single ``DeprecationWarning`` for callers that have not
-    migrated to the config-based API yet. The message names the entry
-    point so residual sites are easy to find at runtime.
-    """
-    warnings.warn(
-        f"{func_name} called without explicit Kilosort2 parameters; "
-        "falling back to the legacy module-level globals in "
-        "spikelab.spike_sorting._globals. Pass kilosort_params= / "
-        "config=<SortingPipelineConfig> to silence this warning. The "
-        "legacy path will be removed once the _globals.py refactor "
-        "lands (see iat/TO_IMPLEMENT.md).",
-        DeprecationWarning,
-        stacklevel=3,
-    )
 
 
 class RunKilosort:
@@ -78,16 +59,15 @@ class RunKilosort:
         kilosort_params: Optional[Dict[str, Any]] = None,
         pos_peak_thresh: Optional[float] = None,
     ):
-        # Resolve from globals when not supplied (transitional fallback).
-        if (
-            kilosort_path is None
-            and kilosort_params is None
-            and pos_peak_thresh is None
-        ):
-            _emit_legacy_warning("RunKilosort()")
-            kilosort_path = _globals.KILOSORT_PATH
-            kilosort_params = _globals.KILOSORT_PARAMS
-            pos_peak_thresh = _globals.POS_PEAK_THRESH
+        # Fill in defaults for any unsupplied params.
+        if kilosort_params is None:
+            from .backends.kilosort2 import DEFAULT_KILOSORT2_PARAMS
+
+            kilosort_params = dict(DEFAULT_KILOSORT2_PARAMS)
+        if pos_peak_thresh is None:
+            from .config import WaveformConfig
+
+            pos_peak_thresh = WaveformConfig().pos_peak_thresh
 
         # Set paths
         self.path = self.set_kilosort_path(kilosort_path)
@@ -97,8 +77,8 @@ class RunKilosort:
             raise Exception(f"Kilosort2 is not installed.")
 
         # Normalise ``NT`` and ``car`` into a fresh dict — never mutate
-        # the caller's input. The previous in-place mutation of
-        # ``_globals.KILOSORT_PARAMS`` was the canonical example of the
+        # the caller's input. The previous in-place mutation of the
+        # shared params dict was the canonical example of the
         # cross-recording leak in the CRITICAL finding.
         self.kilosort_params = self.format_params(kilosort_params)
         self.pos_peak_thresh = pos_peak_thresh
@@ -585,10 +565,10 @@ end"""
         literal.
 
         Pure function: never mutates the caller's dict. The previous
-        in-place mutation of ``_globals.KILOSORT_PARAMS`` is the
-        canonical example of the cross-recording leak the refactor
-        is closing — recording N+1 inheriting recording N's mutated
-        ``car=1`` was producing different sorter results depending
+        in-place mutation of the shared params dict was the canonical
+        example of the cross-recording leak the refactor closed —
+        recording N+1 inheriting recording N's mutated ``car=1`` was
+        producing different sorter results depending
         on call order.
         """
         out = dict(params)
@@ -875,21 +855,26 @@ def write_recording(
         recording_dat_path (Path): Destination ``.dat`` file path.
         verbose (bool): Print progress messages and show progress bar.
         n_jobs (int or None): Number of parallel jobs for the
-            SpikeInterface writer. When ``None``, falls back to
-            ``_globals.N_JOBS`` and emits a ``DeprecationWarning``.
+            SpikeInterface writer. When ``None``, falls back to the
+            ``ExecutionConfig`` default (``n_jobs=8``).
         total_memory (str or None): Total memory budget string passed
-            to the writer. When ``None``, falls back to
-            ``_globals.TOTAL_MEMORY``.
+            to the writer. When ``None``, falls back to the
+            ``ExecutionConfig`` default (``"16G"``).
         use_parallel (bool or None): When True, use the multi-job
             path; when False, fall back to a single-job path. When
-            ``None``, falls back to
-            ``_globals.USE_PARALLEL_PROCESSING_FOR_RAW_CONVERSION``.
+            ``None``, falls back to the ``ExecutionConfig`` default
+            (``True``).
     """
-    if n_jobs is None and total_memory is None and use_parallel is None:
-        _emit_legacy_warning("write_recording")
-        n_jobs = _globals.N_JOBS
-        total_memory = _globals.TOTAL_MEMORY
-        use_parallel = _globals.USE_PARALLEL_PROCESSING_FOR_RAW_CONVERSION
+    if n_jobs is None or total_memory is None or use_parallel is None:
+        from .config import ExecutionConfig
+
+        _exec_defaults = ExecutionConfig()
+        if n_jobs is None:
+            n_jobs = _exec_defaults.n_jobs
+        if total_memory is None:
+            total_memory = _exec_defaults.total_memory
+        if use_parallel is None:
+            use_parallel = _exec_defaults.use_parallel_processing_for_raw_conversion
 
     stopwatch = Stopwatch(start_msg="CONVERTING RECORDING", use_print_stage=True)
     if use_parallel:
@@ -948,20 +933,23 @@ def _spike_sort_docker(
         output_folder (Path): Directory for Kilosort2 output files.
         kilosort_params (dict or None): Kilosort2 parameter dict
             forwarded to SpikeInterface ``run_sorter``. When ``None``,
-            falls back to ``_globals.KILOSORT_PARAMS`` and emits a
-            ``DeprecationWarning``.
+            falls back to :data:`DEFAULT_KILOSORT2_PARAMS`.
         pos_peak_thresh (float or None): Forwarded to the
             ``KilosortSortingExtractor`` that materialises the result.
-            When ``None``, falls back to ``_globals.POS_PEAK_THRESH``.
+            When ``None``, falls back to ``WaveformConfig().pos_peak_thresh``.
 
     Returns:
         sorting (KilosortSortingExtractor): The sorting result loaded from the
             Docker output folder.
     """
-    if kilosort_params is None and pos_peak_thresh is None:
-        _emit_legacy_warning("_spike_sort_docker")
-        kilosort_params = _globals.KILOSORT_PARAMS
-        pos_peak_thresh = _globals.POS_PEAK_THRESH
+    if kilosort_params is None:
+        from .backends.kilosort2 import DEFAULT_KILOSORT2_PARAMS
+
+        kilosort_params = dict(DEFAULT_KILOSORT2_PARAMS)
+    if pos_peak_thresh is None:
+        from .config import WaveformConfig
+
+        pos_peak_thresh = WaveformConfig().pos_peak_thresh
     from .docker_utils import get_docker_image
 
     # Pre-convert recording to int16 binary on the host so that:
@@ -1073,43 +1061,30 @@ def spike_sort(
             relies on the host-memory watchdog and Docker's own
             ``mem_limit``.
         config (SortingPipelineConfig or None): Pipeline configuration.
-            When ``None``, falls back to the legacy module-level
-            globals in ``_globals.py`` (``RECOMPUTE_SORTING``,
-            ``USE_DOCKER``, ``KILOSORT_PATH``, ``KILOSORT_PARAMS``,
-            ``POS_PEAK_THRESH``, ``N_JOBS``, ``TOTAL_MEMORY``,
-            ``USE_PARALLEL_PROCESSING_FOR_RAW_CONVERSION``) and emits a
-            ``DeprecationWarning``.
+            When ``None``, a default :class:`SortingPipelineConfig` is
+            used.
 
     Returns:
         sorting (KilosortSortingExtractor or Exception): The sorting
             result, or the caught exception if sorting failed.
     """
     if config is None:
-        _emit_legacy_warning("spike_sort")
-        recompute_sorting = _globals.RECOMPUTE_SORTING
-        use_docker = _globals.USE_DOCKER
-        kilosort_path = _globals.KILOSORT_PATH
-        kilosort_params = _globals.KILOSORT_PARAMS
-        pos_peak_thresh = _globals.POS_PEAK_THRESH
-        n_jobs = _globals.N_JOBS
-        total_memory = _globals.TOTAL_MEMORY
-        use_parallel = _globals.USE_PARALLEL_PROCESSING_FOR_RAW_CONVERSION
-    else:
-        recompute_sorting = config.execution.recompute_sorting
-        use_docker = config.sorter.use_docker
-        kilosort_path = config.sorter.sorter_path
-        # Merge backend defaults with user override the same way
-        # ``Kilosort2Backend._sync_globals`` did.
-        from .backends.kilosort2 import DEFAULT_KILOSORT2_PARAMS
+        config = SortingPipelineConfig()
+    recompute_sorting = config.execution.recompute_sorting
+    use_docker = config.sorter.use_docker
+    kilosort_path = config.sorter.sorter_path
+    # Merge backend defaults with user overrides — same semantics the
+    # backend previously used when populating its `sorter_globals`.
+    from .backends.kilosort2 import DEFAULT_KILOSORT2_PARAMS
 
-        kilosort_params = {
-            **DEFAULT_KILOSORT2_PARAMS,
-            **(config.sorter.sorter_params or {}),
-        }
-        pos_peak_thresh = config.waveform.pos_peak_thresh
-        n_jobs = config.execution.n_jobs
-        total_memory = config.execution.total_memory
-        use_parallel = config.execution.use_parallel_processing_for_raw_conversion
+    kilosort_params = {
+        **DEFAULT_KILOSORT2_PARAMS,
+        **(config.sorter.sorter_params or {}),
+    }
+    pos_peak_thresh = config.waveform.pos_peak_thresh
+    n_jobs = config.execution.n_jobs
+    total_memory = config.execution.total_memory
+    use_parallel = config.execution.use_parallel_processing_for_raw_conversion
 
     print_stage("SPIKE SORTING")
     stopwatch = Stopwatch()

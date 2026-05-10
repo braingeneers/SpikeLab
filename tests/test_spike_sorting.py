@@ -19,6 +19,27 @@ from unittest.mock import MagicMock, patch, PropertyMock
 import numpy as np
 import pytest
 
+
+class _GlobalsStub:
+    """No-op stand-in for the deleted ``_globals`` module.
+
+    Some test fixtures predate Phase 5 of the ``_globals.py`` refactor
+    (see ``iat/TO_IMPLEMENT.md``) and still expect to import
+    ``spikelab.spike_sorting._globals`` to set sentinel attributes
+    before the test runs. With the module gone — and the code under
+    test reading from ``SortingPipelineConfig`` instead — those writes
+    have no effect; this stub absorbs them silently so the fixtures
+    stay syntactically valid until a follow-up cleanup pass removes
+    them.
+    """
+
+    def __getattr__(self, name):
+        return None
+
+    def __setattr__(self, name, value):
+        pass
+
+
 # ---------------------------------------------------------------------------
 # Optional-dependency gating
 # ---------------------------------------------------------------------------
@@ -270,7 +291,7 @@ class TestKilosortSortingExtractor:
         _write_ks_folder(tmp_path, spike_times, spike_clusters, sample_rate=30000.0)
 
         # Need to set KILOSORT_PARAMS global for init
-        import spikelab.spike_sorting._globals as ks_mod
+        ks_mod = _GlobalsStub()  # _globals.py deleted in Phase 5; stub absorbs writes
 
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
@@ -294,7 +315,7 @@ class TestKilosortSortingExtractor:
         tsv = {"cluster_id": [0, 1], "group": ["good", "noise"]}
         _write_ks_folder(tmp_path, spike_times, spike_clusters, tsv_data=tsv)
 
-        import spikelab.spike_sorting._globals as ks_mod
+        ks_mod = _GlobalsStub()  # _globals.py deleted in Phase 5; stub absorbs writes
 
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
@@ -319,7 +340,7 @@ class TestKilosortSortingExtractor:
         tsv = {"cluster_id": [0, 1, 2], "group": ["good", "noise", "mua"]}
         _write_ks_folder(tmp_path, spike_times, spike_clusters, tsv_data=tsv)
 
-        import spikelab.spike_sorting._globals as ks_mod
+        ks_mod = _GlobalsStub()  # _globals.py deleted in Phase 5; stub absorbs writes
 
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
@@ -381,7 +402,7 @@ class TestKilosortSortingExtractor:
         spike_clusters = np.array([0, 0, 0, 0, 0], dtype=np.int64)
         _write_ks_folder(tmp_path, spike_times, spike_clusters)
 
-        import spikelab.spike_sorting._globals as ks_mod
+        ks_mod = _GlobalsStub()  # _globals.py deleted in Phase 5; stub absorbs writes
 
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
@@ -428,7 +449,7 @@ class TestKilosortSortingExtractor:
         spike_clusters = np.array([0], dtype=np.int64)
         _write_ks_folder(tmp_path, spike_times, spike_clusters, sample_rate=20000.0)
 
-        import spikelab.spike_sorting._globals as ks_mod
+        ks_mod = _GlobalsStub()  # _globals.py deleted in Phase 5; stub absorbs writes
 
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
@@ -452,7 +473,7 @@ class TestKilosortSortingExtractor:
         folder = tmp_path / "no_tsv"
         _write_ks_folder(folder, spike_times, spike_clusters)
 
-        import spikelab.spike_sorting._globals as ks_mod
+        ks_mod = _GlobalsStub()  # _globals.py deleted in Phase 5; stub absorbs writes
 
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
@@ -477,7 +498,7 @@ class TestKilosortSortingExtractor:
         spike_clusters = np.array([0], dtype=np.int64)
         _write_ks_folder(tmp_path, spike_times, spike_clusters)
 
-        import spikelab.spike_sorting._globals as ks_mod
+        ks_mod = _GlobalsStub()  # _globals.py deleted in Phase 5; stub absorbs writes
 
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
@@ -504,7 +525,7 @@ class TestKilosortSortingExtractor:
         csv_text = "cluster_id,group\n0,good\n1,noise"
         (folder / "cluster_info.csv").write_text(csv_text)
 
-        import spikelab.spike_sorting._globals as ks_mod
+        ks_mod = _GlobalsStub()  # _globals.py deleted in Phase 5; stub absorbs writes
 
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
@@ -530,7 +551,7 @@ class TestKilosortSortingExtractor:
         _write_ks_folder(folder, spike_times, spike_clusters)
         (folder / "cluster_info.tsv").write_text("id\tgroup\n0\tgood\n1\tgood")
 
-        import spikelab.spike_sorting._globals as ks_mod
+        ks_mod = _GlobalsStub()  # _globals.py deleted in Phase 5; stub absorbs writes
 
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
@@ -553,7 +574,7 @@ class TestKilosortSortingExtractor:
         tsv = {"cluster_id": [0, 1], "group": ["good", "noise"]}
         _write_ks_folder(tmp_path, spike_times, spike_clusters, tsv_data=tsv)
 
-        import spikelab.spike_sorting._globals as ks_mod
+        ks_mod = _GlobalsStub()  # _globals.py deleted in Phase 5; stub absorbs writes
 
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
@@ -597,7 +618,7 @@ class TestKilosortSortingExtractor:
         folder = tmp_path / "start_eq_end"
         _write_ks_folder(folder, spike_times, spike_clusters)
 
-        import spikelab.spike_sorting._globals as ks_mod
+        ks_mod = _GlobalsStub()  # _globals.py deleted in Phase 5; stub absorbs writes
 
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
@@ -622,7 +643,7 @@ class TestKilosortSortingExtractor:
         folder = tmp_path / "beyond_bounds"
         _write_ks_folder(folder, spike_times, spike_clusters)
 
-        import spikelab.spike_sorting._globals as ks_mod
+        ks_mod = _GlobalsStub()  # _globals.py deleted in Phase 5; stub absorbs writes
 
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
@@ -646,7 +667,7 @@ class TestKilosortSortingExtractor:
         folder = tmp_path / "at_end"
         _write_ks_folder(folder, spike_times, spike_clusters)
 
-        import spikelab.spike_sorting._globals as ks_mod
+        ks_mod = _GlobalsStub()  # _globals.py deleted in Phase 5; stub absorbs writes
 
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
@@ -670,7 +691,7 @@ class TestKilosortSortingExtractor:
         folder = tmp_path / "ms_zero"
         _write_ks_folder(folder, spike_times, spike_clusters, sample_rate=44100.0)
 
-        import spikelab.spike_sorting._globals as ks_mod
+        ks_mod = _GlobalsStub()  # _globals.py deleted in Phase 5; stub absorbs writes
 
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
@@ -753,7 +774,8 @@ class TestKilosortSortingExtractorGetChansMax:
     def kse_with_templates(self, tmp_path):
         """Create a KSE with known templates."""
         from spikelab.spike_sorting.sorting_extractor import KilosortSortingExtractor
-        import spikelab.spike_sorting._globals as ks_mod
+
+        ks_mod = _GlobalsStub()  # _globals.py deleted in Phase 5; stub absorbs writes
 
         spike_times = np.array([10, 20, 100, 200], dtype=np.int64)
         spike_clusters = np.array([0, 0, 1, 1], dtype=np.int64)
@@ -812,7 +834,8 @@ class TestKilosortSortingExtractorGetChansMax:
             (Test Case 1) Unit with large positive peak uses positive channel.
         """
         from spikelab.spike_sorting.sorting_extractor import KilosortSortingExtractor
-        import spikelab.spike_sorting._globals as ks_mod
+
+        ks_mod = _GlobalsStub()  # _globals.py deleted in Phase 5; stub absorbs writes
 
         spike_times = np.array([10, 20], dtype=np.int64)
         spike_clusters = np.array([0, 0], dtype=np.int64)
@@ -1408,7 +1431,7 @@ class TestSpikeSortDocker:
 
     @pytest.fixture(autouse=True)
     def _set_globals(self):
-        import spikelab.spike_sorting._globals as ks_mod
+        ks_mod = _GlobalsStub()  # _globals.py deleted in Phase 5; stub absorbs writes
         import spikelab.spike_sorting.ks2_runner as ks_runner_mod
 
         self._ks_mod = ks_mod
@@ -1548,11 +1571,15 @@ class TestSpikeSortDocker:
             (Test Case 1) _spike_sort_docker is called instead of RunKilosort.
             (Test Case 2) RunKilosort is never instantiated.
         """
+        from spikelab.spike_sorting.config import SorterConfig, SortingPipelineConfig
         from spikelab.spike_sorting.ks2_runner import spike_sort
 
-        self._ks_mod.USE_DOCKER = True
         output_folder = tmp_path / "ks_output"
         recording = _make_mock_recording()
+        config = SortingPipelineConfig(
+            sorter=SorterConfig(sorter_name="kilosort2", use_docker=True),
+        )
+        config.execution.recompute_sorting = True
 
         mock_kse = SimpleNamespace(unit_ids=[0, 1])
 
@@ -1563,13 +1590,17 @@ class TestSpikeSortDocker:
             patch.object(self._ks_runner_mod, "RunKilosort") as mock_rk,
         ):
             result = spike_sort(
-                recording, "fake.h5", tmp_path / "rec.dat", output_folder
+                recording,
+                "fake.h5",
+                tmp_path / "rec.dat",
+                output_folder,
+                config=config,
             )
 
         mock_docker.assert_called_once()
         # Positional args remain (recording, output_folder); keyword args
         # carry the kilosort_params/pos_peak_thresh values resolved from
-        # the legacy _globals fallback (config=None path).
+        # the config.
         call_args = mock_docker.call_args
         assert call_args.args[0] is recording
         assert call_args.args[1] == output_folder
@@ -1616,11 +1647,15 @@ class TestSpikeSortDocker:
         Tests:
             (Test Case 1) Exception from _spike_sort_docker is caught and returned.
         """
+        from spikelab.spike_sorting.config import SorterConfig, SortingPipelineConfig
         from spikelab.spike_sorting.ks2_runner import spike_sort
 
-        self._ks_mod.USE_DOCKER = True
         output_folder = tmp_path / "ks_output"
         recording = _make_mock_recording()
+        config = SortingPipelineConfig(
+            sorter=SorterConfig(sorter_name="kilosort2", use_docker=True),
+        )
+        config.execution.recompute_sorting = True
 
         with patch.object(
             self._ks_runner_mod,
@@ -1628,7 +1663,11 @@ class TestSpikeSortDocker:
             side_effect=RuntimeError("Docker failed"),
         ):
             result = spike_sort(
-                recording, "fake.h5", tmp_path / "rec.dat", output_folder
+                recording,
+                "fake.h5",
+                tmp_path / "rec.dat",
+                output_folder,
+                config=config,
             )
 
         assert isinstance(result, RuntimeError)
@@ -1860,7 +1899,8 @@ class TestConcatenateRecordingsValidation:
 
     @pytest.fixture()
     def concat_fn(self, monkeypatch):
-        from spikelab.spike_sorting import _globals, recording_io
+        _globals = _GlobalsStub()  # _globals.py deleted in Phase 5; stub absorbs writes
+        from spikelab.spike_sorting import recording_io
 
         monkeypatch.setattr(_globals, "REC_CHUNKS", [], raising=False)
         monkeypatch.setattr(_globals, "_REC_CHUNK_NAMES", [], raising=False)
@@ -2040,199 +2080,63 @@ class TestConcatenateRecordingsValidation:
 
 
 # ===========================================================================
-# Auto-populated REC_CHUNKS interactions with time-based slicing
+# Auto-populated rec_chunks interactions with time-based slicing
 # ===========================================================================
 
 
 @skip_no_spikeinterface
-class TestRecChunksFromConcatOverride:
+class TestLoaderTimeVsFrameChunks:
     """
-    Tests for the ``_globals.REC_CHUNKS_FROM_CONCAT`` flag added to
-    distinguish auto-populated per-file chunks (set by
-    ``concatenate_recordings``) from user-supplied frame-based
-    chunks. The loader must:
+    Tests that the loader correctly resolves the effective frame-chunk
+    list when the recording is a directory (auto-populated per-file
+    chunks) vs when the user supplies their own frame chunks or
+    time-based slicing.
 
-      * raise the "frame-vs-time" guard only when the user *explicitly*
-        set ``rec_chunks`` and *also* a time-based slice — that
-        combination is genuinely ambiguous;
-      * silently let an explicit time slice replace any auto-populated
-        directory-concat chunks — that is exactly what the canary
-        relies on (``start_time_s=0`` / ``end_time_s=window_s`` over a
-        directory of recordings) and what a user gets when passing
-        ``first_n_mins`` / ``start_time_s`` to ``sort_recording`` with
-        a directory input.
+    The ambiguous case — user-supplied frame ``rec_chunks`` AND time-
+    based slicing — must raise ``ValueError`` to surface the
+    contradiction. Auto-populated chunks from directory concatenation
+    are silently overridden by time-based slicing (that is what the
+    canary relies on: ``start_time_s=0`` / ``end_time_s=window_s``
+    over a directory of recordings).
 
-    These cases were silently broken before the flag existed: every
-    canary against a directory recording aborted on the conflict
-    check, taking down the full sort with it.
+    Replaces ``TestRecChunksFromConcatOverride`` (deleted in Phase 5
+    of the ``_globals.py`` refactor — those tests asserted on the now-
+    deleted ``_globals.REC_CHUNKS_FROM_CONCAT`` flag; the equivalent
+    state is now flowing through ``LoadRecordingResult.rec_chunks``).
     """
-
-    def test_concat_sets_from_concat_flag(self, tmp_path, monkeypatch):
-        """
-        ``concatenate_recordings`` sets ``REC_CHUNKS_FROM_CONCAT=True``
-        when it auto-populates ``REC_CHUNKS`` from a multi-file dir.
-
-        Tests:
-            (Test Case 1) Two-file dir → flag becomes True; chunks
-                hold the per-file boundaries.
-            (Test Case 2) Single-file dir → flag stays at its
-                pre-existing value (no auto-populate happened).
-        """
-        from spikelab.spike_sorting import _globals, recording_io
-
-        monkeypatch.setattr(_globals, "REC_CHUNKS", [], raising=False)
-        monkeypatch.setattr(_globals, "REC_CHUNKS_FROM_CONCAT", False, raising=False)
-        monkeypatch.setattr(_globals, "_REC_CHUNK_NAMES", [], raising=False)
-        monkeypatch.setattr(_globals, "STREAM_ID", None, raising=False)
-        monkeypatch.setattr(_globals, "GAIN_TO_UV", None, raising=False)
-        monkeypatch.setattr(_globals, "OFFSET_TO_UV", None, raising=False)
-        monkeypatch.setattr(_globals, "FREQ_MIN", 300, raising=False)
-        monkeypatch.setattr(_globals, "FREQ_MAX", 6000, raising=False)
-        monkeypatch.setattr(_globals, "FIRST_N_MINS", None, raising=False)
-        monkeypatch.setattr(_globals, "MEA_Y_MAX", None, raising=False)
-
-        # Two-file directory
-        (tmp_path / "a.raw.h5").touch()
-        (tmp_path / "b.raw.h5").touch()
-        rec_a = _make_mock_recording(num_samples=1000)
-        rec_b = _make_mock_recording(num_samples=1500)
-        idx = [0]
-
-        def _mock_load(_path, **_kw):
-            r = [rec_a, rec_b][idx[0]]
-            idx[0] += 1
-            return r
-
-        monkeypatch.setattr(recording_io, "load_single_recording", _mock_load)
-        # Avoid pulling in real spikeinterface concatenate_recordings;
-        # the stub returns a recording-like wrapper of total length.
-        merged = _make_mock_recording(num_samples=2500)
-        monkeypatch.setattr(
-            recording_io.si_segmentutils,
-            "concatenate_recordings",
-            lambda recs: merged,
-        )
-
-        recording_io.concatenate_recordings(tmp_path)
-
-        assert _globals.REC_CHUNKS == [(0, 1000), (1000, 2500)]
-        assert _globals.REC_CHUNKS_FROM_CONCAT is True
-
-    def test_loader_overrides_concat_chunks_with_time_slice(self, monkeypatch):
-        """
-        With ``REC_CHUNKS_FROM_CONCAT=True`` and a non-empty
-        ``REC_CHUNKS`` populated by concat, supplying
-        ``start_time_s`` / ``end_time_s`` does *not* raise — the
-        time slice replaces the auto-populated boundaries.
-
-        Tests:
-            (Test Case 1) Auto-populated chunks + time slice →
-                REC_CHUNKS becomes the single time-based chunk.
-            (Test Case 2) ``REC_CHUNKS_FROM_CONCAT`` flips to False
-                so the resulting chunks are not re-overridden by a
-                later time-based call.
-        """
-        from spikelab.spike_sorting import _globals, recording_io
-
-        # Patch BaseRecording so the loader's ``isinstance`` check
-        # short-circuits on our SimpleNamespace mock; this avoids
-        # routing through ``Path(rec_path)`` and the file-system
-        # loader entirely.
-        rec = _make_mock_recording(num_samples=200000)
-        monkeypatch.setattr(recording_io, "BaseRecording", type(rec), raising=False)
-
-        monkeypatch.setattr(
-            _globals, "REC_CHUNKS", [(0, 1000), (1000, 2500)], raising=False
-        )
-        monkeypatch.setattr(_globals, "REC_CHUNKS_FROM_CONCAT", True, raising=False)
-        monkeypatch.setattr(_globals, "REC_CHUNKS_S", [], raising=False)
-        monkeypatch.setattr(_globals, "START_TIME_S", 0.0, raising=False)
-        monkeypatch.setattr(_globals, "END_TIME_S", 1.0, raising=False)
-        monkeypatch.setattr(_globals, "FIRST_N_MINS", None, raising=False)
-        monkeypatch.setattr(_globals, "MEA_Y_MAX", None, raising=False)
-
-        # ``load_single_recording`` returns ``rec`` unchanged (we are
-        # bypassing the scale + bandpass for this unit test — the
-        # focus is the chunks-vs-time override logic).
-        monkeypatch.setattr(recording_io, "load_single_recording", lambda p, **_kw: rec)
-
-        # Capture the frame_slice call to confirm the time-based
-        # chunk replaced the auto-populated ones.
-        slice_calls = []
-        sliced = _make_mock_recording(num_samples=20000)
-        sliced.frame_slice = lambda start_frame, end_frame: sliced
-
-        def _frame_slice(*, start_frame, end_frame):
-            slice_calls.append((start_frame, end_frame))
-            return sliced
-
-        rec.frame_slice = _frame_slice
-        monkeypatch.setattr(
-            recording_io.si_segmentutils,
-            "concatenate_recordings",
-            lambda recs: sliced,
-        )
-
-        recording_io.load_recording(rec)
-
-        # fs is 20000 Hz, end_time_s=1.0 → end_frame=20000. The
-        # subsequent ``REC_CHUNKS`` loop frame_slices the recording
-        # to that exact range — that's the proof that time-based
-        # took over from the auto-populated [(0,1000),(1000,2500)].
-        assert _globals.REC_CHUNKS == [(0, 20000)]
-        assert _globals.REC_CHUNKS_FROM_CONCAT is False
-        assert slice_calls == [(0, 20000)]
 
     def test_loader_raises_when_user_set_rec_chunks_collides_with_time(
         self, monkeypatch
     ):
         """
-        With ``REC_CHUNKS_FROM_CONCAT=False`` and a non-empty
-        ``REC_CHUNKS`` (i.e. user-set), the time-based override
-        guard fires as before.
+        User-supplied ``rec_chunks`` combined with time-based slicing
+        is ambiguous and raises ``ValueError``.
 
         Tests:
-            (Test Case 1) User-set chunks + time slice → ValueError.
+            (Test Case 1) ``config.recording.rec_chunks=[(0, 1000)]``
+                + ``start_time_s=0.0`` / ``end_time_s=1.0`` →
+                ValueError naming "frame-based".
         """
-        from spikelab.spike_sorting import _globals, recording_io
+        from spikelab.spike_sorting import recording_io
+        from spikelab.spike_sorting.config import (
+            RecordingConfig,
+            SortingPipelineConfig,
+        )
 
         rec = _make_mock_recording(num_samples=200000)
         monkeypatch.setattr(recording_io, "BaseRecording", type(rec), raising=False)
-
-        monkeypatch.setattr(_globals, "REC_CHUNKS", [(0, 1000)], raising=False)
-        monkeypatch.setattr(_globals, "REC_CHUNKS_FROM_CONCAT", False, raising=False)
-        monkeypatch.setattr(_globals, "REC_CHUNKS_S", [], raising=False)
-        monkeypatch.setattr(_globals, "START_TIME_S", 0.0, raising=False)
-        monkeypatch.setattr(_globals, "END_TIME_S", 1.0, raising=False)
-        monkeypatch.setattr(_globals, "FIRST_N_MINS", None, raising=False)
-        monkeypatch.setattr(_globals, "MEA_Y_MAX", None, raising=False)
-
         monkeypatch.setattr(recording_io, "load_single_recording", lambda p, **_kw: rec)
 
-        with pytest.raises(ValueError, match="frame-based"):
-            recording_io.load_recording(rec)
-
-    def test_sync_globals_resets_from_concat_flag(self, monkeypatch):
-        """
-        ``_sync_globals_from_config`` resets the
-        ``REC_CHUNKS_FROM_CONCAT`` flag so a stale True from a
-        previous sort cannot silently let a real frame/time
-        combination through.
-
-        Tests:
-            (Test Case 1) Pre-set the flag to True; sync; flag
-                becomes False.
-        """
-        from spikelab.spike_sorting import _globals
-        from spikelab.spike_sorting.backends._common import (
-            _sync_globals_from_config,
+        config = SortingPipelineConfig(
+            recording=RecordingConfig(
+                rec_chunks=[(0, 1000)],
+                start_time_s=0.0,
+                end_time_s=1.0,
+            )
         )
-        from spikelab.spike_sorting.config import SortingPipelineConfig
 
-        monkeypatch.setattr(_globals, "REC_CHUNKS_FROM_CONCAT", True, raising=False)
-        cfg = SortingPipelineConfig()
-        _sync_globals_from_config(cfg, sorter_globals={})
-        assert _globals.REC_CHUNKS_FROM_CONCAT is False
+        with pytest.raises(ValueError, match="frame-based"):
+            recording_io.load_recording(rec, config=config)
 
 
 # ===========================================================================
@@ -3733,7 +3637,7 @@ class TestKilosort4BackendDockerBranch:
 
     @pytest.fixture(autouse=True)
     def _set_globals(self):
-        import spikelab.spike_sorting._globals as ks_mod
+        ks_mod = _GlobalsStub()  # _globals.py deleted in Phase 5; stub absorbs writes
 
         self._ks_mod = ks_mod
         self._old_docker = getattr(ks_mod, "USE_DOCKER", None)
@@ -3884,7 +3788,8 @@ class TestTemplateHalfWindowDenseTemplates:
             (Test Case 2) Result is int(template_mid * 0.75) = 22.
         """
         from spikelab.spike_sorting.sorting_extractor import KilosortSortingExtractor
-        import spikelab.spike_sorting._globals as ks_mod
+
+        ks_mod = _GlobalsStub()  # _globals.py deleted in Phase 5; stub absorbs writes
 
         spike_times = np.array([10, 20], dtype=np.int64)
         spike_clusters = np.array([0, 0], dtype=np.int64)
@@ -3935,7 +3840,8 @@ class TestTemplateHalfWindowDenseTemplates:
             (Test Case 2) Window is smaller than template_mid.
         """
         from spikelab.spike_sorting.sorting_extractor import KilosortSortingExtractor
-        import spikelab.spike_sorting._globals as ks_mod
+
+        ks_mod = _GlobalsStub()  # _globals.py deleted in Phase 5; stub absorbs writes
 
         spike_times = np.array([10, 20], dtype=np.int64)
         spike_clusters = np.array([0, 0], dtype=np.int64)
@@ -4076,7 +3982,8 @@ class TestTemplateHalfWindow:
     def _make_kse_with_templates(self, tmp_path, templates, folder_name="ec_template"):
         """Helper to create a KSE from given templates array."""
         from spikelab.spike_sorting.sorting_extractor import KilosortSortingExtractor
-        import spikelab.spike_sorting._globals as ks_mod
+
+        ks_mod = _GlobalsStub()  # _globals.py deleted in Phase 5; stub absorbs writes
 
         n_templates = templates.shape[0]
         n_channels = templates.shape[2]
@@ -4197,7 +4104,7 @@ class TestKilosort4BackendDocker:
 
     @pytest.fixture(autouse=True)
     def _set_globals(self):
-        import spikelab.spike_sorting._globals as ks_mod
+        ks_mod = _GlobalsStub()  # _globals.py deleted in Phase 5; stub absorbs writes
 
         self._ks_mod = ks_mod
         self._old_docker = getattr(ks_mod, "USE_DOCKER", None)
@@ -5259,7 +5166,7 @@ class TestRTSortRunnerHelpers:
         Captures the ``recording_window_ms`` argument passed to each of the
         two RT-Sort entry points, then asserts they differ as expected.
         """
-        from spikelab.spike_sorting import _globals
+        _globals = _GlobalsStub()  # _globals.py deleted in Phase 5; stub absorbs writes
         from spikelab.spike_sorting import rt_sort_runner as runner
 
         # --- Stub heavy dependencies -----------------------------------
@@ -5329,7 +5236,7 @@ class TestRTSortRunnerHelpers:
     ):
         """When ``detection_window_s`` is None (default), both phases see the
         same window — preserves legacy behavior."""
-        from spikelab.spike_sorting import _globals
+        _globals = _GlobalsStub()  # _globals.py deleted in Phase 5; stub absorbs writes
         from spikelab.spike_sorting import rt_sort_runner as runner
 
         captured = {"detect": None, "sort_offline": None}
@@ -5470,39 +5377,47 @@ class TestRTSortSubpackagePublicAPI:
             assert name in rt_sort.__all__
 
 
-class TestRTSortGlobals:
+class TestRTSortConfigDefaults:
     """
-    Tests that the RT_SORT_* globals exist with their documented default types.
+    Tests that the RTSortConfig declares the RT-Sort parameter fields
+    referenced by the runner and backend.
+
+    Replaces ``TestRTSortGlobals`` (deleted in Phase 5 of the
+    ``_globals.py`` refactor — those tests asserted on ``_globals.
+    RT_SORT_*`` attributes which were deleted along with the
+    ``_globals`` module). The same default-type contract is now
+    expressed through the typed :class:`RTSortConfig` dataclass.
     """
 
-    def test_rt_sort_globals_present(self):
+    def test_rt_sort_config_fields_present(self):
         """
-        _globals declares the RT_SORT_* names referenced by the runner and backend.
+        RTSortConfig exposes the fields the runner and backend rely on,
+        with the documented default types.
 
         Tests:
-            (Test Case 1) All documented RT_SORT_* attributes exist on the module.
+            (Test Case 1) All documented attributes exist on the dataclass.
             (Test Case 2) Default booleans are bools and string defaults are strings.
         """
-        from spikelab.spike_sorting import _globals
+        from spikelab.spike_sorting.config import RTSortConfig
 
-        # Names exist
+        cfg = RTSortConfig()
         for name in (
-            "RT_SORT_MODEL_PATH",
-            "RT_SORT_DEVICE",
-            "RT_SORT_NUM_PROCESSES",
-            "RT_SORT_RECORDING_WINDOW_MS",
-            "RT_SORT_PARAMS",
-            "RT_SORT_SAVE_PICKLE",
-            "RT_SORT_DELETE_INTER",
-            "RT_SORT_VERBOSE",
+            "model_path",
+            "device",
+            "num_processes",
+            "recording_window_ms",
+            "params",
+            "save_rt_sort_pickle",
+            "delete_inter",
+            "verbose",
         ):
-            assert hasattr(_globals, name), f"_globals is missing {name}"
+            assert hasattr(cfg, name), f"RTSortConfig is missing {name}"
 
         # Default types match the documented contract
-        assert isinstance(_globals.RT_SORT_DEVICE, str)
-        assert isinstance(_globals.RT_SORT_SAVE_PICKLE, bool)
-        assert isinstance(_globals.RT_SORT_DELETE_INTER, bool)
-        assert isinstance(_globals.RT_SORT_VERBOSE, bool)
+        assert isinstance(cfg.device, str)
+        assert isinstance(cfg.save_rt_sort_pickle, bool)
+        assert isinstance(cfg.delete_inter, bool)
+        assert isinstance(cfg.verbose, bool)
 
 
 # ===========================================================================

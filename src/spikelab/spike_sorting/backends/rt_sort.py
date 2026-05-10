@@ -19,14 +19,12 @@ Requirements:
     # see https://pytorch.org/get-started/locally/
 """
 
-import warnings
 from pathlib import Path
 from typing import Any, Optional
 
 import numpy as np
 
-from .. import _globals
-from ..config import SortingPipelineConfig
+from ..config import SortingPipelineConfig, WaveformConfig
 from .base import SorterBackend
 
 
@@ -56,30 +54,18 @@ def _numpy_sorting_to_ks_extractor(
             synthetic templates so that get_chans_max() returns the
             correct channel for each unit.
         keep_good_only (bool or None): Forwarded to
-            :class:`KilosortSortingExtractor`. When ``None``, falls back
-            to ``bool(_globals.KILOSORT_PARAMS and _globals.KILOSORT_PARAMS.get("keep_good_only"))``
-            with a ``DeprecationWarning``.
+            :class:`KilosortSortingExtractor`. When ``None``, defaults
+            to ``False``.
         pos_peak_thresh (float or None): Forwarded to
-            :class:`KilosortSortingExtractor`. When ``None``, falls back
-            to ``_globals.POS_PEAK_THRESH``.
+            :class:`KilosortSortingExtractor`. When ``None``, falls
+            back to ``WaveformConfig().pos_peak_thresh``.
     """
     from ..sorting_extractor import KilosortSortingExtractor
 
-    if keep_good_only is None and pos_peak_thresh is None:
-        warnings.warn(
-            "_numpy_sorting_to_ks_extractor called without explicit "
-            "keep_good_only / pos_peak_thresh; falling back to the "
-            "legacy module-level globals in spikelab.spike_sorting."
-            "_globals. Pass the values explicitly to silence this "
-            "warning. The legacy path will be removed once the "
-            "_globals.py refactor lands (see iat/TO_IMPLEMENT.md).",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        keep_good_only = bool(
-            _globals.KILOSORT_PARAMS and _globals.KILOSORT_PARAMS.get("keep_good_only")
-        )
-        pos_peak_thresh = _globals.POS_PEAK_THRESH
+    if keep_good_only is None:
+        keep_good_only = False
+    if pos_peak_thresh is None:
+        pos_peak_thresh = WaveformConfig().pos_peak_thresh
 
     output_folder = Path(output_folder)
     output_folder.mkdir(parents=True, exist_ok=True)
