@@ -5,12 +5,10 @@ Mirrors the structure of ``ks2_runner.py`` for symmetry — backends
 should delegate sorting to a dedicated runner module.
 """
 
-import warnings
 from contextlib import nullcontext
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
-from . import _globals
 from ._classifier import classify_ks4_failure
 from ._exceptions import SpikeSortingClassifiedError
 from .config import SortingPipelineConfig
@@ -43,10 +41,8 @@ def spike_sort(
             for interface parity).
         output_folder (Path): Directory for Kilosort4 output files.
         config (SortingPipelineConfig or None): Pipeline configuration.
-            When ``None``, falls back to the legacy module-level
-            globals in ``_globals.py`` (``RECOMPUTE_SORTING``,
-            ``USE_DOCKER``, ``KILOSORT_PARAMS``, ``POS_PEAK_THRESH``)
-            and emits a ``DeprecationWarning``.
+            When ``None``, a default :class:`SortingPipelineConfig` is
+            used.
 
     Returns:
         sorting: A ``KilosortSortingExtractor`` pointing at the output
@@ -58,33 +54,19 @@ def spike_sort(
     import spikeinterface.sorters as ss
 
     if config is None:
-        warnings.warn(
-            "ks4_runner.spike_sort called without an explicit `config`; "
-            "falling back to the legacy module-level globals in "
-            "spikelab.spike_sorting._globals. Pass "
-            "config=<SortingPipelineConfig> to silence this warning. "
-            "The legacy path will be removed once the _globals.py "
-            "refactor lands (see iat/TO_IMPLEMENT.md).",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        recompute_sorting = _globals.RECOMPUTE_SORTING
-        use_docker: Union[bool, str] = _globals.USE_DOCKER
-        kilosort_params: Optional[Dict[str, Any]] = _globals.KILOSORT_PARAMS
-        pos_peak_thresh = _globals.POS_PEAK_THRESH
-    else:
-        # Apply the same backend-level defaults the Kilosort4Backend
-        # _sync_globals previously baked in, so the runner's view of
-        # the params matches the production sort.
-        from .backends.kilosort4 import DEFAULT_KILOSORT4_PARAMS
+        config = SortingPipelineConfig()
+    # Apply the same backend-level defaults the Kilosort4Backend used to
+    # bake in via _sync_globals, so the runner's view of the params
+    # matches the production sort.
+    from .backends.kilosort4 import DEFAULT_KILOSORT4_PARAMS
 
-        recompute_sorting = config.execution.recompute_sorting
-        use_docker = config.sorter.use_docker
-        kilosort_params = {
-            **DEFAULT_KILOSORT4_PARAMS,
-            **(config.sorter.sorter_params or {}),
-        }
-        pos_peak_thresh = config.waveform.pos_peak_thresh
+    recompute_sorting = config.execution.recompute_sorting
+    use_docker: Union[bool, str] = config.sorter.use_docker
+    kilosort_params: Dict[str, Any] = {
+        **DEFAULT_KILOSORT4_PARAMS,
+        **(config.sorter.sorter_params or {}),
+    }
+    pos_peak_thresh = config.waveform.pos_peak_thresh
 
     print_stage("SPIKE SORTING WITH KILOSORT4")
     stopwatch = Stopwatch()

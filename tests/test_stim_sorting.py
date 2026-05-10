@@ -132,28 +132,13 @@ class TestLoadRecordingBaseRecording:
         (Test Case 3) FIRST_N_MINS truncation still applies to BaseRecording.
     """
 
-    @pytest.fixture(autouse=True)
-    def _reset_recording_globals(self, monkeypatch):
-        """``load_recording`` reads several module-level globals that earlier
-        tests in the same pytest process may have populated.  Reset them to
-        their declared defaults via ``monkeypatch`` so each test sees a clean
-        state and the globals are restored at teardown."""
-        from spikelab.spike_sorting import _globals
-
-        for name, default in [
-            ("STREAM_ID", None),
-            ("FIRST_N_MINS", None),
-            ("MEA_Y_MAX", None),
-            ("GAIN_TO_UV", None),
-            ("OFFSET_TO_UV", None),
-            ("REC_CHUNKS", []),
-            ("REC_CHUNKS_S", []),
-            ("START_TIME_S", None),
-            ("END_TIME_S", None),
-            ("FREQ_MIN", 300),
-            ("FREQ_MAX", 6000),
-        ]:
-            monkeypatch.setattr(_globals, name, default)
+    # NOTE: The legacy `_reset_recording_globals` fixture was deleted in
+    # Phase 5 of the _globals.py refactor (iat/TO_IMPLEMENT.md).
+    # `load_recording` now constructs its own default
+    # `SortingPipelineConfig` when called without one, so cross-test
+    # state cannot leak through module globals anymore. Tests that need
+    # non-default recording settings (e.g. FIRST_N_MINS truncation) now
+    # pass a `config=` argument directly.
 
     def test_numpy_recording_passes_through(self):
         from spikeinterface.core import BaseRecording
@@ -178,18 +163,21 @@ class TestLoadRecordingBaseRecording:
         assert isinstance(out, BaseRecording)
         assert out.get_num_channels() == rec.get_num_channels()
 
-    def test_first_n_mins_truncation_applies(self, monkeypatch):
+    def test_first_n_mins_truncation_applies(self):
         """Post-loading truncation (FIRST_N_MINS) must still fire for
         BaseRecording inputs — the early-return branch hands control back
         to the same post-processing pipeline as the file-path branch."""
-        from spikelab.spike_sorting import _globals
+        from spikelab.spike_sorting.config import (
+            RecordingConfig,
+            SortingPipelineConfig,
+        )
         from spikelab.spike_sorting.recording_io import load_recording
 
         # 4 s recording, truncate to 1/30 min (2 s).
         fs = 20000.0
         rec = _make_numpy_recording(num_samples=int(4 * fs), fs=fs)
-        monkeypatch.setattr(_globals, "FIRST_N_MINS", 2 / 60)
-        out = load_recording(rec)
+        config = SortingPipelineConfig(recording=RecordingConfig(first_n_mins=2 / 60))
+        out = load_recording(rec, config=config)
         assert out.get_total_duration() == pytest.approx(2.0, rel=0.01)
 
 

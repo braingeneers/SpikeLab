@@ -4,7 +4,6 @@ import json
 import os
 import shutil
 import sys
-import warnings
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
@@ -12,27 +11,8 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 import numpy as np
 from tqdm import tqdm
 
-from . import _globals
-from .config import SortingPipelineConfig
+from .config import SortingPipelineConfig, WaveformConfig
 from .sorting_utils import Stopwatch, create_folder, print_stage
-
-
-def _emit_legacy_warning(func_name: str) -> None:
-    """Emit a ``DeprecationWarning`` for callers that have not migrated
-    to the config-based API yet. The message names the entry point so
-    residual sites are easy to find at runtime.
-    """
-    warnings.warn(
-        f"{func_name} called without an explicit `config`; falling back "
-        "to the legacy module-level globals in spikelab.spike_sorting."
-        "_globals (WAVEFORMS_MS_BEFORE/AFTER, POS_PEAK_THRESH, "
-        "MAX_WAVEFORMS_PER_UNIT, N_JOBS, TOTAL_MEMORY, "
-        "SAVE_WAVEFORM_FILES). Pass config=<SortingPipelineConfig> to "
-        "silence this warning. The legacy path will be removed once the "
-        "_globals.py refactor lands (see iat/TO_IMPLEMENT.md).",
-        DeprecationWarning,
-        stacklevel=3,
-    )
 
 
 class WaveformExtractor:
@@ -85,18 +65,20 @@ class WaveformExtractor:
         self.peak_ind = parameters["peak_ind"]
 
         # Cache the remaining extraction params on the instance so
-        # streaming / sampling methods don't need to read globals. The
-        # JSON written by ``create_initial`` always contains these keys;
-        # the fallback to the live ``_globals`` is purely defensive for
-        # JSON files written by an older SpikeLab.
+        # streaming / sampling methods don't need to read them through
+        # an external object. The JSON written by ``create_initial``
+        # always contains these keys; the fallback to ``WaveformConfig``
+        # defaults is defensive for JSON files written before
+        # ``save_waveform_files`` was persisted.
+        _wf_defaults = WaveformConfig()
         self.pos_peak_thresh = parameters.get(
-            "pos_peak_thresh", _globals.POS_PEAK_THRESH
+            "pos_peak_thresh", _wf_defaults.pos_peak_thresh
         )
         self.max_waveforms_per_unit = parameters.get(
-            "max_waveforms_per_unit", _globals.MAX_WAVEFORMS_PER_UNIT
+            "max_waveforms_per_unit", _wf_defaults.max_waveforms_per_unit
         )
         self.save_waveform_files = parameters.get(
-            "save_waveform_files", _globals.SAVE_WAVEFORM_FILES
+            "save_waveform_files", _wf_defaults.save_waveform_files
         )
 
         # Extract waveforms as µV when the recording supports scaling
@@ -125,22 +107,14 @@ class WaveformExtractor:
         config: Optional[SortingPipelineConfig] = None,
     ):
         if config is None:
-            _emit_legacy_warning("WaveformExtractor.create_initial")
-            ms_before = _globals.WAVEFORMS_MS_BEFORE
-            ms_after = _globals.WAVEFORMS_MS_AFTER
-            pos_peak_thresh = _globals.POS_PEAK_THRESH
-            max_waveforms_per_unit = _globals.MAX_WAVEFORMS_PER_UNIT
-            n_jobs = _globals.N_JOBS
-            total_memory = _globals.TOTAL_MEMORY
-            save_waveform_files = _globals.SAVE_WAVEFORM_FILES
-        else:
-            ms_before = config.waveform.ms_before
-            ms_after = config.waveform.ms_after
-            pos_peak_thresh = config.waveform.pos_peak_thresh
-            max_waveforms_per_unit = config.waveform.max_waveforms_per_unit
-            n_jobs = config.execution.n_jobs
-            total_memory = config.execution.total_memory
-            save_waveform_files = config.waveform.save_waveform_files
+            config = SortingPipelineConfig()
+        ms_before = config.waveform.ms_before
+        ms_after = config.waveform.ms_after
+        pos_peak_thresh = config.waveform.pos_peak_thresh
+        max_waveforms_per_unit = config.waveform.max_waveforms_per_unit
+        n_jobs = config.execution.n_jobs
+        total_memory = config.execution.total_memory
+        save_waveform_files = config.waveform.save_waveform_files
 
         # Create root waveform folder and data
         root_folder = Path(root_folder)
