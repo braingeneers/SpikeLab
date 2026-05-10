@@ -5364,3 +5364,61 @@ class TestAnalysisWorkspaceSaveStripsH5Suffix:
 
         assert os.path.exists(base + ".h5")
         assert os.path.exists(base + ".json")
+
+
+class TestNumpyEncoder:
+    """Direct tests for the ``_NumpyEncoder`` JSON encoder."""
+
+    def test_numpy_scalars_round_trip_to_python_primitives(self):
+        """
+        ``_NumpyEncoder`` converts numpy scalar types to JSON-compatible
+        Python primitives (int, float, bool, str). Each branch in
+        ``default()`` is exercised directly.
+
+        Tests:
+            (Test Case 1) ``np.int64`` becomes a JSON integer.
+            (Test Case 2) ``np.float32`` becomes a JSON float.
+            (Test Case 3) ``np.bool_(True)`` becomes ``true``.
+            (Test Case 4) ``np.str_`` becomes a JSON string.
+            (Test Case 5) An ``np.ndarray`` becomes a JSON list.
+        """
+        import json
+        from spikelab.workspace.hdf5_io import _NumpyEncoder
+
+        payload = {
+            "i": np.int64(7),
+            "f": np.float32(2.5),
+            "b": np.bool_(True),
+            "s": np.str_("hello"),
+            "a": np.array([1, 2, 3]),
+        }
+        encoded = json.dumps(payload, cls=_NumpyEncoder)
+        decoded = json.loads(encoded)
+        assert decoded["i"] == 7 and isinstance(decoded["i"], int)
+        assert decoded["f"] == pytest.approx(2.5)
+        assert decoded["b"] is True
+        assert decoded["s"] == "hello"
+        assert decoded["a"] == [1, 2, 3]
+
+    def test_unsupported_type_raises_type_error(self):
+        """
+        ``_NumpyEncoder`` falls back to ``json.JSONEncoder.default`` for
+        unhandled types, which raises ``TypeError``. ``np.complex128``
+        is not in the encoder's handled list and surfaces this error.
+
+        Tests:
+            (Test Case 1) Encoding ``np.complex128`` raises TypeError.
+            (Test Case 2) Encoding an arbitrary user object raises
+                TypeError.
+        """
+        import json
+        from spikelab.workspace.hdf5_io import _NumpyEncoder
+
+        with pytest.raises(TypeError):
+            json.dumps({"c": np.complex128(1 + 2j)}, cls=_NumpyEncoder)
+
+        class Foo:
+            pass
+
+        with pytest.raises(TypeError):
+            json.dumps({"x": Foo()}, cls=_NumpyEncoder)

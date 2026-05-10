@@ -6,6 +6,7 @@ import pytest
 from spikelab.spikedata import SpikeData
 from spikelab.spikedata.curation import (
     build_curation_history,
+    _choose_primary_unit,
     _compute_pairwise_similarity,
     compute_waveform_metrics,
     curate,
@@ -18,7 +19,9 @@ from spikelab.spikedata.curation import (
     _filter_by_cosine_sim,
     _filter_pairs_by_isi_violations,
     _find_nearby_unit_pairs,
+    _isi_violation_fraction,
     _merge_redundant_units,
+    _merge_two_trains,
 )
 
 # ---------------------------------------------------------------------------
@@ -1627,3 +1630,165 @@ class TestCurateByMergeDuplicates:
         sd = _make_sd(n_units=3)
         with pytest.raises(ValueError, match="unit_locations is None"):
             curate_by_merge_duplicates(sd)
+
+
+class TestIsiViolationFraction:
+    """Direct tests for the ISI violation fraction helper."""
+
+    def test_short_train_returns_zero(self):
+        """
+        ``_isi_violation_fraction`` returns 0.0 for trains with fewer
+        than 2 spikes (no ISI to evaluate).
+
+        Tests:
+            (Test Case 1) Empty train returns 0.0.
+            (Test Case 2) Single-spike train returns 0.0.
+        """
+        assert _isi_violation_fraction(np.array([]), threshold_ms=2.0) == 0.0
+        assert _isi_violation_fraction(np.array([10.0]), threshold_ms=2.0) == 0.0
+
+    def test_no_violations_returns_zero(self):
+        """
+        A train with all ISIs above the refractory threshold returns 0.0.
+
+        Tests:
+            (Test Case 1) Spikes 10ms apart with threshold=2ms have zero
+                violations.
+        """
+        train = np.arange(0.0, 100.0, 10.0)
+        assert _isi_violation_fraction(train, threshold_ms=2.0) == 0.0
+
+    def test_fraction_is_violations_over_n_spikes(self):
+        """
+        The denominator is ``len(train)`` (not ``len(train) - 1``), and
+        the numerator counts strictly-less-than-threshold ISIs. Pin
+        this contract since it is non-obvious.
+
+        Tests:
+            (Test Case 1) 5-spike train with 2 short ISIs (< 2ms) and
+                2 long ISIs returns ``2 / 5 = 0.4``.
+        """
+        train = np.array([0.0, 1.0, 2.0, 100.0, 200.0])
+        assert _isi_violation_fraction(train, threshold_ms=2.0) == pytest.approx(0.4)
+
+    def test_threshold_boundary_is_strict_less_than(self):
+        """
+        ISI exactly equal to the threshold is NOT a violation
+        (``<`` comparison, not ``<=``).
+
+        Tests:
+            (Test Case 1) Spikes exactly threshold_ms apart yield zero
+                violations.
+        """
+        train = np.array([0.0, 2.0, 4.0])
+        assert _isi_violation_fraction(train, threshold_ms=2.0) == 0.0
+
+
+class TestMergeTwoTrains:
+    """Direct tests for the two-train merge helper."""
+
+    def test_zero_delta_only_dedupes_exact_matches(self):
+        """
+        ``delta_ms=0`` only removes spikes from different source trains
+        that occur at exactly the same time. Distinct nearby spikes are
+        preserved.
+
+        Tests:
+            (Test Case 1) Exact-time cross-train pair counts as 1 duplicate.
+            (Test Case 2) Sub-millisecond offset cross-train pair counts
+                as 0 duplicates.
+        """
+        merged, n_dups = _merge_two_trains(
+            np.array([10.0, 20.0]), np.array([10.0, 30.0]), delta_ms=0.0
+        )
+        assert n_dups == 1
+        assert merged.size == 3
+        np.testing.assert_array_equal(merged, [10.0, 20.0, 30.0])
+
+        merged, n_dups = _merge_two_trains(
+            np.array([10.0]), np.array([10.0001]), delta_ms=0.0
+        )
+        assert n_dups == 0
+        assert merged.size == 2
+
+    def test_same_train_self_pairs_not_deduped(self):
+        """
+        ``_merge_two_trains`` only dedupes spikes that come from
+        DIFFERENT source trains (``cross_train`` mask). Two spikes
+        within ``delta_ms`` of each other but both from the same
+        train pass through unchanged.
+
+        Tests:
+            (Test Case 1) Two near-coincident spikes both in train1
+                are preserved despite being within delta_ms.
+        """
+        merged, n_dups = _merge_two_trains(
+            np.array([10.0, 10.1]), np.array([100.0]), delta_ms=1.0
+        )
+        assert n_dups == 0
+        assert merged.size == 3
+
+    def test_one_empty_train_returns_other_sorted(self):
+        """
+        If exactly one input train is empty, the other is returned
+        sorted with zero duplicates.
+
+        Tests:
+            (Test Case 1) Empty first train returns sorted second.
+            (Test Case 2) Empty second train returns sorted first.
+            (Test Case 3) Both empty returns empty array.
+        """
+        merged, n = _merge_two_trains(
+            np.array([]), np.array([3.0, 1.0, 2.0]), delta_ms=0.4
+        )
+        np.testing.assert_array_equal(merged, [1.0, 2.0, 3.0])
+        assert n == 0
+
+        merged, n = _merge_two_trains(np.array([5.0, 1.0]), np.array([]), delta_ms=0.4)
+        np.testing.assert_array_equal(merged, [1.0, 5.0])
+        assert n == 0
+
+        merged, n = _merge_two_trains(np.array([]), np.array([]), delta_ms=0.4)
+        assert merged.size == 0
+        assert n == 0
+
+
+class TestChoosePrimaryUnit:
+    """Direct tests for the primary-unit selection helper."""
+
+    def test_larger_train_wins(self):
+        """
+        ``_choose_primary_unit`` returns ``(primary, secondary)`` where
+        primary is the unit with more spikes.
+
+        Tests:
+            (Test Case 1) Unit with more spikes is primary regardless
+                of which index is passed first.
+        """
+        sd = SpikeData(
+            [np.arange(0.0, 50.0, 1.0), np.arange(0.0, 100.0, 1.0)],
+            length=100.0,
+        )
+        primary, secondary = _choose_primary_unit(sd, 0, 1)
+        assert primary == 1
+        assert secondary == 0
+
+        primary, secondary = _choose_primary_unit(sd, 1, 0)
+        assert primary == 1
+        assert secondary == 0
+
+    def test_equal_spike_count_keeps_first_as_primary(self):
+        """
+        On a spike-count tie, the first index argument is kept as
+        primary (``>=`` comparison).
+
+        Tests:
+            (Test Case 1) Tie returns ``(i, j)`` (first arg primary).
+            (Test Case 2) Reversing args returns ``(j, i)``.
+        """
+        sd = SpikeData(
+            [np.arange(0.0, 30.0, 1.0), np.arange(0.0, 30.0, 1.0)],
+            length=30.0,
+        )
+        assert _choose_primary_unit(sd, 0, 1) == (0, 1)
+        assert _choose_primary_unit(sd, 1, 0) == (1, 0)
