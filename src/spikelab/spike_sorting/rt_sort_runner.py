@@ -14,14 +14,16 @@ attributed to van der Molen, Lim et al. 2024 (PLOS ONE, DOI
 10.1371/journal.pone.0312438).
 """
 
+import warnings
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import numpy as np
 
 from . import _globals
 from ._classifier import classify_rt_sort_failure
 from ._exceptions import SpikeSortingClassifiedError
+from .config import SortingPipelineConfig
 from .sorting_utils import Stopwatch, Tee, print_stage
 
 
@@ -54,6 +56,8 @@ def spike_sort(
     rec_path: Any,
     recording_dat_path: Any,
     output_folder: Any,
+    *,
+    config: Optional[SortingPipelineConfig] = None,
 ) -> Any:
     """Run RT-Sort offline spike sorting on a single recording.
 
@@ -64,8 +68,9 @@ def spike_sort(
       2. ``RTSort.sort_offline`` — assigns spikes in the recording to
          the detected sequences.
 
-    Reads RT-Sort parameters from ``_globals`` (populated by
-    ``RTSortBackend._sync_globals``).  The serialized ``RTSort`` object
+    Reads RT-Sort parameters from *config* (when provided) or from
+    the legacy module-level globals in ``_globals.py`` (populated by
+    ``RTSortBackend._sync_globals``). The serialized ``RTSort`` object
     is optionally written to ``output_folder/rt_sort.pickle`` for reuse
     by the Phase 2 stim-aware sorting pipeline.
 
@@ -77,6 +82,14 @@ def spike_sort(
             Kilosort runners).
         output_folder (Path): Directory where RT-Sort intermediate
             files and the serialized ``RTSort`` object are stored.
+        config (SortingPipelineConfig or None): Pipeline configuration.
+            When ``None``, falls back to the legacy module-level
+            globals (``RECOMPUTE_SORTING``, ``RT_SORT_MODEL_PATH``,
+            ``RT_SORT_DEVICE``, ``RT_SORT_NUM_PROCESSES``,
+            ``RT_SORT_RECORDING_WINDOW_MS``,
+            ``RT_SORT_DETECTION_WINDOW_S``, ``RT_SORT_VERBOSE``,
+            ``RT_SORT_DELETE_INTER``, ``RT_SORT_PARAMS``,
+            ``RT_SORT_SAVE_PICKLE``) and emits a ``DeprecationWarning``.
 
     Returns:
         sorting: A SpikeInterface ``NumpySorting`` with one unit per
@@ -84,6 +97,46 @@ def spike_sort(
             failed.
     """
     from .rt_sort import detect_sequences
+
+    if config is None:
+        warnings.warn(
+            "rt_sort_runner.spike_sort called without an explicit "
+            "`config`; falling back to the legacy module-level globals "
+            "in spikelab.spike_sorting._globals. Pass "
+            "config=<SortingPipelineConfig> to silence this warning. "
+            "The legacy path will be removed once the _globals.py "
+            "refactor lands (see iat/TO_IMPLEMENT.md).",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        recompute_sorting = _globals.RECOMPUTE_SORTING
+        rt_model_path = _globals.RT_SORT_MODEL_PATH
+        rt_device = _globals.RT_SORT_DEVICE
+        rt_num_processes = _globals.RT_SORT_NUM_PROCESSES
+        sort_window_ms = _globals.RT_SORT_RECORDING_WINDOW_MS
+        det_window_s = _globals.RT_SORT_DETECTION_WINDOW_S
+        rt_verbose = _globals.RT_SORT_VERBOSE
+        rt_delete_inter = _globals.RT_SORT_DELETE_INTER
+        # Mirror RTSortBackend._sync_globals: the live RT_SORT_PARAMS
+        # already contains the merged probe key, so we use it directly.
+        rt_params = dict(_globals.RT_SORT_PARAMS or {})
+        save_rt_sort_pickle = _globals.RT_SORT_SAVE_PICKLE
+    else:
+        rts = config.rt_sort
+        recompute_sorting = config.execution.recompute_sorting
+        rt_model_path = rts.model_path
+        rt_device = rts.device
+        rt_num_processes = rts.num_processes
+        sort_window_ms = rts.recording_window_ms
+        det_window_s = rts.detection_window_s
+        rt_verbose = rts.verbose
+        rt_delete_inter = rts.delete_inter
+        # Mirror RTSortBackend._sync_globals: merge probe into params
+        # so the runner sees both as a single dict.
+        rt_params = {"probe": rts.probe}
+        if rts.params:
+            rt_params.update(rts.params)
+        save_rt_sort_pickle = rts.save_rt_sort_pickle
 
     print_stage("SPIKE SORTING WITH RT-SORT")
     stopwatch = Stopwatch()
@@ -103,7 +156,7 @@ def spike_sort(
     with Tee(log_path, file_mode="w"):
         # Reuse cached results when recompute is not forced
         if (
-            not _globals.RECOMPUTE_SORTING
+            not recompute_sorting
             and rt_sort_pickle.exists()
             and cached_sorting_npz.exists()
         ):
@@ -123,24 +176,22 @@ def spike_sort(
 
         try:
             detection_model = _load_detection_model(
-                _globals.RT_SORT_MODEL_PATH,
-                probe=(_globals.RT_SORT_PARAMS or {}).get("probe", "mea"),
+                rt_model_path,
+                probe=rt_params.get("probe", "mea"),
             )
 
             # Resolve the detection window.  If the user set
             # ``detection_window_s``, it narrows the window used *only*
             # during sequence detection — ``sort_offline`` below still uses
-            # the full ``RT_SORT_RECORDING_WINDOW_MS`` so every spike in
+            # the full ``recording_window_ms`` so every spike in
             # the recording is assigned to one of the detected sequences.
-            sort_window_ms = _globals.RT_SORT_RECORDING_WINDOW_MS
-            det_window_s = _globals.RT_SORT_DETECTION_WINDOW_S
             if det_window_s is not None:
                 start_ms = sort_window_ms[0] if sort_window_ms is not None else 0.0
                 detect_window_ms = (
                     start_ms,
                     start_ms + float(det_window_s) * 1000.0,
                 )
-                if _globals.RT_SORT_VERBOSE:
+                if rt_verbose:
                     print(
                         f"[rt_sort] Detection window narrowed to "
                         f"{detect_window_ms[0]/1000:.1f}-"
@@ -150,16 +201,16 @@ def spike_sort(
             else:
                 detect_window_ms = sort_window_ms
 
-            # Assemble the detect_sequences kwargs from globals + param
-            # override dict.  The override dict wins.
+            # Assemble the detect_sequences kwargs from resolved
+            # params + override dict. Override dict wins.
             ds_kwargs = dict(
                 recording_window_ms=detect_window_ms,
-                device=_globals.RT_SORT_DEVICE,
-                num_processes=_globals.RT_SORT_NUM_PROCESSES,
-                delete_inter=_globals.RT_SORT_DELETE_INTER,
-                verbose=_globals.RT_SORT_VERBOSE,
+                device=rt_device,
+                num_processes=rt_num_processes,
+                delete_inter=rt_delete_inter,
+                verbose=rt_verbose,
             )
-            param_overrides = dict(_globals.RT_SORT_PARAMS or {})
+            param_overrides = dict(rt_params)
             param_overrides.pop("probe", None)  # consumed above
             ds_kwargs.update(param_overrides)
 
@@ -185,7 +236,7 @@ def spike_sort(
                 inter_path=output_folder,
                 recording_window_ms=sort_window_ms,
                 return_spikeinterface_sorter=True,
-                verbose=_globals.RT_SORT_VERBOSE,
+                verbose=rt_verbose,
             )
         except SpikeSortingClassifiedError:
             raise
@@ -204,7 +255,7 @@ def spike_sort(
         # survives RTSortConfig.delete_inter=True. We also copy compiled.ts
         # alongside so load_rt_sort() can auto-detect the model on reload
         # (it looks for `pickle_path.parent / "compiled.ts"`).
-        if _globals.RT_SORT_SAVE_PICKLE:
+        if save_rt_sort_pickle:
             rt_sort.save(rt_sort_pickle)
             compiled_src = output_folder / "compiled.ts"
             compiled_dst = rt_sort_pickle.parent / "compiled.ts"
