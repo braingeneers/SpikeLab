@@ -47,16 +47,20 @@ class Kilosort2Backend(SorterBackend):
         and pre-loaded BaseRecording objects.
 
         After loading, ``self.rec_chunk_names`` and
-        ``self.config.recording.rec_chunks`` are updated to reflect
-        the per-file boundaries when the recording was concatenated
-        from multiple files (or any explicit time/frame slicing the
-        loader applied).
+        ``self.rec_chunks_effective`` are updated to reflect the
+        per-file boundaries when the recording was concatenated from
+        multiple files (or any explicit time/frame slicing the loader
+        applied). These are stored on the backend rather than written
+        back onto ``self.config.recording.rec_chunks`` so the same
+        backend instance can be reused across recordings in a batch
+        loop without recording N's effective chunks leaking into
+        recording N+1's user-supplied configuration.
         """
         from ..recording_io import _load_recording_with_state
 
         result = _load_recording_with_state(rec_path, config=self.config)
         self.rec_chunk_names = list(result.recording_names)
-        self.config.recording.rec_chunks = list(result.rec_chunks)
+        self.rec_chunks_effective = list(result.rec_chunks)
         return result.recording
 
     def sort(

@@ -8701,3 +8701,429 @@ class TestBoundedHostMemory:
         # Restoration call.
         restore_call = observed_calls[1]
         assert restore_call == (original_soft, original_hard)
+
+
+# ===========================================================================
+# Phase 5 refactor coverage — regression tests for the cross-recording leak
+# fix, plus documenting tests for the migrated entry points.
+# ===========================================================================
+
+
+@skip_no_spikeinterface
+class TestBackendDoesNotMutateConfigRecChunks:
+    """Regression tests for the cross-recording leak fix.
+
+    Pre-fix, each backend's ``load_recording`` wrote the effective frame
+    chunks back onto ``self.config.recording.rec_chunks``. Since
+    ``sort_recording`` reuses one backend instance across the batch
+    loop, recording N's effective chunks leaked into recording N+1's
+    user-supplied configuration — either tripping the frame-vs-time
+    ValueError or silently slicing N+1 with N's boundaries.
+
+    The fix stores effective chunks on ``self.rec_chunks_effective``
+    (a fresh attribute on the backend) instead of writing them back to
+    the shared config. ``pipeline.py`` reads from the backend attribute
+    for the SpikeData metadata.
+    """
+
+    @pytest.fixture
+    def _patch_recording_io(self, monkeypatch):
+        """Stub ``_load_recording_with_state`` to return a known fixed
+        result without touching the real spike loader. The test focuses
+        on whether the backend mutates config or stores on self.
+        """
+        from spikelab.spike_sorting import recording_io as _rio
+
+        rec = _make_mock_recording()
+        fake_chunks = [(0, 1_000), (1_000, 2_500)]
+        fake_names = ["a.raw.h5", "b.raw.h5"]
+
+        result = _rio.LoadRecordingResult(
+            recording=rec, rec_chunks=fake_chunks, recording_names=fake_names
+        )
+
+        def _stub(rec_path, config=None):
+            return result
+
+        monkeypatch.setattr(_rio, "_load_recording_with_state", _stub)
+        return rec, fake_chunks, fake_names
+
+    def test_kilosort2_backend_does_not_mutate_config(self, _patch_recording_io):
+        """
+        ``Kilosort2Backend.load_recording`` stores effective chunks on
+        the backend, not on ``config.recording.rec_chunks``.
+
+        Tests:
+            (Test Case 1) ``self.rec_chunks_effective`` == the effective
+                chunks returned by the loader.
+            (Test Case 2) ``self.config.recording.rec_chunks`` remains
+                unchanged from the user-supplied config (here: empty
+                list, the default).
+            (Test Case 3) ``self.rec_chunk_names`` matches the loader's
+                names.
+        """
+        from spikelab.spike_sorting.backends.kilosort2 import Kilosort2Backend
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+
+        rec, fake_chunks, fake_names = _patch_recording_io
+        config = SortingPipelineConfig()
+        backend = Kilosort2Backend(config)
+
+        backend.load_recording("any.h5")
+
+        assert backend.rec_chunks_effective == fake_chunks
+        assert backend.rec_chunk_names == fake_names
+        # Critical: user-supplied config is untouched.
+        assert backend.config.recording.rec_chunks == []
+
+    def test_kilosort4_backend_does_not_mutate_config(self, _patch_recording_io):
+        """Same regression check for the Kilosort4 backend."""
+        from spikelab.spike_sorting.backends.kilosort4 import Kilosort4Backend
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+
+        _rec, fake_chunks, _names = _patch_recording_io
+        config = SortingPipelineConfig()
+        backend = Kilosort4Backend(config)
+
+        backend.load_recording("any.h5")
+
+        assert backend.rec_chunks_effective == fake_chunks
+        assert backend.config.recording.rec_chunks == []
+
+    def test_backend_reused_across_recordings_isolates_chunks(self, monkeypatch):
+        """
+        Two sequential loads with different effective chunks must not
+        contaminate the user-supplied config. The second load must see
+        the user's original ``rec_chunks`` (``[]``), not recording 1's
+        effective chunks.
+
+        Tests:
+            (Test Case 1) Load A returns chunks ``[(0, 1000)]``;
+                backend attr reflects them; config remains ``[]``.
+            (Test Case 2) Load B returns chunks ``[(0, 2000)]``;
+                backend attr now reflects B's chunks; config still
+                ``[]``.
+        """
+        from spikelab.spike_sorting import recording_io as _rio
+        from spikelab.spike_sorting.backends.kilosort2 import Kilosort2Backend
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+
+        rec = _make_mock_recording()
+        chunks_a = [(0, 1_000)]
+        chunks_b = [(0, 2_000)]
+        results = iter(
+            [
+                _rio.LoadRecordingResult(rec, chunks_a, ["a.raw.h5"]),
+                _rio.LoadRecordingResult(rec, chunks_b, ["b.raw.h5"]),
+            ]
+        )
+
+        def _stub(rec_path, config=None):
+            return next(results)
+
+        monkeypatch.setattr(_rio, "_load_recording_with_state", _stub)
+
+        config = SortingPipelineConfig()
+        backend = Kilosort2Backend(config)
+
+        backend.load_recording("a.h5")
+        assert backend.rec_chunks_effective == chunks_a
+        assert backend.config.recording.rec_chunks == []
+
+        backend.load_recording("b.h5")
+        assert backend.rec_chunks_effective == chunks_b
+        assert backend.config.recording.rec_chunks == []
+
+
+@skip_no_spikeinterface
+class TestConcatenateRecordingsEmptyDirectory:
+    """Regression test for the FileNotFoundError guard added when the
+    input directory has no ``.raw.h5`` or ``.nwb`` files. Pre-fix this
+    crashed with ``UnboundLocalError`` because ``rec`` was never bound.
+    """
+
+    def test_empty_directory_raises_file_not_found(self, tmp_path):
+        """
+        ``_concatenate_recordings_with_state`` raises
+        ``FileNotFoundError`` when the directory contains no recording
+        files, naming both the path and the expected extensions.
+
+        Tests:
+            (Test Case 1) Empty directory raises FileNotFoundError.
+            (Test Case 2) Error message references the directory path.
+            (Test Case 3) Error message names the expected extensions.
+        """
+        from spikelab.spike_sorting.recording_io import (
+            _concatenate_recordings_with_state,
+        )
+
+        with pytest.raises(FileNotFoundError) as exc:
+            _concatenate_recordings_with_state(tmp_path)
+        msg = str(exc.value)
+        assert str(tmp_path) in msg
+        assert ".raw.h5" in msg or ".nwb" in msg
+
+    def test_directory_with_unrelated_files_raises(self, tmp_path):
+        """
+        A directory containing files that do not match the supported
+        extensions is treated as empty.
+
+        Tests:
+            (Test Case 1) ``.txt`` and ``.npy`` files don't count as
+                recordings — function raises FileNotFoundError.
+        """
+        from spikelab.spike_sorting.recording_io import (
+            _concatenate_recordings_with_state,
+        )
+
+        (tmp_path / "notes.txt").write_text("not a recording")
+        (tmp_path / "spike_times.npy").write_bytes(b"\x00")
+
+        with pytest.raises(FileNotFoundError):
+            _concatenate_recordings_with_state(tmp_path)
+
+
+class TestRunKilosortFormatParamsIsPure:
+    """``RunKilosort.format_params`` is a pure function — it never
+    mutates its input dict. This is the canonical fix for the
+    cross-recording leak in the original CRITICAL finding.
+    """
+
+    def test_format_params_returns_new_dict_without_mutating_input(self):
+        """
+        Calling ``format_params`` twice on the same input dict produces
+        identical outputs and leaves the input unchanged.
+
+        Tests:
+            (Test Case 1) Input ``car=True`` survives — output ``car=1``.
+            (Test Case 2) Input ``NT=None`` survives — output is
+                ``64*1024 + ntbuff``.
+            (Test Case 3) Second call on the same input still sees the
+                original values (the leak symptom would be ``car=1``
+                flipped to bool, ``NT`` mutated to an int).
+        """
+        from spikelab.spike_sorting.ks2_runner import RunKilosort
+
+        params = {
+            "car": True,
+            "NT": None,
+            "ntbuff": 64,
+            "projection_threshold": [10, 4],
+        }
+        params_before = dict(params)
+
+        out_a = RunKilosort.format_params(params)
+        out_b = RunKilosort.format_params(params)
+
+        # Input untouched
+        assert params == params_before
+        # Outputs are normalized
+        assert out_a["car"] == 1
+        assert out_a["NT"] == 64 * 1024 + 64
+        # Repeated calls produce identical outputs (no drift from
+        # in-place mutation)
+        assert out_a == out_b
+
+    def test_format_params_rounds_nt_to_multiple_of_32(self):
+        """
+        Concrete ``NT`` values are rounded down to the nearest multiple
+        of 32 (KS2 mex requirement).
+
+        Tests:
+            (Test Case 1) NT=70_000 → 69984 (== 70000 // 32 * 32).
+            (Test Case 2) NT=64 → 64 (already a multiple of 32).
+        """
+        from spikelab.spike_sorting.ks2_runner import RunKilosort
+
+        out = RunKilosort.format_params({"car": False, "NT": 70_000, "ntbuff": 64})
+        assert out["NT"] == 70_000 // 32 * 32
+
+        out = RunKilosort.format_params({"car": False, "NT": 64, "ntbuff": 64})
+        assert out["NT"] == 64
+
+    def test_format_params_car_false_becomes_zero(self):
+        """``car=False`` maps to integer 0 (the MATLAB ops template
+        uses ``car`` as a numeric literal).
+        """
+        from spikelab.spike_sorting.ks2_runner import RunKilosort
+
+        out = RunKilosort.format_params({"car": False, "NT": 64, "ntbuff": 64})
+        assert out["car"] == 0
+
+
+@skip_no_spikeinterface
+class TestWaveformExtractorJsonRoundTrip:
+    """``WaveformExtractor.__init__`` reads three new keys from the
+    ``extraction_parameters.json`` written by ``create_initial``:
+    ``pos_peak_thresh``, ``max_waveforms_per_unit``, ``save_waveform_files``.
+    A JSON file written before Phase 2.4 lacks ``save_waveform_files``;
+    the constructor falls back to ``WaveformConfig`` defaults so old
+    waveform folders remain loadable.
+    """
+
+    def _make_dataset(self, tmp_path):
+        from spikeinterface.core import NumpyRecording
+        from spikelab.spike_sorting.sorting_extractor import (
+            KilosortSortingExtractor,
+        )
+
+        fs = 20000.0
+        n_samples = int(0.5 * fs)
+        n_channels = 4
+        rng = np.random.default_rng(0)
+        traces = rng.standard_normal((n_samples, n_channels)).astype(np.float32)
+        rec = NumpyRecording(traces_list=[traces], sampling_frequency=fs)
+
+        ks = tmp_path / "ks"
+        ks.mkdir()
+        np.save(ks / "spike_times.npy", np.array([100, 200], dtype=np.int64))
+        np.save(ks / "spike_clusters.npy", np.array([0, 1], dtype=np.int64))
+        np.save(ks / "templates.npy", np.zeros((2, 82, n_channels), dtype=np.float32))
+        np.save(ks / "channel_map.npy", np.arange(n_channels))
+        (ks / "params.py").write_text(
+            f"dat_path='r.dat'\nn_channels_dat={n_channels}\ndtype='float32'\n"
+            f"offset=0\nsample_rate={fs}\nhp_filtered=True\n"
+        )
+        return rec, KilosortSortingExtractor(ks), ks
+
+    def test_init_persists_save_waveform_files_in_json(self, tmp_path):
+        """
+        ``create_initial`` writes ``save_waveform_files`` into the
+        parameters JSON so it round-trips through ``__init__``.
+
+        Tests:
+            (Test Case 1) JSON contains the configured value.
+            (Test Case 2) Instance attr reflects it after a fresh
+                ``__init__`` from disk.
+        """
+        import json
+        from spikelab.spike_sorting.config import (
+            SortingPipelineConfig,
+            WaveformConfig,
+        )
+        from spikelab.spike_sorting.waveform_extractor import WaveformExtractor
+
+        rec, sorting, ks = self._make_dataset(tmp_path)
+        config = SortingPipelineConfig(
+            waveform=WaveformConfig(save_waveform_files=False)
+        )
+        root = tmp_path / "wf"
+        we = WaveformExtractor.create_initial(
+            recording_path=ks / "recording.dat",
+            recording=rec,
+            sorting=sorting,
+            root_folder=root,
+            initial_folder=root / "initial",
+            config=config,
+        )
+
+        params = json.loads((root / "extraction_parameters.json").read_text())
+        assert params["save_waveform_files"] is False
+        assert we.save_waveform_files is False
+
+    def test_init_falls_back_to_defaults_for_missing_json_keys(self, tmp_path):
+        """
+        ``WaveformExtractor.__init__`` falls back to ``WaveformConfig``
+        defaults when the JSON predates Phase 2.4 (no
+        ``save_waveform_files`` / ``pos_peak_thresh`` /
+        ``max_waveforms_per_unit`` keys).
+
+        Tests:
+            (Test Case 1) Older JSON (no new keys) loads without error.
+            (Test Case 2) Missing keys fall back to ``WaveformConfig()``
+                defaults — documents the silent fallback behaviour.
+
+        Notes:
+            - The fallback is intentional but silent. A downstream
+              reload of an old folder will use the dataclass defaults
+              for any missing keys, which may differ from whatever
+              global was set at original-extraction time. Loud-vs-quiet
+              behaviour here is a design call; this test pins the
+              current quiet contract.
+        """
+        import json
+        from spikelab.spike_sorting.config import WaveformConfig
+        from spikelab.spike_sorting.waveform_extractor import WaveformExtractor
+
+        rec, sorting, ks = self._make_dataset(tmp_path)
+        root = tmp_path / "wf"
+        root.mkdir()
+        (root / "waveforms").mkdir()
+        # Simulate an older parameters JSON without the three new keys.
+        legacy_params = {
+            "recording_path": str(ks / "recording.dat"),
+            "sampling_frequency": 20000.0,
+            "ms_before": 2.0,
+            "ms_after": 2.0,
+            "peak_ind": int(2.0 * 20000.0 / 1000.0),
+            "dtype": "float32",
+            "n_jobs": 1,
+            "total_memory": "1G",
+        }
+        (root / "extraction_parameters.json").write_text(json.dumps(legacy_params))
+
+        we = WaveformExtractor(rec, sorting, root, root / "initial")
+        wf_defaults = WaveformConfig()
+        assert we.pos_peak_thresh == wf_defaults.pos_peak_thresh
+        assert we.max_waveforms_per_unit == wf_defaults.max_waveforms_per_unit
+        assert we.save_waveform_files == wf_defaults.save_waveform_files
+
+
+@skip_no_spikeinterface
+class TestBackendOomScalingMutatesConfig:
+    """The Phase 3+4 refactor removed ``_sync_globals()`` from
+    ``scale_oom_params`` / ``restore_oom_params``. The scaled value
+    now lives on ``self.config.sorter.sorter_params`` (KS2/KS4)
+    directly, and any subsequent ``RunKilosort`` instance constructed
+    from the same backend must read it from there.
+    """
+
+    def test_kilosort2_scale_persists_on_config(self):
+        """
+        ``Kilosort2Backend.scale_oom_params`` writes the scaled NT onto
+        ``self.config.sorter.sorter_params`` so the next
+        ``RunKilosort`` instance constructed from the same backend
+        sees it.
+
+        Tests:
+            (Test Case 1) Initial ``sorter_params`` is None → first
+                scale resolves NT from default + ntbuff, then halves.
+            (Test Case 2) Scaled NT is rounded to a multiple of 32.
+            (Test Case 3) ``restore_oom_params`` reverts to the
+                snapshot.
+        """
+        from spikelab.spike_sorting.backends.kilosort2 import Kilosort2Backend
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+
+        backend = Kilosort2Backend(SortingPipelineConfig())
+        snapshot = backend.snapshot_oom_params()
+
+        scaled = backend.scale_oom_params(0.5)
+        assert scaled is True
+        assert backend.config.sorter.sorter_params is not None
+        nt = backend.config.sorter.sorter_params["NT"]
+        # NT is a multiple of 32 and was halved from the default
+        # 64*1024 + 64 = 65600.
+        assert nt % 32 == 0
+        assert nt < 64 * 1024 + 64
+
+        backend.restore_oom_params(snapshot)
+        # Restored to original (None in this case).
+        assert backend.config.sorter.sorter_params is None
+
+    def test_kilosort4_scale_persists_on_config(self):
+        """``Kilosort4Backend.scale_oom_params`` persists ``batch_size``
+        on ``self.config.sorter.sorter_params``."""
+        from spikelab.spike_sorting.backends.kilosort4 import Kilosort4Backend
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+
+        backend = Kilosort4Backend(SortingPipelineConfig())
+        snapshot = backend.snapshot_oom_params()
+
+        scaled = backend.scale_oom_params(0.5)
+        assert scaled is True
+        # Default batch_size 60000 → 30000 after halving.
+        assert backend.config.sorter.sorter_params["batch_size"] == 30000
+
+        backend.restore_oom_params(snapshot)
+        assert backend.config.sorter.sorter_params is None

@@ -97,8 +97,8 @@ def _build_canary_config(config: Any, canary_window_s: float) -> Any:
         # coexist with the per-file rec_chunks that directory
         # concatenation auto-populates — the loader treats time
         # slicing as an explicit override of those auto-populated
-        # boundaries (see ``load_recording`` and the
-        # ``REC_CHUNKS_FROM_CONCAT`` flag).
+        # boundaries (see ``_load_recording_with_state`` in
+        # ``recording_io.py`` for the precedence rules).
         "start_time_s": 0.0,
         "end_time_s": float(canary_window_s),
         "rec_chunks": [],

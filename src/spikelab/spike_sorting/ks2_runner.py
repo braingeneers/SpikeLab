@@ -39,10 +39,10 @@ class RunKilosort:
     sorter as a subprocess, and collecting the results as a
     ``KilosortSortingExtractor``.
 
-    The constructor validates the Kilosort2 path (from the module-level
-    ``KILOSORT_PATH`` global or the ``KILOSORT_PATH`` environment variable),
-    checks that the expected MATLAB entry-point script exists, and formats
-    the Kilosort2 parameter dict.
+    The constructor validates the Kilosort2 path (from the ``kilosort_path``
+    keyword argument or, when omitted, the ``KILOSORT_PATH`` environment
+    variable), checks that the expected MATLAB entry-point script exists,
+    and formats the Kilosort2 parameter dict.
 
     Attributes:
         path (str): Absolute path to the Kilosort2 MATLAB source tree.

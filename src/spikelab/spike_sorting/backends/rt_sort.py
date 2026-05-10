@@ -195,7 +195,7 @@ class RTSortBackend(SorterBackend):
 
         result = _load_recording_with_state(rec_path, config=self.config)
         self.rec_chunk_names = list(result.recording_names)
-        self.config.recording.rec_chunks = list(result.rec_chunks)
+        self.rec_chunks_effective = list(result.rec_chunks)
         return result.recording
 
     def sort(

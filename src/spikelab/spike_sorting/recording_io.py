@@ -44,7 +44,7 @@ except ImportError:  # pragma: no cover
     ScaleRecording = None
     _SI_AVAILABLE = False
 
-from .config import RecordingConfig, SortingPipelineConfig
+from .config import SortingPipelineConfig
 from .sorting_utils import (
     Stopwatch,
     print_stage,
@@ -636,6 +636,12 @@ def _concatenate_recordings_with_state(
                     "sorting results may be unreliable.",
                     stacklevel=2,
                 )
+
+    if not recordings:
+        raise FileNotFoundError(
+            f"No recording files found in {rec_path!s}: expected at least one "
+            "``.raw.h5`` or ``.nwb`` file."
+        )
 
     auto_rec_chunks: List[Tuple[int, int]] = []
     if len(recordings) == 1:
