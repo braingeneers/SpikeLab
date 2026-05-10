@@ -690,7 +690,17 @@
             <span class="p">)</span>
 
         <span class="k">if</span> <span class="n">hysteresis</span><span class="p">:</span>
-            <span class="n">raster</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span>
+            <span class="c1"># np.diff trims the time axis by 1 sample; without padding,</span>
+            <span class="c1"># the resulting raster is one bin shorter than raw_data</span>
+            <span class="c1"># (length mismatch) AND every rising-edge spike ends up one</span>
+            <span class="c1"># bin earlier than its actual crossing time (since diff</span>
+            <span class="c1"># shifts everything left by one). Prepend a False column to</span>
+            <span class="c1"># restore both: the raster regains its original (N, T)</span>
+            <span class="c1"># shape, and a rising edge at original sample t+1 maps</span>
+            <span class="c1"># back to raster bin t+1. The prepended column is a true</span>
+            <span class="c1"># statement — a rising edge cannot occur at sample 0.</span>
+            <span class="n">diff</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span>
+            <span class="n">raster</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">diff</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">1</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">),</span> <span class="n">diff</span><span class="p">])</span>
 
         <span class="k">return</span> <span class="n">SpikeData</span><span class="o">.</span><span class="n">from_raster</span><span class="p">(</span>
             <span class="n">raster</span><span class="p">,</span> <span class="mf">1e3</span> <span class="o">/</span> <span class="n">fs_Hz</span><span class="p">,</span> <span class="n">raw_data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span> <span class="n">raw_time</span><span class="o">=</span><span class="n">fs_Hz</span> <span class="o">/</span> <span class="mf">1e3</span>

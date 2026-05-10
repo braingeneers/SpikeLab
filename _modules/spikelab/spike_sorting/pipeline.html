@@ -2238,7 +2238,10 @@
                                 <span class="n">inter_path</span><span class="p">,</span>
                                 <span class="n">res_path</span><span class="p">,</span>
                                 <span class="n">rec_loaded</span><span class="o">=</span><span class="n">rec_loaded</span><span class="p">,</span>
-                                <span class="n">rec_chunks</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">recording</span><span class="o">.</span><span class="n">rec_chunks</span> <span class="ow">or</span> <span class="kc">None</span><span class="p">,</span>
+                                <span class="n">rec_chunks</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span>
+                                    <span class="n">backend</span><span class="p">,</span> <span class="s2">&quot;rec_chunks_effective&quot;</span><span class="p">,</span> <span class="kc">None</span>
+                                <span class="p">)</span>
+                                <span class="ow">or</span> <span class="kc">None</span><span class="p">,</span>
                                 <span class="n">rec_chunk_names</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span>
                                     <span class="n">backend</span><span class="p">,</span> <span class="s2">&quot;rec_chunk_names&quot;</span><span class="p">,</span> <span class="kc">None</span>
                                 <span class="p">),</span>

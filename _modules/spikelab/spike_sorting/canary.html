@@ -500,44 +500,9 @@
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">_globals</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">._exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">CLASSIFIED_FAILURES</span> <span class="k">as</span> <span class="n">_CLASSIFIED_FAILURES</span>
 
 <span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">_snapshot_pipeline_globals</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Capture the current state of all uppercase-named globals in</span>
-<span class="sd">    :mod:`._globals`. The canary backend mutates these via</span>
-<span class="sd">    ``_sync_globals_from_config`` to apply its overrides; without a</span>
-<span class="sd">    matching restore the next sort would inherit canary values</span>
-<span class="sd">    (curation flags off, narrowed time window, etc.) since the full</span>
-<span class="sd">    backend&#39;s ``_sync_globals`` is only called at ``__init__`` and</span>
-<span class="sd">    not before the next ``load_recording`` / ``sort``.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">snapshot</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{}</span>
-    <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="nb">vars</span><span class="p">(</span><span class="n">_globals</span><span class="p">):</span>
-        <span class="k">if</span> <span class="n">name</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;__&quot;</span><span class="p">):</span>
-            <span class="k">continue</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">name</span><span class="p">[:</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">isupper</span><span class="p">()</span> <span class="ow">or</span> <span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;_REC_CHUNK_NAMES&quot;</span><span class="p">):</span>
-            <span class="k">continue</span>
-        <span class="n">value</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">_globals</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
-            <span class="n">snapshot</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
-            <span class="n">snapshot</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">snapshot</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
-    <span class="k">return</span> <span class="n">snapshot</span>
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">_restore_pipeline_globals</span><span class="p">(</span><span class="n">snapshot</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Restore globals from a snapshot taken by</span>
-<span class="sd">    :func:`_snapshot_pipeline_globals`. Mirrors the original list /</span>
-<span class="sd">    dict identities are not preserved (callers should treat the</span>
-<span class="sd">    globals as opaque values), but the values are correct.&quot;&quot;&quot;</span>
-    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">snapshot</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-        <span class="nb">setattr</span><span class="p">(</span><span class="n">_globals</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_build_canary_config</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">canary_window_s</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
@@ -576,8 +541,8 @@
         <span class="c1"># coexist with the per-file rec_chunks that directory</span>
         <span class="c1"># concatenation auto-populates — the loader treats time</span>
         <span class="c1"># slicing as an explicit override of those auto-populated</span>
-        <span class="c1"># boundaries (see ``load_recording`` and the</span>
-        <span class="c1"># ``REC_CHUNKS_FROM_CONCAT`` flag).</span>
+        <span class="c1"># boundaries (see ``_load_recording_with_state`` in</span>
+        <span class="c1"># ``recording_io.py`` for the precedence rules).</span>
         <span class="s2">&quot;start_time_s&quot;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
         <span class="s2">&quot;end_time_s&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">canary_window_s</span><span class="p">),</span>
         <span class="s2">&quot;rec_chunks&quot;</span><span class="p">:</span> <span class="p">[],</span>
@@ -687,117 +652,110 @@
     <span class="k">if</span> <span class="n">math</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">canary_window_s</span><span class="p">)</span> <span class="ow">or</span> <span class="n">canary_window_s</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">return</span> <span class="kc">None</span>
 
-    <span class="c1"># Snapshot the live ``_globals`` state. The canary backend&#39;s</span>
-    <span class="c1"># ``__init__`` (below) re-syncs globals from the canary config —</span>
-    <span class="c1"># narrower curation, no figures, etc. — and the next sort&#39;s</span>
-    <span class="c1"># already-initialised backend does not re-sync before</span>
-    <span class="c1"># ``load_recording``. Without this snapshot/restore the canary&#39;s</span>
-    <span class="c1"># values would silently bleed into the full sort.</span>
-    <span class="n">globals_snapshot</span> <span class="o">=</span> <span class="n">_snapshot_pipeline_globals</span><span class="p">()</span>
+    <span class="c1"># The canary backend is constructed below with a derived clone of</span>
+    <span class="c1"># *config*; the full sort retains its own config reference, so no</span>
+    <span class="c1"># state is shared between the two runs. (The pre-refactor design</span>
+    <span class="c1"># mutated ``_globals.*`` to apply canary overrides and needed a</span>
+    <span class="c1"># snapshot/restore wrapper here; that bridge was removed in Phase 5</span>
+    <span class="c1"># of ``iat/TO_IMPLEMENT.md`` when the global state was deleted.)</span>
+    <span class="n">canary_config</span> <span class="o">=</span> <span class="n">_build_canary_config</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">canary_window_s</span><span class="p">)</span>
+    <span class="c1"># Per-pid subfolder so two direct callers of run_canary against</span>
+    <span class="c1"># the same inter_path cannot race on the wipe + mkdir. The</span>
+    <span class="c1"># standard pipeline flow already serialises via acquire_sort_lock</span>
+    <span class="c1"># on inter_path, but run_canary is also exposed as a public</span>
+    <span class="c1"># function and direct callers have no such protection.</span>
+    <span class="n">canary_root</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">inter_path</span><span class="p">)</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;_canary_</span><span class="si">{</span><span class="n">os</span><span class="o">.</span><span class="n">getpid</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="c1"># Strict wipe at entry — running the canary against a partially-</span>
+    <span class="c1"># cleaned folder could mask sorter behaviour. The cleanup-phase</span>
+    <span class="c1"># wipe at exit stays best-effort.</span>
+    <span class="n">_wipe_canary_folder</span><span class="p">(</span><span class="n">canary_root</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">canary_root</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">canary_inter</span> <span class="o">=</span> <span class="n">canary_root</span> <span class="o">/</span> <span class="s2">&quot;inter&quot;</span>
+    <span class="n">canary_results</span> <span class="o">=</span> <span class="n">canary_root</span> <span class="o">/</span> <span class="s2">&quot;results&quot;</span>
+
+    <span class="n">sorter</span> <span class="o">=</span> <span class="n">sorter_name</span> <span class="ow">or</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">sorter</span><span class="p">,</span> <span class="s2">&quot;sorter_name&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+    <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+        <span class="s2">&quot;running </span><span class="si">%.1f</span><span class="s2">s smoke test for </span><span class="si">%s</span><span class="s2"> via </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+        <span class="n">canary_window_s</span><span class="p">,</span>
+        <span class="n">rec_name</span><span class="p">,</span>
+        <span class="n">sorter</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">started_t</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">monotonic</span><span class="p">()</span>
     <span class="k">try</span><span class="p">:</span>
-        <span class="n">canary_config</span> <span class="o">=</span> <span class="n">_build_canary_config</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">canary_window_s</span><span class="p">)</span>
-        <span class="c1"># Per-pid subfolder so two direct callers of run_canary</span>
-        <span class="c1"># against the same inter_path cannot race on the wipe +</span>
-        <span class="c1"># mkdir. The standard pipeline flow already serialises via</span>
-        <span class="c1"># acquire_sort_lock on inter_path, but run_canary is also</span>
-        <span class="c1"># exposed as a public function and direct callers have no</span>
-        <span class="c1"># such protection.</span>
-        <span class="n">canary_root</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">inter_path</span><span class="p">)</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;_canary_</span><span class="si">{</span><span class="n">os</span><span class="o">.</span><span class="n">getpid</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
-        <span class="c1"># Strict wipe at entry — running the canary against a</span>
-        <span class="c1"># partially-cleaned folder could mask sorter behaviour. The</span>
-        <span class="c1"># cleanup-phase wipe at exit stays best-effort.</span>
-        <span class="n">_wipe_canary_folder</span><span class="p">(</span><span class="n">canary_root</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="n">canary_root</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="n">canary_inter</span> <span class="o">=</span> <span class="n">canary_root</span> <span class="o">/</span> <span class="s2">&quot;inter&quot;</span>
-        <span class="n">canary_results</span> <span class="o">=</span> <span class="n">canary_root</span> <span class="o">/</span> <span class="s2">&quot;results&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">.backends</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_backend_class</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">process_recording</span>
 
-        <span class="n">sorter</span> <span class="o">=</span> <span class="n">sorter_name</span> <span class="ow">or</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">sorter</span><span class="p">,</span> <span class="s2">&quot;sorter_name&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
-        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-            <span class="s2">&quot;running </span><span class="si">%.1f</span><span class="s2">s smoke test for </span><span class="si">%s</span><span class="s2"> via </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
-            <span class="n">canary_window_s</span><span class="p">,</span>
+        <span class="n">backend_cls</span> <span class="o">=</span> <span class="n">get_backend_class</span><span class="p">(</span><span class="n">sorter</span><span class="p">)</span>
+        <span class="n">canary_backend</span> <span class="o">=</span> <span class="n">backend_cls</span><span class="p">(</span><span class="n">canary_config</span><span class="p">)</span>
+
+        <span class="n">result</span> <span class="o">=</span> <span class="n">process_recording</span><span class="p">(</span>
+            <span class="n">canary_backend</span><span class="p">,</span>
+            <span class="n">canary_config</span><span class="p">,</span>
             <span class="n">rec_name</span><span class="p">,</span>
-            <span class="n">sorter</span><span class="p">,</span>
+            <span class="n">rec_path</span><span class="p">,</span>
+            <span class="n">canary_inter</span><span class="p">,</span>
+            <span class="n">canary_results</span><span class="p">,</span>
+            <span class="n">rec_loaded</span><span class="o">=</span><span class="n">recording</span><span class="p">,</span>
+            <span class="n">rec_chunks</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">rec_chunk_names</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">rng</span><span class="o">=</span><span class="n">rng</span><span class="p">,</span>
         <span class="p">)</span>
-
-        <span class="n">started_t</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">monotonic</span><span class="p">()</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="kn">from</span><span class="w"> </span><span class="nn">.backends</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_backend_class</span>
-            <span class="kn">from</span><span class="w"> </span><span class="nn">.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">process_recording</span>
-
-            <span class="n">backend_cls</span> <span class="o">=</span> <span class="n">get_backend_class</span><span class="p">(</span><span class="n">sorter</span><span class="p">)</span>
-            <span class="n">canary_backend</span> <span class="o">=</span> <span class="n">backend_cls</span><span class="p">(</span><span class="n">canary_config</span><span class="p">)</span>
-
-            <span class="n">result</span> <span class="o">=</span> <span class="n">process_recording</span><span class="p">(</span>
-                <span class="n">canary_backend</span><span class="p">,</span>
-                <span class="n">canary_config</span><span class="p">,</span>
-                <span class="n">rec_name</span><span class="p">,</span>
-                <span class="n">rec_path</span><span class="p">,</span>
-                <span class="n">canary_inter</span><span class="p">,</span>
-                <span class="n">canary_results</span><span class="p">,</span>
-                <span class="n">rec_loaded</span><span class="o">=</span><span class="n">recording</span><span class="p">,</span>
-                <span class="n">rec_chunks</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                <span class="n">rec_chunk_names</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                <span class="n">rng</span><span class="o">=</span><span class="n">rng</span><span class="p">,</span>
-            <span class="p">)</span>
-        <span class="k">except</span> <span class="n">_CLASSIFIED_FAILURES</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-            <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;classified failure: </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
-            <span class="n">_wipe_canary_folder</span><span class="p">(</span><span class="n">canary_root</span><span class="p">)</span>
-            <span class="k">return</span> <span class="n">exc</span>
-        <span class="k">except</span> <span class="p">(</span><span class="ne">KeyboardInterrupt</span><span class="p">,</span> <span class="ne">SystemExit</span><span class="p">):</span>
-            <span class="c1"># User abort or watchdog interrupt — never swallow.</span>
-            <span class="c1"># Clean up the canary folder and let the interrupt</span>
-            <span class="c1"># propagate so the outer pipeline tears down promptly.</span>
-            <span class="n">_wipe_canary_folder</span><span class="p">(</span><span class="n">canary_root</span><span class="p">)</span>
-            <span class="k">raise</span>
-        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-            <span class="c1"># Unexpected failure — the canary is a smoke test, not</span>
-            <span class="c1"># a hard gate. Log and let the full sort proceed; live</span>
-            <span class="c1"># watchdogs handle resource-shaped issues at runtime.</span>
-            <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                <span class="s2">&quot;non-classified failure (</span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">); proceeding with the &quot;</span> <span class="s2">&quot;full sort.&quot;</span><span class="p">,</span>
-                <span class="nb">type</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
-                <span class="n">exc</span><span class="p">,</span>
-            <span class="p">)</span>
-            <span class="n">_wipe_canary_folder</span><span class="p">(</span><span class="n">canary_root</span><span class="p">)</span>
-            <span class="k">return</span> <span class="kc">None</span>
-
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">_CLASSIFIED_FAILURES</span><span class="p">):</span>
-            <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;classified failure: </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="n">result</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
-            <span class="n">_wipe_canary_folder</span><span class="p">(</span><span class="n">canary_root</span><span class="p">)</span>
-            <span class="k">return</span> <span class="n">result</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="p">(</span><span class="ne">KeyboardInterrupt</span><span class="p">,</span> <span class="ne">SystemExit</span><span class="p">)):</span>
-            <span class="c1"># process_recording returned the interrupt as a value</span>
-            <span class="c1"># rather than raising; surface it the same way as the</span>
-            <span class="c1"># raised path.</span>
-            <span class="n">_wipe_canary_folder</span><span class="p">(</span><span class="n">canary_root</span><span class="p">)</span>
-            <span class="k">raise</span> <span class="n">result</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="ne">BaseException</span><span class="p">):</span>
-            <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                <span class="s2">&quot;non-classified failure (</span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">); proceeding with the &quot;</span> <span class="s2">&quot;full sort.&quot;</span><span class="p">,</span>
-                <span class="nb">type</span><span class="p">(</span><span class="n">result</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
-                <span class="n">result</span><span class="p">,</span>
-            <span class="p">)</span>
-            <span class="n">_wipe_canary_folder</span><span class="p">(</span><span class="n">canary_root</span><span class="p">)</span>
-            <span class="k">return</span> <span class="kc">None</span>
-
-        <span class="n">elapsed_s</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">monotonic</span><span class="p">()</span> <span class="o">-</span> <span class="n">started_t</span>
-        <span class="n">n_units</span> <span class="o">=</span> <span class="n">_extract_unit_count</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">n_units</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-                <span class="s2">&quot;passed in </span><span class="si">%.1f</span><span class="s2">s; proceeding with the full sort.&quot;</span><span class="p">,</span>
-                <span class="n">elapsed_s</span><span class="p">,</span>
-            <span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-                <span class="s2">&quot;passed: produced </span><span class="si">%d</span><span class="s2"> unit(s) in </span><span class="si">%.1f</span><span class="s2">s; proceeding with &quot;</span>
-                <span class="s2">&quot;the full sort.&quot;</span><span class="p">,</span>
-                <span class="n">n_units</span><span class="p">,</span>
-                <span class="n">elapsed_s</span><span class="p">,</span>
-            <span class="p">)</span>
+    <span class="k">except</span> <span class="n">_CLASSIFIED_FAILURES</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;classified failure: </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
+        <span class="n">_wipe_canary_folder</span><span class="p">(</span><span class="n">canary_root</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">exc</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">KeyboardInterrupt</span><span class="p">,</span> <span class="ne">SystemExit</span><span class="p">):</span>
+        <span class="c1"># User abort or watchdog interrupt — never swallow. Clean up</span>
+        <span class="c1"># the canary folder and let the interrupt propagate so the</span>
+        <span class="c1"># outer pipeline tears down promptly.</span>
+        <span class="n">_wipe_canary_folder</span><span class="p">(</span><span class="n">canary_root</span><span class="p">)</span>
+        <span class="k">raise</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+        <span class="c1"># Unexpected failure — the canary is a smoke test, not a hard</span>
+        <span class="c1"># gate. Log and let the full sort proceed; live watchdogs</span>
+        <span class="c1"># handle resource-shaped issues at runtime.</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="s2">&quot;non-classified failure (</span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">); proceeding with the full sort.&quot;</span><span class="p">,</span>
+            <span class="nb">type</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+            <span class="n">exc</span><span class="p">,</span>
+        <span class="p">)</span>
         <span class="n">_wipe_canary_folder</span><span class="p">(</span><span class="n">canary_root</span><span class="p">)</span>
         <span class="k">return</span> <span class="kc">None</span>
-    <span class="k">finally</span><span class="p">:</span>
-        <span class="n">_restore_pipeline_globals</span><span class="p">(</span><span class="n">globals_snapshot</span><span class="p">)</span></div>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">_CLASSIFIED_FAILURES</span><span class="p">):</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;classified failure: </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="n">result</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
+        <span class="n">_wipe_canary_folder</span><span class="p">(</span><span class="n">canary_root</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">result</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="p">(</span><span class="ne">KeyboardInterrupt</span><span class="p">,</span> <span class="ne">SystemExit</span><span class="p">)):</span>
+        <span class="c1"># process_recording returned the interrupt as a value rather</span>
+        <span class="c1"># than raising; surface it the same way as the raised path.</span>
+        <span class="n">_wipe_canary_folder</span><span class="p">(</span><span class="n">canary_root</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="n">result</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="ne">BaseException</span><span class="p">):</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="s2">&quot;non-classified failure (</span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">); proceeding with the full sort.&quot;</span><span class="p">,</span>
+            <span class="nb">type</span><span class="p">(</span><span class="n">result</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+            <span class="n">result</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">_wipe_canary_folder</span><span class="p">(</span><span class="n">canary_root</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="n">elapsed_s</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">monotonic</span><span class="p">()</span> <span class="o">-</span> <span class="n">started_t</span>
+    <span class="n">n_units</span> <span class="o">=</span> <span class="n">_extract_unit_count</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">n_units</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">&quot;passed in </span><span class="si">%.1f</span><span class="s2">s; proceeding with the full sort.&quot;</span><span class="p">,</span>
+            <span class="n">elapsed_s</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">&quot;passed: produced </span><span class="si">%d</span><span class="s2"> unit(s) in </span><span class="si">%.1f</span><span class="s2">s; proceeding with the full sort.&quot;</span><span class="p">,</span>
+            <span class="n">n_units</span><span class="p">,</span>
+            <span class="n">elapsed_s</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="n">_wipe_canary_folder</span><span class="p">(</span><span class="n">canary_root</span><span class="p">)</span>
+    <span class="k">return</span> <span class="kc">None</span></div>
 
 
 
