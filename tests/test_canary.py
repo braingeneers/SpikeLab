@@ -1001,19 +1001,19 @@ class TestRunCanaryGlobalsIsolation:
         do not leak.
 
         Tests:
-            (Test Case 1) Pre-set ``CURATE_FIRST=True`` and
+            (Test Case 1) Pre-set ``RECOMPUTE_SORTING=True`` and
                 ``FREQ_MAX=4321`` — process_recording stub mutates
                 them — after run_canary returns, both are restored.
         """
         from spikelab.spike_sorting import _globals
         from spikelab.spike_sorting.canary import run_canary
 
-        _globals.CURATE_FIRST = True
+        _globals.RECOMPUTE_SORTING = True
         _globals.FREQ_MAX = 4321
         sentinel = object()
 
         def _mutating_process_recording(*_a, **_kw):
-            _globals.CURATE_FIRST = False
+            _globals.RECOMPUTE_SORTING = False
             _globals.FREQ_MAX = 99999
             return sentinel
 
@@ -1029,7 +1029,7 @@ class TestRunCanaryGlobalsIsolation:
             sorter_name="kilosort2",
         )
         assert result is None
-        assert _globals.CURATE_FIRST is True
+        assert _globals.RECOMPUTE_SORTING is True
         assert _globals.FREQ_MAX == 4321
 
     def test_globals_restored_after_classified_failure(self, tmp_path, monkeypatch):
@@ -1046,10 +1046,10 @@ class TestRunCanaryGlobalsIsolation:
         from spikelab.spike_sorting import _globals
         from spikelab.spike_sorting.canary import run_canary
 
-        _globals.SNR_MIN = 7.0
+        _globals.MAX_WAVEFORMS_PER_UNIT = 700
 
         def _raising(*_a, **_kw):
-            _globals.SNR_MIN = 0.5
+            _globals.MAX_WAVEFORMS_PER_UNIT = 50
             raise InsufficientActivityError("noisy", sorter="kilosort2")
 
         self._stub_canary(monkeypatch, side_effect=_raising)
@@ -1064,7 +1064,7 @@ class TestRunCanaryGlobalsIsolation:
             sorter_name="kilosort2",
         )
         assert isinstance(result, InsufficientActivityError)
-        assert _globals.SNR_MIN == 7.0
+        assert _globals.MAX_WAVEFORMS_PER_UNIT == 700
 
     def test_globals_restored_after_keyboard_interrupt(self, tmp_path, monkeypatch):
         """
@@ -1074,16 +1074,17 @@ class TestRunCanaryGlobalsIsolation:
 
         Tests:
             (Test Case 1) Stub raises KeyboardInterrupt after
-                mutating ``CURATE_SECOND``; ``run_canary`` re-raises;
-                ``CURATE_SECOND`` reverts to its pre-canary value.
+                mutating ``REEXTRACT_WAVEFORMS``; ``run_canary``
+                re-raises; ``REEXTRACT_WAVEFORMS`` reverts to its
+                pre-canary value.
         """
         from spikelab.spike_sorting import _globals
         from spikelab.spike_sorting.canary import run_canary
 
-        _globals.CURATE_SECOND = True
+        _globals.REEXTRACT_WAVEFORMS = True
 
         def _interrupted(*_a, **_kw):
-            _globals.CURATE_SECOND = False
+            _globals.REEXTRACT_WAVEFORMS = False
             raise KeyboardInterrupt
 
         self._stub_canary(monkeypatch, side_effect=_interrupted)
@@ -1098,7 +1099,7 @@ class TestRunCanaryGlobalsIsolation:
                 inter_path=tmp_path,
                 sorter_name="kilosort2",
             )
-        assert _globals.CURATE_SECOND is True
+        assert _globals.REEXTRACT_WAVEFORMS is True
 
     def test_snapshot_includes_underscore_chunk_names(self):
         """
