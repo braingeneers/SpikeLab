@@ -10,6 +10,7 @@ import sys
 import tempfile
 import time
 import traceback
+import warnings
 from math import ceil
 from pathlib import Path
 from types import MethodType
@@ -26,9 +27,27 @@ from spikeinterface.sorters import run_sorter
 from . import _globals
 from ._classifier import classify_ks2_failure
 from ._exceptions import InsufficientActivityError, SpikeSortingClassifiedError
+from .config import SortingPipelineConfig
 from .docker_utils import get_docker_image
 from .sorting_extractor import KilosortSortingExtractor
 from .sorting_utils import Stopwatch, create_folder, print_stage
+
+
+def _emit_legacy_warning(func_name: str) -> None:
+    """Emit a single ``DeprecationWarning`` for callers that have not
+    migrated to the config-based API yet. The message names the entry
+    point so residual sites are easy to find at runtime.
+    """
+    warnings.warn(
+        f"{func_name} called without explicit Kilosort2 parameters; "
+        "falling back to the legacy module-level globals in "
+        "spikelab.spike_sorting._globals. Pass kilosort_params= / "
+        "config=<SortingPipelineConfig> to silence this warning. The "
+        "legacy path will be removed once the _globals.py refactor "
+        "lands (see iat/TO_IMPLEMENT.md).",
+        DeprecationWarning,
+        stacklevel=3,
+    )
 
 
 class RunKilosort:
@@ -46,18 +65,43 @@ class RunKilosort:
 
     Attributes:
         path (str): Absolute path to the Kilosort2 MATLAB source tree.
+        kilosort_params (dict): Resolved Kilosort2 parameter dict
+            (``NT`` and ``car`` already normalised by ``format_params``).
+        pos_peak_thresh (float): Positive-peak threshold forwarded to
+            :class:`KilosortSortingExtractor` when materialising results.
     """
 
-    def __init__(self):
+    def __init__(
+        self,
+        *,
+        kilosort_path: Optional[str] = None,
+        kilosort_params: Optional[Dict[str, Any]] = None,
+        pos_peak_thresh: Optional[float] = None,
+    ):
+        # Resolve from globals when not supplied (transitional fallback).
+        if (
+            kilosort_path is None
+            and kilosort_params is None
+            and pos_peak_thresh is None
+        ):
+            _emit_legacy_warning("RunKilosort()")
+            kilosort_path = _globals.KILOSORT_PATH
+            kilosort_params = _globals.KILOSORT_PARAMS
+            pos_peak_thresh = _globals.POS_PEAK_THRESH
+
         # Set paths
-        self.path = self.set_kilosort_path(_globals.KILOSORT_PATH)
+        self.path = self.set_kilosort_path(kilosort_path)
 
         # Check if kilosort is installed
         if not self.check_if_installed():
             raise Exception(f"Kilosort2 is not installed.")
 
-        # Make sure parameters are formatted correctly
-        RunKilosort.format_params()
+        # Normalise ``NT`` and ``car`` into a fresh dict — never mutate
+        # the caller's input. The previous in-place mutation of
+        # ``_globals.KILOSORT_PARAMS`` was the canonical example of the
+        # cross-recording leak in the CRITICAL finding.
+        self.kilosort_params = self.format_params(kilosort_params)
+        self.pos_peak_thresh = pos_peak_thresh
 
     # Run kilosort
     def run(
@@ -80,7 +124,7 @@ class RunKilosort:
         )
 
         # STEP 3) Return results of Kilosort as Python object for auto curation
-        return RunKilosort.get_result_from_folder(output_folder)
+        return self.get_result_from_folder(output_folder)
 
     def setup_recording_files(self, recording, recording_dat_path, output_folder):
         # Prepare electrode positions for this group (only one group, the split is done in spikeinterface's basesorter)
@@ -223,22 +267,23 @@ class RunKilosort:
             config_path=str((output_folder / "kilosort2_config.m").absolute()),
         )
 
+        kp = self.kilosort_params
         kilosort2_config_txt = kilosort2_config_txt.format(
             nchan=recording.get_num_channels(),
             sample_rate=recording.get_sampling_frequency(),
             dat_file=str(recording_dat_path.absolute()),
-            projection_threshold=_globals.KILOSORT_PARAMS["projection_threshold"],
-            preclust_threshold=_globals.KILOSORT_PARAMS["preclust_threshold"],
-            minfr_goodchannels=_globals.KILOSORT_PARAMS["minfr_goodchannels"],
-            minFR=_globals.KILOSORT_PARAMS["minFR"],
-            freq_min=_globals.KILOSORT_PARAMS["freq_min"],
-            sigmaMask=_globals.KILOSORT_PARAMS["sigmaMask"],
-            kilo_thresh=_globals.KILOSORT_PARAMS["detect_threshold"],
-            use_car=_globals.KILOSORT_PARAMS["car"],
-            nPCs=int(_globals.KILOSORT_PARAMS["nPCs"]),
-            ntbuff=int(_globals.KILOSORT_PARAMS["ntbuff"]),
-            nfilt_factor=int(_globals.KILOSORT_PARAMS["nfilt_factor"]),
-            NT=int(_globals.KILOSORT_PARAMS["NT"]),
+            projection_threshold=kp["projection_threshold"],
+            preclust_threshold=kp["preclust_threshold"],
+            minfr_goodchannels=kp["minfr_goodchannels"],
+            minFR=kp["minFR"],
+            freq_min=kp["freq_min"],
+            sigmaMask=kp["sigmaMask"],
+            kilo_thresh=kp["detect_threshold"],
+            use_car=kp["car"],
+            nPCs=int(kp["nPCs"]),
+            ntbuff=int(kp["ntbuff"]),
+            nfilt_factor=int(kp["nfilt_factor"]),
+            NT=int(kp["NT"]),
         )
 
         kilosort2_channelmap_txt = kilosort2_channelmap_txt.format(
@@ -528,30 +573,39 @@ end"""
         return path
 
     @staticmethod
-    def format_params():
-        if _globals.KILOSORT_PARAMS["NT"] is None:
-            _globals.KILOSORT_PARAMS["NT"] = (
-                64 * 1024 + _globals.KILOSORT_PARAMS["ntbuff"]
-            )  # https://github.com/MouseLand/Kilosort/issues/380
-        else:
-            _globals.KILOSORT_PARAMS["NT"] = (
-                _globals.KILOSORT_PARAMS["NT"] // 32 * 32
-            )  # make sure is multiple of 32
+    def format_params(params: Dict[str, Any]) -> Dict[str, Any]:
+        """Return a copy of *params* with ``NT`` and ``car`` normalised.
 
-        if _globals.KILOSORT_PARAMS["car"]:
-            _globals.KILOSORT_PARAMS["car"] = 1
-        else:
-            _globals.KILOSORT_PARAMS["car"] = 0
+        ``NT`` resolves ``None`` to the canonical
+        ``64*1024 + ntbuff`` (Kilosort2 default; see
+        https://github.com/MouseLand/Kilosort/issues/380); a concrete
+        ``NT`` is rounded down to the nearest multiple of 32 (KS2 mex
+        requirement). ``car`` is converted from a bool to a 0/1 int
+        because the MATLAB config template uses it as a numeric
+        literal.
 
-    @classmethod
-    def get_result_from_folder(cls, output_folder):
+        Pure function: never mutates the caller's dict. The previous
+        in-place mutation of ``_globals.KILOSORT_PARAMS`` is the
+        canonical example of the cross-recording leak the refactor
+        is closing — recording N+1 inheriting recording N's mutated
+        ``car=1`` was producing different sorter results depending
+        on call order.
+        """
+        out = dict(params)
+        if out.get("NT") is None:
+            out["NT"] = 64 * 1024 + out["ntbuff"]
+        else:
+            out["NT"] = int(out["NT"]) // 32 * 32
+        out["car"] = 1 if out.get("car") else 0
+        return out
+
+    def get_result_from_folder(self, output_folder):
         return KilosortSortingExtractor(
             folder_path=output_folder,
             keep_good_only=bool(
-                _globals.KILOSORT_PARAMS
-                and _globals.KILOSORT_PARAMS.get("keep_good_only")
+                self.kilosort_params and self.kilosort_params.get("keep_good_only")
             ),
-            pos_peak_thresh=_globals.POS_PEAK_THRESH,
+            pos_peak_thresh=self.pos_peak_thresh,
         )
 
 
@@ -802,7 +856,13 @@ class ShellScript:
 
 
 def write_recording(
-    recording_filtered: BaseRecording, recording_dat_path: Path, verbose: bool = True
+    recording_filtered: BaseRecording,
+    recording_dat_path: Path,
+    verbose: bool = True,
+    *,
+    n_jobs: Optional[int] = None,
+    total_memory: Optional[str] = None,
+    use_parallel: Optional[bool] = None,
 ) -> None:
     """Convert a filtered recording to the binary ``.dat`` format for Kilosort2.
 
@@ -814,14 +874,30 @@ def write_recording(
             SpikeInterface recording.
         recording_dat_path (Path): Destination ``.dat`` file path.
         verbose (bool): Print progress messages and show progress bar.
+        n_jobs (int or None): Number of parallel jobs for the
+            SpikeInterface writer. When ``None``, falls back to
+            ``_globals.N_JOBS`` and emits a ``DeprecationWarning``.
+        total_memory (str or None): Total memory budget string passed
+            to the writer. When ``None``, falls back to
+            ``_globals.TOTAL_MEMORY``.
+        use_parallel (bool or None): When True, use the multi-job
+            path; when False, fall back to a single-job path. When
+            ``None``, falls back to
+            ``_globals.USE_PARALLEL_PROCESSING_FOR_RAW_CONVERSION``.
     """
+    if n_jobs is None and total_memory is None and use_parallel is None:
+        _emit_legacy_warning("write_recording")
+        n_jobs = _globals.N_JOBS
+        total_memory = _globals.TOTAL_MEMORY
+        use_parallel = _globals.USE_PARALLEL_PROCESSING_FOR_RAW_CONVERSION
+
     stopwatch = Stopwatch(start_msg="CONVERTING RECORDING", use_print_stage=True)
-    if _globals.USE_PARALLEL_PROCESSING_FOR_RAW_CONVERSION:
+    if use_parallel:
         job_kwargs = {
             "progress_bar": verbose,
             "verbose": verbose,
-            "n_jobs": _globals.N_JOBS,
-            "total_memory": _globals.TOTAL_MEMORY,
+            "n_jobs": n_jobs,
+            "total_memory": total_memory,
         }
     else:
         job_kwargs = {
@@ -848,7 +924,13 @@ def write_recording(
     stopwatch.log_time("Done converting recording.")
 
 
-def _spike_sort_docker(recording: BaseRecording, output_folder: Path) -> Any:
+def _spike_sort_docker(
+    recording: BaseRecording,
+    output_folder: Path,
+    *,
+    kilosort_params: Optional[Dict[str, Any]] = None,
+    pos_peak_thresh: Optional[float] = None,
+) -> Any:
     """Run Kilosort2 inside a Docker container via SpikeInterface.
 
     Uses the ``spikeinterface/kilosort2-compiled-base`` image which bundles a
@@ -864,11 +946,22 @@ def _spike_sort_docker(recording: BaseRecording, output_folder: Path) -> Any:
     Parameters:
         recording (BaseRecording): Scaled and filtered SpikeInterface recording.
         output_folder (Path): Directory for Kilosort2 output files.
+        kilosort_params (dict or None): Kilosort2 parameter dict
+            forwarded to SpikeInterface ``run_sorter``. When ``None``,
+            falls back to ``_globals.KILOSORT_PARAMS`` and emits a
+            ``DeprecationWarning``.
+        pos_peak_thresh (float or None): Forwarded to the
+            ``KilosortSortingExtractor`` that materialises the result.
+            When ``None``, falls back to ``_globals.POS_PEAK_THRESH``.
 
     Returns:
         sorting (KilosortSortingExtractor): The sorting result loaded from the
             Docker output folder.
     """
+    if kilosort_params is None and pos_peak_thresh is None:
+        _emit_legacy_warning("_spike_sort_docker")
+        kilosort_params = _globals.KILOSORT_PARAMS
+        pos_peak_thresh = _globals.POS_PEAK_THRESH
     from .docker_utils import get_docker_image
 
     # Pre-convert recording to int16 binary on the host so that:
@@ -894,8 +987,8 @@ def _spike_sort_docker(recording: BaseRecording, output_folder: Path) -> Any:
     )
     bin_recording.set_channel_locations(recording.get_channel_locations())
 
-    # Map KILOSORT_PARAMS to SpikeInterface's run_sorter kwargs.
-    si_params = {k: v for k, v in _globals.KILOSORT_PARAMS.items()}
+    # Map kilosort_params to SpikeInterface's run_sorter kwargs.
+    si_params = {k: v for k, v in kilosort_params.items()}
 
     print("Running Kilosort2 via Docker container")
 
@@ -943,10 +1036,8 @@ def _spike_sort_docker(recording: BaseRecording, output_folder: Path) -> Any:
 
     return KilosortSortingExtractor(
         folder_path=sorter_output,
-        keep_good_only=bool(
-            _globals.KILOSORT_PARAMS and _globals.KILOSORT_PARAMS.get("keep_good_only")
-        ),
-        pos_peak_thresh=_globals.POS_PEAK_THRESH,
+        keep_good_only=bool(kilosort_params and kilosort_params.get("keep_good_only")),
+        pos_peak_thresh=pos_peak_thresh,
     )
 
 
@@ -957,13 +1048,16 @@ def spike_sort(
     output_folder: Path,
     *,
     inactivity_timeout_s: Optional[float] = None,
+    config: Optional[SortingPipelineConfig] = None,
 ) -> Any:
     """Run Kilosort2 on a single recording and return the sorting result.
 
     Converts the recording to ``.dat`` format (if needed), launches
-    Kilosort2 via MATLAB (or Docker when ``USE_DOCKER`` is True), and
-    returns the detected units as a ``KilosortSortingExtractor``. Skips
-    re-sorting when ``RECOMPUTE_SORTING`` is False and results already exist.
+    Kilosort2 via MATLAB (or Docker when ``config.sorter.use_docker`` is
+    True), and returns the detected units as a
+    ``KilosortSortingExtractor``. Skips re-sorting when
+    ``config.execution.recompute_sorting`` is False and results already
+    exist.
 
     Parameters:
         rec_cache (BaseRecording): Scaled and filtered recording.
@@ -978,37 +1072,83 @@ def spike_sort(
             takes effect on the local MATLAB path; the Docker path
             relies on the host-memory watchdog and Docker's own
             ``mem_limit``.
+        config (SortingPipelineConfig or None): Pipeline configuration.
+            When ``None``, falls back to the legacy module-level
+            globals in ``_globals.py`` (``RECOMPUTE_SORTING``,
+            ``USE_DOCKER``, ``KILOSORT_PATH``, ``KILOSORT_PARAMS``,
+            ``POS_PEAK_THRESH``, ``N_JOBS``, ``TOTAL_MEMORY``,
+            ``USE_PARALLEL_PROCESSING_FOR_RAW_CONVERSION``) and emits a
+            ``DeprecationWarning``.
 
     Returns:
         sorting (KilosortSortingExtractor or Exception): The sorting
             result, or the caught exception if sorting failed.
     """
+    if config is None:
+        _emit_legacy_warning("spike_sort")
+        recompute_sorting = _globals.RECOMPUTE_SORTING
+        use_docker = _globals.USE_DOCKER
+        kilosort_path = _globals.KILOSORT_PATH
+        kilosort_params = _globals.KILOSORT_PARAMS
+        pos_peak_thresh = _globals.POS_PEAK_THRESH
+        n_jobs = _globals.N_JOBS
+        total_memory = _globals.TOTAL_MEMORY
+        use_parallel = _globals.USE_PARALLEL_PROCESSING_FOR_RAW_CONVERSION
+    else:
+        recompute_sorting = config.execution.recompute_sorting
+        use_docker = config.sorter.use_docker
+        kilosort_path = config.sorter.sorter_path
+        # Merge backend defaults with user override the same way
+        # ``Kilosort2Backend._sync_globals`` did.
+        from .backends.kilosort2 import DEFAULT_KILOSORT2_PARAMS
+
+        kilosort_params = {
+            **DEFAULT_KILOSORT2_PARAMS,
+            **(config.sorter.sorter_params or {}),
+        }
+        pos_peak_thresh = config.waveform.pos_peak_thresh
+        n_jobs = config.execution.n_jobs
+        total_memory = config.execution.total_memory
+        use_parallel = config.execution.use_parallel_processing_for_raw_conversion
+
     print_stage("SPIKE SORTING")
     stopwatch = Stopwatch()
 
     try:
-        if (
-            not _globals.RECOMPUTE_SORTING
-            and (output_folder / "spike_times.npy").exists()
-        ):
+        if not recompute_sorting and (output_folder / "spike_times.npy").exists():
             print("Loading Kilosort2's sorting results")
             sorting = KilosortSortingExtractor(
                 folder_path=output_folder,
                 keep_good_only=bool(
-                    _globals.KILOSORT_PARAMS
-                    and _globals.KILOSORT_PARAMS.get("keep_good_only")
+                    kilosort_params and kilosort_params.get("keep_good_only")
                 ),
-                pos_peak_thresh=_globals.POS_PEAK_THRESH,
+                pos_peak_thresh=pos_peak_thresh,
             )
-        elif _globals.USE_DOCKER:
+        elif use_docker:
             # Docker: SpikeInterface handles .dat conversion internally
             create_folder(output_folder)
-            sorting = _spike_sort_docker(rec_cache, output_folder)
+            sorting = _spike_sort_docker(
+                rec_cache,
+                output_folder,
+                kilosort_params=kilosort_params,
+                pos_peak_thresh=pos_peak_thresh,
+            )
         else:
             # Local MATLAB
-            kilosort = RunKilosort()
+            kilosort = RunKilosort(
+                kilosort_path=kilosort_path,
+                kilosort_params=kilosort_params,
+                pos_peak_thresh=pos_peak_thresh,
+            )
             try:
-                write_recording(rec_cache, recording_dat_path, verbose=True)
+                write_recording(
+                    rec_cache,
+                    recording_dat_path,
+                    verbose=True,
+                    n_jobs=n_jobs,
+                    total_memory=total_memory,
+                    use_parallel=use_parallel,
+                )
             except Exception as e:
                 print(
                     f"Could not convert recording because of {e}.\nMoving on to next recording"

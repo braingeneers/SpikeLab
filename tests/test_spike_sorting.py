@@ -1566,7 +1566,13 @@ class TestSpikeSortDocker:
                 recording, "fake.h5", tmp_path / "rec.dat", output_folder
             )
 
-        mock_docker.assert_called_once_with(recording, output_folder)
+        mock_docker.assert_called_once()
+        # Positional args remain (recording, output_folder); keyword args
+        # carry the kilosort_params/pos_peak_thresh values resolved from
+        # the legacy _globals fallback (config=None path).
+        call_args = mock_docker.call_args
+        assert call_args.args[0] is recording
+        assert call_args.args[1] == output_folder
         mock_rk.assert_not_called()
         assert result is mock_kse
 

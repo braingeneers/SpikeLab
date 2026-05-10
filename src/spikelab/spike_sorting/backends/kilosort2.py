@@ -112,6 +112,7 @@ class Kilosort2Backend(SorterBackend):
                 recording_dat_path=recording_dat_path,
                 output_folder=output_folder,
                 inactivity_timeout_s=inactivity_timeout_s,
+                config=self.config,
             )
 
     def scale_oom_params(self, factor: float) -> bool:
