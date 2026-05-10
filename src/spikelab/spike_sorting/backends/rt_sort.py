@@ -19,8 +19,9 @@ Requirements:
     # see https://pytorch.org/get-started/locally/
 """
 
+import warnings
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import numpy as np
 
@@ -30,7 +31,15 @@ from ._common import _sync_globals_from_config
 from .base import SorterBackend
 
 
-def _numpy_sorting_to_ks_extractor(sorting, recording, output_folder, root_elecs=None):
+def _numpy_sorting_to_ks_extractor(
+    sorting,
+    recording,
+    output_folder,
+    root_elecs=None,
+    *,
+    keep_good_only: Optional[bool] = None,
+    pos_peak_thresh: Optional[float] = None,
+):
     """Convert a SpikeInterface NumpySorting to a KilosortSortingExtractor.
 
     Writes the Kilosort-format files that ``KilosortSortingExtractor``
@@ -47,8 +56,31 @@ def _numpy_sorting_to_ks_extractor(sorting, recording, output_folder, root_elecs
             RTSort._seq_root_elecs.  Used to set the peak channel in
             synthetic templates so that get_chans_max() returns the
             correct channel for each unit.
+        keep_good_only (bool or None): Forwarded to
+            :class:`KilosortSortingExtractor`. When ``None``, falls back
+            to ``bool(_globals.KILOSORT_PARAMS and _globals.KILOSORT_PARAMS.get("keep_good_only"))``
+            with a ``DeprecationWarning``.
+        pos_peak_thresh (float or None): Forwarded to
+            :class:`KilosortSortingExtractor`. When ``None``, falls back
+            to ``_globals.POS_PEAK_THRESH``.
     """
     from ..sorting_extractor import KilosortSortingExtractor
+
+    if keep_good_only is None and pos_peak_thresh is None:
+        warnings.warn(
+            "_numpy_sorting_to_ks_extractor called without explicit "
+            "keep_good_only / pos_peak_thresh; falling back to the "
+            "legacy module-level globals in spikelab.spike_sorting."
+            "_globals. Pass the values explicitly to silence this "
+            "warning. The legacy path will be removed once the "
+            "_globals.py refactor lands (see iat/TO_IMPLEMENT.md).",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        keep_good_only = bool(
+            _globals.KILOSORT_PARAMS and _globals.KILOSORT_PARAMS.get("keep_good_only")
+        )
+        pos_peak_thresh = _globals.POS_PEAK_THRESH
 
     output_folder = Path(output_folder)
     output_folder.mkdir(parents=True, exist_ok=True)
@@ -114,10 +146,8 @@ def _numpy_sorting_to_ks_extractor(sorting, recording, output_folder, root_elecs
 
     return KilosortSortingExtractor(
         folder_path=output_folder,
-        keep_good_only=bool(
-            _globals.KILOSORT_PARAMS and _globals.KILOSORT_PARAMS.get("keep_good_only")
-        ),
-        pos_peak_thresh=_globals.POS_PEAK_THRESH,
+        keep_good_only=bool(keep_good_only),
+        pos_peak_thresh=pos_peak_thresh,
     )
 
 
@@ -269,11 +299,19 @@ class RTSortBackend(SorterBackend):
 
         sorting, root_elecs = result
 
+        # ``config.sorter.sorter_params`` is typically ``None`` for the
+        # RT-Sort backend (RT-Sort uses ``config.rt_sort.params`` for
+        # its own knobs); the resulting ``keep_good_only=False``
+        # matches the legacy behaviour where ``_globals.KILOSORT_PARAMS``
+        # is the Kilosort dict and is unset during RT-Sort runs.
+        sorter_params = self.config.sorter.sorter_params or {}
         return _numpy_sorting_to_ks_extractor(
             sorting,
             recording,
             output_folder,
             root_elecs=root_elecs,
+            keep_good_only=bool(sorter_params.get("keep_good_only")),
+            pos_peak_thresh=self.config.waveform.pos_peak_thresh,
         )
 
     def scale_oom_params(self, factor: float) -> bool:
