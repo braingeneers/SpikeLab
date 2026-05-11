@@ -271,6 +271,172 @@ def paired_test(
     return {"statistic": float(stat), "p_value": float(p), "n": len(a)}
 
 
+def mixed_effects_compare(
+    values,
+    fixed_effects,
+    random_effect,
+    *,
+    formula=None,
+    response_label="value",
+    alpha=0.05,
+):
+    """Fit a linear mixed-effects model with one random intercept.
+
+    Wraps ``statsmodels.regression.mixed_linear_model.MixedLM``. Typical use:
+    compare a per-observation metric across treatments while accounting for
+    repeated measurements within a recording, unit, or subject.
+
+    Parameters:
+        values (array-like): 1-D response variable, one entry per
+            observation.
+        fixed_effects (dict[str, array-like]): Mapping of fixed-effect
+            names to per-observation arrays. All arrays must have the same
+            length as *values*. Categorical effects can be passed as
+            string/object arrays — statsmodels will dummy-code them via the
+            Patsy formula.
+        random_effect (array-like): Categorical group labels (one per
+            observation) used as the random intercept group.
+        formula (str or None): Patsy formula for the fixed-effects part.
+            When None (default), an additive formula
+            ``"<response_label> ~ k1 + k2 + ..."`` is built from the
+            keys of *fixed_effects*. Provide an explicit formula for
+            interactions (e.g. ``"value ~ treatment * latency"``).
+        response_label (str): Name used for the response column in the
+            constructed DataFrame and in the auto-built formula
+            (default ``"value"``).
+        alpha (float): Significance threshold applied to coefficient
+            p-values when building the ``significant`` flags. Default 0.05.
+
+    Returns:
+        result (dict): Dictionary with keys:
+            - ``params`` (dict[str, float]): Estimated coefficients keyed
+              by Patsy term name.
+            - ``pvalues`` (dict[str, float]): Two-sided p-values per term.
+            - ``conf_int`` (dict[str, tuple[float, float]]): Confidence
+              intervals per term (using *alpha*).
+            - ``significant`` (dict[str, bool]): True where the term's
+              p-value is below *alpha*.
+            - ``random_effect_variance`` (float): Estimated variance of
+              the random intercept.
+            - ``n_obs`` (int): Number of observations used.
+            - ``n_groups`` (int): Number of random-effect levels.
+            - ``converged`` (bool): Whether the optimizer converged.
+            - ``summary`` (str): Full statsmodels summary text.
+            - ``model``: The fitted ``MixedLMResults`` object.
+
+    Notes:
+        - Requires both ``pandas`` and ``statsmodels`` (optional
+          dependencies). Raises ``ImportError`` with installation
+          instructions when either is missing.
+        - NaN observations (in *values*, any fixed effect, or the random
+          effect column) are dropped before fitting.
+        - Tries the lbfgs, powell, and bfgs optimizers in turn; near-
+          singular designs commonly break lbfgs' gradient path.
+    """
+    try:
+        import pandas as pd
+    except ImportError as e:
+        raise ImportError(
+            "mixed_effects_compare requires 'pandas'. "
+            "Install with: pip install pandas"
+        ) from e
+
+    try:
+        import statsmodels.formula.api as smf
+    except ImportError as e:
+        raise ImportError(
+            "mixed_effects_compare requires 'statsmodels'. "
+            "Install with: pip install statsmodels"
+        ) from e
+
+    values = np.asarray(values).ravel()
+    n = len(values)
+    if n == 0:
+        raise ValueError("values must not be empty.")
+
+    if not isinstance(fixed_effects, dict) or len(fixed_effects) == 0:
+        raise ValueError(
+            "fixed_effects must be a non-empty dict mapping name -> array."
+        )
+
+    columns = {response_label: values}
+    for name, arr in fixed_effects.items():
+        arr = np.asarray(arr).ravel()
+        if len(arr) != n:
+            raise ValueError(
+                f"fixed_effects[{name!r}] has length {len(arr)} but values has {n}."
+            )
+        columns[name] = arr
+
+    random_arr = np.asarray(random_effect).ravel()
+    if len(random_arr) != n:
+        raise ValueError(
+            f"random_effect has length {len(random_arr)} but values has {n}."
+        )
+    columns["_random_group"] = random_arr
+
+    df = pd.DataFrame(columns)
+    df = df.dropna()
+    if len(df) < 2:
+        raise ValueError(
+            "Need at least 2 valid (non-NaN) observations after dropping NaNs."
+        )
+    if df["_random_group"].nunique() < 2:
+        raise ValueError(
+            "Need at least 2 distinct random-effect levels to fit a mixed model."
+        )
+
+    if formula is None:
+        formula = f"{response_label} ~ " + " + ".join(fixed_effects.keys())
+
+    model = smf.mixedlm(formula, data=df, groups=df["_random_group"])
+    fit = None
+    last_err = None
+    for method in ("lbfgs", "powell", "bfgs"):
+        try:
+            fit = model.fit(method=method)
+            break
+        except (np.linalg.LinAlgError, ValueError) as e:
+            last_err = e
+            continue
+    if fit is None:
+        raise RuntimeError(
+            "MixedLM failed to converge with any optimizer "
+            "(tried lbfgs, powell, bfgs). The design may be near-singular — "
+            "check that fixed effects are not collinear and that random-effect "
+            f"groups have enough observations. Last error: {last_err!r}"
+        )
+
+    params = {k: float(v) for k, v in fit.params.items() if k != "Group Var"}
+    pvalues = {k: float(v) for k, v in fit.pvalues.items() if k != "Group Var"}
+    ci_df = fit.conf_int(alpha=alpha)
+    conf_int = {
+        k: (float(row[0]), float(row[1]))
+        for k, row in ci_df.iterrows()
+        if k != "Group Var"
+    }
+    significant = {k: bool(p < alpha) for k, p in pvalues.items()}
+
+    re_variance = (
+        float(fit.cov_re.iloc[0, 0])
+        if hasattr(fit.cov_re, "iloc")
+        else float(np.asarray(fit.cov_re).ravel()[0])
+    )
+
+    return {
+        "params": params,
+        "pvalues": pvalues,
+        "conf_int": conf_int,
+        "significant": significant,
+        "random_effect_variance": re_variance,
+        "n_obs": int(len(df)),
+        "n_groups": int(df["_random_group"].nunique()),
+        "converged": bool(fit.converged),
+        "summary": str(fit.summary()),
+        "model": fit,
+    }
+
+
 def omnibus_test(
     groups,
     test="anova",

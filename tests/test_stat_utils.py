@@ -9,6 +9,7 @@ from spikelab.spikedata.stat_utils import (
     pairwise_tests,
     paired_test,
     omnibus_test,
+    mixed_effects_compare,
 )
 
 # ---------------------------------------------------------------------------
@@ -928,3 +929,199 @@ class TestOmnibusTest:
         """
         with pytest.raises(ValueError, match="at least 2"):
             omnibus_test({"A": np.array([1, 2, 3])})
+
+
+# ---------------------------------------------------------------------------
+# mixed_effects_compare
+# ---------------------------------------------------------------------------
+
+
+class TestMixedEffectsCompare:
+    """Tests for the mixed_effects_compare LME wrapper."""
+
+    @staticmethod
+    def _make_balanced_data(n_groups=10, n_per_group=20, treatment_effect=2.0, seed=0):
+        rng = np.random.default_rng(seed)
+        values, treatment, group = [], [], []
+        for g in range(n_groups):
+            group_mean = rng.normal(0, 1.0)
+            for _ in range(n_per_group):
+                t = "A" if rng.random() < 0.5 else "B"
+                v = (
+                    group_mean
+                    + (treatment_effect if t == "B" else 0.0)
+                    + rng.normal(0, 1.0)
+                )
+                values.append(v)
+                treatment.append(t)
+                group.append(f"g{g}")
+        return (
+            np.asarray(values, dtype=float),
+            np.asarray(treatment, dtype=object),
+            np.asarray(group, dtype=object),
+        )
+
+    def test_detects_treatment_effect(self):
+        """
+        With a 2.0 simulated treatment effect, the B coefficient is positive,
+        significant, and within 30% of the true effect.
+
+        Tests:
+            (Test Case 1) B coefficient p-value < 0.05.
+            (Test Case 2) Coefficient between 1.4 and 2.6.
+        """
+        values, treatment, group = self._make_balanced_data(
+            n_groups=10, n_per_group=20, treatment_effect=2.0, seed=42
+        )
+        result = mixed_effects_compare(values, {"treatment": treatment}, group)
+        b_term = next(k for k in result["params"] if "treatment" in k and "B" in k)
+        assert result["pvalues"][b_term] < 0.05
+        assert 1.4 <= result["params"][b_term] <= 2.6
+
+    def test_no_effect_yields_nonsignificant(self):
+        """
+        With zero true effect, the treatment coefficient is non-significant.
+
+        Tests:
+            (Test Case 1) p-value > 0.05.
+        """
+        values, treatment, group = self._make_balanced_data(
+            n_groups=8, n_per_group=20, treatment_effect=0.0, seed=1
+        )
+        result = mixed_effects_compare(values, {"treatment": treatment}, group)
+        b_term = next(k for k in result["params"] if "treatment" in k and "B" in k)
+        assert result["pvalues"][b_term] > 0.05
+
+    def test_returns_expected_keys(self):
+        """
+        Returned dict contains all documented keys.
+
+        Tests:
+            (Test Case 1) Required keys present.
+            (Test Case 2) n_obs and n_groups match input.
+        """
+        values, treatment, group = self._make_balanced_data(seed=2)
+        result = mixed_effects_compare(values, {"treatment": treatment}, group)
+        for key in (
+            "params",
+            "pvalues",
+            "conf_int",
+            "significant",
+            "random_effect_variance",
+            "n_obs",
+            "n_groups",
+            "converged",
+            "summary",
+            "model",
+        ):
+            assert key in result
+        assert result["n_obs"] == len(values)
+        assert result["n_groups"] == len(set(group))
+
+    def test_explicit_formula_with_interaction(self):
+        """
+        Supplying an explicit formula with an interaction term produces
+        an interaction coefficient.
+
+        Tests:
+            (Test Case 1) Interaction term ':' appears in params.
+        """
+        rng = np.random.default_rng(3)
+        n_groups = 25
+        per_group = 30
+        treatment, latency, group, values = [], [], [], []
+        for g in range(n_groups):
+            offset = rng.normal(0, 0.5)
+            for k in range(per_group):
+                t = "A" if k < per_group // 2 else "B"
+                lat = rng.uniform(0, 100)
+                v = (
+                    offset
+                    + 0.05 * lat
+                    + (1.0 + 0.03 * lat if t == "B" else 0.0)
+                    + rng.normal(0, 0.5)
+                )
+                treatment.append(t)
+                latency.append(lat)
+                group.append(f"g{g}")
+                values.append(v)
+        result = mixed_effects_compare(
+            np.asarray(values),
+            {
+                "treatment": np.asarray(treatment, dtype=object),
+                "latency": np.asarray(latency),
+            },
+            np.asarray(group, dtype=object),
+            formula="value ~ treatment * latency",
+        )
+        interaction_terms = [k for k in result["params"] if ":" in k]
+        assert len(interaction_terms) >= 1
+
+    def test_drops_nan_observations(self):
+        """
+        NaNs in values are dropped before fitting.
+
+        Tests:
+            (Test Case 1) n_obs reflects only valid rows.
+        """
+        values, treatment, group = self._make_balanced_data(
+            n_groups=6, n_per_group=10, seed=7
+        )
+        values = values.copy()
+        values[0] = np.nan
+        values[5] = np.nan
+        result = mixed_effects_compare(values, {"treatment": treatment}, group)
+        assert result["n_obs"] == len(values) - 2
+
+    def test_empty_values_raises(self):
+        """
+        Empty input raises ValueError.
+
+        Tests:
+            (Test Case 1) ValueError about empty values.
+        """
+        with pytest.raises(ValueError, match="empty"):
+            mixed_effects_compare(np.array([]), {"x": np.array([])}, np.array([]))
+
+    def test_empty_fixed_effects_raises(self):
+        """
+        Empty fixed_effects dict raises ValueError.
+
+        Tests:
+            (Test Case 1) ValueError about non-empty dict.
+        """
+        with pytest.raises(ValueError, match="non-empty"):
+            mixed_effects_compare(
+                np.array([1.0, 2.0, 3.0]),
+                {},
+                np.array(["a", "b", "a"]),
+            )
+
+    def test_length_mismatch_raises(self):
+        """
+        Mismatched array lengths raise ValueError.
+
+        Tests:
+            (Test Case 1) Mismatched fixed-effect length raises.
+            (Test Case 2) Mismatched random-effect length raises.
+        """
+        values = np.array([1.0, 2.0, 3.0, 4.0])
+        with pytest.raises(ValueError, match="length"):
+            mixed_effects_compare(values, {"t": np.array([1, 2])}, np.array(["a"] * 4))
+        with pytest.raises(ValueError, match="length"):
+            mixed_effects_compare(
+                values, {"t": np.array([1, 2, 3, 4])}, np.array(["a", "b"])
+            )
+
+    def test_single_random_group_raises(self):
+        """
+        Need at least 2 distinct random-effect levels.
+
+        Tests:
+            (Test Case 1) ValueError about random-effect levels.
+        """
+        values = np.array([1.0, 2.0, 3.0, 4.0])
+        treatment = np.array(["A", "B", "A", "B"], dtype=object)
+        group = np.array(["g0", "g0", "g0", "g0"], dtype=object)
+        with pytest.raises(ValueError, match="random-effect levels"):
+            mixed_effects_compare(values, {"treatment": treatment}, group)
