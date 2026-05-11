@@ -601,6 +601,102 @@ class SpikeSliceStack:
         with np.errstate(invalid="ignore"):
             return np.any(agg > z_threshold, axis=1)
 
+    def decode_stim_identity(
+        self,
+        labels,
+        response_window_ms,
+        *,
+        bin_size,
+        baseline_window_ms=None,
+        classifier="ridge",
+        cv="loo",
+        classifier_kwargs=None,
+        random_state=None,
+    ):
+        """Decode per-slice labels (e.g. stim identity) from population responses.
+
+        Builds an ``(S, U)`` feature matrix by summing per-unit spike counts
+        in ``response_window_ms`` (optionally with baseline subtraction) and
+        runs cross-validated classifier decoding via
+        :func:`spikelab.spikedata.decoding.cross_validated_decode`.
+
+        Parameters:
+            labels (array-like): Per-slice labels of length ``S``
+                (e.g. stim electrode index, treatment category).
+            response_window_ms (tuple[float, float]): Window relative to
+                slice origin over which response counts are summed.
+            bin_size (float): Raster bin size in ms.
+            baseline_window_ms (tuple[float, float] or None): Optional
+                per-slice baseline window; when provided, counts are
+                baseline-subtracted via ``baseline_normalized_raster``.
+            classifier (str): ``"ridge"`` (default), ``"mlp"``, or
+                ``"random_forest"``.
+            cv (str or int): ``"loo"`` (default) or int ``>= 2``.
+            classifier_kwargs (dict or None): Forwarded to the sklearn
+                classifier constructor.
+            random_state (int or None): Reproducibility seed.
+
+        Returns:
+            result (dict): Same shape as
+                :func:`spikelab.spikedata.decoding.cross_validated_decode` —
+                ``accuracy``, ``predictions``, ``true_labels``,
+                ``confusion_matrix``, ``per_fold_accuracy``, ``classes``,
+                ``classifier_name``.
+
+        Notes:
+            - Requires ``scikit-learn`` (optional dependency).
+            - For decoding from the full ``(U, T)`` raster (not just summed
+              counts), call ``decoding.cross_validated_decode`` directly on
+              ``self.to_raster_array(bin_size).reshape(U * T, S).T``.
+        """
+        from .decoding import cross_validated_decode
+
+        if (
+            not isinstance(response_window_ms, (tuple, list))
+            or len(response_window_ms) != 2
+        ):
+            raise ValueError("response_window_ms must be a (start_ms, end_ms) tuple.")
+        r_start = float(response_window_ms[0])
+        r_end = float(response_window_ms[1])
+        if r_end <= r_start:
+            raise ValueError("response_window_ms end must be greater than start.")
+
+        if baseline_window_ms is None:
+            counts = self.to_raster_array(bin_size=bin_size).astype(float)
+        else:
+            counts = self.baseline_normalized_raster(
+                bin_size, baseline_window_ms, mode="subtract"
+            )
+
+        sd0 = self.spike_stack[0]
+        bin_start = int(np.floor((r_start - sd0.start_time) / bin_size))
+        bin_end = int(np.ceil((r_end - sd0.start_time) / bin_size))
+        bin_start = max(0, bin_start)
+        bin_end = min(counts.shape[1], bin_end)
+        if bin_end <= bin_start:
+            raise ValueError(
+                f"response_window_ms ({r_start}, {r_end}) maps to an empty "
+                f"bin range; check it against the slice duration and bin_size."
+            )
+
+        # (U, S) per-unit summed response amplitude per slice -> (S, U) features
+        X = counts[:, bin_start:bin_end, :].sum(axis=1).T
+
+        labels = np.asarray(labels).ravel()
+        if len(labels) != X.shape[0]:
+            raise ValueError(
+                f"labels must have length S={X.shape[0]}; got {len(labels)}."
+            )
+
+        return cross_validated_decode(
+            X,
+            labels,
+            classifier=classifier,
+            cv=cv,
+            classifier_kwargs=classifier_kwargs,
+            random_state=random_state,
+        )
+
     def slice_to_slice_similarity(self, metric="cosine", *, bin_size=1.0):
         """Pairwise similarity between slice-wise population response vectors.
 

@@ -3809,3 +3809,136 @@ class TestSpikeSliceStackSliceSimilarity:
         sss = self._build()
         with pytest.raises(ValueError, match="metric"):
             sss.slice_to_slice_similarity(metric="bogus")
+
+
+class TestSpikeSliceStackDecodeStimIdentity:
+    """Tests for SpikeSliceStack.decode_stim_identity."""
+
+    def _build_decodable_stack(self, n_classes=3, n_per_class=10, seed=0):
+        """Build a stack where class c puts evoked spikes in units [c*4 : c*4+4]."""
+        rng = np.random.default_rng(seed)
+        slices = []
+        labels = []
+        for c in range(n_classes):
+            for _ in range(n_per_class):
+                unit_trains = []
+                for u in range(12):
+                    # Baseline Poisson everywhere
+                    n_baseline = rng.poisson(2.0)
+                    baseline = np.sort(rng.uniform(0.0, 20.0, n_baseline))
+                    # Class-specific evoked response in (20, 30) for units c*4 : c*4+4
+                    if c * 4 <= u < c * 4 + 4:
+                        evoked = np.sort(rng.uniform(20.5, 29.5, 8))
+                    else:
+                        evoked = np.array([])
+                    unit_trains.append(np.sort(np.concatenate([baseline, evoked])))
+                sd = SpikeData(unit_trains, length=40.0, N=12)
+                slices.append(sd)
+                labels.append(c)
+        return SpikeSliceStack(
+            spike_stack=slices, times_start_to_end=[(0, 40)] * len(slices)
+        ), np.asarray(labels)
+
+    def test_high_accuracy_on_separable_responses(self):
+        """
+        When class identity drives a distinct unit subset, decoding accuracy
+        is well above chance.
+
+        Tests:
+            (Test Case 1) Accuracy > 0.7 on 3-class data with clean signal.
+        """
+        sss, labels = self._build_decodable_stack(n_classes=3, n_per_class=12, seed=42)
+        result = sss.decode_stim_identity(
+            labels,
+            response_window_ms=(20.0, 30.0),
+            bin_size=10.0,
+            cv=4,
+            random_state=0,
+        )
+        assert result["accuracy"] > 0.7
+
+    def test_returns_decode_result_dict(self):
+        """
+        Result has all keys from cross_validated_decode.
+
+        Tests:
+            (Test Case 1) accuracy, predictions, confusion_matrix, classes
+                are present.
+        """
+        sss, labels = self._build_decodable_stack(n_classes=2, n_per_class=8, seed=1)
+        result = sss.decode_stim_identity(
+            labels,
+            response_window_ms=(20.0, 30.0),
+            bin_size=10.0,
+            cv=3,
+            random_state=0,
+        )
+        for k in (
+            "accuracy",
+            "predictions",
+            "true_labels",
+            "confusion_matrix",
+            "per_fold_accuracy",
+            "classes",
+            "classifier_name",
+        ):
+            assert k in result
+
+    def test_baseline_subtraction_passes(self):
+        """
+        baseline_window_ms triggers baseline-subtracted features.
+
+        Tests:
+            (Test Case 1) Runs end-to-end with baseline subtraction.
+        """
+        sss, labels = self._build_decodable_stack(n_classes=2, n_per_class=8, seed=2)
+        result = sss.decode_stim_identity(
+            labels,
+            response_window_ms=(20.0, 30.0),
+            bin_size=10.0,
+            baseline_window_ms=(0.0, 20.0),
+            cv=3,
+            random_state=0,
+        )
+        assert 0.0 <= result["accuracy"] <= 1.0
+
+    def test_bad_response_window_raises(self):
+        """
+        Invalid response window raises ValueError.
+
+        Tests:
+            (Test Case 1) end <= start raises.
+            (Test Case 2) Wrong tuple form raises.
+            (Test Case 3) Out-of-slice window raises empty-bin-range error.
+        """
+        sss, labels = self._build_decodable_stack(n_classes=2, n_per_class=8)
+        with pytest.raises(ValueError, match="end must be greater"):
+            sss.decode_stim_identity(
+                labels, response_window_ms=(30.0, 20.0), bin_size=1.0, cv=2
+            )
+        with pytest.raises(ValueError, match="tuple"):
+            sss.decode_stim_identity(labels, response_window_ms=5.0, bin_size=1.0, cv=2)
+        with pytest.raises(ValueError, match="empty bin range"):
+            sss.decode_stim_identity(
+                labels,
+                response_window_ms=(100.0, 200.0),
+                bin_size=1.0,
+                cv=2,
+            )
+
+    def test_labels_length_mismatch_raises(self):
+        """
+        Mismatched labels length raises ValueError.
+
+        Tests:
+            (Test Case 1) Wrong-length labels raises.
+        """
+        sss, labels = self._build_decodable_stack(n_classes=2, n_per_class=8)
+        bad_labels = labels[:-2]
+        with pytest.raises(ValueError, match="length S"):
+            sss.decode_stim_identity(
+                bad_labels,
+                response_window_ms=(20.0, 30.0),
+                bin_size=10.0,
+                cv=2,
+            )
