@@ -592,6 +592,147 @@ class SpikeSliceStack:
         with np.errstate(invalid="ignore"):
             return np.any(agg > z_threshold, axis=1)
 
+    def per_unit_response_regression(
+        self,
+        bin_size,
+        response_window_ms,
+        *,
+        x_values=None,
+        baseline_window_ms=None,
+        min_valid_slices=3,
+    ):
+        """Per-unit OLS regression of evoked response amplitude across slices.
+
+        For each slice and unit, computes response amplitude as the sum of
+        spike counts in ``response_window_ms`` — optionally with a per-slice
+        baseline subtraction. Then fits a linear regression of amplitude
+        against ``x_values`` for every unit. Use this to detect facilitation
+        / depression of the evoked response across cycles or stimulus
+        intensities.
+
+        Parameters:
+            bin_size (float): Raster bin size in milliseconds (passed to
+                ``to_raster_array``).
+            response_window_ms (tuple[float, float]): ``(start_ms, end_ms)``
+                window relative to slice origin over which response counts
+                are summed.
+            x_values (array-like or None): Per-slice x values for the
+                regression (e.g. cycle index, stimulus intensity). Length
+                must equal the number of slices ``S``. When None (default),
+                uses ``np.arange(S)``.
+            baseline_window_ms (tuple[float, float] or None): Optional
+                baseline window for per-slice subtraction. When None
+                (default), uses raw response counts; otherwise subtracts the
+                expected count per bin (``baseline_rate * bin_size``) before
+                summing.
+            min_valid_slices (int): Minimum number of valid (non-NaN)
+                ``(x, y)`` pairs required to fit a regression. Units with
+                fewer return NaN for all coefficients. Default 3.
+
+        Returns:
+            result (dict): Dictionary with keys:
+                - ``slope`` (np.ndarray ``(U,)``): Slope per unit.
+                - ``intercept`` (np.ndarray ``(U,)``): Intercept per unit.
+                - ``r_squared`` (np.ndarray ``(U,)``): R² per unit.
+                - ``p_value`` (np.ndarray ``(U,)``): Two-sided p-value of
+                  the slope per unit.
+                - ``stderr`` (np.ndarray ``(U,)``): Standard error of the
+                  slope per unit.
+                - ``amplitudes`` (np.ndarray ``(U, S)``): Per-slice response
+                  amplitude (raw or baseline-subtracted).
+                - ``x_values`` (np.ndarray ``(S,)``): The x values used.
+
+        Notes:
+            - Requires ``scipy`` (optional dependency); raises
+              ``ImportError`` with installation instructions if missing.
+            - Units with constant amplitudes get ``r_squared = 0``,
+              ``slope = 0`` and ``p_value = 1.0``.
+        """
+        try:
+            from scipy import stats as sp_stats
+        except ImportError as e:
+            raise ImportError(
+                "per_unit_response_regression requires 'scipy'. "
+                "Install with: pip install scipy"
+            ) from e
+
+        if (
+            not isinstance(response_window_ms, (tuple, list))
+            or len(response_window_ms) != 2
+        ):
+            raise ValueError("response_window_ms must be a (start_ms, end_ms) tuple.")
+        r_start = float(response_window_ms[0])
+        r_end = float(response_window_ms[1])
+        if r_end <= r_start:
+            raise ValueError("response_window_ms end must be greater than start.")
+
+        S = len(self.spike_stack)
+        if x_values is None:
+            x_values = np.arange(S, dtype=float)
+        else:
+            x_values = np.asarray(x_values, dtype=float).ravel()
+            if x_values.size != S:
+                raise ValueError(
+                    f"x_values must have length S={S}, got {x_values.size}."
+                )
+
+        if baseline_window_ms is None:
+            counts = self.to_raster_array(bin_size=bin_size).astype(float)  # (U, T, S)
+        else:
+            counts = self.baseline_normalized_raster(
+                bin_size, baseline_window_ms, mode="subtract"
+            )
+
+        sd0 = self.spike_stack[0]
+        bin_start = int(np.floor((r_start - sd0.start_time) / bin_size))
+        bin_end = int(np.ceil((r_end - sd0.start_time) / bin_size))
+        bin_start = max(0, bin_start)
+        bin_end = min(counts.shape[1], bin_end)
+        if bin_end <= bin_start:
+            raise ValueError(
+                f"response_window_ms ({r_start}, {r_end}) maps to an empty "
+                f"bin range; check it against the slice duration and bin_size."
+            )
+
+        amplitudes = np.nansum(counts[:, bin_start:bin_end, :], axis=1)  # (U, S)
+
+        slope = np.full(self.N, np.nan)
+        intercept = np.full(self.N, np.nan)
+        r_squared = np.full(self.N, np.nan)
+        p_value = np.full(self.N, np.nan)
+        stderr = np.full(self.N, np.nan)
+
+        for u in range(self.N):
+            y = amplitudes[u, :]
+            valid = np.isfinite(x_values) & np.isfinite(y)
+            if int(np.sum(valid)) < min_valid_slices:
+                continue
+            xv = x_values[valid]
+            yv = y[valid]
+            # Constant predictor or response: linregress would emit a warning
+            # and return NaN; handle explicitly.
+            if np.ptp(xv) == 0:
+                continue
+            try:
+                res = sp_stats.linregress(xv, yv)
+            except (ValueError, FloatingPointError):
+                continue
+            slope[u] = float(res.slope)
+            intercept[u] = float(res.intercept)
+            r_squared[u] = float(res.rvalue) ** 2
+            p_value[u] = float(res.pvalue)
+            stderr[u] = float(res.stderr)
+
+        return {
+            "slope": slope,
+            "intercept": intercept,
+            "r_squared": r_squared,
+            "p_value": p_value,
+            "stderr": stderr,
+            "amplitudes": amplitudes,
+            "x_values": x_values,
+        }
+
     def compute_frac_active(self, min_spikes=2):
         """Compute the fraction of slices each unit is active in.
 

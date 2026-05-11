@@ -3544,3 +3544,170 @@ class TestResponsiveUnits:
                 baseline_window_ms=(0.0, 20.0),
                 response_window_ms=(100.0, 200.0),
             )
+
+
+class TestPerUnitResponseRegression:
+    """Tests for SpikeSliceStack.per_unit_response_regression."""
+
+    def _decaying_stack(self, n_slices=8, decay_per_slice=1, seed=0):
+        """Build a stack where unit 0's response decays linearly across slices."""
+        rng = np.random.default_rng(seed)
+        slices = []
+        for s in range(n_slices):
+            # Response amplitude for unit 0: 10 - s*decay_per_slice spikes,
+            # distributed in (20, 30) ms region.
+            n_resp = max(0, 10 - s * decay_per_slice)
+            response_times = (
+                np.sort(rng.uniform(20.5, 29.5, n_resp))
+                if n_resp > 0
+                else np.array([], dtype=float)
+            )
+            unit0 = np.concatenate([np.array([10.0]), response_times])
+            unit1 = np.array([5.0, 15.0, 25.0, 35.0])  # roughly constant
+            sd = SpikeData([unit0, unit1], length=40.0, N=2)
+            slices.append(sd)
+        return SpikeSliceStack(
+            spike_stack=slices, times_start_to_end=[(0, 40)] * n_slices
+        )
+
+    def test_recovers_decay_slope(self):
+        """
+        Unit 0 amplitude decays by 1 spike per slice; the regression slope
+        is approximately -1.
+
+        Tests:
+            (Test Case 1) Unit 0 slope is between -1.2 and -0.8.
+            (Test Case 2) Unit 0 p-value < 0.05.
+        """
+        sss = self._decaying_stack(n_slices=8, decay_per_slice=1)
+        res = sss.per_unit_response_regression(
+            bin_size=1.0, response_window_ms=(20.0, 30.0)
+        )
+        assert -1.2 < res["slope"][0] < -0.8
+        assert res["p_value"][0] < 0.05
+
+    def test_flat_response_zero_slope(self):
+        """
+        For a unit with constant response amplitude across slices, slope is
+        approximately zero and p-value is large.
+
+        Tests:
+            (Test Case 1) Unit 1 |slope| < 1e-9 (exactly 0 for identical
+                amplitudes).
+        """
+        sss = self._decaying_stack(n_slices=8, decay_per_slice=0)
+        res = sss.per_unit_response_regression(
+            bin_size=1.0, response_window_ms=(20.0, 30.0)
+        )
+        # Unit 1 has 0 spikes in (20, 30) every slice → slope = 0 exactly
+        assert abs(res["slope"][1]) < 1e-9
+
+    def test_output_shapes(self):
+        """
+        Output arrays have shape (U,) for coefficients and (U, S) for amplitudes.
+
+        Tests:
+            (Test Case 1) slope, intercept, r_squared, p_value, stderr all (U,).
+            (Test Case 2) amplitudes is (U, S).
+            (Test Case 3) x_values is (S,) and defaults to np.arange(S).
+        """
+        sss = self._decaying_stack(n_slices=6, decay_per_slice=1)
+        res = sss.per_unit_response_regression(
+            bin_size=1.0, response_window_ms=(20.0, 30.0)
+        )
+        for k in ("slope", "intercept", "r_squared", "p_value", "stderr"):
+            assert res[k].shape == (2,)
+        assert res["amplitudes"].shape == (2, 6)
+        np.testing.assert_array_equal(res["x_values"], np.arange(6))
+
+    def test_custom_x_values(self):
+        """
+        Custom x_values are respected.
+
+        Tests:
+            (Test Case 1) Slope changes when x_values are doubled (slope halves).
+        """
+        sss = self._decaying_stack(n_slices=8, decay_per_slice=1)
+        res_default = sss.per_unit_response_regression(
+            bin_size=1.0, response_window_ms=(20.0, 30.0)
+        )
+        res_doubled = sss.per_unit_response_regression(
+            bin_size=1.0,
+            response_window_ms=(20.0, 30.0),
+            x_values=np.arange(8) * 2.0,
+        )
+        assert res_doubled["slope"][0] == pytest.approx(
+            res_default["slope"][0] / 2.0, rel=1e-6
+        )
+
+    def test_baseline_subtraction_applied(self):
+        """
+        When baseline_window_ms is provided, amplitudes are baseline-subtracted.
+
+        Tests:
+            (Test Case 1) baseline-subtracted amplitudes differ from raw amplitudes.
+        """
+        sss = self._decaying_stack(n_slices=6, decay_per_slice=1)
+        res_raw = sss.per_unit_response_regression(
+            bin_size=1.0, response_window_ms=(20.0, 30.0)
+        )
+        res_subtracted = sss.per_unit_response_regression(
+            bin_size=1.0,
+            response_window_ms=(20.0, 30.0),
+            baseline_window_ms=(0.0, 20.0),
+        )
+        # Raw amplitudes are non-negative integers; baseline-subtracted ones
+        # are floats including negatives.
+        assert not np.array_equal(res_raw["amplitudes"], res_subtracted["amplitudes"])
+
+    def test_min_valid_slices(self):
+        """
+        Units with too few valid slices return NaN.
+
+        Tests:
+            (Test Case 1) min_valid_slices=100 forces all units to NaN.
+        """
+        sss = self._decaying_stack(n_slices=8, decay_per_slice=1)
+        res = sss.per_unit_response_regression(
+            bin_size=1.0,
+            response_window_ms=(20.0, 30.0),
+            min_valid_slices=100,
+        )
+        assert np.isnan(res["slope"]).all()
+        assert np.isnan(res["p_value"]).all()
+
+    def test_bad_response_window_raises(self):
+        """
+        Invalid response window raises ValueError.
+
+        Tests:
+            (Test Case 1) end <= start raises.
+            (Test Case 2) Non-tuple raises.
+            (Test Case 3) Out-of-range window raises.
+        """
+        sss = self._decaying_stack(n_slices=4, decay_per_slice=1)
+        with pytest.raises(ValueError, match="end must be greater"):
+            sss.per_unit_response_regression(
+                bin_size=1.0, response_window_ms=(30.0, 20.0)
+            )
+        with pytest.raises(ValueError, match="tuple"):
+            sss.per_unit_response_regression(bin_size=1.0, response_window_ms=5.0)
+        with pytest.raises(ValueError, match="empty bin range"):
+            sss.per_unit_response_regression(
+                bin_size=1.0, response_window_ms=(100.0, 200.0)
+            )
+
+    def test_x_values_length_mismatch_raises(self):
+        """
+        Mismatched x_values length raises ValueError.
+
+        Tests:
+            (Test Case 1) ValueError when x_values length != number of slices.
+        """
+        sss = self._decaying_stack(n_slices=4, decay_per_slice=1)
+        with pytest.raises(ValueError, match="length S"):
+            sss.per_unit_response_regression(
+                bin_size=1.0,
+                response_window_ms=(20.0, 30.0),
+                x_values=np.arange(10),
+            )
