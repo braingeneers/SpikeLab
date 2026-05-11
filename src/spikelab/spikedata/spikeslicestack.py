@@ -14,6 +14,7 @@ from .utils import (
     get_sttc,
     compute_cross_correlation_with_lag,
     _resolve_n_jobs,
+    _slice_to_slice_similarity_matrix,
 )
 
 
@@ -599,6 +600,38 @@ class SpikeSliceStack:
             agg = np.nanmax(z, axis=2)
         with np.errstate(invalid="ignore"):
             return np.any(agg > z_threshold, axis=1)
+
+    def slice_to_slice_similarity(self, metric="cosine", *, bin_size=1.0):
+        """Pairwise similarity between slice-wise population response vectors.
+
+        Each slice is converted to a ``(U * T)`` flat vector via
+        ``to_raster_array(bin_size).reshape(U*T, S).T`` and a square
+        ``(S, S)`` similarity matrix is computed using the requested metric.
+
+        Parameters:
+            metric (str): One of ``"cosine"`` (default), ``"pearson"``,
+                ``"euclidean"`` (distance), or ``"cross_entropy"``
+                (symmetric KL on normalized bin distributions).
+            bin_size (float): Raster bin size in ms (default 1.0).
+
+        Returns:
+            sim (PairwiseCompMatrix): ``(S, S)`` similarity matrix. For
+                cosine and pearson, higher = more similar (diagonal ~1.0);
+                for euclidean and cross_entropy, lower = more similar
+                (diagonal 0).
+
+        Notes:
+            - ``cosine`` and ``pearson`` return values in ``[-1, 1]``.
+            - ``euclidean`` returns raw L2 distance.
+            - ``cross_entropy`` returns symmetric KL divergence (i.e.
+              ``(KL(p||q) + KL(q||p)) / 2``) between bin distributions
+              normalized to sum to 1.
+            - Use ``PairwiseCompMatrix.extract_lower_triangle()`` for
+              feature extraction.
+        """
+        stack = self.to_raster_array(bin_size=bin_size)  # (U, T, S)
+        sim = _slice_to_slice_similarity_matrix(stack, metric)
+        return PairwiseCompMatrix(matrix=sim, metadata={"metric": metric})
 
     def per_unit_response_regression(
         self,

@@ -4201,3 +4201,119 @@ class TestResampledIsiEmptyTimes:
         times = np.array([], dtype=float)
         with pytest.raises(IndexError):
             _resampled_isi(spikes, times, sigma_ms=1.0)
+
+
+class TestSliceToSliceSimilarityMatrix:
+    """Tests for _slice_to_slice_similarity_matrix helper."""
+
+    def test_cosine_identity_diagonal(self):
+        """
+        Cosine of a slice with itself is 1.0.
+
+        Tests:
+            (Test Case 1) Diagonal entries are ~1.0.
+        """
+        from spikelab.spikedata.utils import _slice_to_slice_similarity_matrix
+
+        rng = np.random.default_rng(0)
+        stack = rng.uniform(0, 5, (4, 10, 3))
+        sim = _slice_to_slice_similarity_matrix(stack, metric="cosine")
+        assert sim.shape == (3, 3)
+        np.testing.assert_allclose(np.diag(sim), 1.0)
+
+    def test_pearson_identity_diagonal(self):
+        """
+        Pearson of a slice with itself is 1.0.
+
+        Tests:
+            (Test Case 1) Diagonal entries are ~1.0.
+        """
+        from spikelab.spikedata.utils import _slice_to_slice_similarity_matrix
+
+        rng = np.random.default_rng(1)
+        stack = rng.uniform(0, 5, (4, 10, 3))
+        sim = _slice_to_slice_similarity_matrix(stack, metric="pearson")
+        np.testing.assert_allclose(np.diag(sim), 1.0)
+
+    def test_euclidean_self_zero(self):
+        """
+        Euclidean distance of a slice with itself is 0.
+
+        Tests:
+            (Test Case 1) Diagonal entries are 0.0.
+        """
+        from spikelab.spikedata.utils import _slice_to_slice_similarity_matrix
+
+        rng = np.random.default_rng(2)
+        stack = rng.uniform(0, 5, (3, 8, 4))
+        sim = _slice_to_slice_similarity_matrix(stack, metric="euclidean")
+        np.testing.assert_allclose(np.diag(sim), 0.0)
+
+    def test_cross_entropy_self_zero(self):
+        """
+        Symmetric KL of a slice with itself is 0.
+
+        Tests:
+            (Test Case 1) Diagonal entries are 0.0 (within numerical eps).
+        """
+        from spikelab.spikedata.utils import _slice_to_slice_similarity_matrix
+
+        rng = np.random.default_rng(3)
+        stack = rng.uniform(0, 5, (3, 8, 4)) + 0.1
+        sim = _slice_to_slice_similarity_matrix(stack, metric="cross_entropy")
+        np.testing.assert_allclose(np.diag(sim), 0.0, atol=1e-10)
+
+    def test_cosine_orthogonal(self):
+        """
+        Two orthogonal slices have cosine 0.
+
+        Tests:
+            (Test Case 1) Cosine off-diagonal is ~0 for orthogonal slices.
+        """
+        from spikelab.spikedata.utils import _slice_to_slice_similarity_matrix
+
+        # Slice 0: ones in first half, zeros in second; slice 1: opposite
+        stack = np.zeros((2, 4, 2))
+        stack[:, :2, 0] = 1.0  # slice 0 occupies first 2 bins
+        stack[:, 2:, 1] = 1.0  # slice 1 occupies last 2 bins
+        sim = _slice_to_slice_similarity_matrix(stack, metric="cosine")
+        assert sim[0, 1] == pytest.approx(0.0)
+
+    def test_symmetric(self):
+        """
+        All similarity matrices are symmetric.
+
+        Tests:
+            (Test Case 1) sim equals sim.T for all metrics.
+        """
+        from spikelab.spikedata.utils import _slice_to_slice_similarity_matrix
+
+        rng = np.random.default_rng(4)
+        stack = rng.uniform(0, 5, (3, 8, 4)) + 0.1
+        for m in ("cosine", "pearson", "euclidean", "cross_entropy"):
+            sim = _slice_to_slice_similarity_matrix(stack, metric=m)
+            np.testing.assert_allclose(sim, sim.T, equal_nan=True)
+
+    def test_unknown_metric_raises(self):
+        """
+        Invalid metric raises ValueError.
+
+        Tests:
+            (Test Case 1) ValueError for bogus metric.
+        """
+        from spikelab.spikedata.utils import _slice_to_slice_similarity_matrix
+
+        with pytest.raises(ValueError, match="metric"):
+            _slice_to_slice_similarity_matrix(np.zeros((1, 1, 1)), metric="bogus")
+
+    def test_wrong_shape_raises(self):
+        """
+        Non-3D input raises ValueError.
+
+        Tests:
+            (Test Case 1) 2-D input raises.
+        """
+        from spikelab.spikedata.utils import _slice_to_slice_similarity_matrix
+
+        with pytest.raises(ValueError, match="3-D"):
+            _slice_to_slice_similarity_matrix(np.zeros((3, 3)), metric="cosine")

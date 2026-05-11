@@ -15,6 +15,7 @@ from .utils import (
     _validate_time_start_to_end,
     _get_attr,
     _resolve_n_jobs,
+    _slice_to_slice_similarity_matrix,
 )
 
 
@@ -735,6 +736,33 @@ class RateSliceStack:
 
     def __iter__(self):
         return iter(self.convert_to_list_of_RateData())
+
+    def slice_to_slice_similarity(self, metric="cosine"):
+        """Pairwise similarity between slice-wise rate vectors.
+
+        Each slice is flattened from ``(U, T)`` to ``(U * T,)`` and a
+        square ``(S, S)`` similarity matrix is computed using the
+        requested metric.
+
+        Parameters:
+            metric (str): One of ``"cosine"`` (default), ``"pearson"``,
+                ``"euclidean"`` (distance), or ``"cross_entropy"``
+                (symmetric KL on rate distributions normalized to sum 1).
+
+        Returns:
+            sim (PairwiseCompMatrix): ``(S, S)`` similarity matrix. For
+                cosine and pearson, higher = more similar (diagonal ~1.0);
+                for euclidean and cross_entropy, lower = more similar
+                (diagonal 0).
+
+        Notes:
+            - Operates directly on ``self.event_stack`` (the underlying
+              ``(U, T, S)`` rate array).
+            - Use ``PairwiseCompMatrix.extract_lower_triangle()`` for
+              feature extraction.
+        """
+        sim = _slice_to_slice_similarity_matrix(self.event_stack, metric)
+        return PairwiseCompMatrix(matrix=sim, metadata={"metric": metric})
 
     def subset(self, units, by=None):
         """Extract a subset of units/neurons from the rate slice stack.
