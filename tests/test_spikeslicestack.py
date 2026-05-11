@@ -3287,3 +3287,260 @@ class TestSpikeSliceStackUniformStartTime:
         sd = SpikeData([[1.0]], length=10.0, start_time=-5.0)
         sss = SpikeSliceStack(spike_stack=[sd], times_start_to_end=[(0.0, 10.0)])
         assert len(sss.spike_stack) == 1
+
+
+class TestBaselineNormalizedRaster:
+    """Tests for SpikeSliceStack.baseline_normalized_raster."""
+
+    def _evoked_stack(self):
+        """4-slice stack where unit 0 has 5 response spikes in [20,30), unit 1 silent."""
+        slices = []
+        for _ in range(4):
+            sd = SpikeData(
+                [
+                    np.concatenate([np.array([10.0]), np.linspace(20.5, 29.5, 5)]),
+                    np.array([5.0]),
+                ],
+                length=40.0,
+                N=2,
+            )
+            slices.append(sd)
+        return SpikeSliceStack(spike_stack=slices, times_start_to_end=[(0, 40)] * 4)
+
+    def test_shape(self):
+        """
+        Output shape matches the underlying raster (U, T, S).
+
+        Tests:
+            (Test Case 1) Shape is (2, 40, 4) at bin_size=1.0.
+        """
+        sss = self._evoked_stack()
+        out = sss.baseline_normalized_raster(
+            bin_size=1.0, baseline_window_ms=(0.0, 20.0), mode="subtract"
+        )
+        assert out.shape == (2, 40, 4)
+
+    def test_subtract_mode_values(self):
+        """
+        Baseline rate unit 0: 1 spike / 20 ms = 0.05/ms. Expected per 1ms bin
+        = 0.05. SpikeData bins are left-open right-closed, so spike at t=10.0
+        lands in bin 9. Bin with 1 spike: 0.95; empty bin: -0.05.
+
+        Tests:
+            (Test Case 1) Bin 9 of unit 0 (spike) is ~0.95.
+            (Test Case 2) Bin 0 of unit 0 (empty) is ~-0.05.
+        """
+        sss = self._evoked_stack()
+        out = sss.baseline_normalized_raster(
+            bin_size=1.0, baseline_window_ms=(0.0, 20.0), mode="subtract"
+        )
+        assert out[0, 9, 0] == pytest.approx(1.0 - 0.05)
+        assert out[0, 0, 0] == pytest.approx(-0.05)
+
+    def test_ratio_mode(self):
+        """
+        Ratio mode: counts / expected per bin.
+
+        Tests:
+            (Test Case 1) Bin with 1 spike: 1/0.05 = 20.
+            (Test Case 2) Empty bin: 0.
+        """
+        sss = self._evoked_stack()
+        out = sss.baseline_normalized_raster(
+            bin_size=1.0, baseline_window_ms=(0.0, 20.0), mode="ratio"
+        )
+        assert out[0, 9, 0] == pytest.approx(20.0)
+        assert out[0, 0, 0] == pytest.approx(0.0)
+
+    def test_zscore_mode(self):
+        """
+        Z-score mode produces (1 - 0.05) / sqrt(0.05) ≈ 4.25 at the spike bin.
+
+        Tests:
+            (Test Case 1) Shape is (U, T, S).
+            (Test Case 2) Per-bin z-score matches analytical formula.
+        """
+        sss = self._evoked_stack()
+        z = sss.baseline_normalized_raster(
+            bin_size=1.0, baseline_window_ms=(0.0, 20.0), mode="zscore"
+        )
+        assert z.shape == (2, 40, 4)
+        expected = (1.0 - 0.05) / np.sqrt(0.05)
+        assert z[0, 9, 0] == pytest.approx(expected)
+
+    def test_baseline_outside_slice_raises(self):
+        """
+        Baseline window outside slice raises ValueError.
+
+        Tests:
+            (Test Case 1) Out-of-range window raises.
+            (Test Case 2) Wrong tuple form raises.
+            (Test Case 3) end <= start raises.
+        """
+        sss = self._evoked_stack()
+        with pytest.raises(ValueError, match="falls outside"):
+            sss.baseline_normalized_raster(1.0, baseline_window_ms=(0.0, 100.0))
+        with pytest.raises(ValueError, match="tuple"):
+            sss.baseline_normalized_raster(1.0, baseline_window_ms=5.0)
+        with pytest.raises(ValueError, match="end must be greater"):
+            sss.baseline_normalized_raster(1.0, baseline_window_ms=(20.0, 10.0))
+
+    def test_unknown_mode_raises(self):
+        """
+        Unknown mode raises ValueError.
+
+        Tests:
+            (Test Case 1) ValueError for bogus mode.
+        """
+        sss = self._evoked_stack()
+        with pytest.raises(ValueError, match="mode"):
+            sss.baseline_normalized_raster(
+                1.0, baseline_window_ms=(0.0, 20.0), mode="bogus"
+            )
+
+    def test_empty_unit_zero_baseline(self):
+        """
+        A unit with no spikes yields zeros in subtract mode and NaN in
+        ratio / zscore modes (division by zero baseline).
+
+        Tests:
+            (Test Case 1) subtract: zeros for empty unit.
+            (Test Case 2) ratio: NaN for empty unit.
+            (Test Case 3) zscore: NaN for empty unit.
+        """
+        sd = SpikeData([np.array([]), np.array([10.0])], length=40.0, N=2)
+        sss = SpikeSliceStack(
+            spike_stack=[sd, sd], times_start_to_end=[(0, 40), (100, 140)]
+        )
+        sub = sss.baseline_normalized_raster(
+            1.0, baseline_window_ms=(0.0, 20.0), mode="subtract"
+        )
+        rat = sss.baseline_normalized_raster(
+            1.0, baseline_window_ms=(0.0, 20.0), mode="ratio"
+        )
+        zsc = sss.baseline_normalized_raster(
+            1.0, baseline_window_ms=(0.0, 20.0), mode="zscore"
+        )
+        assert (sub[0, :, :] == 0).all()
+        assert np.isnan(rat[0, :, :]).all()
+        assert np.isnan(zsc[0, :, :]).all()
+
+
+class TestResponsiveUnits:
+    """Tests for SpikeSliceStack.responsive_units."""
+
+    def _build(self):
+        """Stack where unit 0 reliably responds in [20,30), unit 1 does not."""
+        slices = []
+        for _ in range(6):
+            sd = SpikeData(
+                [
+                    np.concatenate([np.array([10.0]), np.linspace(20.5, 29.5, 5)]),
+                    np.array([5.0, 15.0, 25.0, 35.0]),
+                ],
+                length=40.0,
+                N=2,
+            )
+            slices.append(sd)
+        return SpikeSliceStack(spike_stack=slices, times_start_to_end=[(0, 40)] * 6)
+
+    def test_known_responsive_only(self):
+        """
+        Unit 0 is responsive; unit 1 is not.
+
+        Tests:
+            (Test Case 1) mask[0] is True.
+            (Test Case 2) mask[1] is False.
+        """
+        sss = self._build()
+        mask = sss.responsive_units(
+            bin_size=10.0,
+            baseline_window_ms=(0.0, 20.0),
+            response_window_ms=(20.0, 30.0),
+            z_threshold=2.0,
+        )
+        assert mask.shape == (2,)
+        assert bool(mask[0]) is True
+        assert bool(mask[1]) is False
+
+    def test_full_slice_default(self):
+        """
+        Default response_window_ms=None matches the explicit full-slice call.
+
+        Tests:
+            (Test Case 1) default mask equals full-slice mask.
+        """
+        sss = self._build()
+        m_default = sss.responsive_units(bin_size=10.0, baseline_window_ms=(0.0, 20.0))
+        m_explicit = sss.responsive_units(
+            bin_size=10.0,
+            baseline_window_ms=(0.0, 20.0),
+            response_window_ms=(0.0, 40.0),
+        )
+        assert (m_default == m_explicit).all()
+
+    def test_max_aggregator_matches_mean(self):
+        """
+        For consistent responses across slices, mean and max aggregators agree.
+
+        Tests:
+            (Test Case 1) max mask == mean mask.
+        """
+        sss = self._build()
+        m1 = sss.responsive_units(
+            bin_size=10.0,
+            baseline_window_ms=(0.0, 20.0),
+            response_window_ms=(20.0, 30.0),
+            aggregator="mean",
+        )
+        m2 = sss.responsive_units(
+            bin_size=10.0,
+            baseline_window_ms=(0.0, 20.0),
+            response_window_ms=(20.0, 30.0),
+            aggregator="max",
+        )
+        assert (m1 == m2).all()
+
+    def test_bad_aggregator_raises(self):
+        """
+        Invalid aggregator raises ValueError.
+
+        Tests:
+            (Test Case 1) ValueError for unknown aggregator.
+        """
+        sss = self._build()
+        with pytest.raises(ValueError, match="aggregator"):
+            sss.responsive_units(
+                bin_size=1.0,
+                baseline_window_ms=(0.0, 20.0),
+                aggregator="bogus",
+            )
+
+    def test_bad_response_window_raises(self):
+        """
+        Empty or malformed response window raises ValueError.
+
+        Tests:
+            (Test Case 1) end <= start raises.
+            (Test Case 2) Non-tuple raises.
+            (Test Case 3) Out-of-bin-range window raises.
+        """
+        sss = self._build()
+        with pytest.raises(ValueError, match="end must be greater"):
+            sss.responsive_units(
+                bin_size=1.0,
+                baseline_window_ms=(0.0, 20.0),
+                response_window_ms=(30.0, 20.0),
+            )
+        with pytest.raises(ValueError, match="tuple"):
+            sss.responsive_units(
+                bin_size=1.0,
+                baseline_window_ms=(0.0, 20.0),
+                response_window_ms=5.0,
+            )
+        with pytest.raises(ValueError, match="empty bin range"):
+            sss.responsive_units(
+                bin_size=1.0,
+                baseline_window_ms=(0.0, 20.0),
+                response_window_ms=(100.0, 200.0),
+            )

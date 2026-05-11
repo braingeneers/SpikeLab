@@ -436,6 +436,162 @@ class SpikeSliceStack:
 
         return raster_stack
 
+    def baseline_normalized_raster(
+        self, bin_size, baseline_window_ms, *, mode="subtract"
+    ):
+        """Per-slice raster normalized against a per-slice baseline rate.
+
+        Wraps ``to_raster_array(bin_size)`` and converts each bin into a
+        baseline-normalized response value. The baseline rate is computed
+        from spikes inside ``baseline_window_ms`` (in milliseconds relative
+        to each slice's time origin) and projected to each bin via
+        ``rate * bin_size``. Output shape matches the raster: ``(U, T, S)``.
+
+        Parameters:
+            bin_size (float): Raster bin size in milliseconds. Passed to
+                ``to_raster_array``.
+            baseline_window_ms (tuple[float, float]): ``(start_ms, end_ms)``
+                window relative to slice origin used to estimate the
+                per-slice baseline rate.
+            mode (str): Normalization mode:
+                - ``"subtract"`` (default) — counts above baseline expectation.
+                - ``"ratio"`` — counts / expected_counts (NaN where expected
+                  is 0).
+                - ``"zscore"`` — (counts - expected) / sqrt(expected), the
+                  Poisson z-score (NaN where expected is 0).
+
+        Returns:
+            normalized (np.ndarray): Float array of shape ``(U, T, S)``.
+
+        Notes:
+            - Baseline window is validated against each slice's actual time
+              range. ``ValueError`` if any slice doesn't contain it.
+            - For uniform-bin response counts (no normalization), use
+              ``to_raster_array(bin_size)`` directly; this method adds the
+              per-slice baseline correction on top.
+        """
+        if mode not in ("subtract", "ratio", "zscore"):
+            raise ValueError(
+                f"mode must be 'subtract', 'ratio', or 'zscore', got {mode!r}"
+            )
+        if (
+            not isinstance(baseline_window_ms, (tuple, list))
+            or len(baseline_window_ms) != 2
+        ):
+            raise ValueError("baseline_window_ms must be a (start_ms, end_ms) tuple.")
+        b_start, b_end = float(baseline_window_ms[0]), float(baseline_window_ms[1])
+        if b_end <= b_start:
+            raise ValueError("baseline_window_ms end must be greater than start.")
+
+        for s_idx, sd in enumerate(self.spike_stack):
+            slice_start = sd.start_time
+            slice_end = sd.start_time + (self.times[s_idx][1] - self.times[s_idx][0])
+            if b_start < slice_start - 1e-9 or b_end > slice_end + 1e-9:
+                raise ValueError(
+                    f"baseline_window_ms ({b_start}, {b_end}) falls outside "
+                    f"slice {s_idx} time range [{slice_start}, {slice_end}]."
+                )
+
+        counts = self.to_raster_array(bin_size=bin_size).astype(float)  # (U, T, S)
+
+        baseline_width = b_end - b_start
+        baseline_counts = np.zeros((self.N, len(self.spike_stack)), dtype=float)
+        for s_idx, sd in enumerate(self.spike_stack):
+            for u in range(self.N):
+                train = np.asarray(sd.train[u], dtype=float)
+                if train.size == 0:
+                    continue
+                baseline_counts[u, s_idx] = float(
+                    np.sum((train >= b_start) & (train < b_end))
+                )
+
+        # Per-slice expected counts per bin = rate * bin_size
+        expected_per_bin = baseline_counts * (bin_size / baseline_width)  # (U, S)
+        expected = expected_per_bin[:, np.newaxis, :]  # broadcasts over T
+
+        if mode == "subtract":
+            return counts - expected
+        if mode == "ratio":
+            with np.errstate(divide="ignore", invalid="ignore"):
+                return np.where(expected > 0, counts / expected, np.nan)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            return np.where(
+                expected > 0, (counts - expected) / np.sqrt(expected), np.nan
+            )
+
+    def responsive_units(
+        self,
+        bin_size,
+        baseline_window_ms,
+        *,
+        response_window_ms=None,
+        z_threshold=2.0,
+        aggregator="mean",
+    ):
+        """Identify units that show a significant evoked response.
+
+        Builds the Poisson-z-scored baseline-normalized raster, optionally
+        restricts to a response time window, aggregates across slices
+        (mean or max), and returns a unit mask where any time bin's
+        aggregated z-score exceeds ``z_threshold``.
+
+        Parameters:
+            bin_size (float): Raster bin size in milliseconds.
+            baseline_window_ms (tuple[float, float]): Baseline window
+                ``(start_ms, end_ms)`` relative to slice origin used to
+                estimate the per-slice baseline rate.
+            response_window_ms (tuple[float, float] or None): Optional
+                response window ``(start_ms, end_ms)`` relative to slice
+                origin. When None (default), the full slice is searched.
+            z_threshold (float): Z-score threshold (default 2.0).
+            aggregator (str): How to combine z-scores across slices before
+                thresholding. ``"mean"`` (default) or ``"max"``.
+
+        Returns:
+            mask (np.ndarray): Boolean array of shape ``(U,)``. True for
+                responsive units.
+
+        Notes:
+            - Units with no baseline spikes in any slice are flagged
+              non-responsive (z-scores are NaN there).
+        """
+        if aggregator not in ("mean", "max"):
+            raise ValueError(f"aggregator must be 'mean' or 'max', got {aggregator!r}")
+        z = self.baseline_normalized_raster(
+            bin_size, baseline_window_ms, mode="zscore"
+        )  # (U, T, S)
+
+        if response_window_ms is not None:
+            if (
+                not isinstance(response_window_ms, (tuple, list))
+                or len(response_window_ms) != 2
+            ):
+                raise ValueError(
+                    "response_window_ms must be a (start_ms, end_ms) tuple or None."
+                )
+            r_start = float(response_window_ms[0])
+            r_end = float(response_window_ms[1])
+            if r_end <= r_start:
+                raise ValueError("response_window_ms end must be greater than start.")
+            sd0 = self.spike_stack[0]
+            bin_start = int(np.floor((r_start - sd0.start_time) / bin_size))
+            bin_end = int(np.ceil((r_end - sd0.start_time) / bin_size))
+            bin_start = max(0, bin_start)
+            bin_end = min(z.shape[1], bin_end)
+            if bin_end <= bin_start:
+                raise ValueError(
+                    f"response_window_ms ({r_start}, {r_end}) maps to an empty "
+                    f"bin range; check it against the slice duration and bin_size."
+                )
+            z = z[:, bin_start:bin_end, :]
+
+        if aggregator == "mean":
+            agg = np.nanmean(z, axis=2)
+        else:
+            agg = np.nanmax(z, axis=2)
+        with np.errstate(invalid="ignore"):
+            return np.any(agg > z_threshold, axis=1)
+
     def compute_frac_active(self, min_spikes=2):
         """Compute the fraction of slices each unit is active in.
 
