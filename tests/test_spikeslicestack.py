@@ -3711,3 +3711,67 @@ class TestPerUnitResponseRegression:
                 response_window_ms=(20.0, 30.0),
                 x_values=np.arange(10),
             )
+
+
+class TestSpikeSliceStackSliceSimilarity:
+    """Tests for SpikeSliceStack.slice_to_slice_similarity."""
+
+    def _build(self):
+        """Stack of 4 slices with varying response patterns."""
+        slices = []
+        rng = np.random.default_rng(0)
+        for s in range(4):
+            n = rng.integers(5, 15)
+            unit0 = np.sort(rng.uniform(0, 40, n))
+            unit1 = np.sort(rng.uniform(0, 40, rng.integers(5, 15)))
+            sd = SpikeData([unit0, unit1], length=40.0, N=2)
+            slices.append(sd)
+        return SpikeSliceStack(spike_stack=slices, times_start_to_end=[(0, 40)] * 4)
+
+    def test_returns_pairwisecompmatrix(self):
+        """
+        Returns a PairwiseCompMatrix with shape (S, S).
+
+        Tests:
+            (Test Case 1) Result is PairwiseCompMatrix.
+            (Test Case 2) Matrix shape is (S, S).
+            (Test Case 3) Metric is recorded in metadata.
+        """
+        sss = self._build()
+        result = sss.slice_to_slice_similarity(metric="cosine", bin_size=1.0)
+        assert isinstance(result, PairwiseCompMatrix)
+        assert result.matrix.shape == (4, 4)
+        assert result.metadata["metric"] == "cosine"
+
+    def test_cosine_diagonal_one(self):
+        """
+        Cosine diagonal is 1.0.
+
+        Tests:
+            (Test Case 1) np.diag is all 1.0.
+        """
+        sss = self._build()
+        result = sss.slice_to_slice_similarity(metric="cosine")
+        np.testing.assert_allclose(np.diag(result.matrix), 1.0)
+
+    def test_euclidean_diagonal_zero(self):
+        """
+        Euclidean diagonal is 0.0.
+
+        Tests:
+            (Test Case 1) np.diag is all 0.0.
+        """
+        sss = self._build()
+        result = sss.slice_to_slice_similarity(metric="euclidean")
+        np.testing.assert_allclose(np.diag(result.matrix), 0.0)
+
+    def test_unknown_metric_raises(self):
+        """
+        Unknown metric raises ValueError.
+
+        Tests:
+            (Test Case 1) ValueError for bogus metric.
+        """
+        sss = self._build()
+        with pytest.raises(ValueError, match="metric"):
+            sss.slice_to_slice_similarity(metric="bogus")
