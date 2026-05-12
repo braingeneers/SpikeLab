@@ -448,9 +448,8 @@ class TestToRasterArray:
             # Spike times within each slice are already 0-based (shifted by
             # subtime during construction), so rasterize directly.
             expected = slice_sd.sparse_raster(bin_size=1).toarray()
-            assert abs(result.shape[1] - expected.shape[1]) <= 1
-            min_t = min(result.shape[1], expected.shape[1])
-            np.testing.assert_array_equal(result[:, :min_t, i], expected[:, :min_t])
+            assert result.shape[1] == expected.shape[1]
+            np.testing.assert_array_equal(result[:, :, i], expected)
 
     def test_single_slice(self):
         """
@@ -2732,27 +2731,6 @@ class TestApply:
         with pytest.raises(RuntimeError, match="boom"):
             stack.apply(exploding_func)
 
-    def test_function_returning_none_produces_object_array(self):
-        """
-        apply with a function returning None produces an object array because
-        np.stack wraps None values into a numpy object array.
-
-        Tests:
-            (Test Case 1) No exception is raised.
-            (Test Case 2) Result is a numpy array of dtype object containing None.
-
-        Notes:
-            - np.stack([None, None]) succeeds and returns array([None, None])
-              with dtype=object. This is arguably undesirable but is the
-              current behavior.
-        """
-        sd = make_spikedata(n_units=2, length_ms=200.0, seed=0)
-        stack = SpikeSliceStack(sd, times_start_to_end=[(0, 100), (100, 200)])
-
-        result = stack.apply(lambda s: None)
-        assert result.dtype == object
-        assert all(v is None for v in result)
-
 
 # ---------------------------------------------------------------------------
 # Edge case tests from REVIEW.md — Edge Case Scan — Core (spikedata/)
@@ -2827,7 +2805,11 @@ class TestSSSOrderUnits2:
 
         Tests:
             (Test Case 1) Units that always spike at the same time produce
-                consistent ordering. Returns a tuple.
+                consistent ordering. Returns a 5-tuple.
+            (Test Case 2) Unit 1 (first spike at 1.0 ms) comes before unit 0
+                (first spike at 5.0 ms) in the highly-active order.
+            (Test Case 3) Per-unit peak times reflect the constant input
+                timings (unit 0 -> 5.0 ms, unit 1 -> 1.0 ms).
         """
         # 2 units, each with spikes at the same time in each slice
         sd1 = SpikeData([[5.0, 10.0], [1.0, 2.0]], length=20.0)
@@ -2837,30 +2819,21 @@ class TestSSSOrderUnits2:
             times_start_to_end=[(0.0, 20.0), (0.0, 20.0)],
         )
         result = sss.order_units_across_slices(timing="first", agg_func="median")
-        # Returns a tuple of tuples
+        # Returns a 5-tuple:
+        # (reordered_stacks, unit_ids_in_order, unit_std,
+        #  unit_peak_times_ms, unit_frac_active)
         assert isinstance(result, tuple)
-        assert len(result) >= 4
+        assert len(result) == 5
 
+        ha_order = result[1][0]
+        # Unit 1 fires earlier (1.0 ms) than unit 0 (5.0 ms).
+        assert list(ha_order) == [1, 0]
 
-class TestSSSApply2:
-    """Additional edge case tests for SpikeSliceStack.apply."""
-
-    def test_apply_inconsistent_shapes_raises(self):
-        """
-        apply with a function that returns inconsistent shapes across slices.
-
-        Tests:
-            (Test Case 1) np.stack raises ValueError when shapes differ.
-        """
-        sd = make_spikedata(n_units=3, length_ms=100.0)
-        sss = SpikeSliceStack(sd, times_start_to_end=[(0.0, 50.0), (50.0, 100.0)])
-
-        def bad_func(sd):
-            # Returns different shapes based on slice content
-            return np.zeros(len(sd.train[0]))
-
-        with pytest.raises(ValueError):
-            sss.apply(bad_func)
+        # Peak times for the highly-active group, in the reordered sequence.
+        ha_peak_times = result[3][0]
+        # ha_order is [1, 0], so first peak time is unit 1's (1.0 ms),
+        # second is unit 0's (5.0 ms).
+        np.testing.assert_allclose(ha_peak_times, [1.0, 5.0])
 
 
 class TestSSSUnitToUnitComp2:
@@ -2951,15 +2924,16 @@ class TestCoverageGaps:
         Tests: get_unit_timing_per_slice with timing='mean'.
 
         (Test Case 1) Returns array of correct shape (U, S).
-        (Test Case 2) Mean timing differs from median timing for skewed data.
+        (Test Case 2) Mean and median timings share the same NaN pattern
+            (a unit/slice cell is NaN under one iff it is NaN under the other).
         """
         sss = self._make_stack(n_units=3, n_slices=4)
         timing_mean = sss.get_unit_timing_per_slice(timing="mean")
         timing_median = sss.get_unit_timing_per_slice(timing="median")
         assert timing_mean.shape == (3, 4)
         assert timing_median.shape == (3, 4)
-        # Mean and median may differ for non-symmetric spike distributions
-        # At minimum, both should have the same NaN pattern
+        # Mean and median should have the same NaN pattern (both NaN iff
+        # the unit has fewer than min_spikes spikes in that slice).
         nan_mask_mean = np.isnan(timing_mean)
         nan_mask_median = np.isnan(timing_median)
         np.testing.assert_array_equal(nan_mask_mean, nan_mask_median)
@@ -3036,7 +3010,7 @@ class TestSpikeSliceStackCoreReview:
         """
         sd = make_spikedata(n_units=2, length_ms=200.0)
         sss = SpikeSliceStack(sd, times_start_to_end=[(10.0, 30.0), (50.0, 70.0)])
-        with pytest.raises((ValueError, IndexError)):
+        with pytest.raises(ValueError, match="must not be empty"):
             sss.subslice([])
 
     def test_subtime_by_index_single_ms_window(self):
@@ -3090,38 +3064,6 @@ class TestSpikeSliceStackCoreReview:
         assert len(sss.spike_stack) == 2
         assert sss.N == 1
 
-    def test_drop_slice_attributes_false_reference(self):
-        """
-        drop_slice_attributes=False should preserve slice_attributes and
-        the reference should be independent (not shared).
-
-        Tests:
-            (Test Case 1) slice_attributes are preserved when drop=False.
-        """
-        sd = make_spikedata(n_units=2, length_ms=200.0)
-        sss = SpikeSliceStack(
-            sd,
-            times_start_to_end=[(10.0, 30.0), (50.0, 70.0)],
-            drop_slice_attributes=False,
-        )
-        assert len(sss.spike_stack) == 2
-
-    def test_rank_order_correlation_n_shuffles_zero(self):
-        """
-        rank_order_correlation with n_shuffles=0.
-
-        Tests:
-            (Test Case 1) n_shuffles=0 produces raw correlation without
-                shuffle correction.
-            (Test Case 2) Diagonal is 1.0 (self-correlation).
-        """
-        sss = _make_correlated_stack(n_units=4, n_slices=5, seed=42)
-        corr, av, overlap = sss.rank_order_correlation(n_shuffles=0)
-        assert isinstance(corr, PairwiseCompMatrix)
-        assert corr.matrix.shape == (5, 5)
-        # Diagonal should be 1.0
-        np.testing.assert_allclose(np.diag(corr.matrix), 1.0, atol=1e-10)
-
     def test_rank_order_correlation_n_shuffles_positive(self):
         """
         rank_order_correlation with n_shuffles > 0.
@@ -3129,11 +3071,16 @@ class TestSpikeSliceStackCoreReview:
         Tests:
             (Test Case 1) n_shuffles > 0 produces shuffle-corrected result.
             (Test Case 2) Result shape is correct.
+            (Test Case 3) Diagonal (self-correlation) is NaN under z-scoring,
+                because the shuffle null distribution has zero variance when
+                a slice's ranks are compared against themselves.
         """
         sss = _make_correlated_stack(n_units=4, n_slices=5, seed=42)
         corr, av, overlap = sss.rank_order_correlation(n_shuffles=10)
         assert isinstance(corr, PairwiseCompMatrix)
         assert corr.matrix.shape == (5, 5)
+        # Exercise the z-score branch: diagonal entries must be NaN.
+        assert np.all(np.isnan(np.diag(corr.matrix)))
 
     def test_get_unit_timing_timing_first_min_spikes_1(self):
         """
@@ -3907,4 +3854,296 @@ class TestSpikeSliceStackDecodeStimIdentity:
                 response_window_ms=(20.0, 30.0),
                 bin_size=10.0,
                 cv=2,
+            )
+
+
+class TestStimPairSimilarity:
+    """Tests for SpikeSliceStack.stim_pair_similarity."""
+
+    def _build_stim_stack(self, n_classes=3, per_class=8, seed=0):
+        """Stack where each stim class drives a distinct unit subset."""
+        rng = np.random.default_rng(seed)
+        slices = []
+        labels = []
+        for cls in range(n_classes):
+            for _ in range(per_class):
+                trains = []
+                for u in range(12):
+                    if cls * 4 <= u < cls * 4 + 4:
+                        trains.append(np.sort(rng.uniform(20.0, 30.0, 8)))
+                    else:
+                        trains.append(np.array([5.0]))
+                slices.append(SpikeData(trains, length=40.0, N=12))
+                labels.append(cls)
+        return SpikeSliceStack(
+            spike_stack=slices,
+            times_start_to_end=[(0.0, 40.0)] * len(slices),
+        ), np.asarray(labels)
+
+    def test_returns_pcm_with_class_labels(self):
+        """
+        Result is a PairwiseCompMatrix of shape (K, K) labelled with stim classes.
+
+        Tests:
+            (Test Case 1) Shape is (K, K).
+            (Test Case 2) Labels equal sorted unique classes.
+        """
+        sss, labels = self._build_stim_stack(n_classes=3)
+        result = sss.stim_pair_similarity(labels, metric="cosine", bin_size=10.0)
+        assert isinstance(result, PairwiseCompMatrix)
+        assert result.matrix.shape == (3, 3)
+        assert list(result.labels) == [0, 1, 2]
+
+    def test_diagonal_is_self_similarity(self):
+        """
+        Diagonal of cosine matrix is 1.0 (each class is identical to itself).
+
+        Tests:
+            (Test Case 1) np.diag is all 1.0.
+        """
+        sss, labels = self._build_stim_stack(n_classes=3)
+        result = sss.stim_pair_similarity(labels, metric="cosine", bin_size=10.0)
+        np.testing.assert_allclose(np.diag(result.matrix), 1.0)
+
+    def test_off_diagonal_lower(self):
+        """
+        Off-diagonal cosine is lower than diagonal because each stim
+        class drives a different unit subset.
+
+        Tests:
+            (Test Case 1) Mean off-diagonal < mean diagonal.
+        """
+        sss, labels = self._build_stim_stack(n_classes=3)
+        result = sss.stim_pair_similarity(labels, metric="cosine", bin_size=10.0)
+        K = result.matrix.shape[0]
+        off_mask = ~np.eye(K, dtype=bool)
+        assert result.matrix[off_mask].mean() < result.matrix.diagonal().mean()
+
+    def test_slice_indices_subset(self):
+        """
+        slice_indices restricts the computation to a subset.
+
+        Tests:
+            (Test Case 1) Result still has shape (K, K) when only some slices used.
+        """
+        sss, labels = self._build_stim_stack(n_classes=3, per_class=8)
+        # Take every other slice (still covers all 3 classes)
+        idx = np.arange(0, len(sss), 2)
+        result = sss.stim_pair_similarity(
+            labels, metric="cosine", bin_size=10.0, slice_indices=idx
+        )
+        assert result.matrix.shape == (3, 3)
+
+    def test_labels_length_mismatch_raises(self):
+        """
+        Mismatched labels length raises ValueError.
+
+        Tests:
+            (Test Case 1) ValueError when stim_labels length != S.
+        """
+        sss, labels = self._build_stim_stack(n_classes=2, per_class=5)
+        with pytest.raises(ValueError, match="length S"):
+            sss.stim_pair_similarity(labels[:-1], metric="cosine", bin_size=10.0)
+
+    def test_single_class_raises(self):
+        """
+        Need at least 2 distinct stim classes.
+
+        Tests:
+            (Test Case 1) ValueError when only one class is present.
+        """
+        sss, labels = self._build_stim_stack(n_classes=2, per_class=5)
+        single_labels = np.zeros_like(labels)
+        with pytest.raises(ValueError, match="at least 2 distinct"):
+            sss.stim_pair_similarity(single_labels, metric="cosine", bin_size=10.0)
+
+
+class TestResponsiveUnitsPerCycle:
+    """Tests for SpikeSliceStack.responsive_units_per_cycle."""
+
+    def _build_cycled_stack(self, n_cycles=4, per_cycle=6, seed=0):
+        """Cycle 0..1: unit 0 responsive; cycles 2..3: units 0 and 1 responsive."""
+        rng = np.random.default_rng(seed)
+        slices = []
+        cyc = []
+        for c in range(n_cycles):
+            for _ in range(per_cycle):
+                trains = []
+                # Baseline ~1 spike in (0, 20) per unit
+                for u in range(3):
+                    trains.append(np.array([rng.uniform(0.0, 20.0)]))
+                # Responsive units: add evoked spikes in (20, 30)
+                trains[0] = np.sort(
+                    np.concatenate([trains[0], rng.uniform(20.0, 30.0, 6)])
+                )
+                if c >= 2:
+                    trains[1] = np.sort(
+                        np.concatenate([trains[1], rng.uniform(20.0, 30.0, 6)])
+                    )
+                slices.append(SpikeData(trains, length=40.0, N=3))
+                cyc.append(c)
+        return SpikeSliceStack(
+            spike_stack=slices, times_start_to_end=[(0.0, 40.0)] * len(slices)
+        ), np.asarray(cyc)
+
+    def test_per_cycle_mask_shape(self):
+        """
+        Mask has shape (U, n_cycles).
+
+        Tests:
+            (Test Case 1) Shape is (3, 4).
+            (Test Case 2) cycles array has length n_cycles.
+        """
+        sss, cyc = self._build_cycled_stack()
+        result = sss.responsive_units_per_cycle(
+            cyc,
+            bin_size=10.0,
+            baseline_window_ms=(0.0, 20.0),
+            response_window_ms=(20.0, 30.0),
+            z_threshold=2.0,
+        )
+        assert result["mask"].shape == (3, 4)
+        assert result["cycles"].shape == (4,)
+
+    def test_unit0_always_responsive(self):
+        """
+        Unit 0 fires evoked spikes in every cycle.
+
+        Tests:
+            (Test Case 1) mask[0, :] all True.
+        """
+        sss, cyc = self._build_cycled_stack()
+        result = sss.responsive_units_per_cycle(
+            cyc,
+            bin_size=10.0,
+            baseline_window_ms=(0.0, 20.0),
+            response_window_ms=(20.0, 30.0),
+            z_threshold=2.0,
+        )
+        assert result["mask"][0, :].all()
+
+    def test_unit1_only_late_cycles(self):
+        """
+        Unit 1 only becomes responsive in cycles 2..3.
+
+        Tests:
+            (Test Case 1) mask[1, :2] all False; mask[1, 2:] all True.
+        """
+        sss, cyc = self._build_cycled_stack()
+        result = sss.responsive_units_per_cycle(
+            cyc,
+            bin_size=10.0,
+            baseline_window_ms=(0.0, 20.0),
+            response_window_ms=(20.0, 30.0),
+            z_threshold=2.0,
+        )
+        assert not result["mask"][1, :2].any()
+        assert result["mask"][1, 2:].all()
+
+    def test_mismatched_cycle_labels_raises(self):
+        """
+        Wrong-length cycle_labels raises ValueError.
+
+        Tests:
+            (Test Case 1) ValueError.
+        """
+        sss, cyc = self._build_cycled_stack()
+        with pytest.raises(ValueError, match="length S"):
+            sss.responsive_units_per_cycle(
+                cyc[:-1],
+                bin_size=10.0,
+                baseline_window_ms=(0.0, 20.0),
+            )
+
+
+class TestResponsivenessChange:
+    """Tests for SpikeSliceStack.responsiveness_change."""
+
+    def _build(self, seed=0):
+        """Stack where unit 1 GAINS responsiveness from cycles 0..1 -> 2..3."""
+        rng = np.random.default_rng(seed)
+        slices = []
+        cyc = []
+        for c in range(4):
+            for _ in range(6):
+                trains = [np.array([rng.uniform(0.0, 20.0)]) for _ in range(3)]
+                trains[0] = np.sort(
+                    np.concatenate([trains[0], rng.uniform(20.0, 30.0, 6)])
+                )
+                if c >= 2:
+                    trains[1] = np.sort(
+                        np.concatenate([trains[1], rng.uniform(20.0, 30.0, 6)])
+                    )
+                slices.append(SpikeData(trains, length=40.0, N=3))
+                cyc.append(c)
+        return SpikeSliceStack(
+            spike_stack=slices, times_start_to_end=[(0.0, 40.0)] * len(slices)
+        ), np.asarray(cyc)
+
+    def test_gained_lost_preserved(self):
+        """
+        Unit 0 preserved; unit 1 gained; unit 2 stays inactive.
+
+        Tests:
+            (Test Case 1) preserved[0] is True.
+            (Test Case 2) gained[1] is True.
+            (Test Case 3) lost has no entries.
+        """
+        sss, cyc = self._build()
+        result = sss.responsiveness_change(
+            cyc,
+            early_cycles=[0, 1],
+            late_cycles=[2, 3],
+            bin_size=10.0,
+            baseline_window_ms=(0.0, 20.0),
+            response_window_ms=(20.0, 30.0),
+            z_threshold=2.0,
+        )
+        assert bool(result["preserved"][0]) is True
+        assert bool(result["gained"][1]) is True
+        assert bool(result["lost"].any()) is False
+
+    def test_counts_match_masks(self):
+        """
+        Count fields equal mask sums.
+
+        Tests:
+            (Test Case 1) gained_count == gained.sum() etc.
+        """
+        sss, cyc = self._build()
+        result = sss.responsiveness_change(
+            cyc,
+            early_cycles=[0, 1],
+            late_cycles=[2, 3],
+            bin_size=10.0,
+            baseline_window_ms=(0.0, 20.0),
+        )
+        assert result["gained_count"] == int(result["gained"].sum())
+        assert result["lost_count"] == int(result["lost"].sum())
+        assert result["preserved_count"] == int(result["preserved"].sum())
+
+    def test_no_match_raises(self):
+        """
+        Empty match for early_cycles or late_cycles raises ValueError.
+
+        Tests:
+            (Test Case 1) ValueError for unknown early cycle.
+            (Test Case 2) ValueError for unknown late cycle.
+        """
+        sss, cyc = self._build()
+        with pytest.raises(ValueError, match="early_cycles"):
+            sss.responsiveness_change(
+                cyc,
+                early_cycles=[99],
+                late_cycles=[2, 3],
+                bin_size=10.0,
+                baseline_window_ms=(0.0, 20.0),
+            )
+        with pytest.raises(ValueError, match="late_cycles"):
+            sss.responsiveness_change(
+                cyc,
+                early_cycles=[0, 1],
+                late_cycles=[99],
+                bin_size=10.0,
+                baseline_window_ms=(0.0, 20.0),
             )

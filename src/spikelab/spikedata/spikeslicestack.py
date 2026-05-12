@@ -689,6 +689,232 @@ class SpikeSliceStack:
             random_state=random_state,
         )
 
+    def stim_pair_similarity(
+        self,
+        stim_labels,
+        *,
+        metric="cosine",
+        bin_size=1.0,
+        slice_indices=None,
+    ):
+        """Pairwise similarity between mean response vectors for each stim class.
+
+        For each unique stimulus label, averages the per-slice
+        ``(U, T)`` raster across all slices that share that label, then
+        computes a ``(K, K)`` similarity matrix between the resulting
+        per-stim mean response vectors. Lets you ask: "how distinguishable
+        are responses to different stims?".
+
+        Parameters:
+            stim_labels (array-like): Per-slice stim label of length ``S``.
+            metric (str): ``"cosine"`` (default), ``"pearson"``,
+                ``"euclidean"`` (distance), or ``"cross_entropy"``.
+            bin_size (float): Raster bin size in ms (default 1.0).
+            slice_indices (array-like or None): Optional subset of slice
+                indices to use (e.g. an "early-cycle" or "late-cycle"
+                window). When None (default), uses all slices.
+
+        Returns:
+            sim (PairwiseCompMatrix): ``(K, K)`` similarity matrix with
+                ``labels`` set to the unique stim classes (sorted).
+
+        Notes:
+            - Stim classes that have no slices in ``slice_indices`` are
+              dropped from the output.
+        """
+        from .utils import _slice_to_slice_similarity_matrix
+
+        stim_labels = np.asarray(stim_labels).ravel()
+        if len(stim_labels) != len(self):
+            raise ValueError(
+                f"stim_labels must have length S={len(self)}; got {len(stim_labels)}."
+            )
+
+        if slice_indices is None:
+            slice_indices = np.arange(len(self))
+        else:
+            slice_indices = np.asarray(slice_indices, dtype=int).ravel()
+            if (slice_indices < 0).any() or (slice_indices >= len(self)).any():
+                raise IndexError(f"slice_indices out of range for S={len(self)}.")
+
+        unique_labels = np.array(sorted(np.unique(stim_labels[slice_indices])))
+        if len(unique_labels) < 2:
+            raise ValueError(
+                "Need at least 2 distinct stim classes in the selected slices."
+            )
+
+        # (U, T, S_subset)
+        raster = self.subslice(list(slice_indices)).to_raster_array(bin_size=bin_size)
+        sub_labels = stim_labels[slice_indices]
+
+        # Per-class mean across slices -> (U, T, K)
+        mean_per_class = np.stack(
+            [raster[:, :, sub_labels == cls].mean(axis=2) for cls in unique_labels],
+            axis=2,
+        )
+        sim = _slice_to_slice_similarity_matrix(mean_per_class, metric)
+        return PairwiseCompMatrix(
+            matrix=sim,
+            labels=list(unique_labels),
+            metadata={"metric": metric, "n_classes": len(unique_labels)},
+        )
+
+    def responsive_units_per_cycle(
+        self,
+        cycle_labels,
+        bin_size,
+        baseline_window_ms,
+        *,
+        response_window_ms=None,
+        z_threshold=2.0,
+        aggregator="mean",
+    ):
+        """Per-cycle responsive-unit mask for tracking responsiveness over time.
+
+        For each unique cycle, runs ``responsive_units`` on the slices
+        belonging to that cycle and returns a ``(U, n_cycles)`` boolean
+        matrix. Use the per-cycle masks to compute gained / lost /
+        preserved responsive units across cycle groups, or to correlate
+        responsiveness changes with intrinsic activity changes per unit.
+
+        Parameters:
+            cycle_labels (array-like): Per-slice cycle index of length ``S``.
+            bin_size (float): Raster bin size in ms.
+            baseline_window_ms (tuple[float, float]): Baseline window for
+                Poisson z-score normalization.
+            response_window_ms (tuple[float, float] or None): Optional
+                response window (default: full slice).
+            z_threshold (float): Per-cycle z-threshold (default 2.0).
+            aggregator (str): ``"mean"`` (default) or ``"max"`` across
+                slices within each cycle.
+
+        Returns:
+            result (dict):
+                - ``cycles`` (np.ndarray): Sorted unique cycle indices.
+                - ``mask`` (np.ndarray): ``(U, n_cycles)`` boolean
+                  responsiveness mask.
+                - ``responsive_count`` (np.ndarray): Per-cycle responsive
+                  unit count, shape ``(n_cycles,)``.
+        """
+        cycle_labels = np.asarray(cycle_labels).ravel()
+        if len(cycle_labels) != len(self):
+            raise ValueError(
+                f"cycle_labels must have length S={len(self)}; got {len(cycle_labels)}."
+            )
+
+        cycles = np.array(sorted(np.unique(cycle_labels)))
+        mask = np.zeros((self.N, len(cycles)), dtype=bool)
+        for j, c in enumerate(cycles):
+            slice_idx = np.where(cycle_labels == c)[0]
+            if slice_idx.size == 0:
+                continue
+            sub = self.subslice(slice_idx.tolist())
+            mask[:, j] = sub.responsive_units(
+                bin_size=bin_size,
+                baseline_window_ms=baseline_window_ms,
+                response_window_ms=response_window_ms,
+                z_threshold=z_threshold,
+                aggregator=aggregator,
+            )
+        return {
+            "cycles": cycles,
+            "mask": mask,
+            "responsive_count": mask.sum(axis=0),
+        }
+
+    def responsiveness_change(
+        self,
+        cycle_labels,
+        early_cycles,
+        late_cycles,
+        bin_size,
+        baseline_window_ms,
+        *,
+        response_window_ms=None,
+        z_threshold=2.0,
+        aggregator="mean",
+    ):
+        """Gained / lost / preserved responsive units between two cycle groups.
+
+        Computes responsive-unit masks separately for slices in
+        ``early_cycles`` and ``late_cycles`` (any iterables of cycle
+        indices), and reports which units become responsive ("gained"),
+        stop being responsive ("lost"), or stay responsive ("preserved").
+
+        Parameters:
+            cycle_labels (array-like): Per-slice cycle index of length ``S``.
+            early_cycles (array-like): Cycle indices for the early group.
+            late_cycles (array-like): Cycle indices for the late group.
+            bin_size (float): Raster bin size in ms.
+            baseline_window_ms (tuple[float, float]): Baseline window.
+            response_window_ms (tuple[float, float] or None): Response
+                window (default: full slice).
+            z_threshold (float): Per-group z-threshold.
+            aggregator (str): ``"mean"`` (default) or ``"max"``.
+
+        Returns:
+            result (dict):
+                - ``early_mask`` (np.ndarray ``(U,)`` bool): Responsive in
+                  early.
+                - ``late_mask`` (np.ndarray ``(U,)`` bool): Responsive in
+                  late.
+                - ``gained`` (np.ndarray ``(U,)`` bool): NOT responsive
+                  in early AND responsive in late.
+                - ``lost`` (np.ndarray ``(U,)`` bool): Responsive in
+                  early AND NOT responsive in late.
+                - ``preserved`` (np.ndarray ``(U,)`` bool): Responsive
+                  in BOTH.
+                - ``early_count``, ``late_count``, ``gained_count``,
+                  ``lost_count``, ``preserved_count`` (int).
+
+        Notes:
+            - Pair this with intrinsic-activity changes per unit (e.g.
+              ``cv_isi`` differences) and correlate via
+              ``stat_utils.linear_regression`` to ask whether
+              responsiveness changes track changes in baseline activity.
+        """
+        cycle_labels = np.asarray(cycle_labels).ravel()
+        if len(cycle_labels) != len(self):
+            raise ValueError(
+                f"cycle_labels must have length S={len(self)}; got {len(cycle_labels)}."
+            )
+        early_cycles = np.asarray(early_cycles).ravel()
+        late_cycles = np.asarray(late_cycles).ravel()
+
+        early_idx = np.where(np.isin(cycle_labels, early_cycles))[0]
+        late_idx = np.where(np.isin(cycle_labels, late_cycles))[0]
+        if early_idx.size == 0:
+            raise ValueError("No slices match early_cycles.")
+        if late_idx.size == 0:
+            raise ValueError("No slices match late_cycles.")
+
+        kwargs = dict(
+            bin_size=bin_size,
+            baseline_window_ms=baseline_window_ms,
+            response_window_ms=response_window_ms,
+            z_threshold=z_threshold,
+            aggregator=aggregator,
+        )
+        early_mask = self.subslice(early_idx.tolist()).responsive_units(**kwargs)
+        late_mask = self.subslice(late_idx.tolist()).responsive_units(**kwargs)
+
+        gained = (~early_mask) & late_mask
+        lost = early_mask & (~late_mask)
+        preserved = early_mask & late_mask
+
+        return {
+            "early_mask": early_mask,
+            "late_mask": late_mask,
+            "gained": gained,
+            "lost": lost,
+            "preserved": preserved,
+            "early_count": int(early_mask.sum()),
+            "late_count": int(late_mask.sum()),
+            "gained_count": int(gained.sum()),
+            "lost_count": int(lost.sum()),
+            "preserved_count": int(preserved.sum()),
+        }
+
     def slice_to_slice_similarity(self, metric="cosine", *, bin_size=1.0):
         """Pairwise similarity between slice-wise population response vectors.
 
