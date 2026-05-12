@@ -2808,15 +2808,15 @@ def plot_unit_footprints(
 def plot_prediction_probability_heatmap(
     probabilities,
     true_labels,
-    cycle_labels,
+    group_labels,
     *,
     classes=None,
-    baseline_cycles=None,
+    baseline_groups=None,
     ax=None,
     cmap=None,
     show_colorbar=True,
     bar_ax=None,
-    bar_cycle_groups=None,
+    bar_groups=None,
     bar_group_labels=None,
     bar_colors=None,
     cbar_label=None,
@@ -2835,11 +2835,11 @@ def plot_prediction_probability_heatmap(
         probabilities (np.ndarray): Predicted probabilities, shape
             ``(n_samples, K)``. Columns must align with ``classes``.
         true_labels (array-like): True labels per sample ``(n_samples,)``.
-        cycle_labels (array-like): Cycle index per sample ``(n_samples,)``.
+        group_labels (array-like): Cycle index per sample ``(n_samples,)``.
         classes (array-like or None): Class labels in column order of
             ``probabilities``. When None, uses sorted unique values from
             ``true_labels``.
-        baseline_cycles (array-like or None): Optional reference cycles
+        baseline_groups (array-like or None): Optional reference cycles
             whose mean probability per (class, _) is subtracted from
             every cell. When None, raw probabilities are shown.
         ax (matplotlib.axes.Axes or None): Heatmap axes. Created when None.
@@ -2847,9 +2847,9 @@ def plot_prediction_probability_heatmap(
             for raw probabilities and ``"RdBu_r"`` for baseline-relative.
         show_colorbar (bool): Add a colorbar to the heatmap.
         bar_ax (matplotlib.axes.Axes or None): Optional companion bar plot
-            axes. When provided alongside ``bar_cycle_groups``, plots the
+            axes. When provided alongside ``bar_groups``, plots the
             mean ± std prediction probability for each group.
-        bar_cycle_groups (list[array-like] or None): List of cycle index
+        bar_groups (list[array-like] or None): List of cycle index
             groups. Each group is averaged and plotted as a bar with std
             error bars. Required when ``bar_ax`` is provided.
         bar_group_labels (list[str] or None): Per-group labels for the bar
@@ -2859,14 +2859,14 @@ def plot_prediction_probability_heatmap(
             "P(correct)" or "ΔP vs baseline".
 
     Returns:
-        result (dict): ``{"heatmap": (K, n_cycles) array, "ax": ax,
-            "bar_ax": bar_ax or None, "cycles": (n_cycles,) array,
+        result (dict): ``{"heatmap": (K, n_groups) array, "ax": ax,
+            "bar_ax": bar_ax or None, "groups": (n_groups,) array,
             "classes": (K,) array}``.
 
     Notes:
         - Requires ``matplotlib``.
-        - When ``baseline_cycles`` is given, the heatmap shows
-          ``cell - mean(cell over baseline_cycles)`` per row. Cells whose
+        - When ``baseline_groups`` is given, the heatmap shows
+          ``cell - mean(cell over baseline_groups)`` per row. Cells whose
           baseline is undefined (no baseline samples for that class) are
           left as raw values for that row.
     """
@@ -2880,15 +2880,15 @@ def plot_prediction_probability_heatmap(
 
     probabilities = np.asarray(probabilities, dtype=float)
     true_labels = np.asarray(true_labels).ravel()
-    cycle_labels = np.asarray(cycle_labels).ravel()
+    group_labels = np.asarray(group_labels).ravel()
 
     if probabilities.ndim != 2:
         raise ValueError(
             f"probabilities must be 2-D (n_samples, K); got shape {probabilities.shape}."
         )
-    if not (len(probabilities) == len(true_labels) == len(cycle_labels)):
+    if not (len(probabilities) == len(true_labels) == len(group_labels)):
         raise ValueError(
-            "probabilities, true_labels, and cycle_labels must all have the same length."
+            "probabilities, true_labels, and group_labels must all have the same length."
         )
 
     if classes is None:
@@ -2900,28 +2900,28 @@ def plot_prediction_probability_heatmap(
             f"probabilities has {probabilities.shape[1]} columns but classes has {len(classes)} entries."
         )
 
-    cycles = np.array(sorted(np.unique(cycle_labels)))
+    groups = np.array(sorted(np.unique(group_labels)))
     K = len(classes)
 
-    heatmap = np.full((K, len(cycles)), np.nan)
-    for j, c in enumerate(cycles):
-        cyc_mask = cycle_labels == c
-        if not cyc_mask.any():
+    heatmap = np.full((K, len(groups)), np.nan)
+    for j, c in enumerate(groups):
+        grp_mask = group_labels == c
+        if not grp_mask.any():
             continue
         for i, cls in enumerate(classes):
-            cls_mask = cyc_mask & (true_labels == cls)
+            cls_mask = grp_mask & (true_labels == cls)
             if not cls_mask.any():
                 continue
             heatmap[i, j] = float(np.mean(probabilities[cls_mask, i]))
 
-    relative = baseline_cycles is not None
+    relative = baseline_groups is not None
     if relative:
-        baseline_cycles = np.asarray(baseline_cycles).ravel()
-        baseline_mask = np.isin(cycles, baseline_cycles)
+        baseline_groups = np.asarray(baseline_groups).ravel()
+        baseline_mask = np.isin(groups, baseline_groups)
         if not baseline_mask.any():
             raise ValueError(
-                "baseline_cycles does not overlap any of the cycles present "
-                "in cycle_labels."
+                "baseline_groups does not overlap any of the groups present "
+                "in group_labels."
             )
         baseline_means = np.nanmean(heatmap[:, baseline_mask], axis=1)
         # Subtract row-wise; rows with all-NaN baseline get raw values
@@ -2935,7 +2935,7 @@ def plot_prediction_probability_heatmap(
         cbar_label = "ΔP vs baseline" if relative else "P(correct)"
 
     if ax is None:
-        fig, ax = plt.subplots(figsize=(max(4, len(cycles) * 0.4 + 2), max(2, K * 0.5)))
+        fig, ax = plt.subplots(figsize=(max(4, len(groups) * 0.4 + 2), max(2, K * 0.5)))
     if relative:
         max_abs = np.nanmax(np.abs(heatmap))
         vmin, vmax = (-max_abs, max_abs) if np.isfinite(max_abs) else (None, None)
@@ -2944,32 +2944,32 @@ def plot_prediction_probability_heatmap(
     im = ax.imshow(
         heatmap, aspect="auto", cmap=cmap, vmin=vmin, vmax=vmax, interpolation="nearest"
     )
-    ax.set_xticks(np.arange(len(cycles)))
-    ax.set_xticklabels([str(c) for c in cycles])
+    ax.set_xticks(np.arange(len(groups)))
+    ax.set_xticklabels([str(c) for c in groups])
     ax.set_yticks(np.arange(K))
     ax.set_yticklabels([str(c) for c in classes])
-    ax.set_xlabel("Cycle")
-    ax.set_ylabel("Stim class")
+    ax.set_xlabel("Group")
+    ax.set_ylabel("Class")
     if show_colorbar:
         cbar = ax.figure.colorbar(im, ax=ax)
         cbar.set_label(cbar_label)
 
     if bar_ax is not None:
-        if bar_cycle_groups is None:
-            raise ValueError("bar_cycle_groups must be provided when bar_ax is given.")
-        n_groups = len(bar_cycle_groups)
+        if bar_groups is None:
+            raise ValueError("bar_groups must be provided when bar_ax is given.")
+        n_bar_groups = len(bar_groups)
         if bar_group_labels is None:
-            bar_group_labels = [f"group {i}" for i in range(n_groups)]
+            bar_group_labels = [f"group {i}" for i in range(n_bar_groups)]
         if bar_colors is None:
             cmap_obj = plt.get_cmap("tab10")
-            bar_colors = [cmap_obj(i % 10) for i in range(n_groups)]
+            bar_colors = [cmap_obj(i % 10) for i in range(n_bar_groups)]
 
-        # bars: per group, mean across (classes x cycles_in_group) and std across same
-        means = np.empty(n_groups)
-        stds = np.empty(n_groups)
-        for g, group in enumerate(bar_cycle_groups):
+        # bars: per group, mean across (classes x groups_in_bar_group)
+        means = np.empty(n_bar_groups)
+        stds = np.empty(n_bar_groups)
+        for g, group in enumerate(bar_groups):
             group = np.asarray(group).ravel()
-            cols = np.where(np.isin(cycles, group))[0]
+            cols = np.where(np.isin(groups, group))[0]
             if cols.size == 0:
                 means[g] = np.nan
                 stds[g] = np.nan
@@ -2978,7 +2978,7 @@ def plot_prediction_probability_heatmap(
             means[g] = float(np.nanmean(sub))
             stds[g] = float(np.nanstd(sub))
 
-        x = np.arange(n_groups)
+        x = np.arange(n_bar_groups)
         bar_ax.bar(x, means, yerr=stds, color=bar_colors, edgecolor="black")
         bar_ax.set_xticks(x)
         bar_ax.set_xticklabels(bar_group_labels, rotation=30, ha="right")
@@ -2990,18 +2990,18 @@ def plot_prediction_probability_heatmap(
         "heatmap": heatmap,
         "ax": ax,
         "bar_ax": bar_ax,
-        "cycles": cycles,
+        "groups": groups,
         "classes": classes,
     }
 
 
 def plot_responsive_unit_map(
     unit_locations,
-    stim_location,
+    target_location,
     *,
     responsive_mask=None,
     color_values=None,
-    other_stim_locations=None,
+    other_target_locations=None,
     ax=None,
     cmap="bwr",
     vmin=None,
@@ -3010,11 +3010,11 @@ def plot_responsive_unit_map(
     cbar_label="metric",
     nonresponsive_color="lightgray",
     responsive_color="tab:red",
-    stim_marker_color="red",
-    other_stim_marker_color="green",
+    target_marker_color="red",
+    other_target_marker_color="green",
     unit_marker_size=25,
-    stim_marker_size=200,
-    other_stim_marker_size=100,
+    target_marker_size=200,
+    other_target_marker_size=100,
 ):
     """Spatial map of unit locations highlighting responsive units around a stim.
 
@@ -3029,7 +3029,7 @@ def plot_responsive_unit_map(
     Parameters:
         unit_locations (np.ndarray): ``(n_units, 2)`` array of (x, y)
             positions in micrometres (or any consistent unit).
-        stim_location (array-like): ``(2,)`` (x, y) position of the
+        target_location (array-like): ``(2,)`` (x, y) position of the
             target stimulus electrode.
         responsive_mask (array-like or None): ``(n_units,)`` boolean
             mask of responsive units. When provided (and
@@ -3040,7 +3040,7 @@ def plot_responsive_unit_map(
             provided, takes precedence over ``responsive_mask`` for
             colouring; the mask still controls which units are drawn
             (None = all units shown).
-        other_stim_locations (np.ndarray or None): ``(n_other, 2)`` (x, y)
+        other_target_locations (np.ndarray or None): ``(n_other, 2)`` (x, y)
             positions of other stimulation electrodes to mark with green
             X markers.
         ax (matplotlib.axes.Axes or None): Plot axes. Created when None.
@@ -3054,16 +3054,16 @@ def plot_responsive_unit_map(
             in mask mode.
         responsive_color (str): Marker color for responsive units in mask
             mode.
-        stim_marker_color (str): Color of the target-stim X marker.
-        other_stim_marker_color (str): Color of other-stim X markers.
+        target_marker_color (str): Color of the target-stim X marker.
+        other_target_marker_color (str): Color of other-stim X markers.
         unit_marker_size (float): Scatter marker size for units.
-        stim_marker_size (float): Marker size for the target stim X.
-        other_stim_marker_size (float): Marker size for other-stim X.
+        target_marker_size (float): Marker size for the target stim X.
+        other_target_marker_size (float): Marker size for other-stim X.
 
     Returns:
         result (dict): ``{"ax": ax, "scatter": PathCollection,
-            "stim_scatter": PathCollection,
-            "other_stim_scatter": PathCollection or None}``.
+            "target_scatter": PathCollection,
+            "other_target_scatter": PathCollection or None}``.
 
     Notes:
         - Requires ``matplotlib``.
@@ -3084,10 +3084,10 @@ def plot_responsive_unit_map(
         raise ValueError(
             f"unit_locations must be (n_units, 2); got shape {unit_locations.shape}."
         )
-    stim_location = np.asarray(stim_location, dtype=float).ravel()
-    if stim_location.shape != (2,):
+    target_location = np.asarray(target_location, dtype=float).ravel()
+    if target_location.shape != (2,):
         raise ValueError(
-            f"stim_location must be a 2-element (x, y) array; got shape {stim_location.shape}."
+            f"target_location must be a 2-element (x, y) array; got shape {target_location.shape}."
         )
     n_units = unit_locations.shape[0]
 
@@ -3148,26 +3148,26 @@ def plot_responsive_unit_map(
         )
 
     other_sc = None
-    if other_stim_locations is not None:
-        other_stim_locations = np.asarray(other_stim_locations, dtype=float)
-        if other_stim_locations.ndim != 2 or other_stim_locations.shape[1] != 2:
+    if other_target_locations is not None:
+        other_target_locations = np.asarray(other_target_locations, dtype=float)
+        if other_target_locations.ndim != 2 or other_target_locations.shape[1] != 2:
             raise ValueError(
-                f"other_stim_locations must be (n_other, 2); got shape {other_stim_locations.shape}."
+                f"other_target_locations must be (n_other, 2); got shape {other_target_locations.shape}."
             )
         other_sc = ax.scatter(
-            other_stim_locations[:, 0],
-            other_stim_locations[:, 1],
+            other_target_locations[:, 0],
+            other_target_locations[:, 1],
             marker="x",
-            c=other_stim_marker_color,
-            s=other_stim_marker_size,
+            c=other_target_marker_color,
+            s=other_target_marker_size,
         )
 
     stim_sc = ax.scatter(
-        [stim_location[0]],
-        [stim_location[1]],
+        [target_location[0]],
+        [target_location[1]],
         marker="x",
-        c=stim_marker_color,
-        s=stim_marker_size,
+        c=target_marker_color,
+        s=target_marker_size,
         linewidths=2,
     )
 
@@ -3178,6 +3178,6 @@ def plot_responsive_unit_map(
     return {
         "ax": ax,
         "scatter": sc,
-        "stim_scatter": stim_sc,
-        "other_stim_scatter": other_sc,
+        "target_scatter": stim_sc,
+        "other_target_scatter": other_sc,
     }

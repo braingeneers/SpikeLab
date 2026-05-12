@@ -3724,8 +3724,8 @@ class TestSpikeSliceStackSliceSimilarity:
             sss.slice_to_slice_similarity(metric="bogus")
 
 
-class TestSpikeSliceStackDecodeStimIdentity:
-    """Tests for SpikeSliceStack.decode_stim_identity."""
+class TestSpikeSliceStackDecodeSliceLabels:
+    """Tests for SpikeSliceStack.decode_slice_labels."""
 
     def _build_decodable_stack(self, n_classes=3, n_per_class=10, seed=0):
         """Build a stack where class c puts evoked spikes in units [c*4 : c*4+4]."""
@@ -3761,7 +3761,7 @@ class TestSpikeSliceStackDecodeStimIdentity:
             (Test Case 1) Accuracy > 0.7 on 3-class data with clean signal.
         """
         sss, labels = self._build_decodable_stack(n_classes=3, n_per_class=12, seed=42)
-        result = sss.decode_stim_identity(
+        result = sss.decode_slice_labels(
             labels,
             response_window_ms=(20.0, 30.0),
             bin_size=10.0,
@@ -3779,7 +3779,7 @@ class TestSpikeSliceStackDecodeStimIdentity:
                 are present.
         """
         sss, labels = self._build_decodable_stack(n_classes=2, n_per_class=8, seed=1)
-        result = sss.decode_stim_identity(
+        result = sss.decode_slice_labels(
             labels,
             response_window_ms=(20.0, 30.0),
             bin_size=10.0,
@@ -3805,7 +3805,7 @@ class TestSpikeSliceStackDecodeStimIdentity:
             (Test Case 1) Runs end-to-end with baseline subtraction.
         """
         sss, labels = self._build_decodable_stack(n_classes=2, n_per_class=8, seed=2)
-        result = sss.decode_stim_identity(
+        result = sss.decode_slice_labels(
             labels,
             response_window_ms=(20.0, 30.0),
             bin_size=10.0,
@@ -3826,13 +3826,13 @@ class TestSpikeSliceStackDecodeStimIdentity:
         """
         sss, labels = self._build_decodable_stack(n_classes=2, n_per_class=8)
         with pytest.raises(ValueError, match="end must be greater"):
-            sss.decode_stim_identity(
+            sss.decode_slice_labels(
                 labels, response_window_ms=(30.0, 20.0), bin_size=1.0, cv=2
             )
         with pytest.raises(ValueError, match="tuple"):
-            sss.decode_stim_identity(labels, response_window_ms=5.0, bin_size=1.0, cv=2)
+            sss.decode_slice_labels(labels, response_window_ms=5.0, bin_size=1.0, cv=2)
         with pytest.raises(ValueError, match="empty bin range"):
-            sss.decode_stim_identity(
+            sss.decode_slice_labels(
                 labels,
                 response_window_ms=(100.0, 200.0),
                 bin_size=1.0,
@@ -3849,7 +3849,7 @@ class TestSpikeSliceStackDecodeStimIdentity:
         sss, labels = self._build_decodable_stack(n_classes=2, n_per_class=8)
         bad_labels = labels[:-2]
         with pytest.raises(ValueError, match="length S"):
-            sss.decode_stim_identity(
+            sss.decode_slice_labels(
                 bad_labels,
                 response_window_ms=(20.0, 30.0),
                 bin_size=10.0,
@@ -3857,8 +3857,8 @@ class TestSpikeSliceStackDecodeStimIdentity:
             )
 
 
-class TestStimPairSimilarity:
-    """Tests for SpikeSliceStack.stim_pair_similarity."""
+class TestGroupPairSimilarity:
+    """Tests for SpikeSliceStack.group_pair_similarity."""
 
     def _build_stim_stack(self, n_classes=3, per_class=8, seed=0):
         """Stack where each stim class drives a distinct unit subset."""
@@ -3889,7 +3889,7 @@ class TestStimPairSimilarity:
             (Test Case 2) Labels equal sorted unique classes.
         """
         sss, labels = self._build_stim_stack(n_classes=3)
-        result = sss.stim_pair_similarity(labels, metric="cosine", bin_size=10.0)
+        result = sss.group_pair_similarity(labels, metric="cosine", bin_size=10.0)
         assert isinstance(result, PairwiseCompMatrix)
         assert result.matrix.shape == (3, 3)
         assert list(result.labels) == [0, 1, 2]
@@ -3902,7 +3902,7 @@ class TestStimPairSimilarity:
             (Test Case 1) np.diag is all 1.0.
         """
         sss, labels = self._build_stim_stack(n_classes=3)
-        result = sss.stim_pair_similarity(labels, metric="cosine", bin_size=10.0)
+        result = sss.group_pair_similarity(labels, metric="cosine", bin_size=10.0)
         np.testing.assert_allclose(np.diag(result.matrix), 1.0)
 
     def test_off_diagonal_lower(self):
@@ -3914,7 +3914,7 @@ class TestStimPairSimilarity:
             (Test Case 1) Mean off-diagonal < mean diagonal.
         """
         sss, labels = self._build_stim_stack(n_classes=3)
-        result = sss.stim_pair_similarity(labels, metric="cosine", bin_size=10.0)
+        result = sss.group_pair_similarity(labels, metric="cosine", bin_size=10.0)
         K = result.matrix.shape[0]
         off_mask = ~np.eye(K, dtype=bool)
         assert result.matrix[off_mask].mean() < result.matrix.diagonal().mean()
@@ -3929,7 +3929,7 @@ class TestStimPairSimilarity:
         sss, labels = self._build_stim_stack(n_classes=3, per_class=8)
         # Take every other slice (still covers all 3 classes)
         idx = np.arange(0, len(sss), 2)
-        result = sss.stim_pair_similarity(
+        result = sss.group_pair_similarity(
             labels, metric="cosine", bin_size=10.0, slice_indices=idx
         )
         assert result.matrix.shape == (3, 3)
@@ -3943,7 +3943,7 @@ class TestStimPairSimilarity:
         """
         sss, labels = self._build_stim_stack(n_classes=2, per_class=5)
         with pytest.raises(ValueError, match="length S"):
-            sss.stim_pair_similarity(labels[:-1], metric="cosine", bin_size=10.0)
+            sss.group_pair_similarity(labels[:-1], metric="cosine", bin_size=10.0)
 
     def test_single_class_raises(self):
         """
@@ -3955,11 +3955,11 @@ class TestStimPairSimilarity:
         sss, labels = self._build_stim_stack(n_classes=2, per_class=5)
         single_labels = np.zeros_like(labels)
         with pytest.raises(ValueError, match="at least 2 distinct"):
-            sss.stim_pair_similarity(single_labels, metric="cosine", bin_size=10.0)
+            sss.group_pair_similarity(single_labels, metric="cosine", bin_size=10.0)
 
 
-class TestResponsiveUnitsPerCycle:
-    """Tests for SpikeSliceStack.responsive_units_per_cycle."""
+class TestResponsiveUnitsPerGroup:
+    """Tests for SpikeSliceStack.responsive_units_per_group."""
 
     def _build_cycled_stack(self, n_cycles=4, per_cycle=6, seed=0):
         """Cycle 0..1: unit 0 responsive; cycles 2..3: units 0 and 1 responsive."""
@@ -3995,7 +3995,7 @@ class TestResponsiveUnitsPerCycle:
             (Test Case 2) cycles array has length n_cycles.
         """
         sss, cyc = self._build_cycled_stack()
-        result = sss.responsive_units_per_cycle(
+        result = sss.responsive_units_per_group(
             cyc,
             bin_size=10.0,
             baseline_window_ms=(0.0, 20.0),
@@ -4003,7 +4003,7 @@ class TestResponsiveUnitsPerCycle:
             z_threshold=2.0,
         )
         assert result["mask"].shape == (3, 4)
-        assert result["cycles"].shape == (4,)
+        assert result["groups"].shape == (4,)
 
     def test_unit0_always_responsive(self):
         """
@@ -4013,7 +4013,7 @@ class TestResponsiveUnitsPerCycle:
             (Test Case 1) mask[0, :] all True.
         """
         sss, cyc = self._build_cycled_stack()
-        result = sss.responsive_units_per_cycle(
+        result = sss.responsive_units_per_group(
             cyc,
             bin_size=10.0,
             baseline_window_ms=(0.0, 20.0),
@@ -4030,7 +4030,7 @@ class TestResponsiveUnitsPerCycle:
             (Test Case 1) mask[1, :2] all False; mask[1, 2:] all True.
         """
         sss, cyc = self._build_cycled_stack()
-        result = sss.responsive_units_per_cycle(
+        result = sss.responsive_units_per_group(
             cyc,
             bin_size=10.0,
             baseline_window_ms=(0.0, 20.0),
@@ -4042,14 +4042,14 @@ class TestResponsiveUnitsPerCycle:
 
     def test_mismatched_cycle_labels_raises(self):
         """
-        Wrong-length cycle_labels raises ValueError.
+        Wrong-length group_labels raises ValueError.
 
         Tests:
             (Test Case 1) ValueError.
         """
         sss, cyc = self._build_cycled_stack()
         with pytest.raises(ValueError, match="length S"):
-            sss.responsive_units_per_cycle(
+            sss.responsive_units_per_group(
                 cyc[:-1],
                 bin_size=10.0,
                 baseline_window_ms=(0.0, 20.0),
@@ -4092,8 +4092,8 @@ class TestResponsivenessChange:
         sss, cyc = self._build()
         result = sss.responsiveness_change(
             cyc,
-            early_cycles=[0, 1],
-            late_cycles=[2, 3],
+            early_groups=[0, 1],
+            late_groups=[2, 3],
             bin_size=10.0,
             baseline_window_ms=(0.0, 20.0),
             response_window_ms=(20.0, 30.0),
@@ -4113,8 +4113,8 @@ class TestResponsivenessChange:
         sss, cyc = self._build()
         result = sss.responsiveness_change(
             cyc,
-            early_cycles=[0, 1],
-            late_cycles=[2, 3],
+            early_groups=[0, 1],
+            late_groups=[2, 3],
             bin_size=10.0,
             baseline_window_ms=(0.0, 20.0),
         )
@@ -4124,26 +4124,26 @@ class TestResponsivenessChange:
 
     def test_no_match_raises(self):
         """
-        Empty match for early_cycles or late_cycles raises ValueError.
+        Empty match for early_groups or late_groups raises ValueError.
 
         Tests:
             (Test Case 1) ValueError for unknown early cycle.
             (Test Case 2) ValueError for unknown late cycle.
         """
         sss, cyc = self._build()
-        with pytest.raises(ValueError, match="early_cycles"):
+        with pytest.raises(ValueError, match="early_groups"):
             sss.responsiveness_change(
                 cyc,
-                early_cycles=[99],
-                late_cycles=[2, 3],
+                early_groups=[99],
+                late_groups=[2, 3],
                 bin_size=10.0,
                 baseline_window_ms=(0.0, 20.0),
             )
-        with pytest.raises(ValueError, match="late_cycles"):
+        with pytest.raises(ValueError, match="late_groups"):
             sss.responsiveness_change(
                 cyc,
-                early_cycles=[0, 1],
-                late_cycles=[99],
+                early_groups=[0, 1],
+                late_groups=[99],
                 bin_size=10.0,
                 baseline_window_ms=(0.0, 20.0),
             )

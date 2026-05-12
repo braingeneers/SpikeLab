@@ -631,8 +631,8 @@ class TestTemporalDecodingDecay:
             )
 
 
-class TestNoveltyPerCycle:
-    """Tests for novelty_per_cycle."""
+class TestNoveltyPerGroup:
+    """Tests for novelty_per_group."""
 
     def _make_drifting(self, n_classes=3, samples_per_cycle=12, n_cycles=8, seed=0):
         """Build cycles 0..2 stable; cycles 3..7 drift away from training."""
@@ -660,20 +660,20 @@ class TestNoveltyPerCycle:
         Tests:
             (Test Case 1) Mean log_loss in late cycles > mean in early test cycles.
         """
-        from spikelab.spikedata.decoding import novelty_per_cycle
+        from spikelab.spikedata.decoding import novelty_per_group
 
         X, y, cyc = self._make_drifting()
-        result = novelty_per_cycle(
+        result = novelty_per_group(
             X,
             y,
             cyc,
-            train_cycles=[0, 1, 2],
+            train_groups=[0, 1, 2],
             classifier="logistic",
             classifier_kwargs={"max_iter": 200},
             random_state=0,
         )
-        early = np.nanmean(result["log_losses"][result["cycles"] <= 4])
-        late = np.nanmean(result["log_losses"][result["cycles"] >= 6])
+        early = np.nanmean(result["log_losses"][result["groups"] <= 4])
+        late = np.nanmean(result["log_losses"][result["groups"] >= 6])
         assert late > early
 
     def test_normalize_to_subtracts_baseline(self):
@@ -684,20 +684,20 @@ class TestNoveltyPerCycle:
             (Test Case 1) Cycles in normalize_to have ~0 normalized log_loss.
             (Test Case 2) raw_log_losses preserves the unnormalized values.
         """
-        from spikelab.spikedata.decoding import novelty_per_cycle
+        from spikelab.spikedata.decoding import novelty_per_group
 
         X, y, cyc = self._make_drifting()
-        result = novelty_per_cycle(
+        result = novelty_per_group(
             X,
             y,
             cyc,
-            train_cycles=[0, 1, 2],
+            train_groups=[0, 1, 2],
             normalize_to=[3, 4],
             classifier="logistic",
             classifier_kwargs={"max_iter": 200},
             random_state=0,
         )
-        baseline_mask = np.isin(result["cycles"], [3, 4])
+        baseline_mask = np.isin(result["groups"], [3, 4])
         assert abs(np.nanmean(result["log_losses"][baseline_mask])) < 1e-9
         assert not np.allclose(result["raw_log_losses"], result["log_losses"])
 
@@ -708,25 +708,25 @@ class TestNoveltyPerCycle:
         Tests:
             (Test Case 1) Required keys present.
         """
-        from spikelab.spikedata.decoding import novelty_per_cycle
+        from spikelab.spikedata.decoding import novelty_per_group
 
         X, y, cyc = self._make_drifting()
-        result = novelty_per_cycle(
+        result = novelty_per_group(
             X,
             y,
             cyc,
-            train_cycles=[0, 1, 2],
+            train_groups=[0, 1, 2],
             classifier="logistic",
             classifier_kwargs={"max_iter": 200},
             random_state=0,
         )
         for k in (
-            "cycles",
+            "groups",
             "log_losses",
             "accuracies",
             "raw_log_losses",
             "raw_accuracies",
-            "train_cycles",
+            "train_groups",
             "normalize_to",
             "classes",
             "classifier_name",
@@ -735,27 +735,27 @@ class TestNoveltyPerCycle:
 
     def test_no_train_match_raises(self):
         """
-        train_cycles missing from cycle_labels raises ValueError.
+        train_groups missing from group_labels raises ValueError.
 
         Tests:
-            (Test Case 1) ValueError when no samples match train_cycles.
+            (Test Case 1) ValueError when no samples match train_groups.
         """
-        from spikelab.spikedata.decoding import novelty_per_cycle
+        from spikelab.spikedata.decoding import novelty_per_group
 
         X, y, cyc = self._make_drifting()
         with pytest.raises(ValueError, match="No samples match"):
-            novelty_per_cycle(
+            novelty_per_group(
                 X,
                 y,
                 cyc,
-                train_cycles=[99, 100],
+                train_groups=[99, 100],
                 classifier="logistic",
                 random_state=0,
             )
 
 
-class TestDistinctnessPerCycle:
-    """Tests for distinctness_per_cycle."""
+class TestDistinctnessPerGroup:
+    """Tests for distinctness_per_group."""
 
     def _make_increasing_distinctness(
         self, n_classes=3, samples_per_cycle=18, n_cycles=6, seed=0
@@ -783,10 +783,10 @@ class TestDistinctnessPerCycle:
         Tests:
             (Test Case 1) Mean log_loss in late (separable) cycles < early (noisy).
         """
-        from spikelab.spikedata.decoding import distinctness_per_cycle
+        from spikelab.spikedata.decoding import distinctness_per_group
 
         X, y, cyc = self._make_increasing_distinctness()
-        result = distinctness_per_cycle(
+        result = distinctness_per_group(
             X,
             y,
             cyc,
@@ -795,8 +795,8 @@ class TestDistinctnessPerCycle:
             cv=3,
             random_state=0,
         )
-        early = np.nanmean(result["log_losses"][result["cycles"] < 3])
-        late = np.nanmean(result["log_losses"][result["cycles"] >= 3])
+        early = np.nanmean(result["log_losses"][result["groups"] < 3])
+        late = np.nanmean(result["log_losses"][result["groups"] >= 3])
         assert late < early
 
     def test_returns_expected_keys(self):
@@ -806,10 +806,10 @@ class TestDistinctnessPerCycle:
         Tests:
             (Test Case 1) Required keys present.
         """
-        from spikelab.spikedata.decoding import distinctness_per_cycle
+        from spikelab.spikedata.decoding import distinctness_per_group
 
         X, y, cyc = self._make_increasing_distinctness()
-        result = distinctness_per_cycle(
+        result = distinctness_per_group(
             X,
             y,
             cyc,
@@ -819,7 +819,7 @@ class TestDistinctnessPerCycle:
             random_state=0,
         )
         for k in (
-            "cycles",
+            "groups",
             "log_losses",
             "accuracies",
             "raw_log_losses",
@@ -836,10 +836,10 @@ class TestDistinctnessPerCycle:
         Tests:
             (Test Case 1) Baseline cycles have ~0 normalized log_loss.
         """
-        from spikelab.spikedata.decoding import distinctness_per_cycle
+        from spikelab.spikedata.decoding import distinctness_per_group
 
         X, y, cyc = self._make_increasing_distinctness()
-        result = distinctness_per_cycle(
+        result = distinctness_per_group(
             X,
             y,
             cyc,
@@ -849,7 +849,7 @@ class TestDistinctnessPerCycle:
             cv=3,
             random_state=0,
         )
-        baseline_mask = np.isin(result["cycles"], [0, 1, 2])
+        baseline_mask = np.isin(result["groups"], [0, 1, 2])
         assert abs(np.nanmean(result["log_losses"][baseline_mask])) < 1e-9
 
 
