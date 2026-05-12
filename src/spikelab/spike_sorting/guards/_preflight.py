@@ -460,7 +460,13 @@ def _validate_recording_inputs(
             known extension.
     """
     findings: List[PreflightFinding] = []
-    for rec in recording_files:
+    for i, entry in enumerate(recording_files):
+        if entry is None:
+            raise ValueError(
+                f"recording_inputs[{i}] is None (caller bug — pass a path, "
+                f"BaseRecording, or omit the entry)"
+            )
+        rec = entry
         if not isinstance(rec, (str, Path)):
             # Pre-loaded recording object — skip.
             continue
@@ -1077,26 +1083,51 @@ def _check_rt_sort(config: Any) -> List[PreflightFinding]:
         try:
             import torch as _torch
 
-            if not _torch.cuda.is_available():
-                findings.append(
-                    PreflightFinding(
-                        level="fail",
-                        code="sorter_dependency_missing",
-                        category="environment",
-                        message=(
-                            f"RT-Sort is configured with device={device!r} "
-                            "but torch.cuda.is_available() is False."
-                        ),
-                        remediation=(
-                            "Verify the NVIDIA driver, install a CUDA-"
-                            "enabled PyTorch build, or switch RTSortConfig"
-                            "(device='cpu')."
-                        ),
-                    )
-                )
+            cuda_available = _torch.cuda.is_available()
         except ImportError:
             # Already reported above as a missing dependency.
-            pass
+            cuda_available = True  # suppress the follow-up cuda finding
+        except (RuntimeError, Exception) as exc:
+            # A broken CUDA install can make ``torch.cuda.is_available()``
+            # raise RuntimeError (driver/runtime mismatch) rather than
+            # return False. Surface it as a fail-level dependency finding
+            # so the operator gets actionable detail instead of a raw
+            # traceback escaping out of preflight.
+            findings.append(
+                PreflightFinding(
+                    level="fail",
+                    code="sorter_dependency_missing",
+                    category="environment",
+                    message=(
+                        f"RT-Sort is configured with device={device!r} but "
+                        f"torch.cuda.is_available() raised "
+                        f"{type(exc).__name__}: {exc}."
+                    ),
+                    remediation=(
+                        "Check CUDA driver/runtime version compatibility, "
+                        "reinstall a matching CUDA-enabled PyTorch build, "
+                        "or switch RTSortConfig(device='cpu')."
+                    ),
+                )
+            )
+            cuda_available = True  # suppress the follow-up cuda finding
+        if not cuda_available:
+            findings.append(
+                PreflightFinding(
+                    level="fail",
+                    code="sorter_dependency_missing",
+                    category="environment",
+                    message=(
+                        f"RT-Sort is configured with device={device!r} "
+                        "but torch.cuda.is_available() is False."
+                    ),
+                    remediation=(
+                        "Verify the NVIDIA driver, install a CUDA-"
+                        "enabled PyTorch build, or switch RTSortConfig"
+                        "(device='cpu')."
+                    ),
+                )
+            )
 
     return findings
 
@@ -1147,7 +1178,7 @@ def _resolve_target_device_index(config: Any) -> int:
     """
     from ._gpu_watchdog import _resolve_device_index
 
-    sorter_name = getattr(config.sorter, "sorter_name", "").lower()
+    sorter_name = (getattr(config.sorter, "sorter_name", "") or "").lower()
     if sorter_name == "rt_sort":
         return _resolve_device_index(getattr(config.rt_sort, "device", None))
     if sorter_name == "kilosort4":
@@ -1385,11 +1416,32 @@ def _parse_version_tuple(version: str) -> Optional[Tuple[int, ...]]:
     three-component pins. Without padding, Python's tuple ordering
     treats ``(4,) < (4, 0, 0)`` as True and a bare "4" would falsely
     report as below a [4.0.0, 5.0.0) tested range.
+
+    Per-component, only the LEADING-digit prefix is taken, so
+    ``"1.2.3rc4"`` → ``(1, 2, 3)`` (not ``(1, 2, 34)`` as a naive
+    "strip non-digits" pass would produce — that would order
+    ``"1.2.3rc4"`` *above* ``"1.2.33"``).
+
+    Returns ``None`` when no component contributes any digit at all
+    (silent skip on truly unparseable input — preserves the behavior
+    expected by :func:`_check_kilosort4_host` and
+    :func:`_check_spikeinterface_version`, which treat ``None`` as
+    "cannot validate, stay silent").
     """
     try:
         parts = version.strip().split(".")
-        nums = [int("".join(c for c in p if c.isdigit())) for p in parts[:3]]
+        nums: List[int] = []
+        had_any_digit = False
+        for p in parts[:3]:
+            m = re.match(r"^\d+", p)
+            if m is None:
+                nums.append(0)
+            else:
+                nums.append(int(m.group(0)))
+                had_any_digit = True
     except Exception:
+        return None
+    if not had_any_digit:
         return None
     nums.extend([0] * (3 - len(nums)))
     return tuple(nums)

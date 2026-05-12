@@ -355,8 +355,8 @@ class TestAnalysisWorkspace:
             (Test Case 1) Renamed key is accessible under the new name.
             (Test Case 2) Old key no longer exists after rename.
             (Test Case 3) Index entry is accessible under the new key.
-            (Test Case 4) Rename on a missing namespace returns False.
-            (Test Case 5) Rename on a missing old_key returns False.
+            (Test Case 4) Rename on a missing namespace raises KeyError.
+            (Test Case 5) Rename on a missing old_key raises KeyError.
         """
         arr = np.arange(5)
         self.ws.store("rec1", "old", arr)
@@ -372,8 +372,10 @@ class TestAnalysisWorkspace:
         assert info is not None
         assert self.ws.get_info("rec1", "old") is None
 
-        assert not self.ws.rename("missing_ns", "old", "new")
-        assert not self.ws.rename("rec1", "missing_key", "new")
+        with pytest.raises(KeyError, match="not found"):
+            self.ws.rename("missing_ns", "old", "new")
+        with pytest.raises(KeyError, match="not found"):
+            self.ws.rename("rec1", "missing_key", "new")
 
     # ------------------------------------------------------------------
     # add_note
@@ -386,17 +388,17 @@ class TestAnalysisWorkspace:
         Tests:
             (Test Case 1) Note stored via store() appears in get_info().
             (Test Case 2) add_note() on existing item updates the note.
-            (Test Case 3) add_note() on missing item returns False.
+            (Test Case 3) add_note() on missing item raises KeyError.
         """
         self.ws.store("rec1", "arr", np.zeros(3), note="initial note")
         info = self.ws.get_info("rec1", "arr")
         assert info["note"] == "initial note"
 
-        result = self.ws.add_note("rec1", "arr", "updated note")
-        assert result
+        self.ws.add_note("rec1", "arr", "updated note")
         assert self.ws.get_info("rec1", "arr")["note"] == "updated note"
 
-        assert not self.ws.add_note("missing_ns", "arr", "note")
+        with pytest.raises(KeyError, match="not found"):
+            self.ws.add_note("missing_ns", "arr", "note")
 
     # ------------------------------------------------------------------
     # delete
@@ -410,18 +412,18 @@ class TestAnalysisWorkspace:
             (Test Case 1) Deleted key returns None from get().
             (Test Case 2) Index entry is removed.
             (Test Case 3) Other keys in the same namespace are not affected.
-            (Test Case 4) Deleting a missing key returns False.
+            (Test Case 4) Deleting a missing key raises KeyError.
         """
         self.ws.store("rec1", "a", np.zeros(2))
         self.ws.store("rec1", "b", np.zeros(2))
 
-        result = self.ws.delete("rec1", "a")
-        assert result
+        self.ws.delete("rec1", "a")
         assert self.ws.get("rec1", "a") is None
         assert self.ws.get_info("rec1", "a") is None
         assert self.ws.get("rec1", "b") is not None
 
-        assert not self.ws.delete("rec1", "missing_key")
+        with pytest.raises(KeyError, match="not found"):
+            self.ws.delete("rec1", "missing_key")
 
     def test_delete_namespace(self):
         """
@@ -430,17 +432,17 @@ class TestAnalysisWorkspace:
         Tests:
             (Test Case 1) All keys in the namespace are gone after deletion.
             (Test Case 2) Namespace no longer appears in list_keys().
-            (Test Case 3) Deleting a missing namespace returns False.
+            (Test Case 3) Deleting a missing namespace raises KeyError.
         """
         self.ws.store("rec1", "a", np.zeros(2))
         self.ws.store("rec1", "b", np.zeros(2))
 
-        result = self.ws.delete("rec1")
-        assert result
+        self.ws.delete("rec1")
         assert self.ws.get("rec1", "a") is None
         assert "rec1" not in self.ws.list_keys()
 
-        assert not self.ws.delete("missing_ns")
+        with pytest.raises(KeyError, match="not found"):
+            self.ws.delete("missing_ns")
 
     # ------------------------------------------------------------------
     # namespace isolation
@@ -791,14 +793,14 @@ class TestAnalysisWorkspace:
         Deleting the last key in a namespace removes the namespace entirely.
 
         Tests:
-            (Test Case 1) delete returns True.
+            (Test Case 1) The deleted key is no longer retrievable.
             (Test Case 2) The namespace is removed from _items and _index.
             (Test Case 3) list_namespaces no longer lists the namespace.
         """
         ws = AnalysisWorkspace(name="test")
         ws.store("ns", "only_key", np.array([1.0]))
 
-        assert ws.delete("ns", "only_key") is True
+        ws.delete("ns", "only_key")
         assert ws.get("ns", "only_key") is None
         assert "ns" not in ws._items
         assert "ns" not in ws._index
@@ -1109,19 +1111,19 @@ class TestWorkspaceManager:
 
     def test_delete_workspace(self):
         """
-        Tests that delete_workspace() removes a workspace and returns False for unknown IDs.
+        Tests that delete_workspace() removes a workspace and raises KeyError for unknown IDs.
 
         Tests:
-            (Test Case 1) delete_workspace() returns True for an existing workspace.
+            (Test Case 1) delete_workspace() removes an existing workspace.
             (Test Case 2) get_workspace() returns None after deletion.
-            (Test Case 3) delete_workspace() returns False for an unknown ID.
+            (Test Case 3) delete_workspace() raises KeyError for an unknown ID.
         """
         wid = self.mgr.create_workspace()
-        result = self.mgr.delete_workspace(wid)
-        assert result
+        self.mgr.delete_workspace(wid)
         assert self.mgr.get_workspace(wid) is None
 
-        assert not self.mgr.delete_workspace("nonexistent-id")
+        with pytest.raises(KeyError, match="not found"):
+            self.mgr.delete_workspace("nonexistent-id")
 
     def test_list_workspaces(self):
         """
@@ -1251,7 +1253,7 @@ class TestWorkspaceManager:
         does not destroy the workspace itself.
 
         Tests:
-            (Test Case 1) delete_workspace returns True.
+            (Test Case 1) delete_workspace removes the entry without error.
             (Test Case 2) get_workspace returns None after deletion.
             (Test Case 3) The external reference is still a valid AnalysisWorkspace.
             (Test Case 4) Data stored in the workspace is still accessible via the external reference.
@@ -1263,7 +1265,7 @@ class TestWorkspaceManager:
 
         # Hold external reference, then delete from manager
         external_ref = ws
-        assert mgr.delete_workspace(wid) is True
+        mgr.delete_workspace(wid)
         assert mgr.get_workspace(wid) is None
 
         # External reference still works
@@ -3019,7 +3021,7 @@ class TestLazyAnalysisWorkspace:
         Delete a single item and verify it is gone.
 
         Tests:
-            (Test Case 1) delete() returns True for an existing item.
+            (Test Case 1) delete() removes an existing item without error.
             (Test Case 2) get() returns None after deletion.
             (Test Case 3) The key is removed from list_keys().
             (Test Case 4) Other items in the same namespace are unaffected.
@@ -3028,7 +3030,7 @@ class TestLazyAnalysisWorkspace:
         ws.store("ns", "keep", np.array([1.0]))
         ws.store("ns", "remove", np.array([2.0]))
 
-        assert ws.delete("ns", "remove") is True
+        ws.delete("ns", "remove")
         assert ws.get("ns", "remove") is None
         assert "remove" not in ws.list_keys("ns")
         np.testing.assert_array_equal(ws.get("ns", "keep"), np.array([1.0]))
@@ -3038,7 +3040,7 @@ class TestLazyAnalysisWorkspace:
         Delete an entire namespace and verify all its items are gone.
 
         Tests:
-            (Test Case 1) delete() with key=None returns True.
+            (Test Case 1) delete() with key=None removes the namespace without error.
             (Test Case 2) The namespace is removed from list_namespaces().
             (Test Case 3) get() returns None for any key in the deleted namespace.
         """
@@ -3047,25 +3049,27 @@ class TestLazyAnalysisWorkspace:
         ws.store("remove_ns", "k2", np.array([2.0]))
         ws.store("keep_ns", "k1", np.array([3.0]))
 
-        assert ws.delete("remove_ns") is True
+        ws.delete("remove_ns")
         assert "remove_ns" not in ws.list_namespaces()
         assert ws.get("remove_ns", "k1") is None
         assert ws.get("remove_ns", "k2") is None
         np.testing.assert_array_equal(ws.get("keep_ns", "k1"), np.array([3.0]))
 
-    def test_delete_nonexistent_returns_false(self):
+    def test_delete_nonexistent_raises(self):
         """
-        delete() returns False when the target does not exist.
+        delete() raises KeyError when the target does not exist.
 
         Tests:
-            (Test Case 1) Missing namespace returns False.
-            (Test Case 2) Missing key in existing namespace returns False.
+            (Test Case 1) Missing namespace raises KeyError.
+            (Test Case 2) Missing key in existing namespace raises KeyError.
         """
         ws = LazyAnalysisWorkspace(name="delete_miss")
         ws.store("ns", "k", np.zeros(1))
 
-        assert ws.delete("nonexistent") is False
-        assert ws.delete("ns", "nonexistent") is False
+        with pytest.raises(KeyError, match="not found"):
+            ws.delete("nonexistent")
+        with pytest.raises(KeyError, match="not found"):
+            ws.delete("ns", "nonexistent")
 
     # ------------------------------------------------------------------
     # describe()
@@ -3244,27 +3248,29 @@ class TestLazyAnalysisWorkspace:
         assert "new_key" in ws.list_keys("ns")
         assert "old_key" not in ws.list_keys("ns")
 
-    def test_rename_missing_namespace_returns_false(self):
+    def test_rename_missing_namespace_raises(self):
         """
-        rename() returns False when the namespace does not exist.
+        rename() raises KeyError when the namespace does not exist.
 
         Tests:
-            (Test Case 1) Returns False without error.
+            (Test Case 1) Raises KeyError matching "not found".
         """
         ws = LazyAnalysisWorkspace(name="rename_miss_ns")
-        assert ws.rename("nonexistent", "a", "b") is False
+        with pytest.raises(KeyError, match="not found"):
+            ws.rename("nonexistent", "a", "b")
 
-    def test_rename_missing_key_returns_false(self):
+    def test_rename_missing_key_raises(self):
         """
-        rename() returns False when the old_key does not exist in the namespace.
+        rename() raises KeyError when the old_key does not exist in the namespace.
 
         Tests:
-            (Test Case 1) Returns False without error.
+            (Test Case 1) Raises KeyError matching "not found".
             (Test Case 2) Existing keys are unaffected.
         """
         ws = LazyAnalysisWorkspace(name="rename_miss_key")
         ws.store("ns", "exists", np.array([1.0]))
-        assert ws.rename("ns", "missing", "new") is False
+        with pytest.raises(KeyError, match="not found"):
+            ws.rename("ns", "missing", "new")
         assert ws.get("ns", "exists") is not None
 
     # ------------------------------------------------------------------
@@ -3329,7 +3335,7 @@ class TestLazyAnalysisWorkspace:
 
         Tests:
             (Test Case 1) get() returns the value before deletion.
-            (Test Case 2) delete() returns True.
+            (Test Case 2) delete() removes the item without error.
             (Test Case 3) get() returns None after deletion.
         """
         ws = LazyAnalysisWorkspace(name="get_after_del")
@@ -3337,17 +3343,16 @@ class TestLazyAnalysisWorkspace:
         ws.store("ns", "k", arr)
 
         np.testing.assert_array_equal(ws.get("ns", "k"), arr)
-        assert ws.delete("ns", "k") is True
+        ws.delete("ns", "k")
         assert ws.get("ns", "k") is None
 
     def test_rename_when_get_returns_none(self):
         """
-        Rename returns False when get() returns None (e.g. if HDF5 data is corrupted
+        Rename raises KeyError when get() returns None (e.g. if HDF5 data is corrupted
         or the item was deleted from the backing file externally).
 
         Tests:
-            (Test Case 1) rename returns False.
-            (Test Case 2) Index is unchanged.
+            (Test Case 1) rename raises KeyError matching "not found".
 
         Notes:
             - This tests the code path where namespace and old_key exist in _index
@@ -3364,8 +3369,8 @@ class TestLazyAnalysisWorkspace:
         # _index still has the entry, but get() will return None
         assert ws.get("ns", "key") is None
 
-        result = ws.rename("ns", "key", "new_key")
-        assert result is False
+        with pytest.raises(KeyError, match="not found"):
+            ws.rename("ns", "key", "new_key")
 
     def test_delete_last_key_removes_namespace(self):
         """
@@ -3373,7 +3378,7 @@ class TestLazyAnalysisWorkspace:
         the namespace from _index entirely.
 
         Tests:
-            (Test Case 1) delete returns True.
+            (Test Case 1) delete removes the item without error.
             (Test Case 2) The namespace is removed from _index.
             (Test Case 3) list_namespaces no longer includes the namespace.
 
@@ -3384,7 +3389,7 @@ class TestLazyAnalysisWorkspace:
         ws = LazyAnalysisWorkspace(name="del_last")
         ws.store("ns", "only", np.array([1.0]))
 
-        assert ws.delete("ns", "only") is True
+        ws.delete("ns", "only")
         assert "ns" not in ws._index
         assert "ns" not in ws.list_namespaces()
 
@@ -4974,3 +4979,451 @@ class TestHDF5IOIO:
         assert len(sss2.spike_stack) == 2
         assert sss2.spike_stack[0].N == 1
         assert sss2.spike_stack[1].N == 2
+
+
+class TestDumpNeuronAttributesCorruptionPaths:
+    """
+    Edge case tests pinning current behavior for problematic neuron
+    attribute values: dict-valued, slash-named, and legitimate-NaN keys.
+
+    Notes:
+        - documents bugs — see REVIEW.md
+        - These cases are not validated at the workspace IO layer and
+          either silently corrupt the round-trip or raise confusing
+          deep errors.
+    """
+
+    def test_dict_valued_attribute_raises_value_error(self, tmp_path):
+        """
+        _dump_neuron_attributes rejects dict-valued attributes upfront
+        with a ValueError naming the attribute key and offending type,
+        instead of letting a deep TypeError surface from float(v).
+
+        Tests:
+            (Test Case 1) Dict-valued attribute raises ValueError.
+            (Test Case 2) The error names the offending attribute key.
+            (Test Case 3) The error names the offending type ("dict").
+        """
+        try:
+            import h5py  # noqa: F811
+        except ImportError:
+            pytest.skip("h5py not installed")
+
+        from spikelab.workspace.hdf5_io import _dump_neuron_attributes
+
+        attrs = [
+            {"meta": {"id": 5, "loc": (0, 0)}},
+            {"meta": {"id": 6, "loc": (1, 1)}},
+        ]
+        path = str(tmp_path / "dict_attr.h5")
+        with h5py.File(path, "w") as f:
+            grp = f.create_group("test")
+            with pytest.raises(ValueError) as exc_info:
+                _dump_neuron_attributes(grp, attrs)
+        msg = str(exc_info.value)
+        assert "meta" in msg
+        assert "dict" in msg
+
+    def test_unsupported_set_value_raises_value_error(self, tmp_path):
+        """
+        _dump_neuron_attributes rejects other unsupported types (e.g.
+        set) with the same ValueError pattern, naming the offending
+        type.
+
+        Tests:
+            (Test Case 1) Set-valued attribute raises ValueError.
+            (Test Case 2) The error names the offending type ("set").
+        """
+        try:
+            import h5py  # noqa: F811
+        except ImportError:
+            pytest.skip("h5py not installed")
+
+        from spikelab.workspace.hdf5_io import _dump_neuron_attributes
+
+        attrs = [{"tags": {"a", "b"}}, {"tags": {"c"}}]
+        path = str(tmp_path / "set_attr.h5")
+        with h5py.File(path, "w") as f:
+            grp = f.create_group("test")
+            with pytest.raises(ValueError) as exc_info:
+                _dump_neuron_attributes(grp, attrs)
+        assert "set" in str(exc_info.value)
+
+    def test_slash_in_attribute_key_raises(self, tmp_path):
+        """
+        _dump_neuron_attributes rejects forward-slash-in-key with a
+        ValueError naming the offending key and the underlying h5py
+        path-separator behavior.
+
+        Tests:
+            (Test Case 1) Slash-in-key raises ValueError.
+            (Test Case 2) The error names the offending key.
+            (Test Case 3) The error mentions the h5py path-separator
+                behavior so the user knows why.
+        """
+        try:
+            import h5py  # noqa: F811
+        except ImportError:
+            pytest.skip("h5py not installed")
+
+        from spikelab.workspace.hdf5_io import _dump_neuron_attributes
+
+        attrs = [{"meta/info": 1.0}, {"meta/info": 2.0}]
+        path = str(tmp_path / "slash_key.h5")
+        with h5py.File(path, "w") as f:
+            grp = f.create_group("test")
+            with pytest.raises(ValueError) as exc_info:
+                _dump_neuron_attributes(grp, attrs)
+        msg = str(exc_info.value)
+        assert "meta/info" in msg
+        assert "/" in msg or "slash" in msg.lower()
+
+    def test_legitimate_nan_attribute_warns_at_dump(self, tmp_path):
+        """
+        _dump_neuron_attributes emits a UserWarning at dump time when
+        a legitimate float('nan') value is supplied for a numeric
+        attribute, surfacing that NaN doubles as the missing-entry
+        sentinel and will be silently dropped on reload.
+
+        Tests:
+            (Test Case 1) A UserWarning is emitted whose message names
+                the offending attribute key.
+            (Test Case 2) The round-trip behavior is unchanged: NaN
+                values are still dropped on reload (current contract;
+                refactoring to a missing-mask is deferred).
+            (Test Case 3) Valid (non-NaN) values are preserved.
+        """
+        import warnings as _warnings
+
+        try:
+            import h5py  # noqa: F811
+        except ImportError:
+            pytest.skip("h5py not installed")
+
+        from spikelab.workspace.hdf5_io import (
+            _dump_neuron_attributes,
+            _load_neuron_attributes,
+        )
+
+        attrs = [{"snr": float("nan")}, {"snr": 5.0}]
+        path = str(tmp_path / "nan_attr.h5")
+        with _warnings.catch_warnings(record=True) as w:
+            _warnings.simplefilter("always")
+            with h5py.File(path, "w") as f:
+                grp = f.create_group("test")
+                _dump_neuron_attributes(grp, attrs)
+
+        warn_msgs = [str(rec.message) for rec in w if rec.category is UserWarning]
+        assert any("snr" in m for m in warn_msgs), warn_msgs
+
+        with h5py.File(path, "r") as f:
+            loaded = _load_neuron_attributes(f["test"])
+        assert loaded is not None
+        # Round-trip behavior unchanged: NaN still dropped on reload.
+        assert "snr" not in loaded[0]
+        assert loaded[1]["snr"] == 5.0
+
+    def test_no_warning_when_only_missing_entries(self, tmp_path):
+        """
+        _dump_neuron_attributes does NOT warn when NaN values arise
+        only from missing-entry None defaults (the legitimate use of
+        the sentinel).
+
+        Tests:
+            (Test Case 1) Mix of None and 5.0 produces no UserWarning.
+        """
+        import warnings as _warnings
+
+        try:
+            import h5py  # noqa: F811
+        except ImportError:
+            pytest.skip("h5py not installed")
+
+        from spikelab.workspace.hdf5_io import _dump_neuron_attributes
+
+        attrs = [{"snr": 5.0}, {}]  # second unit has no 'snr' → None → NaN sentinel
+        path = str(tmp_path / "missing_only.h5")
+        with _warnings.catch_warnings(record=True) as w:
+            _warnings.simplefilter("always")
+            with h5py.File(path, "w") as f:
+                grp = f.create_group("test")
+                _dump_neuron_attributes(grp, attrs)
+
+        warn_msgs = [
+            str(rec.message)
+            for rec in w
+            if rec.category is UserWarning and "indistinguishable" in str(rec.message)
+        ]
+        assert warn_msgs == []
+
+
+class TestMakeSummaryNone:
+    """Boundary test for _make_summary covering None input."""
+
+    def test_make_summary_none_value(self):
+        """
+        _make_summary on None falls through to the unknown-type branch,
+        returning a summary with type "NoneType".
+
+        Tests:
+            (Test Case 1) _make_summary(None) returns dict with
+                type="NoneType".
+        """
+        s = _make_summary(None)
+        assert s["type"] == "NoneType"
+
+
+class TestDumpNeuronAttributesBoolCoercion:
+    """Round-trip test for bool-typed neuron attribute values."""
+
+    def test_bool_attribute_round_trips_as_float(self, tmp_path):
+        """
+        _dump_neuron_attributes coerces bool values to float64 via float(v),
+        so a True attribute reloads as 1.0 (the bool dtype is lost).
+
+        Tests:
+            (Test Case 1) attr["passed"] = True is dumped + loaded as 1.0.
+            (Test Case 2) The reloaded value's type is float, not bool.
+        """
+        if not H5PY_AVAILABLE:
+            pytest.skip("h5py not installed")
+        import h5py
+
+        from spikelab.workspace.hdf5_io import _dump_spikedata, _load_spikedata
+
+        sd = SpikeData([[1.0, 2.0]], length=10.0, neuron_attributes=[{"passed": True}])
+        path = str(tmp_path / "bool_attr.h5")
+        with h5py.File(path, "w") as f:
+            grp = f.create_group("sd")
+            _dump_spikedata(grp, sd)
+        with h5py.File(path, "r") as f:
+            loaded = _load_spikedata(f["sd"])
+        assert loaded.neuron_attributes[0]["passed"] == 1.0
+        assert isinstance(loaded.neuron_attributes[0]["passed"], float)
+        assert not isinstance(loaded.neuron_attributes[0]["passed"], bool)
+
+
+class TestDumpDictKeyValidation:
+    """
+    Tests that _dump_dict rejects dict keys h5py would mishandle: empty
+    strings, non-strings, and slash-containing keys (which h5py treats
+    as a path separator and silently corrupts the round-trip).
+    """
+
+    def test_empty_string_key_raises(self, tmp_path):
+        """
+        _dump_dict({"": ...}) raises ValueError naming "empty".
+
+        Tests:
+            (Test Case 1) Empty-string key raises ValueError.
+        """
+        if not H5PY_AVAILABLE:
+            pytest.skip("h5py not installed")
+        import h5py
+
+        from spikelab.workspace.hdf5_io import _dump_dict
+
+        path = str(tmp_path / "empty_key.h5")
+        with h5py.File(path, "w") as f:
+            grp = f.create_group("test")
+            with pytest.raises(ValueError, match="empty"):
+                _dump_dict(grp, {"": 1}, created_at=0.0)
+
+    def test_non_string_key_raises(self, tmp_path):
+        """
+        _dump_dict with a non-string key raises ValueError naming the
+        offending type.
+
+        Tests:
+            (Test Case 1) Integer key raises ValueError naming "int".
+            (Test Case 2) Tuple key raises ValueError naming "tuple".
+        """
+        if not H5PY_AVAILABLE:
+            pytest.skip("h5py not installed")
+        import h5py
+
+        from spikelab.workspace.hdf5_io import _dump_dict
+
+        path = str(tmp_path / "non_str_key.h5")
+        with h5py.File(path, "w") as f:
+            grp = f.create_group("test")
+            with pytest.raises(ValueError, match="int"):
+                _dump_dict(grp, {7: "value"}, created_at=0.0)
+            with pytest.raises(ValueError, match="tuple"):
+                _dump_dict(grp, {(1, 2): "value"}, created_at=0.0)
+
+    def test_slash_in_key_raises(self, tmp_path):
+        """
+        _dump_dict with a slash-containing key raises ValueError naming
+        the h5py path-separator behavior, instead of silently producing
+        a nested group hierarchy.
+
+        Tests:
+            (Test Case 1) Key 'a/b' raises ValueError.
+            (Test Case 2) The error names the offending key and the
+                slash semantics.
+        """
+        if not H5PY_AVAILABLE:
+            pytest.skip("h5py not installed")
+        import h5py
+
+        from spikelab.workspace.hdf5_io import _dump_dict
+
+        path = str(tmp_path / "slash_key.h5")
+        with h5py.File(path, "w") as f:
+            grp = f.create_group("test")
+            with pytest.raises(ValueError) as exc_info:
+                _dump_dict(grp, {"a/b": 1}, created_at=0.0)
+        msg = str(exc_info.value)
+        assert "a/b" in msg
+        assert "slash" in msg.lower() or "/" in msg
+
+    def test_valid_keys_still_work(self, tmp_path):
+        """
+        Valid string keys (including ones with dots and underscores)
+        still round-trip — no regression for the happy path.
+
+        Tests:
+            (Test Case 1) Mixed scalar / str values with well-formed
+                keys round-trip via _dump_dict / _load_dict.
+        """
+        if not H5PY_AVAILABLE:
+            pytest.skip("h5py not installed")
+        import h5py
+
+        from spikelab.workspace.hdf5_io import _dump_dict, _load_dict
+
+        d = {
+            "scalar_int": 42,
+            "scalar_float": 3.14,
+            "scalar_bool": True,
+            "string_val": "hello",
+            "with.dot": 1,
+            "with_underscore": 2,
+        }
+        path = str(tmp_path / "valid_keys.h5")
+        with h5py.File(path, "w") as f:
+            grp = f.create_group("test")
+            _dump_dict(grp, d, created_at=0.0)
+        with h5py.File(path, "r") as f:
+            loaded = _load_dict(f["test"])
+        assert loaded["scalar_int"] == 42
+        assert loaded["scalar_float"] == 3.14
+        assert loaded["scalar_bool"] is True
+        assert loaded["string_val"] == "hello"
+        assert loaded["with.dot"] == 1
+        assert loaded["with_underscore"] == 2
+
+
+class TestAnalysisWorkspaceSaveStripsH5Suffix:
+    """``AnalysisWorkspace.save`` strips a trailing ``.h5`` from the path."""
+
+    def test_save_path_with_h5_suffix_does_not_double(self, tmp_path):
+        """
+        Calling ``save("foo.h5")`` produces ``foo.h5`` and ``foo.json``
+        (not ``foo.h5.h5`` and ``foo.h5.json``).
+
+        Tests:
+            (Test Case 1) ``foo.h5`` exists on disk after save.
+            (Test Case 2) ``foo.h5.h5`` does NOT exist.
+            (Test Case 3) ``foo.json`` exists on disk after save.
+            (Test Case 4) Round-trip via ``AnalysisWorkspace.load("foo")``
+                returns a workspace with the original name.
+        """
+        try:
+            import h5py  # noqa: F401
+        except ImportError:
+            pytest.skip("h5py not installed")
+        from spikelab.workspace.workspace import AnalysisWorkspace
+
+        ws = AnalysisWorkspace(name="strip-h5-suffix")
+        base = str(tmp_path / "foo.h5")
+        ws.save(base)
+
+        assert os.path.exists(base)  # foo.h5
+        assert not os.path.exists(base + ".h5")  # not foo.h5.h5
+        assert os.path.exists(str(tmp_path / "foo.json"))
+
+        loaded = AnalysisWorkspace.load(str(tmp_path / "foo"))
+        assert loaded.name == "strip-h5-suffix"
+
+    def test_save_path_without_h5_suffix_unchanged(self, tmp_path):
+        """
+        Calling ``save("foo")`` (no suffix) still produces ``foo.h5``
+        and ``foo.json`` — the strip is conditional on the suffix
+        being present.
+
+        Tests:
+            (Test Case 1) ``foo.h5`` exists on disk.
+            (Test Case 2) ``foo.json`` exists on disk.
+        """
+        try:
+            import h5py  # noqa: F401
+        except ImportError:
+            pytest.skip("h5py not installed")
+        from spikelab.workspace.workspace import AnalysisWorkspace
+
+        ws = AnalysisWorkspace(name="no-suffix")
+        base = str(tmp_path / "foo")
+        ws.save(base)
+
+        assert os.path.exists(base + ".h5")
+        assert os.path.exists(base + ".json")
+
+
+class TestNumpyEncoder:
+    """Direct tests for the ``_NumpyEncoder`` JSON encoder."""
+
+    def test_numpy_scalars_round_trip_to_python_primitives(self):
+        """
+        ``_NumpyEncoder`` converts numpy scalar types to JSON-compatible
+        Python primitives (int, float, bool, str). Each branch in
+        ``default()`` is exercised directly.
+
+        Tests:
+            (Test Case 1) ``np.int64`` becomes a JSON integer.
+            (Test Case 2) ``np.float32`` becomes a JSON float.
+            (Test Case 3) ``np.bool_(True)`` becomes ``true``.
+            (Test Case 4) ``np.str_`` becomes a JSON string.
+            (Test Case 5) An ``np.ndarray`` becomes a JSON list.
+        """
+        import json
+        from spikelab.workspace.hdf5_io import _NumpyEncoder
+
+        payload = {
+            "i": np.int64(7),
+            "f": np.float32(2.5),
+            "b": np.bool_(True),
+            "s": np.str_("hello"),
+            "a": np.array([1, 2, 3]),
+        }
+        encoded = json.dumps(payload, cls=_NumpyEncoder)
+        decoded = json.loads(encoded)
+        assert decoded["i"] == 7 and isinstance(decoded["i"], int)
+        assert decoded["f"] == pytest.approx(2.5)
+        assert decoded["b"] is True
+        assert decoded["s"] == "hello"
+        assert decoded["a"] == [1, 2, 3]
+
+    def test_unsupported_type_raises_type_error(self):
+        """
+        ``_NumpyEncoder`` falls back to ``json.JSONEncoder.default`` for
+        unhandled types, which raises ``TypeError``. ``np.complex128``
+        is not in the encoder's handled list and surfaces this error.
+
+        Tests:
+            (Test Case 1) Encoding ``np.complex128`` raises TypeError.
+            (Test Case 2) Encoding an arbitrary user object raises
+                TypeError.
+        """
+        import json
+        from spikelab.workspace.hdf5_io import _NumpyEncoder
+
+        with pytest.raises(TypeError):
+            json.dumps({"c": np.complex128(1 + 2j)}, cls=_NumpyEncoder)
+
+        class Foo:
+            pass
+
+        with pytest.raises(TypeError):
+            json.dumps({"x": Foo()}, cls=_NumpyEncoder)

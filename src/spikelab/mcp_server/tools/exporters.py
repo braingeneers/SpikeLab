@@ -57,7 +57,7 @@ def _hdf5_export_helper(
             )
             try:
                 os.unlink(local_path)
-            except Exception:
+            except OSError:
                 pass
             output_path = file_path
         else:
@@ -68,7 +68,7 @@ def _hdf5_export_helper(
         if is_s3:
             try:
                 os.unlink(local_path)
-            except Exception:
+            except OSError:
                 pass
         raise
 
@@ -296,7 +296,7 @@ async def export_to_nwb(
             )
             try:
                 os.unlink(local_path)
-            except Exception:
+            except OSError:
                 pass
             output_path = file_path
         else:
@@ -309,7 +309,7 @@ async def export_to_nwb(
         if is_s3:
             try:
                 os.unlink(local_path)
-            except Exception:
+            except OSError:
                 pass
         raise
 

@@ -237,8 +237,14 @@ def acquire_sort_lock(folder: Path) -> Iterator[Path]:
             and a stale-lock reclaim is unsafe.
     """
     folder = Path(folder)
-    folder.mkdir(parents=True, exist_ok=True)
     lock_path = folder / _LOCK_FILENAME
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+    except (PermissionError, OSError) as exc:
+        raise ConcurrentSortError(
+            f"failed to acquire sort lock at {lock_path}: {exc}",
+            lock_path=lock_path,
+        ) from exc
     this_host = socket.gethostname()
 
     fd: Optional[int] = None

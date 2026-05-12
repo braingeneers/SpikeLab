@@ -85,11 +85,24 @@ class SpikeData:
               helper function.
             - When ``idces`` is empty and ``N`` is None, defaults to 0 units
               and ``length=0``.
+            - Raises ValueError if any entry of idces is negative or out of
+              range (>= N).
         """
         idces = np.asarray(idces)
         if idces.size == 0:
             kwargs.setdefault("length", 0)
             N = 0 if N is None else N
+        else:
+            if N is None:
+                N = int(idces.max()) + 1
+            if np.any(idces < 0):
+                raise ValueError(
+                    f"unit indices contain negative values: {idces[idces < 0]}"
+                )
+            if np.any(idces >= N):
+                raise ValueError(
+                    f"unit indices out of range: max idx {int(idces.max())} >= N={N}"
+                )
         return SpikeData(_train_from_i_t_list(idces, times, N), N=N, **kwargs)
 
     @staticmethod
@@ -116,6 +129,8 @@ class SpikeData:
               ``start_time``, not t=0), pass ``start_time`` in kwargs so that
               spike times are correctly offset. Without it, bin 0 maps to t=0.
         """
+        if bin_size_ms <= 0:
+            raise ValueError(f"bin_size_ms must be > 0, got {bin_size_ms}")
         raster = np.asarray(raster)
         if raster.ndim != 2:
             raise ValueError(f"raster must be 2D (N x T), got {raster.ndim}D array")
@@ -230,7 +245,17 @@ class SpikeData:
             )
 
         if hysteresis:
-            raster = np.diff(np.array(raster, dtype=int), axis=1) == 1
+            # np.diff trims the time axis by 1 sample; without padding,
+            # the resulting raster is one bin shorter than raw_data
+            # (length mismatch) AND every rising-edge spike ends up one
+            # bin earlier than its actual crossing time (since diff
+            # shifts everything left by one). Prepend a False column to
+            # restore both: the raster regains its original (N, T)
+            # shape, and a rising edge at original sample t+1 maps
+            # back to raster bin t+1. The prepended column is a true
+            # statement — a rising edge cannot occur at sample 0.
+            diff = np.diff(np.array(raster, dtype=int), axis=1) == 1
+            raster = np.hstack([np.zeros((diff.shape[0], 1), dtype=bool), diff])
 
         return SpikeData.from_raster(
             raster, 1e3 / fs_Hz, raw_data=data, raw_time=fs_Hz / 1e3
@@ -288,6 +313,8 @@ class SpikeData:
         for i, t in enumerate(self.train):
             if len(t) > 0 and np.isnan(t).any():
                 raise ValueError(f"spike times for unit {i} contain NaN values")
+            if len(t) > 0 and np.isinf(t).any():
+                raise ValueError(f"spike times for unit {i} contain inf values")
 
         # Store the time origin.
         self.start_time = float(start_time)
@@ -471,7 +498,7 @@ class SpikeData:
         Parameters:
             length (float): Length of each window in milliseconds.
             overlap (float): Overlap between consecutive windows in
-                milliseconds (default: 0).
+                milliseconds (default: 0). Must be in ``[0, length)``.
 
         Returns:
             stack (SpikeSliceStack): Stack of SpikeData windows, one per
@@ -480,10 +507,19 @@ class SpikeData:
         Notes:
             - Windows that would extend past the end of the recording are
               excluded.
-            - overlap must be strictly less than length.
+            - overlap must be non-negative and strictly less than length.
+              Negative overlap (i.e. gaps between windows) is rejected
+              because the parameter semantically means an overlap, not a
+              stride.
         """
         from .spikeslicestack import SpikeSliceStack
 
+        if overlap < 0:
+            raise ValueError(
+                f"overlap must be non-negative, got {overlap}. The parameter "
+                "represents an overlap, not a stride; use a smaller `length` "
+                "and post-filter slices for gapped windows."
+            )
         step = length - overlap
         if step <= 0:
             raise ValueError("overlap must be less than length")
@@ -615,7 +651,8 @@ class SpikeData:
         """Calculate the mean firing rate across the population in each time bin.
 
         Parameters:
-            bin_size (float): Size of the time bin in milliseconds.
+            bin_size (float): Size of the time bin in milliseconds. Must be
+                strictly positive.
             unit (str): Unit of the firing rate ('Hz' or 'kHz').
 
         Returns:
@@ -626,6 +663,8 @@ class SpikeData:
             - The rate is calculated as the number of events in each bin
               divided by the bin size and number of units.
         """
+        if bin_size <= 0:
+            raise ValueError(f"bin_size must be > 0, got {bin_size}.")
         if self.N == 0:
             return np.zeros(int(np.ceil(self.length / bin_size)))
         binned_rate = self.binned(bin_size) / self.N / bin_size
@@ -868,6 +907,12 @@ class SpikeData:
                 for i in range(self.N)
                 if _get_attr(self.neuron_attributes[i], by, _missing) in units
             }
+        else:
+            for u in units:
+                if isinstance(u, (bool, np.bool_)):
+                    continue
+                if isinstance(u, (int, np.integer)) and (u < 0 or u >= self.N):
+                    raise ValueError(f"unit index out of range: {int(u)} (N={self.N})")
 
         train = []
         neuron_attributes = []
@@ -971,6 +1016,11 @@ class SpikeData:
         """
         end_time = self.start_time + self.length
 
+        if shift_to is not None and not np.isfinite(shift_to):
+            raise ValueError(
+                f"shift_to ({shift_to}) must be a finite number, not NaN or inf."
+            )
+
         if start is None or start is Ellipsis:
             start = self.start_time
         elif start < 0 and self.start_time >= 0:
@@ -995,6 +1045,15 @@ class SpikeData:
         elif end > end_time:
             raise ValueError(
                 f"end ({end}) exceeds recording end ({end_time}). "
+                f"Recording range is [{self.start_time}, {end_time}]."
+            )
+
+        # Reject start below the recording's earliest time. For
+        # event-centered data (start_time < 0) the literal-time branch
+        # above lets through values below start_time; this guards them.
+        if start < self.start_time:
+            raise ValueError(
+                f"start ({start}) is below recording start ({self.start_time}). "
                 f"Recording range is [{self.start_time}, {end_time}]."
             )
 
@@ -1102,7 +1161,8 @@ class SpikeData:
         corresponds to ``start_time``.
 
         Parameters:
-            bin_size (float): Size of the time bin in milliseconds.
+            bin_size (float): Size of the time bin in milliseconds. Must
+                be strictly positive.
             time_offset (float): Additional offset added to all spike times
                 before binning (default 0.0). Use this to place spikes at
                 their absolute recording position, e.g. ``time_offset=500``
@@ -1119,6 +1179,13 @@ class SpikeData:
             - The number of bins is always
               ceil((length + time_offset) / bin_size).
         """
+        if np.isnan(bin_size) or bin_size <= 0:
+            raise ValueError(f"bin_size must be > 0, got {bin_size}.")
+        length = int(np.ceil((self.length + time_offset) / bin_size))
+        # N==0 short-circuit: np.hstack on an empty list raises, so
+        # build the empty (0, T) sparse matrix directly.
+        if self.N == 0:
+            return sparse.csr_matrix((0, length), dtype=int)
         # Shift spike times so start_time → 0 before binning
         shift = -self.start_time + time_offset
         indices = np.hstack(
@@ -1127,7 +1194,6 @@ class SpikeData:
         units = np.hstack([0] + [len(ts) for ts in self.train])
         indptr = np.cumsum(units)
         values = np.ones_like(indices)
-        length = int(np.ceil((self.length + time_offset) / bin_size))
         np.clip(indices, 0, length - 1, out=indices)
         # Use csr_matrix for SciPy < 1.8 compatibility (csr_array not available)
         return sparse.csr_matrix((values, indices, indptr), shape=(self.N, length))
@@ -1440,7 +1506,7 @@ class SpikeData:
                 length = float(np.max(flat)) if len(flat) > 0 else 0.0
             upper = nb_sttc_all_pairs(flat, offsets, self.N, delt, length)
             # Unpack upper-triangle vector into symmetric matrix
-            ret = np.diag(np.ones(self.N))
+            ret = np.eye(self.N)
             k = 0
             for i in range(self.N):
                 for j in range(i + 1, self.N):
@@ -1448,7 +1514,7 @@ class SpikeData:
                     k += 1
             return PairwiseCompMatrix(matrix=ret, metadata={"delt": delt})
 
-        ret = np.diag(np.ones(self.N))
+        ret = np.eye(self.N)
         for i in range(self.N):
             for j in range(i + 1, self.N):
                 ret[i, j] = ret[j, i] = get_sttc(
@@ -1519,7 +1585,27 @@ class SpikeData:
         """
         raster_matrix = self.raster(bin_size)
         num_units = raster_matrix.shape[0]
+        raster_length = raster_matrix.shape[1]
         max_lag_bins = int(round(max_lag / bin_size))
+
+        # Clamp max_lag_bins to the raster length so the underlying
+        # cross-correlation never indexes outside the available signal
+        # (which produces silent NaN results from scipy.signal.correlate).
+        # Emit a single UserWarning so the caller knows the requested
+        # max_lag was reduced; this is far more useful than a per-pair
+        # NaN matrix.
+        if raster_length > 0 and max_lag_bins > raster_length - 1:
+            original_max_lag = max_lag
+            max_lag_bins = max(0, raster_length - 1)
+            clamped_max_lag = max_lag_bins * bin_size
+            warnings.warn(
+                f"max_lag={original_max_lag} ms ({int(round(original_max_lag / bin_size))} "
+                f"bins) exceeds raster length ({raster_length} bins); "
+                f"clamping to max_lag={clamped_max_lag} ms ({max_lag_bins} bins).",
+                UserWarning,
+                stacklevel=2,
+            )
+            max_lag = clamped_max_lag
 
         corr_matrix = np.full((num_units, num_units), np.nan)
         lag_matrix = np.full((num_units, num_units), np.nan)
@@ -1659,17 +1745,22 @@ class SpikeData:
                         dist_matrix[i, j] = np.array([], dtype=np.float64)
                     continue
 
-                # For each spike in train_i, find the closest spike in train_j
-                idx = np.searchsorted(train_j, train_i)
-                np.clip(idx, 1, len(train_j) - 1, out=idx)
+                if len(train_j) == 1:
+                    # No predecessor/successor choice when train_j has a
+                    # single spike; pair every spike in train_i with it.
+                    latencies = train_j[0] - train_i
+                else:
+                    # For each spike in train_i, find the closest spike in train_j.
+                    idx = np.searchsorted(train_j, train_i)
+                    np.clip(idx, 1, len(train_j) - 1, out=idx)
 
-                # Check both the candidate and its predecessor
-                dt_right = train_j[idx] - train_i
-                dt_left = train_j[idx - 1] - train_i
+                    # Check both the candidate and its predecessor.
+                    dt_right = train_j[idx] - train_i
+                    dt_left = train_j[idx - 1] - train_i
 
-                # Pick whichever is closer in absolute value
-                use_left = np.abs(dt_left) < np.abs(dt_right)
-                latencies = np.where(use_left, dt_left, dt_right)
+                    # Pick whichever is closer in absolute value.
+                    use_left = np.abs(dt_left) < np.abs(dt_right)
+                    latencies = np.where(use_left, dt_left, dt_right)
 
                 # Apply window filter
                 if window_ms is not None:
@@ -2316,6 +2407,10 @@ class SpikeData:
                 # Σ_{j≠i} μ_j = leave-one-out sum of mean rates
                 mu_loo = mu_sum - mu[i]
 
+                # Skip if leave-one-out mean rate is zero (i is the only firing neuron)
+                if mu_loo == 0:
+                    continue
+
                 # All spike times for neuron i: {s | f_i(s) > 0}
                 spike_times = np.where(spike_matrix[i] > 0)[0]
 
@@ -2516,11 +2611,20 @@ class SpikeData:
         unique_bursts, counts = np.unique(tburst, return_counts=True)
         duplicates = unique_bursts[counts > 1]
         if len(duplicates) != 0:
+            if peak_to_trough:
+                suggestion = (
+                    "Consider increasing burst_edge_mult_thresh if this burst duration is longer than you would expect for your data. "
+                    "Alternatively, increase min_burst_diff to prevent two bursts from being detected too close to each other."
+                )
+            else:
+                suggestion = (
+                    "This is likely due to identifying bursts using peak-to-zero calculations. Consider setting the PEAK-TO-TROUGH flag to True. "
+                    "Otherwise, consider increasing burst_edge_mult_thresh if this burst duration is longer than you would expect for your data. "
+                    "Alternatively, increase min_burst_diff to prevent two bursts from being detected too close to each other."
+                )
             warnings.warn(
                 f"{len(tburst) - len(unique_bursts)} duplicate bursts were detected across the following times: {list(duplicates)}. "
-                f"This is likely due to identifying bursts using peak-to-zero calculations. Consider setting the PEAK-TO-TROUGH flag to True. "
-                f"Otherwise, consider increasing burst_edge_mult_thresh if this burst duration is longer than you would expect for your data. "
-                f"Alternatively, increase min_burst_diff to prevent two bursts from being detected too close to each other.",
+                f"{suggestion}",
                 RuntimeWarning,
             )
 
@@ -2905,8 +3009,8 @@ class SpikeData:
         window_len = int(pre_ms) + int(post_ms)
         slices = []
         for t in events:
-            t0 = int(t) - int(pre_ms)
-            t1 = int(t) + int(post_ms)
+            t0 = int(round(t)) - int(pre_ms)
+            t1 = int(round(t)) + int(post_ms)
             if t0 >= 0 and t1 <= len(pop_rate):
                 slices.append(pop_rate[t0:t1])
 

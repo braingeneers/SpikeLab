@@ -106,6 +106,22 @@ class TestFlattenSpikeTrains:
         flat, offsets = flatten_spike_trains(trains, start_time=0.0)
         np.testing.assert_allclose(flat, [1.0, 2.0, 3.0])
 
+    def test_negative_start_time_shifts_forward(self):
+        """
+        ``start_time < 0`` (used by event-centred SpikeData where the
+        slice's local origin sits inside negative pre-event time)
+        shifts spike times forward by ``|start_time|``.
+
+        Tests:
+            (Test Case 1) ``start_time=-5.0`` adds 5.0 to every spike.
+            (Test Case 2) Negative pre-event spike (e.g. -2.0) becomes
+                positive (3.0).
+        """
+        trains = [np.array([-2.0, 0.0, 5.0])]
+        flat, offsets = flatten_spike_trains(trains, start_time=-5.0)
+        np.testing.assert_allclose(flat, [3.0, 5.0, 10.0])
+        np.testing.assert_array_equal(offsets, [0, 3])
+
 
 # ---------------------------------------------------------------------------
 # STTC kernels — comparison with numpy reference

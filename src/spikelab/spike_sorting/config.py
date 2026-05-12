@@ -272,6 +272,16 @@ class ExecutionConfig:
     # recording.
     canary_first_n_s: float = 0.0
 
+    # Skip the canary entirely when the recording is shorter than
+    # this many seconds. Below this threshold the full sort completes
+    # quickly enough that the canary's startup overhead outweighs its
+    # smoke-test value, and very short recordings can crash internal
+    # pipeline helpers (e.g. ``_get_noise_levels``, which samples
+    # random ``chunk_size``-sample windows). Default is 120 s
+    # (2 minutes); set to 0 to disable the floor and let
+    # ``canary_first_n_s`` alone gate the canary.
+    canary_min_recording_s: float = 120.0
+
     # ------------------------------------------------------------------
     # Docker image digest pinning (docker_utils.get_local_image_digest)
     # ------------------------------------------------------------------
@@ -297,6 +307,22 @@ class ExecutionConfig:
     io_stall_watchdog: bool = True
     io_stall_s: float = 300.0
     io_stall_poll_interval_s: float = 10.0
+    # Polling scope:
+    #   "process" (default) — track read/write byte counters of the
+    #     orchestrating Python process and its descendants; immune
+    #     to ambient I/O on the same disk. Default because the
+    #     interesting failure mode is the sort process itself
+    #     hanging, not the device hanging globally.
+    #   "device" — legacy mode; polls the volume-wide
+    #     ``disk_io_counters`` for the inter folder. Catches kernel
+    #     I/O hangs that freeze the device, but background activity
+    #     from unrelated processes can mask a stall in the sort.
+    io_stall_mode: str = "process"
+    # When True (default) and ``io_stall_mode="process"``, the
+    # watchdog walks each registered PID's descendants on every poll
+    # so subprocesses spawned by the sort (spikeinterface workers,
+    # KS2 MATLAB child) contribute to the byte counter.
+    io_stall_include_descendants: bool = True
 
     # ------------------------------------------------------------------
     # Temp-file cleanup at sort end (guards/_tempfile_cleanup.py)
@@ -619,6 +645,7 @@ class SortingPipelineConfig:
             "oom_retry_factor": ("execution", "oom_retry_factor"),
             # ExecutionConfig — pipeline canary
             "canary_first_n_s": ("execution", "canary_first_n_s"),
+            "canary_min_recording_s": ("execution", "canary_min_recording_s"),
             # ExecutionConfig — Docker image digest pinning
             "docker_image_expected_digest": (
                 "execution",
@@ -633,6 +660,11 @@ class SortingPipelineConfig:
             "io_stall_watchdog": ("execution", "io_stall_watchdog"),
             "io_stall_s": ("execution", "io_stall_s"),
             "io_stall_poll_interval_s": ("execution", "io_stall_poll_interval_s"),
+            "io_stall_mode": ("execution", "io_stall_mode"),
+            "io_stall_include_descendants": (
+                "execution",
+                "io_stall_include_descendants",
+            ),
             # ExecutionConfig — temp-file cleanup
             "cleanup_temp_files": ("execution", "cleanup_temp_files"),
             # ExecutionConfig — Windows sleep prevention

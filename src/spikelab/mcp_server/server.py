@@ -1404,8 +1404,11 @@ async def _list_tools() -> list[types.Tool]:
     )
 
     # -----------------------------------------------------------------------
-    # RateData-based analysis tools — load RateData from workspace
-    # Prerequisite: compute_resampled_isi
+    # Pairwise / manifold / framing analysis tools — mixed inputs
+    # RateData-based: compute_pairwise_fr_corr, compute_rate_manifold,
+    #     frames_rate_data (Prerequisite: compute_resampled_isi).
+    # SpikeData-based: compute_pairwise_ccg, compute_pairwise_latencies,
+    #     frames_spike_data (Prerequisite: any load_from_* tool).
     # -----------------------------------------------------------------------
     tools.extend(
         [
@@ -1884,8 +1887,8 @@ async def _list_tools() -> list[types.Tool]:
                 description=(
                     "Compute unit-to-unit correlation and lag across event-aligned firing "
                     "rate slices. Loads RateSliceStack from (namespace, stack_key). "
-                    "Stores correlation PairwiseCompMatrixStack at out_key_corr and lag "
-                    "stack at out_key_lag. "
+                    "Stores correlation PairwiseCompMatrixStack (U, U, S) at out_key_corr "
+                    "and lag PairwiseCompMatrixStack (U, U, S) at out_key_lag. "
                     "Prerequisite: create_rate_slice_stack or frames_rate_data."
                 ),
                 inputSchema={

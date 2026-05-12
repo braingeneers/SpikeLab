@@ -76,6 +76,26 @@ class RateData:
 
         if not isinstance(times, np.ndarray):
             times = np.array(times)
+        # Validate times: must be all-finite and monotonically non-decreasing.
+        # Non-finite ``times`` causes silent filter-mask failures (NaN compares
+        # False) downstream in ``subtime``; unsorted ``times`` produces non-
+        # monotonic outputs that violate the documented contract.
+        if len(times) > 0:
+            # Check finite only on numeric dtypes — string/object arrays are
+            # accepted by the existing API and cannot be NaN-tested.
+            if np.issubdtype(times.dtype, np.number) and not np.all(np.isfinite(times)):
+                raise ValueError(
+                    "times must be all-finite (no NaN or inf). Got at least "
+                    "one non-finite entry."
+                )
+            if np.issubdtype(times.dtype, np.number) and not np.all(
+                np.diff(times) >= 0
+            ):
+                raise ValueError(
+                    "times must be monotonically non-decreasing. Sort the "
+                    "array (and the matching columns of inst_Frate_data) "
+                    "before constructing RateData."
+                )
         self.inst_Frate_data = np.array(inst_Frate_data, dtype=float)
         self.times = times
         self.rate_unit = rate_unit
@@ -160,6 +180,11 @@ class RateData:
               offsets from the end). To slice by array index with negative
               indexing support, use ``subtime_by_index(start_idx, end_idx)``.
         """
+        if len(self.times) == 0:
+            raise ValueError(
+                f"cannot apply subtime to RateData with empty times array "
+                f"(requested [{start}, {end}])"
+            )
 
         # Handle start
         if start is None or start is Ellipsis:
@@ -240,24 +265,56 @@ class RateData:
 
         Parameters:
             length (float): Length of each window in milliseconds.
-            overlap (float): Overlap between consecutive windows in milliseconds. Default 0.
+            overlap (float): Overlap between consecutive windows in
+                milliseconds. Default 0. Must be in ``[0, length)``.
 
         Returns:
             stack (RateSliceStack): Stack of rate data windows, one per frame.
 
         Notes:
-            - Windows that would extend past the end of the recording are excluded.
-            - overlap must be strictly less than length.
+            - Windows that would extend past the end of the recording are
+              excluded.
+            - overlap must be non-negative and strictly less than length.
+              Negative overlap (i.e. gaps between windows) is rejected
+              because the parameter semantically means an overlap, not a
+              stride.
         """
         from .rateslicestack import RateSliceStack
 
+        if overlap < 0:
+            raise ValueError(
+                f"overlap must be non-negative, got {overlap}. The parameter "
+                "represents an overlap, not a stride; use a smaller `length` "
+                "and post-filter slices for gapped windows."
+            )
         step = length - overlap
         if step <= 0:
             raise ValueError("overlap must be less than length")
 
+        if len(self.times) < 2:
+            raise ValueError(
+                "Cannot frame a RateData with fewer than 2 time points; "
+                f"got {len(self.times)}. At least 2 time points are "
+                "required to infer the bin step_size."
+            )
+
         t0 = float(self.times[0])
         t_end = float(self.times[-1])
-        step_size = float(self.times[1] - self.times[0]) if len(self.times) > 1 else 1.0
+        step_size = float(self.times[1] - self.times[0])
+
+        # frames() places windows on the uniform grid implied by
+        # times[1] - times[0]. Validate the rest of the grid matches —
+        # non-uniform times silently misalign frame boundaries with
+        # bins, and the downstream np.stack in RateSliceStack fails
+        # opaquely on the resulting shape-mismatched frames.
+        diffs = np.diff(np.asarray(self.times, dtype=float))
+        if not np.allclose(diffs, step_size, rtol=1e-6, atol=1e-9):
+            raise ValueError(
+                "RateData.frames requires uniformly-spaced times; got "
+                f"min step {diffs.min():g}, max step {diffs.max():g} "
+                f"(first-pair step {step_size:g}). Resample to a "
+                "uniform grid before framing."
+            )
 
         upper = t_end - length + step_size + 1e-9
         times = [
@@ -367,6 +424,12 @@ class RateData:
               accepts the embedding array directly and supports background
               masks, continuous colour values, and discrete group colouring.
         """
+        if (
+            isinstance(n_components, (int, float, np.integer, np.floating))
+            and n_components <= 0
+        ):
+            raise ValueError(f"n_components must be > 0, got {n_components}")
+
         # Shape is (U, T); treat each time bin as a sample.
         data_T = self.inst_Frate_data.T  # (T, U)
 

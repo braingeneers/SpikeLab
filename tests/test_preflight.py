@@ -996,16 +996,30 @@ class TestParseVersionTuple:
 
     def test_rc_marker_stripped(self):
         """
-        RC / dev markers are stripped per-segment via the digit filter.
+        RC / dev / post markers are stripped per-segment.
+
+        Alpha/rc/beta/post markers are treated as delimiters; only the
+        leading-digit prefix of each component contributes.
 
         Tests:
-            (Test Case 1) '1.2.3rc4' → (1, 2, 3) — not perfect but
-                matches the "best-effort" contract.
+            (Test Case 1) '1.2.3rc4' → (1, 2, 3).
+            (Test Case 2) Ordering invariant:
+                '1.2.3rc4' < '1.2.33' is True.
+            (Test Case 3) '1.2.3.post1' → (1, 2, 3) — post-release
+                handling.
         """
-        # Note: the digit-only filter treats '3rc4' as '34', so the
-        # third component ends up as 34, not 3. That is the documented
-        # behavior of the helper; this test pins it.
-        assert preflight_mod._parse_version_tuple("1.2.3rc4") == (1, 2, 34)
+        # Test Case 1: rc marker acts as a delimiter; only leading
+        # digits of the third component contribute.
+        assert preflight_mod._parse_version_tuple("1.2.3rc4") == (1, 2, 3)
+
+        # Test Case 2: ordering invariant — rc version sorts before
+        # the corresponding two-digit release.
+        assert preflight_mod._parse_version_tuple(
+            "1.2.3rc4"
+        ) < preflight_mod._parse_version_tuple("1.2.33")
+
+        # Test Case 3: '.post' release marker is handled the same way.
+        assert preflight_mod._parse_version_tuple("1.2.3.post1") == (1, 2, 3)
 
     def test_garbage_returns_none(self):
         """

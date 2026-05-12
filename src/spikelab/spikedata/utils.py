@@ -1913,7 +1913,7 @@ def _compute_footprint(neuron_attrs, f_rel_to_trough, n_channels):
         pre_nb = nb_templates[nb_i, sel_start:t_i]
         post_nb = nb_templates[nb_i, t_i : sel_end + 1]
         ch = int(nb_channels[nb_i])
-        if ch < n_channels:
+        if 0 <= ch < n_channels:
             fp[ch, paste_start : f_rel_to_trough[0]] = pre_nb
             fp[ch, f_rel_to_trough[0] : paste_end] = post_nb
 
