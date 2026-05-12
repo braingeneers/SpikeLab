@@ -22,8 +22,8 @@ __all__ = [
     "latency_dependent_decoding",
     "train_test_decoding",
     "temporal_decoding_decay",
-    "novelty_per_cycle",
-    "distinctness_per_cycle",
+    "novelty_per_group",
+    "distinctness_per_group",
     "count_evoked_spikes",
     "count_active_units",
 ]
@@ -624,13 +624,13 @@ def temporal_decoding_decay(
     }
 
 
-def novelty_per_cycle(
+def novelty_per_group(
     X,
     y,
-    cycle_labels,
-    train_cycles,
+    group_labels,
+    train_groups,
     *,
-    test_cycles=None,
+    test_groups=None,
     classifier="logistic",
     classifier_kwargs=None,
     normalize_to=None,
@@ -640,8 +640,8 @@ def novelty_per_cycle(
 
     Implements the "novelty" measure from the Maxwell project
     (``fit_linear_reg_stim_resp.py``): train a single classifier on all
-    samples whose ``cycle_labels`` falls in ``train_cycles``, then evaluate
-    cross-entropy and accuracy on each ``test_cycles`` value separately.
+    samples whose ``group_labels`` falls in ``train_groups``, then evaluate
+    cross-entropy and accuracy on each ``test_groups`` value separately.
     A rising log-loss across later cycles indicates that the evoked
     response patterns are drifting away from the trained baseline (i.e.
     becoming "novel").
@@ -649,10 +649,10 @@ def novelty_per_cycle(
     Parameters:
         X (np.ndarray): Feature matrix ``(n_samples, n_features)``.
         y (array-like): Labels ``(n_samples,)``.
-        cycle_labels (array-like): Cycle index per sample ``(n_samples,)``.
-        train_cycles (array-like): Cycle indices used for training.
-        test_cycles (array-like or None): Cycles to evaluate. When None
-            (default), uses every cycle that is not in ``train_cycles``.
+        group_labels (array-like): Cycle index per sample ``(n_samples,)``.
+        train_groups (array-like): Cycle indices used for training.
+        test_groups (array-like or None): Cycles to evaluate. When None
+            (default), uses every cycle that is not in ``train_groups``.
         classifier (str): ``"logistic"`` (default; supports probabilities)
             or any other registered classifier name.
         classifier_kwargs (dict or None): Forwarded to the sklearn class.
@@ -671,41 +671,41 @@ def novelty_per_cycle(
             - ``raw_log_losses`` (np.ndarray): Always-unnormalized
               log-losses (== ``log_losses`` when ``normalize_to`` is None).
             - ``raw_accuracies`` (np.ndarray): Same for accuracy.
-            - ``train_cycles`` (np.ndarray): Echoed.
+            - ``train_groups`` (np.ndarray): Echoed.
             - ``normalize_to`` (np.ndarray or None): Echoed.
             - ``classes`` (np.ndarray): Unique training labels.
             - ``classifier_name`` (str).
 
     Notes:
         - Requires ``scikit-learn``.
-        - Cycles in ``test_cycles`` that overlap ``train_cycles`` are
+        - Cycles in ``test_groups`` that overlap ``train_groups`` are
           evaluated as in-distribution data — the caller is responsible
           for any train/test separation desired.
     """
     X = np.asarray(X, dtype=float)
     y = np.asarray(y).ravel()
-    cycle_labels = np.asarray(cycle_labels).ravel()
+    group_labels = np.asarray(group_labels).ravel()
     if X.ndim != 2:
         raise ValueError(f"X must be 2-D; got shape {X.shape}.")
-    if not (len(X) == len(y) == len(cycle_labels)):
+    if not (len(X) == len(y) == len(group_labels)):
         raise ValueError(
-            f"X, y, and cycle_labels must all have the same length; got "
-            f"{len(X)}, {len(y)}, {len(cycle_labels)}."
+            f"X, y, and group_labels must all have the same length; got "
+            f"{len(X)}, {len(y)}, {len(group_labels)}."
         )
 
-    train_cycles = np.asarray(train_cycles).ravel()
-    train_mask = np.isin(cycle_labels, train_cycles)
+    train_groups = np.asarray(train_groups).ravel()
+    train_mask = np.isin(group_labels, train_groups)
     if not train_mask.any():
         raise ValueError(
-            "No samples match train_cycles; check that cycle_labels and "
-            "train_cycles use the same indexing."
+            "No samples match train_groups; check that group_labels and "
+            "train_groups use the same indexing."
         )
 
-    if test_cycles is None:
-        all_cycles = np.unique(cycle_labels)
-        test_cycles = np.array([c for c in all_cycles if c not in train_cycles])
+    if test_groups is None:
+        all_cycles = np.unique(group_labels)
+        test_groups = np.array([c for c in all_cycles if c not in train_groups])
     else:
-        test_cycles = np.asarray(test_cycles).ravel()
+        test_groups = np.asarray(test_groups).ravel()
 
     classes = np.array(sorted(np.unique(y[train_mask])))
     if len(classes) < 2:
@@ -714,11 +714,11 @@ def novelty_per_cycle(
     clf = _build_classifier(classifier, classifier_kwargs, random_state)
     clf.fit(X[train_mask], y[train_mask])
 
-    log_losses = np.full(len(test_cycles), np.nan)
-    accuracies = np.full(len(test_cycles), np.nan)
+    log_losses = np.full(len(test_groups), np.nan)
+    accuracies = np.full(len(test_groups), np.nan)
 
-    for i, c in enumerate(test_cycles):
-        mask = cycle_labels == c
+    for i, c in enumerate(test_groups):
+        mask = group_labels == c
         if not mask.any():
             continue
         preds = clf.predict(X[mask])
@@ -731,10 +731,10 @@ def novelty_per_cycle(
 
     if normalize_to is not None:
         normalize_to = np.asarray(normalize_to).ravel()
-        baseline_mask = np.isin(test_cycles, normalize_to)
+        baseline_mask = np.isin(test_groups, normalize_to)
         if not baseline_mask.any():
             raise ValueError(
-                "normalize_to does not overlap test_cycles; cannot compute "
+                "normalize_to does not overlap test_groups; cannot compute "
                 "baseline-normalized values."
             )
         baseline_ll = float(np.nanmean(raw_log_losses[baseline_mask]))
@@ -743,24 +743,24 @@ def novelty_per_cycle(
         accuracies = raw_accuracies - baseline_acc
 
     return {
-        "cycles": test_cycles,
+        "groups": test_groups,
         "log_losses": log_losses,
         "accuracies": accuracies,
         "raw_log_losses": raw_log_losses,
         "raw_accuracies": raw_accuracies,
-        "train_cycles": train_cycles,
+        "train_groups": train_groups,
         "normalize_to": normalize_to,
         "classes": classes,
         "classifier_name": classifier,
     }
 
 
-def distinctness_per_cycle(
+def distinctness_per_group(
     X,
     y,
-    cycle_labels,
+    group_labels,
     *,
-    cycles=None,
+    groups=None,
     classifier="logistic",
     classifier_kwargs=None,
     cv="loo",
@@ -778,9 +778,9 @@ def distinctness_per_cycle(
     Parameters:
         X (np.ndarray): Feature matrix ``(n_samples, n_features)``.
         y (array-like): Labels ``(n_samples,)``.
-        cycle_labels (array-like): Cycle index per sample ``(n_samples,)``.
+        group_labels (array-like): Cycle index per sample ``(n_samples,)``.
         cycles (array-like or None): Cycles to evaluate. When None
-            (default), uses every unique cycle in ``cycle_labels``.
+            (default), uses every unique cycle in ``group_labels``.
         classifier (str): ``"logistic"`` (default) or any registered name.
         classifier_kwargs (dict or None): Forwarded to the sklearn class.
         cv (str or int): ``"loo"`` (default) or stratified k-fold int.
@@ -807,22 +807,22 @@ def distinctness_per_cycle(
     """
     X = np.asarray(X, dtype=float)
     y = np.asarray(y).ravel()
-    cycle_labels = np.asarray(cycle_labels).ravel()
+    group_labels = np.asarray(group_labels).ravel()
     if X.ndim != 2:
         raise ValueError(f"X must be 2-D; got shape {X.shape}.")
-    if not (len(X) == len(y) == len(cycle_labels)):
-        raise ValueError("X, y, and cycle_labels must all have the same length.")
+    if not (len(X) == len(y) == len(group_labels)):
+        raise ValueError("X, y, and group_labels must all have the same length.")
 
-    if cycles is None:
-        cycles = np.unique(cycle_labels)
+    if groups is None:
+        groups = np.unique(group_labels)
     else:
-        cycles = np.asarray(cycles).ravel()
+        groups = np.asarray(groups).ravel()
 
-    log_losses = np.full(len(cycles), np.nan)
-    accuracies = np.full(len(cycles), np.nan)
+    log_losses = np.full(len(groups), np.nan)
+    accuracies = np.full(len(groups), np.nan)
 
-    for i, c in enumerate(cycles):
-        mask = cycle_labels == c
+    for i, c in enumerate(groups):
+        mask = group_labels == c
         if not mask.any():
             continue
         Xc = X[mask]
@@ -852,7 +852,7 @@ def distinctness_per_cycle(
 
     if normalize_to is not None:
         normalize_to = np.asarray(normalize_to).ravel()
-        baseline_mask = np.isin(cycles, normalize_to)
+        baseline_mask = np.isin(groups, normalize_to)
         if not baseline_mask.any():
             raise ValueError(
                 "normalize_to does not overlap cycles; cannot compute "
@@ -864,7 +864,7 @@ def distinctness_per_cycle(
         accuracies = raw_accuracies - baseline_acc
 
     return {
-        "cycles": cycles,
+        "groups": groups,
         "log_losses": log_losses,
         "accuracies": accuracies,
         "raw_log_losses": raw_log_losses,

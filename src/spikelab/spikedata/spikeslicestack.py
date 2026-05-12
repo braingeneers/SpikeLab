@@ -601,7 +601,7 @@ class SpikeSliceStack:
         with np.errstate(invalid="ignore"):
             return np.any(agg > z_threshold, axis=1)
 
-    def decode_stim_identity(
+    def decode_slice_labels(
         self,
         labels,
         response_window_ms,
@@ -697,7 +697,7 @@ class SpikeSliceStack:
             random_state=random_state,
         )
 
-    def stim_pair_similarity(
+    def group_pair_similarity(
         self,
         stim_labels,
         *,
@@ -767,9 +767,9 @@ class SpikeSliceStack:
             metadata={"metric": metric, "n_classes": len(unique_labels)},
         )
 
-    def responsive_units_per_cycle(
+    def responsive_units_per_group(
         self,
-        cycle_labels,
+        group_labels,
         bin_size,
         baseline_window_ms,
         *,
@@ -786,7 +786,7 @@ class SpikeSliceStack:
         responsiveness changes with intrinsic activity changes per unit.
 
         Parameters:
-            cycle_labels (array-like): Per-slice cycle index of length ``S``.
+            group_labels (array-like): Per-slice cycle index of length ``S``.
             bin_size (float): Raster bin size in ms.
             baseline_window_ms (tuple[float, float]): Baseline window for
                 Poisson z-score normalization.
@@ -804,16 +804,16 @@ class SpikeSliceStack:
                 - ``responsive_count`` (np.ndarray): Per-cycle responsive
                   unit count, shape ``(n_cycles,)``.
         """
-        cycle_labels = np.asarray(cycle_labels).ravel()
-        if len(cycle_labels) != len(self):
+        group_labels = np.asarray(group_labels).ravel()
+        if len(group_labels) != len(self):
             raise ValueError(
-                f"cycle_labels must have length S={len(self)}; got {len(cycle_labels)}."
+                f"group_labels must have length S={len(self)}; got {len(group_labels)}."
             )
 
-        cycles = np.array(sorted(np.unique(cycle_labels)))
-        mask = np.zeros((self.N, len(cycles)), dtype=bool)
-        for j, c in enumerate(cycles):
-            slice_idx = np.where(cycle_labels == c)[0]
+        groups = np.array(sorted(np.unique(group_labels)))
+        mask = np.zeros((self.N, len(groups)), dtype=bool)
+        for j, c in enumerate(groups):
+            slice_idx = np.where(group_labels == c)[0]
             if slice_idx.size == 0:
                 continue
             sub = self.subslice(slice_idx.tolist())
@@ -825,16 +825,16 @@ class SpikeSliceStack:
                 aggregator=aggregator,
             )
         return {
-            "cycles": cycles,
+            "groups": groups,
             "mask": mask,
             "responsive_count": mask.sum(axis=0),
         }
 
     def responsiveness_change(
         self,
-        cycle_labels,
-        early_cycles,
-        late_cycles,
+        group_labels,
+        early_groups,
+        late_groups,
         bin_size,
         baseline_window_ms,
         *,
@@ -845,14 +845,14 @@ class SpikeSliceStack:
         """Gained / lost / preserved responsive units between two cycle groups.
 
         Computes responsive-unit masks separately for slices in
-        ``early_cycles`` and ``late_cycles`` (any iterables of cycle
+        ``early_groups`` and ``late_groups`` (any iterables of cycle
         indices), and reports which units become responsive ("gained"),
         stop being responsive ("lost"), or stay responsive ("preserved").
 
         Parameters:
-            cycle_labels (array-like): Per-slice cycle index of length ``S``.
-            early_cycles (array-like): Cycle indices for the early group.
-            late_cycles (array-like): Cycle indices for the late group.
+            group_labels (array-like): Per-slice cycle index of length ``S``.
+            early_groups (array-like): Cycle indices for the early group.
+            late_groups (array-like): Cycle indices for the late group.
             bin_size (float): Raster bin size in ms.
             baseline_window_ms (tuple[float, float]): Baseline window.
             response_window_ms (tuple[float, float] or None): Response
@@ -881,20 +881,20 @@ class SpikeSliceStack:
               ``stat_utils.linear_regression`` to ask whether
               responsiveness changes track changes in baseline activity.
         """
-        cycle_labels = np.asarray(cycle_labels).ravel()
-        if len(cycle_labels) != len(self):
+        group_labels = np.asarray(group_labels).ravel()
+        if len(group_labels) != len(self):
             raise ValueError(
-                f"cycle_labels must have length S={len(self)}; got {len(cycle_labels)}."
+                f"group_labels must have length S={len(self)}; got {len(group_labels)}."
             )
-        early_cycles = np.asarray(early_cycles).ravel()
-        late_cycles = np.asarray(late_cycles).ravel()
+        early_groups = np.asarray(early_groups).ravel()
+        late_groups = np.asarray(late_groups).ravel()
 
-        early_idx = np.where(np.isin(cycle_labels, early_cycles))[0]
-        late_idx = np.where(np.isin(cycle_labels, late_cycles))[0]
+        early_idx = np.where(np.isin(group_labels, early_groups))[0]
+        late_idx = np.where(np.isin(group_labels, late_groups))[0]
         if early_idx.size == 0:
-            raise ValueError("No slices match early_cycles.")
+            raise ValueError("No slices match early_groups.")
         if late_idx.size == 0:
-            raise ValueError("No slices match late_cycles.")
+            raise ValueError("No slices match late_groups.")
 
         kwargs = dict(
             bin_size=bin_size,

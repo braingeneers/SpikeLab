@@ -4776,15 +4776,15 @@ class TestPlotPredictionProbabilityHeatmap:
 
     def _make_data(self, n_samples=60, n_classes=3, n_cycles=5, seed=0):
         rng = np.random.default_rng(seed)
-        cycle_labels = np.repeat(np.arange(n_cycles), n_samples // n_cycles)
+        group_labels = np.repeat(np.arange(n_cycles), n_samples // n_cycles)
         true_labels = np.tile(np.arange(n_classes), n_samples // n_classes)
         # Probabilities concentrated on true class for early cycles, drifting later
         probs = np.full((n_samples, n_classes), 1.0 / n_classes)
         for i in range(n_samples):
-            confidence = max(0.4, 0.95 - 0.1 * cycle_labels[i])
+            confidence = max(0.4, 0.95 - 0.1 * group_labels[i])
             probs[i] = (1.0 - confidence) / (n_classes - 1)
             probs[i, true_labels[i]] = confidence
-        return probs, true_labels, cycle_labels
+        return probs, true_labels, group_labels
 
     def test_returns_dict_with_heatmap(self):
         """
@@ -4801,11 +4801,11 @@ class TestPlotPredictionProbabilityHeatmap:
         probs, y, cyc = self._make_data()
         result = plot_prediction_probability_heatmap(probs, y, cyc)
         assert result["heatmap"].shape == (3, 5)
-        assert "ax" in result and "cycles" in result and "classes" in result
+        assert "ax" in result and "groups" in result and "classes" in result
 
     def test_baseline_subtraction(self):
         """
-        baseline_cycles subtracts row-wise mean over baseline cells.
+        baseline_groups subtracts row-wise mean over baseline cells.
 
         Tests:
             (Test Case 1) Heatmap baseline cells average to ~0.
@@ -4817,15 +4817,15 @@ class TestPlotPredictionProbabilityHeatmap:
 
         probs, y, cyc = self._make_data()
         result = plot_prediction_probability_heatmap(
-            probs, y, cyc, baseline_cycles=[0, 1]
+            probs, y, cyc, baseline_groups=[0, 1]
         )
-        baseline_cols = np.where(np.isin(result["cycles"], [0, 1]))[0]
+        baseline_cols = np.where(np.isin(result["groups"], [0, 1]))[0]
         baseline_mean = np.nanmean(result["heatmap"][:, baseline_cols], axis=1)
         assert np.allclose(baseline_mean, 0.0, atol=1e-9)
 
     def test_companion_bar_plot(self):
         """
-        Bar plot axes are populated when bar_cycle_groups is provided.
+        Bar plot axes are populated when bar_groups is provided.
 
         Tests:
             (Test Case 1) bar_ax has bar containers after the call.
@@ -4844,7 +4844,7 @@ class TestPlotPredictionProbabilityHeatmap:
             cyc,
             ax=ax_hm,
             bar_ax=ax_bar,
-            bar_cycle_groups=[[0, 1], [3, 4]],
+            bar_groups=[[0, 1], [3, 4]],
             bar_group_labels=["early", "late"],
         )
         assert result["bar_ax"] is ax_bar
@@ -4853,7 +4853,7 @@ class TestPlotPredictionProbabilityHeatmap:
 
     def test_bar_without_groups_raises(self):
         """
-        Providing bar_ax without bar_cycle_groups raises ValueError.
+        Providing bar_ax without bar_groups raises ValueError.
 
         Tests:
             (Test Case 1) ValueError.
@@ -4866,7 +4866,7 @@ class TestPlotPredictionProbabilityHeatmap:
 
         probs, y, cyc = self._make_data()
         fig, (ax_hm, ax_bar) = plt.subplots(1, 2)
-        with pytest.raises(ValueError, match="bar_cycle_groups"):
+        with pytest.raises(ValueError, match="bar_groups"):
             plot_prediction_probability_heatmap(probs, y, cyc, ax=ax_hm, bar_ax=ax_bar)
         plt.close(fig)
 
@@ -4909,11 +4909,11 @@ class TestPlotResponsiveUnitMap:
         mask = rng.random(20) > 0.5
         result = plot_responsive_unit_map(
             locs,
-            stim_location=(50.0, 50.0),
+            target_location=(50.0, 50.0),
             responsive_mask=mask,
         )
         assert result["ax"] is not None
-        assert result["stim_scatter"] is not None
+        assert result["target_scatter"] is not None
 
     def test_color_mode_runs(self):
         """
@@ -4932,17 +4932,17 @@ class TestPlotResponsiveUnitMap:
         vals = rng.normal(0, 1, 15)
         result = plot_responsive_unit_map(
             locs,
-            stim_location=(40.0, 40.0),
+            target_location=(40.0, 40.0),
             color_values=vals,
         )
         assert result["scatter"] is not None
 
     def test_other_stim_locations(self):
         """
-        other_stim_locations adds green X markers.
+        other_target_locations adds green X markers.
 
         Tests:
-            (Test Case 1) other_stim_scatter is populated.
+            (Test Case 1) other_target_scatter is populated.
         """
         import matplotlib
 
@@ -4953,11 +4953,11 @@ class TestPlotResponsiveUnitMap:
         locs = rng.uniform(0, 100, (10, 2))
         result = plot_responsive_unit_map(
             locs,
-            stim_location=(50.0, 50.0),
+            target_location=(50.0, 50.0),
             responsive_mask=np.zeros(10, bool),
-            other_stim_locations=np.array([[10.0, 10.0], [90.0, 90.0]]),
+            other_target_locations=np.array([[10.0, 10.0], [90.0, 90.0]]),
         )
-        assert result["other_stim_scatter"] is not None
+        assert result["other_target_scatter"] is not None
 
     def test_bad_unit_locations_raises(self):
         """
@@ -4974,12 +4974,12 @@ class TestPlotResponsiveUnitMap:
         with pytest.raises(ValueError, match="n_units"):
             plot_responsive_unit_map(
                 np.zeros((10, 3)),
-                stim_location=(0.0, 0.0),
+                target_location=(0.0, 0.0),
             )
 
     def test_bad_stim_location_raises(self):
         """
-        Wrong stim_location shape raises ValueError.
+        Wrong target_location shape raises ValueError.
 
         Tests:
             (Test Case 1) Wrong shape raises.
@@ -4992,5 +4992,5 @@ class TestPlotResponsiveUnitMap:
         with pytest.raises(ValueError, match="2-element"):
             plot_responsive_unit_map(
                 np.zeros((5, 2)),
-                stim_location=(0.0, 0.0, 0.0),
+                target_location=(0.0, 0.0, 0.0),
             )
