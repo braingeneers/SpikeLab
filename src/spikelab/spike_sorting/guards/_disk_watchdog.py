@@ -256,10 +256,7 @@ class DiskUsageWatchdog:
         if warn_repeat_s < 0:
             raise ValueError(f"warn_repeat_s must be >= 0, got {warn_repeat_s}")
         if projected_need_gb is not None and projected_need_gb < 0:
-            raise ValueError(
-                f"projected_need_gb must be >= 0, got {projected_need_gb}"
-            )
-
+            raise ValueError(f"projected_need_gb must be >= 0, got {projected_need_gb}")
 
         if warn_free_gb <= abort_free_gb:
             raise ValueError(

@@ -4094,9 +4094,7 @@ class TestRenameWorkspaceItem:
         wm = get_workspace_manager()
         ws_id = wm.create_workspace(name="rename_ws")
         with pytest.raises(KeyError, match="not found"):
-            await analysis.rename_workspace_item(
-                ws_id, "ns", "nonexistent", "new_key"
-            )
+            await analysis.rename_workspace_item(ws_id, "ns", "nonexistent", "new_key")
 
 
 class TestAddWorkspaceNote:
