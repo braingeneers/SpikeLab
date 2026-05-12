@@ -907,7 +907,13 @@
 <span class="sd">            known extension.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">findings</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">PreflightFinding</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="k">for</span> <span class="n">rec</span> <span class="ow">in</span> <span class="n">recording_files</span><span class="p">:</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">entry</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">recording_files</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">entry</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;recording_inputs[</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">] is None (caller bug — pass a path, &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;BaseRecording, or omit the entry)&quot;</span>
+            <span class="p">)</span>
+        <span class="n">rec</span> <span class="o">=</span> <span class="n">entry</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">rec</span><span class="p">,</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">)):</span>
             <span class="c1"># Pre-loaded recording object — skip.</span>
             <span class="k">continue</span>
@@ -1524,26 +1530,51 @@
         <span class="k">try</span><span class="p">:</span>
             <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_torch</span>
 
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">_torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">():</span>
-                <span class="n">findings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                    <span class="n">PreflightFinding</span><span class="p">(</span>
-                        <span class="n">level</span><span class="o">=</span><span class="s2">&quot;fail&quot;</span><span class="p">,</span>
-                        <span class="n">code</span><span class="o">=</span><span class="s2">&quot;sorter_dependency_missing&quot;</span><span class="p">,</span>
-                        <span class="n">category</span><span class="o">=</span><span class="s2">&quot;environment&quot;</span><span class="p">,</span>
-                        <span class="n">message</span><span class="o">=</span><span class="p">(</span>
-                            <span class="sa">f</span><span class="s2">&quot;RT-Sort is configured with device=</span><span class="si">{</span><span class="n">device</span><span class="si">!r}</span><span class="s2"> &quot;</span>
-                            <span class="s2">&quot;but torch.cuda.is_available() is False.&quot;</span>
-                        <span class="p">),</span>
-                        <span class="n">remediation</span><span class="o">=</span><span class="p">(</span>
-                            <span class="s2">&quot;Verify the NVIDIA driver, install a CUDA-&quot;</span>
-                            <span class="s2">&quot;enabled PyTorch build, or switch RTSortConfig&quot;</span>
-                            <span class="s2">&quot;(device=&#39;cpu&#39;).&quot;</span>
-                        <span class="p">),</span>
-                    <span class="p">)</span>
-                <span class="p">)</span>
+            <span class="n">cuda_available</span> <span class="o">=</span> <span class="n">_torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span>
         <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
             <span class="c1"># Already reported above as a missing dependency.</span>
-            <span class="k">pass</span>
+            <span class="n">cuda_available</span> <span class="o">=</span> <span class="kc">True</span>  <span class="c1"># suppress the follow-up cuda finding</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">RuntimeError</span><span class="p">,</span> <span class="ne">Exception</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="c1"># A broken CUDA install can make ``torch.cuda.is_available()``</span>
+            <span class="c1"># raise RuntimeError (driver/runtime mismatch) rather than</span>
+            <span class="c1"># return False. Surface it as a fail-level dependency finding</span>
+            <span class="c1"># so the operator gets actionable detail instead of a raw</span>
+            <span class="c1"># traceback escaping out of preflight.</span>
+            <span class="n">findings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">PreflightFinding</span><span class="p">(</span>
+                    <span class="n">level</span><span class="o">=</span><span class="s2">&quot;fail&quot;</span><span class="p">,</span>
+                    <span class="n">code</span><span class="o">=</span><span class="s2">&quot;sorter_dependency_missing&quot;</span><span class="p">,</span>
+                    <span class="n">category</span><span class="o">=</span><span class="s2">&quot;environment&quot;</span><span class="p">,</span>
+                    <span class="n">message</span><span class="o">=</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;RT-Sort is configured with device=</span><span class="si">{</span><span class="n">device</span><span class="si">!r}</span><span class="s2"> but &quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;torch.cuda.is_available() raised &quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">.&quot;</span>
+                    <span class="p">),</span>
+                    <span class="n">remediation</span><span class="o">=</span><span class="p">(</span>
+                        <span class="s2">&quot;Check CUDA driver/runtime version compatibility, &quot;</span>
+                        <span class="s2">&quot;reinstall a matching CUDA-enabled PyTorch build, &quot;</span>
+                        <span class="s2">&quot;or switch RTSortConfig(device=&#39;cpu&#39;).&quot;</span>
+                    <span class="p">),</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+            <span class="n">cuda_available</span> <span class="o">=</span> <span class="kc">True</span>  <span class="c1"># suppress the follow-up cuda finding</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">cuda_available</span><span class="p">:</span>
+            <span class="n">findings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">PreflightFinding</span><span class="p">(</span>
+                    <span class="n">level</span><span class="o">=</span><span class="s2">&quot;fail&quot;</span><span class="p">,</span>
+                    <span class="n">code</span><span class="o">=</span><span class="s2">&quot;sorter_dependency_missing&quot;</span><span class="p">,</span>
+                    <span class="n">category</span><span class="o">=</span><span class="s2">&quot;environment&quot;</span><span class="p">,</span>
+                    <span class="n">message</span><span class="o">=</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;RT-Sort is configured with device=</span><span class="si">{</span><span class="n">device</span><span class="si">!r}</span><span class="s2"> &quot;</span>
+                        <span class="s2">&quot;but torch.cuda.is_available() is False.&quot;</span>
+                    <span class="p">),</span>
+                    <span class="n">remediation</span><span class="o">=</span><span class="p">(</span>
+                        <span class="s2">&quot;Verify the NVIDIA driver, install a CUDA-&quot;</span>
+                        <span class="s2">&quot;enabled PyTorch build, or switch RTSortConfig&quot;</span>
+                        <span class="s2">&quot;(device=&#39;cpu&#39;).&quot;</span>
+                    <span class="p">),</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
 
     <span class="k">return</span> <span class="n">findings</span>
 
@@ -1594,7 +1625,7 @@
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">._gpu_watchdog</span><span class="w"> </span><span class="kn">import</span> <span class="n">_resolve_device_index</span>
 
-    <span class="n">sorter_name</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">sorter</span><span class="p">,</span> <span class="s2">&quot;sorter_name&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+    <span class="n">sorter_name</span> <span class="o">=</span> <span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">sorter</span><span class="p">,</span> <span class="s2">&quot;sorter_name&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
     <span class="k">if</span> <span class="n">sorter_name</span> <span class="o">==</span> <span class="s2">&quot;rt_sort&quot;</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">_resolve_device_index</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">rt_sort</span><span class="p">,</span> <span class="s2">&quot;device&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
     <span class="k">if</span> <span class="n">sorter_name</span> <span class="o">==</span> <span class="s2">&quot;kilosort4&quot;</span><span class="p">:</span>
@@ -1832,11 +1863,32 @@
 <span class="sd">    three-component pins. Without padding, Python&#39;s tuple ordering</span>
 <span class="sd">    treats ``(4,) &lt; (4, 0, 0)`` as True and a bare &quot;4&quot; would falsely</span>
 <span class="sd">    report as below a [4.0.0, 5.0.0) tested range.</span>
+
+<span class="sd">    Per-component, only the LEADING-digit prefix is taken, so</span>
+<span class="sd">    ``&quot;1.2.3rc4&quot;`` → ``(1, 2, 3)`` (not ``(1, 2, 34)`` as a naive</span>
+<span class="sd">    &quot;strip non-digits&quot; pass would produce — that would order</span>
+<span class="sd">    ``&quot;1.2.3rc4&quot;`` *above* ``&quot;1.2.33&quot;``).</span>
+
+<span class="sd">    Returns ``None`` when no component contributes any digit at all</span>
+<span class="sd">    (silent skip on truly unparseable input — preserves the behavior</span>
+<span class="sd">    expected by :func:`_check_kilosort4_host` and</span>
+<span class="sd">    :func:`_check_spikeinterface_version`, which treat ``None`` as</span>
+<span class="sd">    &quot;cannot validate, stay silent&quot;).</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="n">parts</span> <span class="o">=</span> <span class="n">version</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)</span>
-        <span class="n">nums</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">p</span> <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">isdigit</span><span class="p">()))</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">parts</span><span class="p">[:</span><span class="mi">3</span><span class="p">]]</span>
+        <span class="n">nums</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">had_any_digit</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">parts</span><span class="p">[:</span><span class="mi">3</span><span class="p">]:</span>
+            <span class="n">m</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;^\d+&quot;</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">m</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">nums</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">nums</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">0</span><span class="p">)))</span>
+                <span class="n">had_any_digit</span> <span class="o">=</span> <span class="kc">True</span>
     <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">had_any_digit</span><span class="p">:</span>
         <span class="k">return</span> <span class="kc">None</span>
     <span class="n">nums</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="mi">3</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">nums</span><span class="p">)))</span>
     <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">nums</span><span class="p">)</span>

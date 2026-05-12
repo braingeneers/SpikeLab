@@ -467,6 +467,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
@@ -682,11 +683,35 @@
         <span class="n">kill_callback</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[],</span> <span class="kc">None</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">kill_grace_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">5.0</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">warn_free_gb</span><span class="p">)</span> <span class="ow">or</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">abort_free_gb</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;warn_free_gb and abort_free_gb must be finite, got &quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;warn_free_gb=</span><span class="si">{</span><span class="n">warn_free_gb</span><span class="si">}</span><span class="s2">, abort_free_gb=</span><span class="si">{</span><span class="n">abort_free_gb</span><span class="si">}</span><span class="s2">.&quot;</span>
-            <span class="p">)</span>
+        <span class="c1"># NaN guards (must run before negative-value guards, since</span>
+        <span class="c1"># ``NaN &lt; 0`` is False and a NaN would otherwise slip past the</span>
+        <span class="c1"># negative check and silently disable the watchdog).</span>
+        <span class="c1"># ``poll_interval_s`` is also rejected for NaN by the existing</span>
+        <span class="c1"># ``poll_interval_s &lt;= 0`` check further down via ``np.isnan``,</span>
+        <span class="c1"># so it is intentionally omitted here.</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">warn_free_gb</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;warn_free_gb must not be NaN&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">abort_free_gb</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;abort_free_gb must not be NaN&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">warn_repeat_s</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;warn_repeat_s must not be NaN&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">kill_grace_s</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;kill_grace_s must not be NaN&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">projected_need_gb</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">projected_need_gb</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;projected_need_gb must not be NaN&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Negative-value guards. ``abort_free_gb == 0`` is preserved as</span>
+        <span class="c1"># the explicit-disable sentinel (handled by the ``_enabled``</span>
+        <span class="c1"># computation below); only strict ``&lt; 0`` is rejected here.</span>
+        <span class="k">if</span> <span class="n">warn_free_gb</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;warn_free_gb must be &gt;= 0, got </span><span class="si">{</span><span class="n">warn_free_gb</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">abort_free_gb</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;abort_free_gb must be &gt;= 0, got </span><span class="si">{</span><span class="n">abort_free_gb</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">warn_repeat_s</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;warn_repeat_s must be &gt;= 0, got </span><span class="si">{</span><span class="n">warn_repeat_s</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">projected_need_gb</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">projected_need_gb</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;projected_need_gb must be &gt;= 0, got </span><span class="si">{</span><span class="n">projected_need_gb</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
         <span class="k">if</span> <span class="n">warn_free_gb</span> <span class="o">&lt;=</span> <span class="n">abort_free_gb</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;warn_free_gb (</span><span class="si">{</span><span class="n">warn_free_gb</span><span class="si">}</span><span class="s2">) must be greater than &quot;</span>

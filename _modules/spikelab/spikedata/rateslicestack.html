@@ -1379,6 +1379,12 @@
         <span class="n">unit_max_indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">slice_matrices</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
         <span class="n">unit_max_rates</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">slice_matrices</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
         <span class="n">unit_max_indices</span><span class="p">[</span><span class="n">unit_max_rates</span> <span class="o">&lt;</span> <span class="n">MIN_RATE_THRESHOLD</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+        <span class="c1"># All-NaN time vectors: np.argmax returns 0 (a valid-looking index) and</span>
+        <span class="c1"># np.max returns NaN, which fails the `&lt; MIN_RATE_THRESHOLD` check</span>
+        <span class="c1"># (NaN &lt; x is False), so the threshold mask above does not catch them.</span>
+        <span class="c1"># Explicitly set such (unit, slice) entries to NaN.</span>
+        <span class="n">all_nan_mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">slice_matrices</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">unit_max_indices</span><span class="p">[</span><span class="n">all_nan_mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
         <span class="k">return</span> <span class="n">unit_max_indices</span></div>
 
 

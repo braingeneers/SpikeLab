@@ -634,6 +634,11 @@
 <span class="sd">              offsets from the end). To slice by array index with negative</span>
 <span class="sd">              indexing support, use ``subtime_by_index(start_idx, end_idx)``.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">times</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;cannot apply subtime to RateData with empty times array &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;(requested [</span><span class="si">{</span><span class="n">start</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">end</span><span class="si">}</span><span class="s2">])&quot;</span>
+            <span class="p">)</span>
 
         <span class="c1"># Handle start</span>
         <span class="k">if</span> <span class="n">start</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">start</span> <span class="ow">is</span> <span class="bp">Ellipsis</span><span class="p">:</span>
@@ -885,6 +890,12 @@
 <span class="sd">              accepts the embedding array directly and supports background</span>
 <span class="sd">              masks, continuous colour values, and discrete group colouring.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="nb">isinstance</span><span class="p">(</span><span class="n">n_components</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">floating</span><span class="p">))</span>
+            <span class="ow">and</span> <span class="n">n_components</span> <span class="o">&lt;=</span> <span class="mi">0</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;n_components must be &gt; 0, got </span><span class="si">{</span><span class="n">n_components</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
         <span class="c1"># Shape is (U, T); treat each time bin as a sample.</span>
         <span class="n">data_T</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">inst_Frate_data</span><span class="o">.</span><span class="n">T</span>  <span class="c1"># (T, U)</span>
 
