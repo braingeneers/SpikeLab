@@ -204,6 +204,24 @@ def delete_item_from_file(
             del f[namespace][key]
 
 
+def set_note_in_file(h5_path: str, namespace: str, key: str, note: str) -> None:
+    """Write a note attribute onto an existing item in an HDF5 workspace file.
+
+    Parameters:
+        h5_path (str): Path to the HDF5 workspace file.
+        namespace (str): Namespace containing the target item.
+        key (str): Item key within the namespace.
+        note (str): Note text to attach.
+
+    Raises:
+        KeyError: If the item ``(namespace, key)`` does not exist.
+    """
+    with h5py.File(h5_path, "a") as f:
+        if namespace not in f or key not in f[namespace]:
+            raise KeyError(f"workspace item not found: ({namespace!r}, {key!r})")
+        f[namespace][key].attrs["__note__"] = note
+
+
 # ===========================================================================
 # Item-level dump / load
 # ===========================================================================

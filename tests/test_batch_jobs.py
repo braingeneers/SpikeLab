@@ -1263,18 +1263,27 @@ class TestModelValidation:
         assert vol.pvc_name == "pvc"
 
     def test_name_prefix_special_chars_sanitized(self):
-        """JobSpec sanitizes special characters in name_prefix to hyphens."""
+        """JobSpec sanitizes special characters in name_prefix to hyphens and collapses runs.
+
+        Tests:
+            - Special characters are replaced with hyphens.
+            - Consecutive hyphens are collapsed to a single hyphen.
+        """
         payload = _example_payload()
         payload["name_prefix"] = "my job!@#test"
         job_spec = validate_job_spec(payload)
-        assert job_spec.name_prefix == "my-job---test"
+        assert job_spec.name_prefix == "my-job-test"
 
-    def test_name_prefix_all_special_chars_fallback(self):
-        """JobSpec falls back to 'analysis-job' when prefix is all special chars."""
+    def test_name_prefix_all_special_chars_raises(self):
+        """JobSpec raises ValueError when prefix is empty after ASCII sanitization.
+
+        Tests:
+            - An all-hyphen prefix sanitizes to empty and raises ValueError.
+        """
         payload = _example_payload()
         payload["name_prefix"] = "---"
-        job_spec = validate_job_spec(payload)
-        assert job_spec.name_prefix == "analysis-job"
+        with pytest.raises(ValueError, match="empty after ASCII sanitization"):
+            validate_job_spec(payload)
 
     def test_name_prefix_truncated_to_40(self):
         """JobSpec truncates name_prefix to 40 characters."""
@@ -3113,34 +3122,39 @@ class TestVolumeMountSpec:
 class TestJobSpecNamePrefix:
     """Edge cases for JobSpec._validate_name_prefix."""
 
-    def test_unicode_characters_pass_through(self):
-        """Unicode letters pass isalnum() but are invalid for K8s RFC 1123 labels.
+    def test_unicode_characters_replaced_with_hyphens(self):
+        """Non-ASCII characters in name_prefix are replaced with hyphens.
 
-        This documents a known gap: the sanitizer uses Python's isalnum()
-        which accepts Unicode letters, but K8s labels require ASCII only.
+        Tests:
+            - Mixed ASCII/non-ASCII input produces an ASCII-only result.
+            - An all non-ASCII input raises ValueError after sanitization.
         """
         payload = _example_payload()
         payload["name_prefix"] = "análysis-jöb"
         job_spec = validate_job_spec(payload)
-        # Unicode chars pass through isalnum() check — this is the gap
-        assert "á" in job_spec.name_prefix or "ö" in job_spec.name_prefix
-        # Verify the result is NOT valid ASCII (documenting the issue)
-        with pytest.raises(UnicodeEncodeError):
-            job_spec.name_prefix.encode("ascii")
+        assert job_spec.name_prefix == "an-lysis-j-b"
+        # Result must be valid ASCII.
+        job_spec.name_prefix.encode("ascii")
 
-    def test_trailing_hyphens_after_truncation(self):
-        """Truncation at 40 chars can leave trailing hyphens.
+        payload_all_non_ascii = _example_payload()
+        payload_all_non_ascii["name_prefix"] = "áöü"
+        with pytest.raises(ValueError, match="empty after ASCII sanitization"):
+            validate_job_spec(payload_all_non_ascii)
 
-        This documents a known gap: strip("-") runs before [:40], so
-        truncation can expose interior hyphens at the boundary.
+    def test_trailing_hyphens_stripped_after_truncation(self):
+        """Trailing hyphens exposed by 40-char truncation are stripped.
+
+        Tests:
+            - Result length is at most 40 characters.
+            - Result does not start or end with a hyphen.
         """
         payload = _example_payload()
         # Create a prefix where position 40 falls right after hyphens
         payload["name_prefix"] = "a" * 37 + "---xyz"
         job_spec = validate_job_spec(payload)
         assert len(job_spec.name_prefix) <= 40
-        # Documenting the gap: trailing hyphens remain after truncation
-        assert job_spec.name_prefix.endswith("-")
+        assert not job_spec.name_prefix.endswith("-")
+        assert not job_spec.name_prefix.startswith("-")
 
 
 class TestSleepDetectionMore:

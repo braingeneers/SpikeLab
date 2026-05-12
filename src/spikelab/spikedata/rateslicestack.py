@@ -904,6 +904,12 @@ class RateSliceStack:
         unit_max_indices = np.argmax(slice_matrices, axis=1).astype(float)
         unit_max_rates = np.max(slice_matrices, axis=1)
         unit_max_indices[unit_max_rates < MIN_RATE_THRESHOLD] = np.nan
+        # All-NaN time vectors: np.argmax returns 0 (a valid-looking index) and
+        # np.max returns NaN, which fails the `< MIN_RATE_THRESHOLD` check
+        # (NaN < x is False), so the threshold mask above does not catch them.
+        # Explicitly set such (unit, slice) entries to NaN.
+        all_nan_mask = np.all(np.isnan(slice_matrices), axis=1)
+        unit_max_indices[all_nan_mask] = np.nan
         return unit_max_indices
 
     def rank_order_correlation(

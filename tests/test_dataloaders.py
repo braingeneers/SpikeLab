@@ -3909,37 +3909,36 @@ class TestScan:
 
     def test_raster_with_zero_bin_size(self, tmp_path):
         """
-        Tests: load_spikedata_from_hdf5 with raster_bin_size_ms=0.
-        (Test Case 2) Zero bin size produces total_time=0 and length_ms=0.
-        from_raster with bin_size_ms=0 means all spike times collapse to
-        start_time, producing a zero-length SpikeData.
+        load_spikedata_from_hdf5 with raster_bin_size_ms=0 raises ValueError.
+
+        Tests:
+            (Test Case 1) SpikeData.from_raster rejects bin_size_ms <= 0,
+                so the loader propagates a ValueError.
         """
         path = str(tmp_path / "zero_bin.h5")
         raster = np.array([[1, 0, 1], [0, 1, 0]], dtype=int)
         with h5py.File(path, "w") as f:
             f.create_dataset("raster", data=raster)
 
-        sd = loaders.load_spikedata_from_hdf5(
-            path, raster_dataset="raster", raster_bin_size_ms=0.0
-        )
-        assert isinstance(sd, SpikeData)
-        assert sd.length == 0.0
+        with pytest.raises(ValueError, match="bin_size_ms"):
+            loaders.load_spikedata_from_hdf5(
+                path, raster_dataset="raster", raster_bin_size_ms=0.0
+            )
 
     def test_negative_raster_bin_size(self, tmp_path):
         """
-        Tests: load_spikedata_from_hdf5 with raster_bin_size_ms=-1.0.
-        (Test Case 3) Negative bin size produces negative total_time and
-        negative spike times. The loader computes length as
-        max(total_time - eps, 0) = 0. SpikeData still accepts the trains
-        but spike times will be negative.
+        load_spikedata_from_hdf5 with raster_bin_size_ms=-1.0 raises ValueError.
+
+        Tests:
+            (Test Case 1) SpikeData.from_raster rejects bin_size_ms <= 0,
+                so the loader propagates a ValueError.
         """
         path = str(tmp_path / "neg_bin.h5")
         raster = np.array([[1, 0, 1], [0, 1, 0]], dtype=int)
         with h5py.File(path, "w") as f:
             f.create_dataset("raster", data=raster)
 
-        # Negative bin_size produces negative spike times → SpikeData rejects
-        with pytest.raises(ValueError, match="before start_time"):
+        with pytest.raises(ValueError, match="bin_size_ms"):
             loaders.load_spikedata_from_hdf5(
                 path, raster_dataset="raster", raster_bin_size_ms=-1.0
             )
@@ -4491,15 +4490,14 @@ class TestHDF5LoaderIO:
                 path, raster_dataset="raster", raster_bin_size_ms=10.0
             )
 
-    def test_paired_negative_unit_indices(self, tmp_path):
+    def test_paired_negative_unit_indices_raises(self, tmp_path):
         """
-        Paired style with negative unit indices -- produces incorrect N
-        because N = int(idces.max()) + 1 ignores negatives.
+        Paired-style HDF5 with negative unit indices raises ValueError.
 
         Tests:
-            (Test Case 1) Loader does not crash on negative indices.
-            (Test Case 2) N is determined by max index, so negative indices
-                are effectively ignored for unit count.
+            (Test Case 1) load_spikedata_from_hdf5 propagates the
+                SpikeData.from_idces_times validation that rejects negative
+                unit indices.
         """
         path = str(tmp_path / "neg_idces.h5")
         idces = np.array([-1, 0, 1, 0], dtype=int)
@@ -4508,11 +4506,10 @@ class TestHDF5LoaderIO:
             f.create_dataset("idces", data=idces)
             f.create_dataset("times", data=times)
 
-        sd = loaders.load_spikedata_from_hdf5(
-            path, idces_dataset="idces", times_dataset="times", times_unit="s"
-        )
-        # N = max(1) + 1 = 2, but -1 index is silently placed elsewhere
-        assert sd.N == 2
+        with pytest.raises(ValueError, match="negative"):
+            loaders.load_spikedata_from_hdf5(
+                path, idces_dataset="idces", times_dataset="times", times_unit="s"
+            )
 
     def test_group_per_unit_non_numeric_names(self, tmp_path):
         """

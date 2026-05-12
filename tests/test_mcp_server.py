@@ -637,14 +637,13 @@ class TestWorkspaceManagement:
         Test deleting a workspace.
 
         Tests:
-            (Test Case 1) delete_workspace returns deleted=True for existing workspace.
+            (Test Case 1) delete_workspace completes without raising for existing workspace.
             (Test Case 2) Workspace is absent from list_workspaces after deletion.
         """
         create_result = await analysis.create_workspace()
         ws_id = create_result["workspace_id"]
 
-        result = await analysis.delete_workspace(ws_id)
-        assert result["deleted"] is True
+        await analysis.delete_workspace(ws_id)
 
         list_result = await analysis.list_workspaces()
         ids = [w["workspace_id"] for w in list_result["workspaces"]]
@@ -720,7 +719,7 @@ class TestWorkspaceManagement:
         Test adding a note to a workspace item.
 
         Tests:
-            (Test Case 1) add_workspace_note returns success=True.
+            (Test Case 1) add_workspace_note completes without raising.
             (Test Case 2) Note is stored in the item's index entry.
         """
         create_result = await analysis.create_workspace()
@@ -728,8 +727,7 @@ class TestWorkspaceManagement:
         ws = get_workspace_manager().get_workspace(ws_id)
         ws.store("ns", "key", np.zeros(3))
 
-        result = await analysis.add_workspace_note(ws_id, "ns", "key", "test note")
-        assert result["success"] is True
+        await analysis.add_workspace_note(ws_id, "ns", "key", "test note")
         assert ws.get_info("ns", "key")["note"] == "test note"
 
     @pytestmark_server
@@ -739,7 +737,7 @@ class TestWorkspaceManagement:
         Test deleting a single item and an entire namespace.
 
         Tests:
-            (Test Case 1) delete_workspace_item with key returns deleted=True.
+            (Test Case 1) delete_workspace_item with key removes the item.
             (Test Case 2) Item is absent from workspace after deletion.
             (Test Case 3) delete_workspace_item without key deletes entire namespace.
         """
@@ -749,13 +747,11 @@ class TestWorkspaceManagement:
         ws.store("ns", "key1", np.zeros(3))
         ws.store("ns", "key2", np.zeros(3))
 
-        result = await analysis.delete_workspace_item(ws_id, "ns", "key1")
-        assert result["deleted"] is True
+        await analysis.delete_workspace_item(ws_id, "ns", "key1")
         assert ws.get("ns", "key1") is None
         assert ws.get("ns", "key2") is not None
 
-        result_ns = await analysis.delete_workspace_item(ws_id, "ns")
-        assert result_ns["deleted"] is True
+        await analysis.delete_workspace_item(ws_id, "ns")
         assert ws.list_keys("ns") == []
 
     @pytestmark_server
@@ -3750,20 +3746,15 @@ class TestSubset:
     @pytest.mark.asyncio
     async def test_out_of_range_unit_index(self, loaded_ws):
         """
-        Out-of-range unit index silently produces a SpikeData with 0 units.
+        Out-of-range unit index raises ValueError.
 
         Tests:
-            (Test Case 1) subset with units=[99] on 3-unit data succeeds.
-            (Test Case 2) Resulting SpikeData has 0 units.
-
-        Notes:
-            - SpikeData.subset treats the units list as a filter — indices
-              that don't exist in the data are silently skipped, producing
-              an empty SpikeData rather than raising an error.
+            (Test Case 1) subset with units=[99] on 3-unit data raises
+                ValueError because the index is out of range.
         """
         ws_id, ns = loaded_ws
-        result = await analysis.subset(ws_id, ns, units=[99])
-        assert result["info"]["N"] == 0
+        with pytest.raises(ValueError, match="out of range"):
+            await analysis.subset(ws_id, ns, units=[99])
 
     @pytestmark_server
     @pytest.mark.asyncio
@@ -4060,13 +4051,13 @@ class TestDeleteWorkspace:
     @pytest.mark.asyncio
     async def test_delete_nonexistent_workspace(self):
         """
-        Deleting a non-existent workspace should return deleted=False.
+        Deleting a non-existent workspace raises KeyError.
 
         Tests:
-            (Test Case 1) delete_workspace with nonexistent ID returns deleted=False.
+            (Test Case 1) delete_workspace with nonexistent ID raises KeyError.
         """
-        result = await analysis.delete_workspace("nonexistent-ws-id-xyz")
-        assert result["deleted"] is False
+        with pytest.raises(KeyError, match="not found"):
+            await analysis.delete_workspace("nonexistent-ws-id-xyz")
 
 
 class TestDescribeWorkspace:
@@ -4094,18 +4085,18 @@ class TestRenameWorkspaceItem:
     @pytest.mark.asyncio
     async def test_rename_nonexistent_key(self):
         """
-        Renaming a non-existent key should return success=False.
+        Renaming a non-existent key raises KeyError.
 
         Tests:
             (Test Case 1) rename_workspace_item with old_key="nonexistent"
-                returns success=False.
+                raises KeyError.
         """
         wm = get_workspace_manager()
         ws_id = wm.create_workspace(name="rename_ws")
-        result = await analysis.rename_workspace_item(
-            ws_id, "ns", "nonexistent", "new_key"
-        )
-        assert result["success"] is False
+        with pytest.raises(KeyError, match="not found"):
+            await analysis.rename_workspace_item(
+                ws_id, "ns", "nonexistent", "new_key"
+            )
 
 
 class TestAddWorkspaceNote:
@@ -4115,16 +4106,16 @@ class TestAddWorkspaceNote:
     @pytest.mark.asyncio
     async def test_note_on_nonexistent_item(self):
         """
-        Adding a note to a non-existent item should return success=False.
+        Adding a note to a non-existent item raises KeyError.
 
         Tests:
-            (Test Case 1) add_workspace_note on non-existent item returns
-                success=False.
+            (Test Case 1) add_workspace_note on non-existent item raises
+                KeyError.
         """
         wm = get_workspace_manager()
         ws_id = wm.create_workspace(name="note_ws")
-        result = await analysis.add_workspace_note(ws_id, "ns", "nonexistent", "note")
-        assert result["success"] is False
+        with pytest.raises(KeyError, match="not found"):
+            await analysis.add_workspace_note(ws_id, "ns", "nonexistent", "note")
 
 
 class TestDeleteWorkspaceItem:
@@ -4134,16 +4125,16 @@ class TestDeleteWorkspaceItem:
     @pytest.mark.asyncio
     async def test_delete_nonexistent_key(self):
         """
-        Deleting a non-existent key should return deleted=False.
+        Deleting a non-existent key raises KeyError.
 
         Tests:
-            (Test Case 1) delete_workspace_item with non-existent key returns
-                deleted=False.
+            (Test Case 1) delete_workspace_item with non-existent key raises
+                KeyError.
         """
         wm = get_workspace_manager()
         ws_id = wm.create_workspace(name="del_ws")
-        result = await analysis.delete_workspace_item(ws_id, "ns", "nonexistent")
-        assert result["deleted"] is False
+        with pytest.raises(KeyError, match="not found"):
+            await analysis.delete_workspace_item(ws_id, "ns", "nonexistent")
 
 
 class TestFetchWorkspaceItem:
@@ -4822,27 +4813,20 @@ class TestSubsetMCP2:
     @pytest.mark.asyncio
     async def test_negative_unit_indices(self, loaded_ws):
         """
-        subset with negative unit indices.
+        subset with negative unit indices raises ValueError.
 
         Tests:
-            (Test Case 1) Negative indices are treated as backward-counting
-                in SpikeData.subset, so -1 selects the last unit.
+            (Test Case 1) Negative indices are rejected by SpikeData.subset
+                with a ValueError because they are out of range.
         """
         ws_id, ns = loaded_ws
-        result = await analysis.subset(
-            ws_id,
-            ns,
-            units=[-1],
-            out_namespace="subset_neg_ns",
-        )
-        sd = (
-            get_workspace_manager()
-            .get_workspace(ws_id)
-            .get("subset_neg_ns", "spikedata")
-        )
-        # -1 is not a valid index (set(-1) = {-1}, not in range(N)),
-        # so it produces 0 units
-        assert sd.N == 0
+        with pytest.raises(ValueError, match="out of range"):
+            await analysis.subset(
+                ws_id,
+                ns,
+                units=[-1],
+                out_namespace="subset_neg_ns",
+            )
 
 
 class TestAppendSessionMCP2:

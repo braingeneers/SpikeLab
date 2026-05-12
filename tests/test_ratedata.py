@@ -198,19 +198,13 @@ class TestRateDataConstructor:
 
     def test_zero_time_bins(self):
         """
-        RateData with 0 time bins is accepted but subtime crashes.
+        RateData with 0 time bins is accepted but subtime raises ValueError.
 
         Tests:
             (Test Case 1) Construction with shape (3, 0) and empty times succeeds.
             (Test Case 2) N and shape are correct.
-            (Test Case 3) Calling subtime on zero-time-bin RateData raises an error.
-
-        Notes:
-            Construction succeeds, but calling subtime raises because
-            `self.times[-1]` on an empty array raises IndexError. The length
-            guard `if len(self.times) > 0` was added for `subtime` but the
-            fallback `end = length` (which is 0) combined with `start >= end`
-            may still raise ValueError.
+            (Test Case 3) Calling subtime on zero-time-bin RateData raises
+                ValueError with an "empty times" message.
         """
         data = np.zeros((3, 0))
         times = np.array([])
@@ -219,8 +213,7 @@ class TestRateDataConstructor:
         assert rd.inst_Frate_data.shape == (3, 0)
         assert len(rd.times) == 0
 
-        # subtime on empty times should raise
-        with pytest.raises((ValueError, IndexError)):
+        with pytest.raises(ValueError, match="empty times"):
             rd.subtime(0.0, 10.0)
 
     def test_non_array_times_input(self):
@@ -691,21 +684,16 @@ class TestRateDataSubtime:
 
     def test_subtime_empty_times_array(self):
         """
-        subtime on a RateData with empty times array raises an error.
+        subtime on a RateData with empty times array raises ValueError.
 
         Tests:
             (Test Case 1) Calling subtime(0.0, 10.0) on a zero-time-bin
-                          RateData raises ValueError or IndexError.
-
-        Notes:
-            The constructor accepts shape (U, 0) with empty times, but
-            subtime accesses self.times[-1] which raises IndexError on
-            empty arrays, or the validation logic produces a ValueError.
+                RateData raises ValueError at the empty-times guard.
         """
         data = np.zeros((2, 0))
         times = np.array([])
         rd = RateData(data, times)
-        with pytest.raises((ValueError, IndexError)):
+        with pytest.raises(ValueError, match="empty times"):
             rd.subtime(0.0, 10.0)
 
     def test_subtime_both_none(self):
@@ -1410,13 +1398,15 @@ class TestRateDataGetManifold:
             rd.get_manifold("PCA", n_components=20)
 
     def test_get_manifold_n_components_zero(self):
-        """n_components=0 returns an embedding with zero columns.
+        """n_components=0 raises ValueError at the input boundary.
 
-        Tests: PCA with zero components produces shape (T, 0).
+        Tests:
+            (Test Case 1) Requesting zero components is a caller bug and
+                raises ValueError before reaching the backend.
         """
         rd = make_ratedata(n_units=3, n_times=20)
-        embedding, var_ratio, components = rd.get_manifold("PCA", n_components=0)
-        assert embedding.shape == (20, 0)
+        with pytest.raises(ValueError, match="n_components"):
+            rd.get_manifold("PCA", n_components=0)
 
     def test_get_manifold_single_unit(self):
         """
