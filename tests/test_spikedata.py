@@ -421,19 +421,16 @@ class TestSpikeDataConstruction:
         with pytest.raises(IndexError):
             SpikeData.from_idces_times([0, 0, 1], [10.0, 20.0], length=30.0)
 
-    def test_from_idces_times_negative_indices(self):
+    def test_from_idces_times_negative_indices_raise(self):
         """
-        from_idces_times with negative unit indices.
+        from_idces_times rejects negative unit indices.
 
         Tests:
-            (Test Case 1) Negative indices are accepted by numpy indexing.
-
-        Notes:
-            - Negative indices wrap around in numpy, which may produce
-              unexpected unit assignments.
+            (Test Case 1) Passing idces=[-1, 0] with N=3 raises ValueError
+                identifying the offending negative index.
         """
-        sd = SpikeData.from_idces_times([-1, 0], [10.0, 20.0], N=3, length=30.0)
-        assert sd.N == 3
+        with pytest.raises(ValueError, match="negative"):
+            SpikeData.from_idces_times([-1, 0], [10.0, 20.0], N=3, length=30.0)
 
     def test_from_events_negative_times(self):
         """
@@ -649,28 +646,19 @@ class TestSpikeDataConstruction:
 
     def test_init_inf_spike_times(self):
         """
-        SpikeData constructor does not reject Inf spike times.
+        SpikeData constructor rejects Inf spike times with a ValueError.
 
         Tests:
-            (Test Case 1) np.inf in a spike train is accepted by the constructor
-                because only NaN is explicitly checked.
-            (Test Case 2) The inferred length defaults to Inf when no explicit
-                length is provided.
-
-        Notes:
-            - This documents a bug: Inf spike times are not rejected by the
-              constructor (only NaN is checked), and the default length becomes
-              Inf, which silently propagates through downstream computations
-              (sparse_raster, rates, etc.).
+            (Test Case 1) np.inf in a spike train raises ValueError with a
+                message identifying the offending unit.
+            (Test Case 2) np.inf is rejected even when no explicit length is
+                provided.
         """
-        # Constructor accepts Inf — no ValueError raised
-        sd = SpikeData([[1.0, np.inf]], length=np.inf)
-        assert sd.N == 1
-        assert np.isinf(sd.length)
+        with pytest.raises(ValueError, match="inf"):
+            SpikeData([[1.0, np.inf]], length=np.inf)
 
-        # Without explicit length, length defaults to Inf
-        sd_auto = SpikeData([[1.0, np.inf]])
-        assert np.isinf(sd_auto.length)
+        with pytest.raises(ValueError, match="inf"):
+            SpikeData([[1.0, np.inf]])
 
     def test_init_very_large_spike_times(self):
         """
@@ -765,21 +753,18 @@ class TestSpikeDataConstruction:
 
     def test_from_raster_zero_bin_size(self):
         """
-        from_raster with bin_size_ms=0 produces degenerate SpikeData.
+        from_raster rejects non-positive bin_size_ms with a ValueError.
 
         Tests:
-            (Test Case 1) Zero bin size does not raise.
-            (Test Case 2) All spike times collapse to 0.0 and length is 0.0.
-
-        Notes:
-            - bin_size_ms=0 is not validated. All spike times become 0.0
-              (bin_index * 0) and length becomes 0.0 (n_bins * 0).
+            (Test Case 1) bin_size_ms=0.0 raises ValueError.
+            (Test Case 2) Negative bin_size_ms=-1.0 raises the same ValueError.
         """
         raster = np.array([[1, 0, 1]])
-        sd = SpikeData.from_raster(raster, bin_size_ms=0.0)
-        assert sd.N == 1
-        assert sd.length == 0.0
-        assert all(t == 0.0 for t in sd.train[0])
+        with pytest.raises(ValueError, match="bin_size_ms"):
+            SpikeData.from_raster(raster, bin_size_ms=0.0)
+
+        with pytest.raises(ValueError, match="bin_size_ms"):
+            SpikeData.from_raster(raster, bin_size_ms=-1.0)
 
     def test_from_raster_negative_bin_size(self):
         """
@@ -1109,16 +1094,15 @@ class TestSpikeDataSlicing:
 
     def test_subset_out_of_bounds_index(self):
         """
-        Subset with an out-of-bounds unit index.
+        Subset with an out-of-bounds unit index raises a ValueError.
 
         Tests:
-        (Test Case 1) Passing units=[99] when N=3 returns an empty SpikeData
-        because no train index matches 99.
+            (Test Case 1) Passing units=[99] when N=3 raises ValueError with
+                an "out of range" message.
         """
         sd = SpikeData([[1.0], [2.0], [3.0]], length=50.0)
-        sub = sd.subset(units=[99])
-        assert sub.N == 0
-        assert len(sub.train) == 0
+        with pytest.raises(ValueError, match="out of range"):
+            sd.subset(units=[99])
 
     def test_subtime_none_none_full_copy(self):
         """
@@ -1309,21 +1293,15 @@ class TestSpikeDataSlicing:
 
     def test_subset_negative_unit_index(self):
         """
-        subset with a negative unit index.
+        subset with a negative unit index raises a ValueError.
 
         Tests:
-            (Test Case 1) Passing [-1] silently returns empty SpikeData because
-                no train index matches -1 (indices are 0..N-1 in the set lookup).
-
-        Notes:
-            - This documents surprising behavior: negative indices do not wrap
-              around (unlike numpy indexing) because subset() converts units to
-              a set and checks `if i in units` against 0..N-1 integer range.
+            (Test Case 1) Passing [-1] raises ValueError with an "out of range"
+                message; negative indices do not wrap around.
         """
         sd = SpikeData([[1.0], [2.0], [3.0]], length=50.0)
-        sub = sd.subset(units=[-1])
-        assert sub.N == 0
-        assert len(sub.train) == 0
+        with pytest.raises(ValueError, match="out of range"):
+            sd.subset(units=[-1])
 
     def test_subset_string_units_without_by(self):
         """

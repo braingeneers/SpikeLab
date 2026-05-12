@@ -4016,18 +4016,16 @@ class TestTemplateHalfWindow:
         if old_pos_peak is not None:
             ks_mod.POS_PEAK_THRESH = old_pos_peak
 
-    def test_zero_amplitude_template(self, tmp_path):
+    def test_zero_amplitude_template_returns_zero(self, tmp_path):
         """
-        Flat zero template produces non-zero window size (full half-window).
+        Flat zero template produces half-window size 0.
 
         Tests:
-            (Test Case 1) All-zero template → peak_amp=0, threshold=0,
-                no indices below threshold → size=template_mid.
+            (Test Case 1) All-zero template → half-window size 0.
 
         Notes:
-            - A dead channel with a flat zero template gets a full half-window
-              because abs(0) < 0 is always False. This is arguably wrong but
-              matches the current implementation.
+            - Dead-channel / all-zero templates produce half-window size 0
+              (no waveform to bound).
         """
         templates = np.zeros((1, 61, 2), dtype=np.float32)
         kse, ks_mod, old_p, old_pp = self._make_kse_with_templates(
@@ -4037,9 +4035,7 @@ class TestTemplateHalfWindow:
             _, chans_ks, _ = kse.get_chans_max()
             hw_sizes = kse.get_templates_half_windows_sizes(chans_ks)
             assert len(hw_sizes) == 1
-            # All-zero template: peak_amp=0, threshold=0,
-            # abs(0) < 0 is False for all → no small_indices → size = template_mid
-            assert hw_sizes[0] == int(30 * 0.75)  # 22
+            assert hw_sizes[0] == 0
         finally:
             self._restore(ks_mod, old_p, old_pp)
 

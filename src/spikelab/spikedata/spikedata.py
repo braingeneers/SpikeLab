@@ -85,11 +85,24 @@ class SpikeData:
               helper function.
             - When ``idces`` is empty and ``N`` is None, defaults to 0 units
               and ``length=0``.
+            - Raises ValueError if any entry of idces is negative or out of
+              range (>= N).
         """
         idces = np.asarray(idces)
         if idces.size == 0:
             kwargs.setdefault("length", 0)
             N = 0 if N is None else N
+        else:
+            if N is None:
+                N = int(idces.max()) + 1
+            if np.any(idces < 0):
+                raise ValueError(
+                    f"unit indices contain negative values: {idces[idces < 0]}"
+                )
+            if np.any(idces >= N):
+                raise ValueError(
+                    f"unit indices out of range: max idx {int(idces.max())} >= N={N}"
+                )
         return SpikeData(_train_from_i_t_list(idces, times, N), N=N, **kwargs)
 
     @staticmethod
@@ -116,6 +129,8 @@ class SpikeData:
               ``start_time``, not t=0), pass ``start_time`` in kwargs so that
               spike times are correctly offset. Without it, bin 0 maps to t=0.
         """
+        if bin_size_ms <= 0:
+            raise ValueError(f"bin_size_ms must be > 0, got {bin_size_ms}")
         raster = np.asarray(raster)
         if raster.ndim != 2:
             raise ValueError(f"raster must be 2D (N x T), got {raster.ndim}D array")
@@ -298,6 +313,8 @@ class SpikeData:
         for i, t in enumerate(self.train):
             if len(t) > 0 and np.isnan(t).any():
                 raise ValueError(f"spike times for unit {i} contain NaN values")
+            if len(t) > 0 and np.isinf(t).any():
+                raise ValueError(f"spike times for unit {i} contain inf values")
 
         # Store the time origin.
         self.start_time = float(start_time)
@@ -890,6 +907,12 @@ class SpikeData:
                 for i in range(self.N)
                 if _get_attr(self.neuron_attributes[i], by, _missing) in units
             }
+        else:
+            for u in units:
+                if isinstance(u, (bool, np.bool_)):
+                    continue
+                if isinstance(u, (int, np.integer)) and (u < 0 or u >= self.N):
+                    raise ValueError(f"unit index out of range: {int(u)} (N={self.N})")
 
         train = []
         neuron_attributes = []
@@ -1156,7 +1179,7 @@ class SpikeData:
             - The number of bins is always
               ceil((length + time_offset) / bin_size).
         """
-        if bin_size <= 0:
+        if np.isnan(bin_size) or bin_size <= 0:
             raise ValueError(f"bin_size must be > 0, got {bin_size}.")
         length = int(np.ceil((self.length + time_offset) / bin_size))
         # N==0 short-circuit: np.hstack on an empty list raises, so

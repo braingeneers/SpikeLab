@@ -355,8 +355,8 @@ class TestAnalysisWorkspace:
             (Test Case 1) Renamed key is accessible under the new name.
             (Test Case 2) Old key no longer exists after rename.
             (Test Case 3) Index entry is accessible under the new key.
-            (Test Case 4) Rename on a missing namespace returns False.
-            (Test Case 5) Rename on a missing old_key returns False.
+            (Test Case 4) Rename on a missing namespace raises KeyError.
+            (Test Case 5) Rename on a missing old_key raises KeyError.
         """
         arr = np.arange(5)
         self.ws.store("rec1", "old", arr)
@@ -372,8 +372,10 @@ class TestAnalysisWorkspace:
         assert info is not None
         assert self.ws.get_info("rec1", "old") is None
 
-        assert not self.ws.rename("missing_ns", "old", "new")
-        assert not self.ws.rename("rec1", "missing_key", "new")
+        with pytest.raises(KeyError, match="not found"):
+            self.ws.rename("missing_ns", "old", "new")
+        with pytest.raises(KeyError, match="not found"):
+            self.ws.rename("rec1", "missing_key", "new")
 
     # ------------------------------------------------------------------
     # add_note
@@ -386,17 +388,17 @@ class TestAnalysisWorkspace:
         Tests:
             (Test Case 1) Note stored via store() appears in get_info().
             (Test Case 2) add_note() on existing item updates the note.
-            (Test Case 3) add_note() on missing item returns False.
+            (Test Case 3) add_note() on missing item raises KeyError.
         """
         self.ws.store("rec1", "arr", np.zeros(3), note="initial note")
         info = self.ws.get_info("rec1", "arr")
         assert info["note"] == "initial note"
 
-        result = self.ws.add_note("rec1", "arr", "updated note")
-        assert result
+        self.ws.add_note("rec1", "arr", "updated note")
         assert self.ws.get_info("rec1", "arr")["note"] == "updated note"
 
-        assert not self.ws.add_note("missing_ns", "arr", "note")
+        with pytest.raises(KeyError, match="not found"):
+            self.ws.add_note("missing_ns", "arr", "note")
 
     # ------------------------------------------------------------------
     # delete
@@ -410,18 +412,18 @@ class TestAnalysisWorkspace:
             (Test Case 1) Deleted key returns None from get().
             (Test Case 2) Index entry is removed.
             (Test Case 3) Other keys in the same namespace are not affected.
-            (Test Case 4) Deleting a missing key returns False.
+            (Test Case 4) Deleting a missing key raises KeyError.
         """
         self.ws.store("rec1", "a", np.zeros(2))
         self.ws.store("rec1", "b", np.zeros(2))
 
-        result = self.ws.delete("rec1", "a")
-        assert result
+        self.ws.delete("rec1", "a")
         assert self.ws.get("rec1", "a") is None
         assert self.ws.get_info("rec1", "a") is None
         assert self.ws.get("rec1", "b") is not None
 
-        assert not self.ws.delete("rec1", "missing_key")
+        with pytest.raises(KeyError, match="not found"):
+            self.ws.delete("rec1", "missing_key")
 
     def test_delete_namespace(self):
         """
@@ -430,17 +432,17 @@ class TestAnalysisWorkspace:
         Tests:
             (Test Case 1) All keys in the namespace are gone after deletion.
             (Test Case 2) Namespace no longer appears in list_keys().
-            (Test Case 3) Deleting a missing namespace returns False.
+            (Test Case 3) Deleting a missing namespace raises KeyError.
         """
         self.ws.store("rec1", "a", np.zeros(2))
         self.ws.store("rec1", "b", np.zeros(2))
 
-        result = self.ws.delete("rec1")
-        assert result
+        self.ws.delete("rec1")
         assert self.ws.get("rec1", "a") is None
         assert "rec1" not in self.ws.list_keys()
 
-        assert not self.ws.delete("missing_ns")
+        with pytest.raises(KeyError, match="not found"):
+            self.ws.delete("missing_ns")
 
     # ------------------------------------------------------------------
     # namespace isolation
@@ -791,14 +793,14 @@ class TestAnalysisWorkspace:
         Deleting the last key in a namespace removes the namespace entirely.
 
         Tests:
-            (Test Case 1) delete returns True.
+            (Test Case 1) The deleted key is no longer retrievable.
             (Test Case 2) The namespace is removed from _items and _index.
             (Test Case 3) list_namespaces no longer lists the namespace.
         """
         ws = AnalysisWorkspace(name="test")
         ws.store("ns", "only_key", np.array([1.0]))
 
-        assert ws.delete("ns", "only_key") is True
+        ws.delete("ns", "only_key")
         assert ws.get("ns", "only_key") is None
         assert "ns" not in ws._items
         assert "ns" not in ws._index
@@ -1109,19 +1111,19 @@ class TestWorkspaceManager:
 
     def test_delete_workspace(self):
         """
-        Tests that delete_workspace() removes a workspace and returns False for unknown IDs.
+        Tests that delete_workspace() removes a workspace and raises KeyError for unknown IDs.
 
         Tests:
-            (Test Case 1) delete_workspace() returns True for an existing workspace.
+            (Test Case 1) delete_workspace() removes an existing workspace.
             (Test Case 2) get_workspace() returns None after deletion.
-            (Test Case 3) delete_workspace() returns False for an unknown ID.
+            (Test Case 3) delete_workspace() raises KeyError for an unknown ID.
         """
         wid = self.mgr.create_workspace()
-        result = self.mgr.delete_workspace(wid)
-        assert result
+        self.mgr.delete_workspace(wid)
         assert self.mgr.get_workspace(wid) is None
 
-        assert not self.mgr.delete_workspace("nonexistent-id")
+        with pytest.raises(KeyError, match="not found"):
+            self.mgr.delete_workspace("nonexistent-id")
 
     def test_list_workspaces(self):
         """
@@ -1251,7 +1253,7 @@ class TestWorkspaceManager:
         does not destroy the workspace itself.
 
         Tests:
-            (Test Case 1) delete_workspace returns True.
+            (Test Case 1) delete_workspace removes the entry without error.
             (Test Case 2) get_workspace returns None after deletion.
             (Test Case 3) The external reference is still a valid AnalysisWorkspace.
             (Test Case 4) Data stored in the workspace is still accessible via the external reference.
@@ -1263,7 +1265,7 @@ class TestWorkspaceManager:
 
         # Hold external reference, then delete from manager
         external_ref = ws
-        assert mgr.delete_workspace(wid) is True
+        mgr.delete_workspace(wid)
         assert mgr.get_workspace(wid) is None
 
         # External reference still works
@@ -3019,7 +3021,7 @@ class TestLazyAnalysisWorkspace:
         Delete a single item and verify it is gone.
 
         Tests:
-            (Test Case 1) delete() returns True for an existing item.
+            (Test Case 1) delete() removes an existing item without error.
             (Test Case 2) get() returns None after deletion.
             (Test Case 3) The key is removed from list_keys().
             (Test Case 4) Other items in the same namespace are unaffected.
@@ -3028,7 +3030,7 @@ class TestLazyAnalysisWorkspace:
         ws.store("ns", "keep", np.array([1.0]))
         ws.store("ns", "remove", np.array([2.0]))
 
-        assert ws.delete("ns", "remove") is True
+        ws.delete("ns", "remove")
         assert ws.get("ns", "remove") is None
         assert "remove" not in ws.list_keys("ns")
         np.testing.assert_array_equal(ws.get("ns", "keep"), np.array([1.0]))
@@ -3038,7 +3040,7 @@ class TestLazyAnalysisWorkspace:
         Delete an entire namespace and verify all its items are gone.
 
         Tests:
-            (Test Case 1) delete() with key=None returns True.
+            (Test Case 1) delete() with key=None removes the namespace without error.
             (Test Case 2) The namespace is removed from list_namespaces().
             (Test Case 3) get() returns None for any key in the deleted namespace.
         """
@@ -3047,25 +3049,27 @@ class TestLazyAnalysisWorkspace:
         ws.store("remove_ns", "k2", np.array([2.0]))
         ws.store("keep_ns", "k1", np.array([3.0]))
 
-        assert ws.delete("remove_ns") is True
+        ws.delete("remove_ns")
         assert "remove_ns" not in ws.list_namespaces()
         assert ws.get("remove_ns", "k1") is None
         assert ws.get("remove_ns", "k2") is None
         np.testing.assert_array_equal(ws.get("keep_ns", "k1"), np.array([3.0]))
 
-    def test_delete_nonexistent_returns_false(self):
+    def test_delete_nonexistent_raises(self):
         """
-        delete() returns False when the target does not exist.
+        delete() raises KeyError when the target does not exist.
 
         Tests:
-            (Test Case 1) Missing namespace returns False.
-            (Test Case 2) Missing key in existing namespace returns False.
+            (Test Case 1) Missing namespace raises KeyError.
+            (Test Case 2) Missing key in existing namespace raises KeyError.
         """
         ws = LazyAnalysisWorkspace(name="delete_miss")
         ws.store("ns", "k", np.zeros(1))
 
-        assert ws.delete("nonexistent") is False
-        assert ws.delete("ns", "nonexistent") is False
+        with pytest.raises(KeyError, match="not found"):
+            ws.delete("nonexistent")
+        with pytest.raises(KeyError, match="not found"):
+            ws.delete("ns", "nonexistent")
 
     # ------------------------------------------------------------------
     # describe()
@@ -3244,27 +3248,29 @@ class TestLazyAnalysisWorkspace:
         assert "new_key" in ws.list_keys("ns")
         assert "old_key" not in ws.list_keys("ns")
 
-    def test_rename_missing_namespace_returns_false(self):
+    def test_rename_missing_namespace_raises(self):
         """
-        rename() returns False when the namespace does not exist.
+        rename() raises KeyError when the namespace does not exist.
 
         Tests:
-            (Test Case 1) Returns False without error.
+            (Test Case 1) Raises KeyError matching "not found".
         """
         ws = LazyAnalysisWorkspace(name="rename_miss_ns")
-        assert ws.rename("nonexistent", "a", "b") is False
+        with pytest.raises(KeyError, match="not found"):
+            ws.rename("nonexistent", "a", "b")
 
-    def test_rename_missing_key_returns_false(self):
+    def test_rename_missing_key_raises(self):
         """
-        rename() returns False when the old_key does not exist in the namespace.
+        rename() raises KeyError when the old_key does not exist in the namespace.
 
         Tests:
-            (Test Case 1) Returns False without error.
+            (Test Case 1) Raises KeyError matching "not found".
             (Test Case 2) Existing keys are unaffected.
         """
         ws = LazyAnalysisWorkspace(name="rename_miss_key")
         ws.store("ns", "exists", np.array([1.0]))
-        assert ws.rename("ns", "missing", "new") is False
+        with pytest.raises(KeyError, match="not found"):
+            ws.rename("ns", "missing", "new")
         assert ws.get("ns", "exists") is not None
 
     # ------------------------------------------------------------------
@@ -3329,7 +3335,7 @@ class TestLazyAnalysisWorkspace:
 
         Tests:
             (Test Case 1) get() returns the value before deletion.
-            (Test Case 2) delete() returns True.
+            (Test Case 2) delete() removes the item without error.
             (Test Case 3) get() returns None after deletion.
         """
         ws = LazyAnalysisWorkspace(name="get_after_del")
@@ -3337,17 +3343,16 @@ class TestLazyAnalysisWorkspace:
         ws.store("ns", "k", arr)
 
         np.testing.assert_array_equal(ws.get("ns", "k"), arr)
-        assert ws.delete("ns", "k") is True
+        ws.delete("ns", "k")
         assert ws.get("ns", "k") is None
 
     def test_rename_when_get_returns_none(self):
         """
-        Rename returns False when get() returns None (e.g. if HDF5 data is corrupted
+        Rename raises KeyError when get() returns None (e.g. if HDF5 data is corrupted
         or the item was deleted from the backing file externally).
 
         Tests:
-            (Test Case 1) rename returns False.
-            (Test Case 2) Index is unchanged.
+            (Test Case 1) rename raises KeyError matching "not found".
 
         Notes:
             - This tests the code path where namespace and old_key exist in _index
@@ -3364,8 +3369,8 @@ class TestLazyAnalysisWorkspace:
         # _index still has the entry, but get() will return None
         assert ws.get("ns", "key") is None
 
-        result = ws.rename("ns", "key", "new_key")
-        assert result is False
+        with pytest.raises(KeyError, match="not found"):
+            ws.rename("ns", "key", "new_key")
 
     def test_delete_last_key_removes_namespace(self):
         """
@@ -3373,7 +3378,7 @@ class TestLazyAnalysisWorkspace:
         the namespace from _index entirely.
 
         Tests:
-            (Test Case 1) delete returns True.
+            (Test Case 1) delete removes the item without error.
             (Test Case 2) The namespace is removed from _index.
             (Test Case 3) list_namespaces no longer includes the namespace.
 
@@ -3384,7 +3389,7 @@ class TestLazyAnalysisWorkspace:
         ws = LazyAnalysisWorkspace(name="del_last")
         ws.store("ns", "only", np.array([1.0]))
 
-        assert ws.delete("ns", "only") is True
+        ws.delete("ns", "only")
         assert "ns" not in ws._index
         assert "ns" not in ws.list_namespaces()
 

@@ -246,11 +246,15 @@ class AnalysisWorkspace:
                 Set to True to silently overwrite the existing entry.
 
         Returns:
-            success (bool): True if renamed, False if namespace or
-                old_key not found or rename was blocked by existing key.
+            success (bool): True if renamed, False if the rename was
+                blocked because ``new_key`` already exists and
+                ``overwrite=False``.
+
+        Raises:
+            KeyError: If ``(namespace, old_key)`` does not exist.
         """
         if namespace not in self._items or old_key not in self._items[namespace]:
-            return False
+            raise KeyError(f"workspace item not found: ({namespace!r}, {old_key!r})")
         if not overwrite and new_key in self._items[namespace]:
             warnings.warn(
                 f"Key '{new_key}' already exists in namespace '{namespace}'. "
@@ -262,7 +266,7 @@ class AnalysisWorkspace:
         self._index[namespace][new_key] = self._index[namespace].pop(old_key)
         return True
 
-    def add_note(self, namespace: str, key: str, note: str) -> bool:
+    def add_note(self, namespace: str, key: str, note: str) -> None:
         """Add or replace the note attached to a stored item.
 
         Parameters:
@@ -270,15 +274,14 @@ class AnalysisWorkspace:
             key (str): Key of the item.
             note (str): Note text to attach.
 
-        Returns:
-            success (bool): True if updated, False if item not found.
+        Raises:
+            KeyError: If the item ``(namespace, key)`` does not exist.
         """
         if namespace not in self._index or key not in self._index[namespace]:
-            return False
+            raise KeyError(f"workspace item not found: ({namespace!r}, {key!r})")
         self._index[namespace][key]["note"] = note
-        return True
 
-    def delete(self, namespace: str, key: Optional[str] = None) -> bool:
+    def delete(self, namespace: str, key: Optional[str] = None) -> None:
         """Delete a single item or an entire namespace.
 
         Parameters:
@@ -286,23 +289,25 @@ class AnalysisWorkspace:
             key (str | None): Key to delete. If None, the entire
                 namespace and all its contents are deleted.
 
-        Returns:
-            success (bool): True if deleted, False if not found.
+        Raises:
+            KeyError: If the namespace (or, when ``key`` is given,
+                the ``(namespace, key)`` item) does not exist.
         """
         if namespace not in self._items:
-            return False
+            if key is None:
+                raise KeyError(f"workspace namespace not found: {namespace!r}")
+            raise KeyError(f"workspace item not found: ({namespace!r}, {key!r})")
         if key is None:
             del self._items[namespace]
             del self._index[namespace]
-            return True
+            return
         if key not in self._items[namespace]:
-            return False
+            raise KeyError(f"workspace item not found: ({namespace!r}, {key!r})")
         del self._items[namespace][key]
         del self._index[namespace][key]
         if not self._items[namespace]:
             del self._items[namespace]
             del self._index[namespace]
-        return True
 
     def merge_from(self, other: "AnalysisWorkspace", overwrite: bool = False) -> dict:
         """Copy all items from another workspace into this one.
@@ -623,13 +628,17 @@ class LazyAnalysisWorkspace(AnalysisWorkspace):
                 Set to True to silently overwrite the existing entry.
 
         Returns:
-            success (bool): True if renamed, False if namespace or
-                old_key not found or rename was blocked by existing key.
+            success (bool): True if renamed, False if the rename was
+                blocked because ``new_key`` already exists and
+                ``overwrite=False``.
+
+        Raises:
+            KeyError: If ``(namespace, old_key)`` does not exist.
         """
         from .hdf5_io import delete_item_from_file, dump_item_to_file
 
         if namespace not in self._index or old_key not in self._index[namespace]:
-            return False
+            raise KeyError(f"workspace item not found: ({namespace!r}, {old_key!r})")
         if not overwrite and new_key in self._index[namespace]:
             warnings.warn(
                 f"Key '{new_key}' already exists in namespace '{namespace}'. "
@@ -640,7 +649,7 @@ class LazyAnalysisWorkspace(AnalysisWorkspace):
 
         obj = self.get(namespace, old_key)
         if obj is None:
-            return False
+            raise KeyError(f"workspace item not found: ({namespace!r}, {old_key!r})")
 
         old_entry = self._index[namespace][old_key]
         dump_item_to_file(
@@ -656,7 +665,25 @@ class LazyAnalysisWorkspace(AnalysisWorkspace):
         self._index[namespace][new_key] = self._index[namespace].pop(old_key)
         return True
 
-    def delete(self, namespace: str, key: Optional[str] = None) -> bool:
+    def add_note(self, namespace: str, key: str, note: str) -> None:
+        """Attach a note to a lazy-workspace item, persisting it to disk.
+
+        Parameters:
+            namespace (str): Namespace containing the target item.
+            key (str): Item key within the namespace.
+            note (str): Note text to attach.
+
+        Raises:
+            KeyError: If the item ``(namespace, key)`` does not exist.
+        """
+        from .hdf5_io import set_note_in_file
+
+        if namespace not in self._index or key not in self._index[namespace]:
+            raise KeyError(f"workspace item not found: ({namespace!r}, {key!r})")
+        set_note_in_file(self._h5_path, namespace, key, note)
+        self._index[namespace][key]["note"] = note
+
+    def delete(self, namespace: str, key: Optional[str] = None) -> None:
         """Delete a single item or an entire namespace from the temp file and index.
 
         Parameters:
@@ -664,24 +691,26 @@ class LazyAnalysisWorkspace(AnalysisWorkspace):
             key (str | None): Key to delete. If None, deletes the entire
                 namespace.
 
-        Returns:
-            success (bool): True if deleted, False if not found.
+        Raises:
+            KeyError: If the namespace (or, when ``key`` is given,
+                the ``(namespace, key)`` item) does not exist.
         """
         from .hdf5_io import delete_item_from_file
 
         if namespace not in self._index:
-            return False
+            if key is None:
+                raise KeyError(f"workspace namespace not found: {namespace!r}")
+            raise KeyError(f"workspace item not found: ({namespace!r}, {key!r})")
         if key is None:
             del self._index[namespace]
             delete_item_from_file(self._h5_path, namespace)
-            return True
+            return
         if key not in self._index[namespace]:
-            return False
+            raise KeyError(f"workspace item not found: ({namespace!r}, {key!r})")
         del self._index[namespace][key]
         if not self._index[namespace]:
             del self._index[namespace]
         delete_item_from_file(self._h5_path, namespace, key)
-        return True
 
     # ------------------------------------------------------------------
     # Persistence
@@ -781,20 +810,19 @@ class WorkspaceManager:
         with self._lock:
             return self._workspaces.get(workspace_id)
 
-    def delete_workspace(self, workspace_id: str) -> bool:
+    def delete_workspace(self, workspace_id: str) -> None:
         """Delete a workspace and all its contents.
 
         Parameters:
             workspace_id (str): UUID of the workspace to delete.
 
-        Returns:
-            success (bool): True if deleted, False if not found.
+        Raises:
+            KeyError: If ``workspace_id`` is not registered.
         """
         with self._lock:
-            if workspace_id in self._workspaces:
-                del self._workspaces[workspace_id]
-                return True
-            return False
+            if workspace_id not in self._workspaces:
+                raise KeyError(f"workspace not found: {workspace_id!r}")
+            del self._workspaces[workspace_id]
 
     def list_workspaces(self) -> List[dict]:
         """List all registered workspaces with summary information.

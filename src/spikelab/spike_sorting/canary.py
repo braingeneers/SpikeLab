@@ -56,7 +56,10 @@ from typing import Any, Optional
 
 import numpy as np
 
-from ._exceptions import CLASSIFIED_FAILURES as _CLASSIFIED_FAILURES
+from ._exceptions import (
+    CLASSIFIED_FAILURES as _CLASSIFIED_FAILURES,
+    EnvironmentSortFailure,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -237,9 +240,15 @@ def run_canary(
 
     started_t = time.monotonic()
     try:
-        from .backends import get_backend_class
+        from .backends import get_backend_class, list_sorters
         from .pipeline import process_recording
 
+        known_sorters = list_sorters()
+        if sorter not in known_sorters:
+            raise EnvironmentSortFailure(
+                f"unknown sorter name: {sorter!r}. "
+                f"Known sorters: {sorted(known_sorters)}"
+            )
         backend_cls = get_backend_class(sorter)
         canary_backend = backend_cls(canary_config)
 

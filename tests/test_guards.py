@@ -7319,63 +7319,45 @@ class TestLogInactivityWatchdogOnTripSubprocess:
 
 
 class TestDiskUsageWatchdogConstructionNegatives:
-    """``DiskUsageWatchdog`` accepts both-negative thresholds silently."""
+    """``DiskUsageWatchdog`` rejects negative threshold inputs."""
 
-    def test_both_negative_thresholds_silently_disable(self, tmp_path):
+    def test_both_negative_thresholds_raise(self, tmp_path):
         """
-        Both ``warn_free_gb`` and ``abort_free_gb`` negative passes the
-        ordering check (warn > abort) but disables via the
-        ``abort_free_gb > 0`` gate.
+        Both ``warn_free_gb`` and ``abort_free_gb`` negative raises a
+        ``ValueError`` at construction.
 
         Tests:
-            (Test Case 1) ``warn=-0.5, abort=-1.0`` constructs without
-                raising and ``_enabled`` is False (no-op watchdog).
-
-        Notes:
-            - Documents current behaviour: both-negative inputs do not
-              raise; the watchdog is silently disabled. Worth flagging
-              if strict validation is later added.
+            (Test Case 1) ``warn=-0.5, abort=-1.0`` raises
+                ``ValueError`` whose message contains ``"must be >= 0"``.
         """
-        wd = DiskUsageWatchdog(
-            folder=tmp_path,
-            warn_free_gb=-0.5,
-            abort_free_gb=-1.0,
-            kill_callback=lambda: None,
-        )
-        assert wd._enabled is False
-        assert wd.warn_free_gb == -0.5
-        assert wd.abort_free_gb == -1.0
+        with pytest.raises(ValueError, match="must be >= 0"):
+            DiskUsageWatchdog(
+                folder=tmp_path,
+                warn_free_gb=-0.5,
+                abort_free_gb=-1.0,
+                kill_callback=lambda: None,
+            )
 
 
 class TestDiskUsageWatchdogProjectedNeedNan:
-    """``DiskUsageWatchdog`` handles NaN ``projected_need_gb``."""
+    """``DiskUsageWatchdog`` rejects NaN ``projected_need_gb``."""
 
-    def test_nan_projected_need_does_not_crash_construction(self, tmp_path):
+    def test_nan_projected_need_raises(self, tmp_path):
         """
-        NaN ``projected_need_gb`` is stored as NaN (``float(nan)``)
-        and the constructor does not raise.
+        NaN ``projected_need_gb`` raises ``ValueError`` at construction.
 
         Tests:
-            (Test Case 1) ``projected_need_gb=float('nan')``
-                constructs successfully.
-            (Test Case 2) The stored attribute is NaN.
-
-        Notes:
-            - Documents current behaviour: NaN is accepted at
-              construction. Downstream comparisons (``> free_gb``) are
-              False for NaN so the projection-based suggestion does
-              not fire on NaN — but it would surface in formatted
-              messages as "nan GB" if it ever did.
+            (Test Case 1) ``projected_need_gb=float('nan')`` raises
+                ``ValueError`` whose message contains ``"must not be NaN"``.
         """
-        wd = DiskUsageWatchdog(
-            folder=tmp_path,
-            warn_free_gb=5.0,
-            abort_free_gb=1.0,
-            projected_need_gb=float("nan"),
-            kill_callback=lambda: None,
-        )
-        assert wd.projected_need_gb is not None
-        assert math.isnan(wd.projected_need_gb)
+        with pytest.raises(ValueError, match="must not be NaN"):
+            DiskUsageWatchdog(
+                folder=tmp_path,
+                warn_free_gb=5.0,
+                abort_free_gb=1.0,
+                projected_need_gb=float("nan"),
+                kill_callback=lambda: None,
+            )
 
 
 class TestGpuMemoryWatchdogThermalAsymmetric:
@@ -7517,22 +7499,20 @@ class TestSortLockEdges:
         result = lock_mod._pid_holds_lock(123, "yesterday")
         assert result is True  # mirrors _pid_alive's stub
 
-    def test_mkdir_failure_propagates(self, monkeypatch, tmp_path):
+    def test_mkdir_failure_wrapped_in_concurrent_sort_error(
+        self, monkeypatch, tmp_path
+    ):
         """
-        ``acquire_sort_lock`` does not wrap the initial
-        ``folder.mkdir`` — a permission error on a read-only mount
-        propagates as the raw ``OSError`` rather than a classified
-        ``ConcurrentSortError``.
+        ``acquire_sort_lock`` wraps an mkdir failure in a classified
+        ``ConcurrentSortError`` with the original ``PermissionError``
+        chained via ``__cause__``.
 
         Tests:
             (Test Case 1) Patched ``Path.mkdir`` raising
-                ``PermissionError`` propagates out of the context
-                manager entry.
-
-        Notes:
-            - Documents current behaviour. The edge-case scan flags
-              this as a potential ergonomic improvement (wrap the
-              mkdir failure in a classified error).
+                ``PermissionError`` surfaces as ``ConcurrentSortError``
+                whose message contains ``"failed to acquire sort lock"``.
+            (Test Case 2) ``excinfo.value.__cause__`` is the original
+                ``PermissionError``.
         """
         real_mkdir = Path.mkdir
 
@@ -7542,40 +7522,31 @@ class TestSortLockEdges:
             return real_mkdir(self, *args, **kwargs)
 
         monkeypatch.setattr(Path, "mkdir", _refuse)
-        with pytest.raises(PermissionError):
+        with pytest.raises(
+            ConcurrentSortError, match="failed to acquire sort lock"
+        ) as excinfo:
             with acquire_sort_lock(tmp_path / "ro_folder"):
                 pass
+        assert isinstance(excinfo.value.__cause__, PermissionError)
 
 
 class TestCanaryGetBackendClassRaises:
-    """``run_canary`` swallows backend-lookup exceptions."""
+    """``run_canary`` surfaces unknown-sorter-name as classified failure."""
 
-    def test_unknown_sorter_returns_none(self, tmp_path, monkeypatch):
+    def test_unknown_sorter_returns_environment_sort_failure(self, tmp_path):
         """
-        When ``get_backend_class`` raises (e.g. unknown sorter
-        name), ``run_canary`` treats it as a non-classified failure
-        and returns None so the full sort still proceeds.
+        ``run_canary`` checks the sorter name against ``list_sorters()``
+        before calling ``get_backend_class``; an unknown name raises
+        ``EnvironmentSortFailure`` which the ``_CLASSIFIED_FAILURES``
+        handler catches and returns as the result.
 
         Tests:
-            (Test Case 1) Patched ``get_backend_class`` raising
-                ``ValueError`` does not propagate out of
-                ``run_canary``.
-            (Test Case 2) The function returns None.
-
-        Notes:
-            - Documents current behaviour (the canary is a smoke
-              test, not a hard gate). Edge-case scan flags this as
-              a potential improvement: a typo'd sorter name would
-              also crash the full sort, so catching at the canary
-              and proceeding is somewhat misleading.
+            (Test Case 1) Unknown sorter name returns an
+                ``EnvironmentSortFailure`` instance from ``run_canary``.
+            (Test Case 2) The result string contains
+                ``"unknown sorter name"``.
         """
         from spikelab.spike_sorting import canary as canary_mod
-        from spikelab.spike_sorting import backends as backends_mod
-
-        def _raise_unknown(_name):
-            raise ValueError("simulated unknown sorter")
-
-        monkeypatch.setattr(backends_mod, "get_backend_class", _raise_unknown)
 
         cfg = SimpleNamespace(
             execution=SimpleNamespace(canary_first_n_s=5.0),
@@ -7593,7 +7564,8 @@ class TestCanaryGetBackendClassRaises:
             sorter_name="not_a_real_sorter",
             rec_name="canary",
         )
-        assert result is None
+        assert isinstance(result, EnvironmentSortFailure)
+        assert "unknown sorter name" in str(result)
 
 
 # ===========================================================================
@@ -7992,25 +7964,21 @@ class TestLogInactivityWatchdogContextEdges:
 class TestValidateRecordingInputsEdges:
     """``_validate_recording_inputs`` boundary cases."""
 
-    def test_none_entry_skipped_as_pre_loaded(self):
+    def test_none_entry_raises(self):
         """
-        ``None`` is not a ``str``/``Path``, so the helper treats it
-        as a pre-loaded recording and skips it (no finding).
+        ``None`` in the recording inputs list raises ``ValueError``
+        flagging the caller bug.
 
         Tests:
-            (Test Case 1) Single ``None`` entry → empty findings.
-
-        Notes:
-            - Documents current behaviour. Edge-case scan flags this
-              as a potential improvement: a None caller-bug entry
-              could surface a clearer error.
+            (Test Case 1) Single ``None`` entry raises ``ValueError``
+                whose message contains ``"caller bug"``.
         """
         from spikelab.spike_sorting.guards._preflight import (
             _validate_recording_inputs,
         )
 
-        findings = _validate_recording_inputs([None])
-        assert findings == []
+        with pytest.raises(ValueError, match="caller bug"):
+            _validate_recording_inputs([None])
 
     def test_no_extension_path_yields_unfamiliar_warning(self, tmp_path):
         """
@@ -12063,21 +12031,21 @@ class TestPreflightCheckSorterDependenciesEmpty:
 
 
 class TestPreflightCheckRtSortCudaRaisePropagates:
-    """``_check_rt_sort`` propagates ``torch.cuda.is_available()`` failures."""
+    """``_check_rt_sort`` surfaces cuda runtime errors as environment findings."""
 
-    def test_cuda_is_available_raise_propagates(self, monkeypatch):
+    def test_cuda_runtime_error_surfaces_as_environment_finding(self, monkeypatch):
         """
-        The cuda branch only catches ``ImportError`` — if
-        ``torch.cuda.is_available()`` raises ``RuntimeError`` (driver
-        crashed mid-process) the exception escapes out of the
-        preflight helper. Documents current behaviour; a future
-        change would widen the catch.
+        When ``torch.cuda.is_available()`` raises ``RuntimeError``
+        (e.g. driver crashed mid-process), ``_check_rt_sort`` appends
+        a fail-level ``sorter_dependency_missing`` environment finding
+        rather than letting the exception escape.
 
         Tests:
-            (Test Case 1) Mark deps present via ``find_spec``; stub
-                torch with a ``cuda.is_available`` that raises
-                ``RuntimeError`` → ``_check_rt_sort`` lets the error
-                propagate.
+            (Test Case 1) The call returns a list of
+                ``PreflightFinding`` (no exception).
+            (Test Case 2) Exactly one finding has ``level='fail'``,
+                ``code='sorter_dependency_missing'``,
+                ``category='environment'``.
         """
         import importlib.util as _importutil
 
@@ -12110,8 +12078,17 @@ class TestPreflightCheckRtSortCudaRaisePropagates:
         cfg = SimpleNamespace(
             rt_sort=SimpleNamespace(device="cuda:0"),
         )
-        with pytest.raises(RuntimeError, match="driver crash"):
-            pf._check_rt_sort(cfg)
+        findings = pf._check_rt_sort(cfg)
+        assert isinstance(findings, list)
+        assert all(isinstance(f, PreflightFinding) for f in findings)
+        matching = [
+            f
+            for f in findings
+            if f.level == "fail"
+            and f.code == "sorter_dependency_missing"
+            and f.category == "environment"
+        ]
+        assert len(matching) == 1
 
 
 class TestFindTrippedGlobalWatchdogPriority:

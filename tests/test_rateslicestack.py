@@ -2031,49 +2031,47 @@ class TestSliceToSliceTimeCorr:
 class TestGetUnitTimingPerSlice:
     """Edge case tests for RateSliceStack.get_unit_timing_per_slice."""
 
-    def test_all_nan_slice_argmax_on_nan(self):
+    def test_all_nan_slice_produces_nan(self):
         """
-        All-NaN slice data produces potentially wrong results from np.argmax.
-
-        np.argmax on an all-NaN array returns 0 (the index of the first NaN),
-        which is indistinguishable from a legitimate peak at time bin 0. However,
-        get_unit_timing_per_slice uses np.max to check the threshold, and
-        np.max of all-NaN returns NaN. Since NaN < threshold is False, the unit
-        is correctly marked as NaN in the output.
+        All-NaN unit time vectors produce NaN in the timing matrix (matching
+        the documented contract that inactive units are marked NaN).
 
         Tests:
-            (Test Case 1) Units with all-NaN data in a slice get NaN timing.
-            (Test Case 2) Units with valid data in the same stack get valid timing.
-
-        Notes:
-            np.argmax on all-NaN returns 0 with no warning, but
-            get_unit_timing_per_slice correctly handles this because the
-            threshold check (np.max < MIN_RATE_THRESHOLD) catches it:
-            np.max of all-NaN is NaN, and NaN < threshold evaluates to
-            False, so the mask does not override NaN entries to NaN
-            (they remain as argmax output). However, since the actual
-            max rate is NaN, the comparison NaN < 0.1 is False, meaning
-            the threshold mask does NOT set these to NaN. The argmax
-            result (0) leaks through as a seemingly valid peak time.
-            This is a potential silent bug.
+            (Test Case 1) Units with all-NaN data in every slice get NaN timing.
+            (Test Case 2) A mixed stack where one unit is all-NaN and another
+                has valid data — the valid unit still gets a real timing while
+                the all-NaN unit gets NaN.
         """
+        # Test Case 1: unit 0 is all-NaN across all slices
         rng = np.random.default_rng(0)
         mat = rng.random((3, 20, 4)) + 0.5
-        # Make unit 0 all-NaN in all slices
         mat[0, :, :] = np.nan
         rss = RateSliceStack(event_matrix=mat)
 
-        tm = rss.get_unit_timing_per_slice(MIN_RATE_THRESHOLD=0.1)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            tm = rss.get_unit_timing_per_slice(MIN_RATE_THRESHOLD=0.1)
 
         assert tm.shape == (3, 4)
         # Units 1 and 2 should have valid timing
         assert np.all(~np.isnan(tm[1, :]))
         assert np.all(~np.isnan(tm[2, :]))
-        # Unit 0 (all-NaN): np.max of all-NaN is NaN, and NaN < 0.1 is False,
-        # so the threshold mask does NOT set these to NaN. np.argmax returns 0.
-        # This means unit 0 gets a timing value of 0.0 instead of NaN — a silent bug.
-        # The values are argmax results (0) since NaN < threshold is False.
-        np.testing.assert_array_equal(tm[0, :], 0.0)
+        # Unit 0 (all-NaN) should be NaN in every slice
+        assert np.all(np.isnan(tm[0, :]))
+
+        # Test Case 2: mixed all-NaN + valid unit
+        mat2 = np.zeros((2, 10, 1))
+        mat2[0, :, 0] = np.nan  # all-NaN unit
+        mat2[1, 5, 0] = 2.0  # valid unit with a clear peak at index 5
+        rss2 = RateSliceStack(event_matrix=mat2)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            tm2 = rss2.get_unit_timing_per_slice(MIN_RATE_THRESHOLD=0.1)
+
+        assert tm2.shape == (2, 1)
+        assert np.isnan(tm2[0, 0])
+        assert not np.isnan(tm2[1, 0])
 
     def test_negative_firing_rates(self):
         """
