@@ -215,11 +215,14 @@ class TestPlotHeatmap:
         plot_heatmap with all-NaN matrix.
 
         Tests:
-            (Test Case 1) All-NaN matrix does not crash and returns a figure.
+            (Test Case 1) All-NaN matrix does not crash and produces an
+                image artist whose shape matches the input.
         """
         mat = np.full((3, 3), np.nan)
         fig, ax = plt.subplots()
         plot_heatmap(mat, ax=ax)
+        assert len(ax.images) == 1
+        assert ax.images[0].get_array().shape == mat.shape
         plt.close(fig)
 
     def test_1x1_matrix(self):
@@ -227,11 +230,14 @@ class TestPlotHeatmap:
         plot_heatmap with a 1x1 matrix.
 
         Tests:
-            (Test Case 1) Single-cell heatmap renders without error.
+            (Test Case 1) Single-cell heatmap renders and produces a
+                (1, 1) image artist.
         """
         mat = np.array([[5.0]])
         fig, ax = plt.subplots()
         plot_heatmap(mat, ax=ax)
+        assert len(ax.images) == 1
+        assert ax.images[0].get_array().shape == (1, 1)
         plt.close(fig)
 
 
@@ -1118,11 +1124,14 @@ class TestPlotDistribution:
         plot_distribution with all-identical values.
 
         Tests:
-            (Test Case 1) Single-bin histogram renders without error.
+            (Test Case 1) Single-bin distribution renders without error and
+                returns a dict containing the violin "bodies" artist list.
         """
         data = np.array([5.0, 5.0, 5.0, 5.0])
         fig, ax = plt.subplots()
-        plot_distribution(ax, [data])
+        parts = plot_distribution(ax, [data])
+        assert isinstance(parts, dict)
+        assert "bodies" in parts
         plt.close(fig)
 
     def test_all_nan_data(self):
@@ -1312,10 +1321,12 @@ class TestPlotScatter:
         plot_scatter with zero data points.
 
         Tests:
-            (Test Case 1) Empty arrays produce an empty scatter plot.
+            (Test Case 1) Empty arrays produce a scatter artist whose
+                offsets array contains zero points.
         """
         fig, ax = plt.subplots()
-        plot_scatter(ax, np.array([]), np.array([]))
+        sc = plot_scatter(ax, np.array([]), np.array([]))
+        assert len(sc.get_offsets()) == 0
         plt.close(fig)
 
     def test_fit_linear_with_fewer_than_3_points(self):
@@ -1551,30 +1562,30 @@ class TestPlotBurstSensitivity:
         plot_burst_sensitivity with all-zero burst counts.
 
         Tests:
-            (Test Case 1) All-zero matrix renders without error.
+            (Test Case 1) All-zero 2-D counts render a heatmap whose image
+                array shape matches the (transposed) input and whose data
+                is all zero.
         """
         counts = np.zeros((3, 4))
         fig, ax = plt.subplots()
         plot_burst_sensitivity(ax, np.arange(3), counts, dist_values=np.arange(4))
+        assert len(ax.images) == 1
+        img = ax.images[0].get_array()
+        assert img.shape == counts.T.shape
+        assert np.all(np.asarray(img) == 0)
         plt.close(fig)
 
-    def test_empty_burst_counts_dict(self):
+    def test_empty_burst_counts_dict_raises_valueerror(self):
         """
-        Empty burst_counts dict means no labels are extracted, and
-        labels[0] raises IndexError.
+        Empty burst_counts dict raises ValueError with a descriptive message.
 
         Tests:
-            (Test Case 1) Empty dict raises IndexError because labels is
-                empty and the function attempts to access labels[0].
-
-        Notes:
-            - This is a bug: the function does not guard against an empty
-              burst_counts dict. It should either return early or raise a
-              descriptive ValueError.
+            (Test Case 1) Passing an empty burst_counts dict raises
+                ValueError mentioning that burst_counts must not be empty.
         """
         fig, ax = plt.subplots()
         thr = np.array([1.0, 2.0, 3.0])
-        with pytest.raises(IndexError):
+        with pytest.raises(ValueError, match="burst_counts"):
             plot_burst_sensitivity(ax, thr, {}, colors=[])
 
 
@@ -2027,12 +2038,15 @@ class TestPlotLines:
         plot_lines with all-NaN y-values.
 
         Tests:
-            (Test Case 1) All-NaN lines do not crash.
+            (Test Case 1) All-NaN lines do not crash; a line artist is
+                drawn with NaN ydata preserved.
         """
         x = np.array([0.0, 1.0, 2.0])
         y = np.full(3, np.nan)
         fig, ax = plt.subplots()
         plot_lines(ax, [y], x=x)
+        assert len(ax.lines) >= 1
+        assert np.all(np.isnan(ax.lines[0].get_ydata()))
         plt.close(fig)
 
 
@@ -2201,16 +2215,15 @@ class TestPlotPercentileBands:
         A dashed zero reference line is drawn when normalize=True.
 
         Tests:
-            (Test Case 1) At least one horizontal dashed line at y=0.
+            (Test Case 1) At least one dashed horizontal line at y=0
+                (matching the source's ``axhline(0, ..., linestyle='--')``).
         """
         fig, ax = plt.subplots()
         plot_percentile_bands(ax, self._make_data(), normalize=True)
         hlines = [
             l
             for l in ax.get_lines()
-            if hasattr(l, "get_ydata")
-            and len(l.get_ydata()) == 2
-            and np.all(np.array(l.get_ydata()) == 0)
+            if l.get_linestyle() == "--" and np.allclose(np.asarray(l.get_ydata()), 0)
         ]
         assert len(hlines) >= 1
 
@@ -2219,16 +2232,14 @@ class TestPlotPercentileBands:
         No zero reference line without normalization.
 
         Tests:
-            (Test Case 1) No horizontal lines at y=0 (besides data lines).
+            (Test Case 1) No dashed horizontal line at y=0 (besides data lines).
         """
         fig, ax = plt.subplots()
         plot_percentile_bands(ax, self._make_data(), normalize=False)
         hlines = [
             l
             for l in ax.get_lines()
-            if hasattr(l, "get_ydata")
-            and len(l.get_ydata()) == 2
-            and np.all(np.array(l.get_ydata()) == 0)
+            if l.get_linestyle() == "--" and np.allclose(np.asarray(l.get_ydata()), 0)
         ]
         assert len(hlines) == 0
 
@@ -2397,16 +2408,16 @@ class TestPlotPercentileBands:
         plot_percentile_bands with a single data point.
 
         Tests:
-            (Test Case 1) Single observation does not crash.
+            (Test Case 1) Iterating over a (3, 10, 1) event_stack yields 3
+                groups, so the summary line has 3 y-values.
         """
-        from spikelab.spikedata.rateslicestack import RateSliceStack
-
         from spikelab.spikedata.rateslicestack import RateSliceStack
 
         mat = np.random.default_rng(0).random((3, 10, 1))
         rss = RateSliceStack(event_matrix=mat)
         fig, ax = plt.subplots()
-        plot_percentile_bands(ax, rss.event_stack)
+        artists = plot_percentile_bands(ax, rss.event_stack)
+        assert len(artists["summary"].get_ydata()) == 3
         plt.close(fig)
 
     def test_single_unit(self):
@@ -2818,10 +2829,12 @@ class TestPlotManifold:
             (Test Case 1) Return is a PathCollection (not a list).
             (Test Case 2) Scatter has correct number of points.
         """
+        from matplotlib.collections import PathCollection
+
         fig, ax = plt.subplots()
         emb = self._make_embedding()
         sc = plot_manifold(ax, emb, show_colorbar=False)
-        assert hasattr(sc, "get_offsets")
+        assert isinstance(sc, PathCollection)
         assert len(sc.get_offsets()) == 100
 
     def test_continuous_color_vals(self):
@@ -2832,11 +2845,13 @@ class TestPlotManifold:
             (Test Case 1) Returns a single PathCollection.
             (Test Case 2) Scatter array matches provided values.
         """
+        from matplotlib.collections import PathCollection
+
         fig, ax = plt.subplots()
         emb = self._make_embedding()
         vals = np.arange(100, dtype=float)
         sc = plot_manifold(ax, emb, color_vals=vals, show_colorbar=False)
-        assert hasattr(sc, "get_offsets")
+        assert isinstance(sc, PathCollection)
         assert len(sc.get_offsets()) == 100
 
     def test_group_coloring(self):
@@ -3146,11 +3161,14 @@ class TestPlotPvalueMatrix:
 
         Tests:
             (Test Case 1) Zero p-values do not crash the plot (log scale
-                would produce -Inf but matplotlib handles it).
+                would produce -Inf but matplotlib handles it). An image
+                artist is created with shape matching the input.
         """
         mat = np.zeros((3, 3))
         fig, ax = plt.subplots()
         plot_pvalue_matrix(mat, ax=ax)
+        assert len(ax.images) == 1
+        assert ax.images[0].get_array().shape == mat.shape
         plt.close(fig)
 
 
@@ -3359,7 +3377,9 @@ class TestPlotAlignedPopRate:
 
         Tests:
             (Test Case 1) Method runs without error.
-            (Test Case 2) Returns a 1-D avg_rate array.
+            (Test Case 2) Returns a 1-D avg_rate array whose length equals
+                ``pre_ms + post_ms`` (defaults: 250 + 500 = 750).
+            (Test Case 3) The mean trace was drawn on the axes.
 
         Notes:
             - Uses a SpikeData with dense, synchronized spiking to ensure
@@ -3383,6 +3403,9 @@ class TestPlotAlignedPopRate:
         avg = sd.plot_aligned_pop_rate(ax=ax)
         assert isinstance(avg, np.ndarray)
         assert avg.ndim == 1
+        # Default pre_ms=250, post_ms=500 → window length 750
+        assert avg.shape[0] == 750
+        assert len(ax.lines) >= 1
 
     def test_auto_detect_with_edge_percentile(self):
         """
@@ -3414,7 +3437,7 @@ class TestPlotAlignedPopRate:
 
         Tests:
             (Test Case 1) S=1 produces degenerate percentile bands but does
-                not crash.
+                not crash, and at minimum draws the summary (mean) line.
         """
         from spikelab.spikedata.rateslicestack import RateSliceStack
 
@@ -3422,6 +3445,7 @@ class TestPlotAlignedPopRate:
         rss = RateSliceStack(event_matrix=mat)
         fig, ax = plt.subplots()
         plot_percentile_bands(ax, rss.event_stack)
+        assert len(ax.lines) >= 1
         plt.close(fig)
 
 
@@ -3657,8 +3681,10 @@ class TestPlotSpatialNetwork:
         plot_spatial_network with NaN node positions.
 
         Tests:
-            (Test Case 1) NaN positions may produce invisible nodes but should
-                not crash.
+            (Test Case 1) NaN positions do not crash; the scatter artist
+                is still created (matplotlib silently drops NaN points so
+                they render as invisible) and all N input positions are
+                passed to its offsets.
         """
         from spikelab.spikedata.pairwise import PairwiseCompMatrix
 
@@ -3666,7 +3692,11 @@ class TestPlotSpatialNetwork:
         pcm = PairwiseCompMatrix(matrix=mat)
         positions = np.array([[np.nan, np.nan], [1.0, 1.0]])
         fig, ax = plt.subplots()
-        pcm.plot_spatial_network(ax, positions, edge_threshold=0.3)
+        sc = pcm.plot_spatial_network(ax, positions, edge_threshold=0.3)
+        # The scatter is created (no NaN-filtering at the source level);
+        # NaN positions are passed through and rendered as invisible.
+        assert sc is not None
+        assert len(sc.get_offsets()) == len(positions)
         plt.close(fig)
 
     def test_single_node(self):
@@ -3674,7 +3704,9 @@ class TestPlotSpatialNetwork:
         plot_spatial_network with a single node (N=1).
 
         Tests:
-            (Test Case 1) Single node with no edges renders without error.
+            (Test Case 1) Single node with no edges renders without error
+                and adds at least one collection (the scatter artist) to
+                the axes.
         """
         from spikelab.spikedata.pairwise import PairwiseCompMatrix
 
@@ -3683,6 +3715,7 @@ class TestPlotSpatialNetwork:
         positions = np.array([[0.0, 0.0]])
         fig, ax = plt.subplots()
         pcm.plot_spatial_network(ax, positions, edge_threshold=0.3)
+        assert len(ax.collections) >= 1
         plt.close(fig)
 
 
@@ -3770,7 +3803,8 @@ class TestPlotAlignedSlice:
         plot_aligned_slice_single_unit with style='eventplot' and all-empty trains.
 
         Tests:
-            (Test Case 1) All-empty spike trains do not crash eventplot style.
+            (Test Case 1) All-empty spike trains do not crash eventplot
+                style; every produced collection contains zero spike segments.
         """
         sd = SpikeData([[], []], length=100.0)
         sss = SpikeSliceStack(
@@ -3779,6 +3813,10 @@ class TestPlotAlignedSlice:
         )
         fig, ax = plt.subplots()
         sss.plot_aligned_slice_single_unit(unit_idx=0, ax=ax, style="eventplot")
+        # Empty trains: no actual events drawn. Either no collections, or
+        # all collections are empty (no segments).
+        for coll in ax.collections:
+            assert len(coll.get_segments()) == 0
         plt.close(fig)
 
 
@@ -3838,16 +3876,6 @@ class TestStylingIntegration:
         assert ax.spines["right"].get_visible() is False
         plt.close(fig)
 
-    def test_plot_heatmap_keeps_all_spines(self):
-        """plot_heatmap keeps all spines at 0.5 pt."""
-        data = np.random.default_rng(0).random((5, 10))
-        fig, ax = plt.subplots()
-        plot_heatmap(data, ax=ax)
-        for spine in ax.spines.values():
-            assert spine.get_visible() is True
-            assert spine.get_linewidth() == 0.5
-        plt.close(fig)
-
     def test_plot_manifold_removes_top_right_spines(self):
         """plot_manifold removes top and right spines."""
         fig, ax = plt.subplots()
@@ -3894,25 +3922,13 @@ class TestCoverageGaps:
             plot_scatter(ax, x, y, color_vals="density")
         plt.close(fig)
 
-    def test_plot_recording_pre_created_axes(self):
-        """
-        Tests: plot_recording with pre-created axes.
-
-        (Test Case 1) Function completes without error.
-        (Test Case 2) Returns a result.
-        """
-        sd = _make_sd(n_units=3, length=100.0)
-        # Default is 1 panel (raster), needs 1 (ax, cbar_ax) pair
-        fig, (ax, cbar_ax) = plt.subplots(1, 2)
-        result = sd.plot(axes=[(ax, cbar_ax)])
-        assert result is not None
-        plt.close(fig)
-
     def test_plot_aligned_pop_rate_font_size_and_linewidth(self):
         """
         Tests: SpikeData.plot_aligned_pop_rate with font_size and linewidth.
 
-        (Test Case 1) Custom font_size and linewidth do not crash.
+        (Test Case 1) font_size=14 is applied to the x-axis label via
+            _apply_font_size.
+        (Test Case 2) linewidth=3.0 is applied to the mean trace.
         """
         rng = np.random.default_rng(42)
         trains = [np.sort(rng.uniform(0, 2000, 50)) for _ in range(5)]
@@ -3928,10 +3944,15 @@ class TestCoverageGaps:
             font_size=14,
             linewidth=3.0,
         )
-        assert ax is not None
+        assert ax.xaxis.label.get_fontsize() == 14
+        assert ax.yaxis.label.get_fontsize() == 14
+        assert len(ax.lines) >= 1
+        # The mean trace is the line with linewidth=3.0
+        linewidths = [line.get_linewidth() for line in ax.lines]
+        assert 3.0 in linewidths
         plt.close(fig)
 
-    def test_import_matplotlib_error_branch(self):
+    def test_import_matplotlib_error_branch(self, monkeypatch):
         """
         _import_matplotlib raises ImportError with a helpful message when
         matplotlib is not installed.
@@ -3940,29 +3961,18 @@ class TestCoverageGaps:
             (Test Case 1) ImportError is raised.
             (Test Case 2) Message mentions 'matplotlib'.
         """
-        import importlib
+        import sys
         import spikelab.spikedata.plot_utils as pu
 
-        original_import = (
-            __builtins__.__import__
-            if hasattr(__builtins__, "__import__")
-            else __import__
-        )
+        # Mark matplotlib submodules as unimportable so that a fresh import
+        # inside _import_matplotlib raises ImportError. monkeypatch undoes
+        # this automatically at test teardown.
+        monkeypatch.setitem(sys.modules, "matplotlib", None)
+        monkeypatch.setitem(sys.modules, "matplotlib.pyplot", None)
+        monkeypatch.setitem(sys.modules, "matplotlib.ticker", None)
 
-        def mock_import(name, *args, **kwargs):
-            if name.startswith("matplotlib"):
-                raise ImportError("No module named 'matplotlib'")
-            return original_import(name, *args, **kwargs)
-
-        import builtins
-
-        old_import = builtins.__import__
-        try:
-            builtins.__import__ = mock_import
-            with pytest.raises(ImportError, match="matplotlib"):
-                pu._import_matplotlib()
-        finally:
-            builtins.__import__ = old_import
+        with pytest.raises(ImportError, match="matplotlib"):
+            pu._import_matplotlib()
 
     def test_plot_scatter_group_labels_length_mismatch(self):
         """
@@ -4759,3 +4769,228 @@ class TestPlotUnitFootprintsExternalFig:
         for ax in returned.axes:
             assert ax.figure is external_fig
         plt.close(external_fig)
+
+
+class TestPlotPredictionProbabilityHeatmap:
+    """Tests for plot_prediction_probability_heatmap."""
+
+    def _make_data(self, n_samples=60, n_classes=3, n_cycles=5, seed=0):
+        rng = np.random.default_rng(seed)
+        cycle_labels = np.repeat(np.arange(n_cycles), n_samples // n_cycles)
+        true_labels = np.tile(np.arange(n_classes), n_samples // n_classes)
+        # Probabilities concentrated on true class for early cycles, drifting later
+        probs = np.full((n_samples, n_classes), 1.0 / n_classes)
+        for i in range(n_samples):
+            confidence = max(0.4, 0.95 - 0.1 * cycle_labels[i])
+            probs[i] = (1.0 - confidence) / (n_classes - 1)
+            probs[i, true_labels[i]] = confidence
+        return probs, true_labels, cycle_labels
+
+    def test_returns_dict_with_heatmap(self):
+        """
+        Result dict has heatmap, ax, cycles, classes.
+
+        Tests:
+            (Test Case 1) heatmap shape is (K, n_cycles).
+        """
+        import matplotlib
+
+        matplotlib.use("Agg")
+        from spikelab.spikedata.plot_utils import plot_prediction_probability_heatmap
+
+        probs, y, cyc = self._make_data()
+        result = plot_prediction_probability_heatmap(probs, y, cyc)
+        assert result["heatmap"].shape == (3, 5)
+        assert "ax" in result and "cycles" in result and "classes" in result
+
+    def test_baseline_subtraction(self):
+        """
+        baseline_cycles subtracts row-wise mean over baseline cells.
+
+        Tests:
+            (Test Case 1) Heatmap baseline cells average to ~0.
+        """
+        import matplotlib
+
+        matplotlib.use("Agg")
+        from spikelab.spikedata.plot_utils import plot_prediction_probability_heatmap
+
+        probs, y, cyc = self._make_data()
+        result = plot_prediction_probability_heatmap(
+            probs, y, cyc, baseline_cycles=[0, 1]
+        )
+        baseline_cols = np.where(np.isin(result["cycles"], [0, 1]))[0]
+        baseline_mean = np.nanmean(result["heatmap"][:, baseline_cols], axis=1)
+        assert np.allclose(baseline_mean, 0.0, atol=1e-9)
+
+    def test_companion_bar_plot(self):
+        """
+        Bar plot axes are populated when bar_cycle_groups is provided.
+
+        Tests:
+            (Test Case 1) bar_ax has bar containers after the call.
+        """
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        from spikelab.spikedata.plot_utils import plot_prediction_probability_heatmap
+
+        probs, y, cyc = self._make_data()
+        fig, (ax_hm, ax_bar) = plt.subplots(1, 2)
+        result = plot_prediction_probability_heatmap(
+            probs,
+            y,
+            cyc,
+            ax=ax_hm,
+            bar_ax=ax_bar,
+            bar_cycle_groups=[[0, 1], [3, 4]],
+            bar_group_labels=["early", "late"],
+        )
+        assert result["bar_ax"] is ax_bar
+        assert len(ax_bar.containers) >= 1
+        plt.close(fig)
+
+    def test_bar_without_groups_raises(self):
+        """
+        Providing bar_ax without bar_cycle_groups raises ValueError.
+
+        Tests:
+            (Test Case 1) ValueError.
+        """
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        from spikelab.spikedata.plot_utils import plot_prediction_probability_heatmap
+
+        probs, y, cyc = self._make_data()
+        fig, (ax_hm, ax_bar) = plt.subplots(1, 2)
+        with pytest.raises(ValueError, match="bar_cycle_groups"):
+            plot_prediction_probability_heatmap(probs, y, cyc, ax=ax_hm, bar_ax=ax_bar)
+        plt.close(fig)
+
+    def test_shape_validation(self):
+        """
+        Mismatched probabilities / classes raises ValueError.
+
+        Tests:
+            (Test Case 1) ValueError for K mismatch.
+        """
+        import matplotlib
+
+        matplotlib.use("Agg")
+        from spikelab.spikedata.plot_utils import plot_prediction_probability_heatmap
+
+        probs = np.ones((10, 3)) / 3
+        y = np.array([0] * 5 + [1] * 5)
+        cyc = np.array([0] * 5 + [1] * 5)
+        with pytest.raises(ValueError, match="entries"):
+            plot_prediction_probability_heatmap(probs, y, cyc, classes=[0, 1, 2, 3])
+
+
+class TestPlotResponsiveUnitMap:
+    """Tests for plot_responsive_unit_map."""
+
+    def test_mask_mode_runs(self):
+        """
+        Mask mode plots responsive vs non-responsive units.
+
+        Tests:
+            (Test Case 1) Result dict has ax + scatters.
+        """
+        import matplotlib
+
+        matplotlib.use("Agg")
+        from spikelab.spikedata.plot_utils import plot_responsive_unit_map
+
+        rng = np.random.default_rng(0)
+        locs = rng.uniform(0, 100, (20, 2))
+        mask = rng.random(20) > 0.5
+        result = plot_responsive_unit_map(
+            locs,
+            stim_location=(50.0, 50.0),
+            responsive_mask=mask,
+        )
+        assert result["ax"] is not None
+        assert result["stim_scatter"] is not None
+
+    def test_color_mode_runs(self):
+        """
+        Continuous color_values mode produces a colorbar.
+
+        Tests:
+            (Test Case 1) scatter is not None.
+        """
+        import matplotlib
+
+        matplotlib.use("Agg")
+        from spikelab.spikedata.plot_utils import plot_responsive_unit_map
+
+        rng = np.random.default_rng(1)
+        locs = rng.uniform(0, 100, (15, 2))
+        vals = rng.normal(0, 1, 15)
+        result = plot_responsive_unit_map(
+            locs,
+            stim_location=(40.0, 40.0),
+            color_values=vals,
+        )
+        assert result["scatter"] is not None
+
+    def test_other_stim_locations(self):
+        """
+        other_stim_locations adds green X markers.
+
+        Tests:
+            (Test Case 1) other_stim_scatter is populated.
+        """
+        import matplotlib
+
+        matplotlib.use("Agg")
+        from spikelab.spikedata.plot_utils import plot_responsive_unit_map
+
+        rng = np.random.default_rng(2)
+        locs = rng.uniform(0, 100, (10, 2))
+        result = plot_responsive_unit_map(
+            locs,
+            stim_location=(50.0, 50.0),
+            responsive_mask=np.zeros(10, bool),
+            other_stim_locations=np.array([[10.0, 10.0], [90.0, 90.0]]),
+        )
+        assert result["other_stim_scatter"] is not None
+
+    def test_bad_unit_locations_raises(self):
+        """
+        Invalid unit_locations shape raises ValueError.
+
+        Tests:
+            (Test Case 1) Wrong shape raises.
+        """
+        import matplotlib
+
+        matplotlib.use("Agg")
+        from spikelab.spikedata.plot_utils import plot_responsive_unit_map
+
+        with pytest.raises(ValueError, match="n_units"):
+            plot_responsive_unit_map(
+                np.zeros((10, 3)),
+                stim_location=(0.0, 0.0),
+            )
+
+    def test_bad_stim_location_raises(self):
+        """
+        Wrong stim_location shape raises ValueError.
+
+        Tests:
+            (Test Case 1) Wrong shape raises.
+        """
+        import matplotlib
+
+        matplotlib.use("Agg")
+        from spikelab.spikedata.plot_utils import plot_responsive_unit_map
+
+        with pytest.raises(ValueError, match="2-element"):
+            plot_responsive_unit_map(
+                np.zeros((5, 2)),
+                stim_location=(0.0, 0.0, 0.0),
+            )

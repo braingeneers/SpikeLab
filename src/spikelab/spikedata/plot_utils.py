@@ -1355,6 +1355,9 @@ def plot_burst_sensitivity(
     elif not isinstance(burst_counts, dict):
         burst_counts = {"": np.asarray(burst_counts).ravel()}
 
+    if len(burst_counts) == 0:
+        raise ValueError("burst_counts dict must not be empty")
+
     if labels is None:
         labels = list(burst_counts.keys())
 
@@ -2800,3 +2803,381 @@ def plot_unit_footprints(
     elif show:
         plt.show()
     return fig
+
+
+def plot_prediction_probability_heatmap(
+    probabilities,
+    true_labels,
+    cycle_labels,
+    *,
+    classes=None,
+    baseline_cycles=None,
+    ax=None,
+    cmap=None,
+    show_colorbar=True,
+    bar_ax=None,
+    bar_cycle_groups=None,
+    bar_group_labels=None,
+    bar_colors=None,
+    cbar_label=None,
+):
+    """Heatmap of mean prediction probability per (true class, cycle).
+
+    For each cycle and each true stimulus class, computes the mean
+    probability the classifier assigned to that class for samples whose
+    true label matches. Optionally subtracts the mean probability over
+    a set of baseline cycles to highlight changes across stim rounds.
+
+    Cell ``(i, j)`` of the heatmap = mean ``proba[i, samples in cycle j
+    where true == classes[i]]``.
+
+    Parameters:
+        probabilities (np.ndarray): Predicted probabilities, shape
+            ``(n_samples, K)``. Columns must align with ``classes``.
+        true_labels (array-like): True labels per sample ``(n_samples,)``.
+        cycle_labels (array-like): Cycle index per sample ``(n_samples,)``.
+        classes (array-like or None): Class labels in column order of
+            ``probabilities``. When None, uses sorted unique values from
+            ``true_labels``.
+        baseline_cycles (array-like or None): Optional reference cycles
+            whose mean probability per (class, _) is subtracted from
+            every cell. When None, raw probabilities are shown.
+        ax (matplotlib.axes.Axes or None): Heatmap axes. Created when None.
+        cmap (str or None): Matplotlib colormap. Defaults to ``"viridis"``
+            for raw probabilities and ``"RdBu_r"`` for baseline-relative.
+        show_colorbar (bool): Add a colorbar to the heatmap.
+        bar_ax (matplotlib.axes.Axes or None): Optional companion bar plot
+            axes. When provided alongside ``bar_cycle_groups``, plots the
+            mean ± std prediction probability for each group.
+        bar_cycle_groups (list[array-like] or None): List of cycle index
+            groups. Each group is averaged and plotted as a bar with std
+            error bars. Required when ``bar_ax`` is provided.
+        bar_group_labels (list[str] or None): Per-group labels for the bar
+            plot. Defaults to indices.
+        bar_colors (list or None): Per-group bar colors.
+        cbar_label (str or None): Colorbar label override. Defaults to
+            "P(correct)" or "ΔP vs baseline".
+
+    Returns:
+        result (dict): ``{"heatmap": (K, n_cycles) array, "ax": ax,
+            "bar_ax": bar_ax or None, "cycles": (n_cycles,) array,
+            "classes": (K,) array}``.
+
+    Notes:
+        - Requires ``matplotlib``.
+        - When ``baseline_cycles`` is given, the heatmap shows
+          ``cell - mean(cell over baseline_cycles)`` per row. Cells whose
+          baseline is undefined (no baseline samples for that class) are
+          left as raw values for that row.
+    """
+    try:
+        import matplotlib.pyplot as plt
+    except ImportError as e:
+        raise ImportError(
+            "plot_prediction_probability_heatmap requires 'matplotlib'. "
+            "Install with: pip install matplotlib"
+        ) from e
+
+    probabilities = np.asarray(probabilities, dtype=float)
+    true_labels = np.asarray(true_labels).ravel()
+    cycle_labels = np.asarray(cycle_labels).ravel()
+
+    if probabilities.ndim != 2:
+        raise ValueError(
+            f"probabilities must be 2-D (n_samples, K); got shape {probabilities.shape}."
+        )
+    if not (len(probabilities) == len(true_labels) == len(cycle_labels)):
+        raise ValueError(
+            "probabilities, true_labels, and cycle_labels must all have the same length."
+        )
+
+    if classes is None:
+        classes = np.array(sorted(np.unique(true_labels)))
+    else:
+        classes = np.asarray(classes).ravel()
+    if probabilities.shape[1] != len(classes):
+        raise ValueError(
+            f"probabilities has {probabilities.shape[1]} columns but classes has {len(classes)} entries."
+        )
+
+    cycles = np.array(sorted(np.unique(cycle_labels)))
+    K = len(classes)
+
+    heatmap = np.full((K, len(cycles)), np.nan)
+    for j, c in enumerate(cycles):
+        cyc_mask = cycle_labels == c
+        if not cyc_mask.any():
+            continue
+        for i, cls in enumerate(classes):
+            cls_mask = cyc_mask & (true_labels == cls)
+            if not cls_mask.any():
+                continue
+            heatmap[i, j] = float(np.mean(probabilities[cls_mask, i]))
+
+    relative = baseline_cycles is not None
+    if relative:
+        baseline_cycles = np.asarray(baseline_cycles).ravel()
+        baseline_mask = np.isin(cycles, baseline_cycles)
+        if not baseline_mask.any():
+            raise ValueError(
+                "baseline_cycles does not overlap any of the cycles present "
+                "in cycle_labels."
+            )
+        baseline_means = np.nanmean(heatmap[:, baseline_mask], axis=1)
+        # Subtract row-wise; rows with all-NaN baseline get raw values
+        valid_rows = np.isfinite(baseline_means)
+        heatmap = heatmap.copy()
+        heatmap[valid_rows] = heatmap[valid_rows] - baseline_means[valid_rows, None]
+
+    if cmap is None:
+        cmap = "RdBu_r" if relative else "viridis"
+    if cbar_label is None:
+        cbar_label = "ΔP vs baseline" if relative else "P(correct)"
+
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(max(4, len(cycles) * 0.4 + 2), max(2, K * 0.5)))
+    if relative:
+        max_abs = np.nanmax(np.abs(heatmap))
+        vmin, vmax = (-max_abs, max_abs) if np.isfinite(max_abs) else (None, None)
+    else:
+        vmin, vmax = 0.0, 1.0
+    im = ax.imshow(
+        heatmap, aspect="auto", cmap=cmap, vmin=vmin, vmax=vmax, interpolation="nearest"
+    )
+    ax.set_xticks(np.arange(len(cycles)))
+    ax.set_xticklabels([str(c) for c in cycles])
+    ax.set_yticks(np.arange(K))
+    ax.set_yticklabels([str(c) for c in classes])
+    ax.set_xlabel("Cycle")
+    ax.set_ylabel("Stim class")
+    if show_colorbar:
+        cbar = ax.figure.colorbar(im, ax=ax)
+        cbar.set_label(cbar_label)
+
+    if bar_ax is not None:
+        if bar_cycle_groups is None:
+            raise ValueError("bar_cycle_groups must be provided when bar_ax is given.")
+        n_groups = len(bar_cycle_groups)
+        if bar_group_labels is None:
+            bar_group_labels = [f"group {i}" for i in range(n_groups)]
+        if bar_colors is None:
+            cmap_obj = plt.get_cmap("tab10")
+            bar_colors = [cmap_obj(i % 10) for i in range(n_groups)]
+
+        # bars: per group, mean across (classes x cycles_in_group) and std across same
+        means = np.empty(n_groups)
+        stds = np.empty(n_groups)
+        for g, group in enumerate(bar_cycle_groups):
+            group = np.asarray(group).ravel()
+            cols = np.where(np.isin(cycles, group))[0]
+            if cols.size == 0:
+                means[g] = np.nan
+                stds[g] = np.nan
+                continue
+            sub = heatmap[:, cols]
+            means[g] = float(np.nanmean(sub))
+            stds[g] = float(np.nanstd(sub))
+
+        x = np.arange(n_groups)
+        bar_ax.bar(x, means, yerr=stds, color=bar_colors, edgecolor="black")
+        bar_ax.set_xticks(x)
+        bar_ax.set_xticklabels(bar_group_labels, rotation=30, ha="right")
+        bar_ax.set_ylabel(cbar_label)
+        if relative:
+            bar_ax.axhline(0.0, color="gray", linewidth=0.5)
+
+    return {
+        "heatmap": heatmap,
+        "ax": ax,
+        "bar_ax": bar_ax,
+        "cycles": cycles,
+        "classes": classes,
+    }
+
+
+def plot_responsive_unit_map(
+    unit_locations,
+    stim_location,
+    *,
+    responsive_mask=None,
+    color_values=None,
+    other_stim_locations=None,
+    ax=None,
+    cmap="bwr",
+    vmin=None,
+    vmax=None,
+    show_colorbar=True,
+    cbar_label="metric",
+    nonresponsive_color="lightgray",
+    responsive_color="tab:red",
+    stim_marker_color="red",
+    other_stim_marker_color="green",
+    unit_marker_size=25,
+    stim_marker_size=200,
+    other_stim_marker_size=100,
+):
+    """Spatial map of unit locations highlighting responsive units around a stim.
+
+    Plots all units as scatter points at their (x, y) locations, marks the
+    target stimulus electrode with a large coloured X, and optionally marks
+    other stimulation electrodes in the same protocol. Either highlights
+    a boolean ``responsive_mask`` or colours units by a continuous
+    ``color_values`` metric.
+
+    Mirrors the spatial map pattern from ``plot_cut_causal.py:233-249``.
+
+    Parameters:
+        unit_locations (np.ndarray): ``(n_units, 2)`` array of (x, y)
+            positions in micrometres (or any consistent unit).
+        stim_location (array-like): ``(2,)`` (x, y) position of the
+            target stimulus electrode.
+        responsive_mask (array-like or None): ``(n_units,)`` boolean
+            mask of responsive units. When provided (and
+            ``color_values`` is None), responsive units are drawn in
+            ``responsive_color`` and the rest in ``nonresponsive_color``.
+        color_values (array-like or None): ``(n_units,)`` continuous
+            metric used to color units (e.g. response amplitude). When
+            provided, takes precedence over ``responsive_mask`` for
+            colouring; the mask still controls which units are drawn
+            (None = all units shown).
+        other_stim_locations (np.ndarray or None): ``(n_other, 2)`` (x, y)
+            positions of other stimulation electrodes to mark with green
+            X markers.
+        ax (matplotlib.axes.Axes or None): Plot axes. Created when None.
+        cmap (str): Colormap when ``color_values`` is provided.
+        vmin / vmax (float or None): Color scale limits. Defaults to a
+            symmetric range around 0 for diverging metrics.
+        show_colorbar (bool): Add a colorbar when ``color_values`` is
+            provided.
+        cbar_label (str): Colorbar label.
+        nonresponsive_color (str): Marker color for non-responsive units
+            in mask mode.
+        responsive_color (str): Marker color for responsive units in mask
+            mode.
+        stim_marker_color (str): Color of the target-stim X marker.
+        other_stim_marker_color (str): Color of other-stim X markers.
+        unit_marker_size (float): Scatter marker size for units.
+        stim_marker_size (float): Marker size for the target stim X.
+        other_stim_marker_size (float): Marker size for other-stim X.
+
+    Returns:
+        result (dict): ``{"ax": ax, "scatter": PathCollection,
+            "stim_scatter": PathCollection,
+            "other_stim_scatter": PathCollection or None}``.
+
+    Notes:
+        - Requires ``matplotlib``.
+        - Either ``responsive_mask`` or ``color_values`` (or both) is
+          required to give the units meaningful colour. Provide neither
+          to get a uniform-coloured layout.
+    """
+    try:
+        import matplotlib.pyplot as plt
+    except ImportError as e:
+        raise ImportError(
+            "plot_responsive_unit_map requires 'matplotlib'. "
+            "Install with: pip install matplotlib"
+        ) from e
+
+    unit_locations = np.asarray(unit_locations, dtype=float)
+    if unit_locations.ndim != 2 or unit_locations.shape[1] != 2:
+        raise ValueError(
+            f"unit_locations must be (n_units, 2); got shape {unit_locations.shape}."
+        )
+    stim_location = np.asarray(stim_location, dtype=float).ravel()
+    if stim_location.shape != (2,):
+        raise ValueError(
+            f"stim_location must be a 2-element (x, y) array; got shape {stim_location.shape}."
+        )
+    n_units = unit_locations.shape[0]
+
+    if ax is None:
+        _, ax = plt.subplots(figsize=(6, 6))
+
+    sc = None
+    if color_values is not None:
+        color_values = np.asarray(color_values, dtype=float).ravel()
+        if color_values.size != n_units:
+            raise ValueError(
+                f"color_values must have length n_units={n_units}; got {color_values.size}."
+            )
+        if vmin is None and vmax is None:
+            max_abs = float(np.nanmax(np.abs(color_values)))
+            vmin, vmax = -max_abs, max_abs
+        sc = ax.scatter(
+            unit_locations[:, 0],
+            unit_locations[:, 1],
+            c=color_values,
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+            s=unit_marker_size,
+        )
+        if show_colorbar:
+            cbar = ax.figure.colorbar(sc, ax=ax)
+            cbar.set_label(cbar_label)
+    elif responsive_mask is not None:
+        responsive_mask = np.asarray(responsive_mask, dtype=bool).ravel()
+        if responsive_mask.size != n_units:
+            raise ValueError(
+                f"responsive_mask must have length n_units={n_units}; got {responsive_mask.size}."
+            )
+        if (~responsive_mask).any():
+            ax.scatter(
+                unit_locations[~responsive_mask, 0],
+                unit_locations[~responsive_mask, 1],
+                c=nonresponsive_color,
+                s=unit_marker_size,
+                edgecolors="none",
+            )
+        if responsive_mask.any():
+            sc = ax.scatter(
+                unit_locations[responsive_mask, 0],
+                unit_locations[responsive_mask, 1],
+                c=responsive_color,
+                s=unit_marker_size,
+                edgecolors="black",
+                linewidths=0.5,
+            )
+    else:
+        sc = ax.scatter(
+            unit_locations[:, 0],
+            unit_locations[:, 1],
+            c=nonresponsive_color,
+            s=unit_marker_size,
+        )
+
+    other_sc = None
+    if other_stim_locations is not None:
+        other_stim_locations = np.asarray(other_stim_locations, dtype=float)
+        if other_stim_locations.ndim != 2 or other_stim_locations.shape[1] != 2:
+            raise ValueError(
+                f"other_stim_locations must be (n_other, 2); got shape {other_stim_locations.shape}."
+            )
+        other_sc = ax.scatter(
+            other_stim_locations[:, 0],
+            other_stim_locations[:, 1],
+            marker="x",
+            c=other_stim_marker_color,
+            s=other_stim_marker_size,
+        )
+
+    stim_sc = ax.scatter(
+        [stim_location[0]],
+        [stim_location[1]],
+        marker="x",
+        c=stim_marker_color,
+        s=stim_marker_size,
+        linewidths=2,
+    )
+
+    ax.set_xlabel("x (μm)")
+    ax.set_ylabel("y (μm)")
+    ax.set_aspect("equal")
+
+    return {
+        "ax": ax,
+        "scatter": sc,
+        "stim_scatter": stim_sc,
+        "other_stim_scatter": other_sc,
+    }
