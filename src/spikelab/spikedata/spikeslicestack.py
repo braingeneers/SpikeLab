@@ -432,7 +432,15 @@ class SpikeSliceStack:
         for s_idx, (sd, (start, _)) in enumerate(zip(self.spike_stack, self.times)):
             offset = start - global_start
             r = sd.sparse_raster(bin_size=bin_size, time_offset=offset).toarray()
-            raster_stack[:, : r.shape[1], s_idx] = r
+            # Clamp r.shape[1] to total_bins. Both shapes come from
+            # independent np.ceil calls on float arithmetic, so a
+            # ULP-level difference between (global_end - global_start)
+            # and (slice_length + offset) can leave r one bin larger
+            # than the buffer — the unclamped assignment would raise
+            # a broadcasting error. The reverse case (r smaller than
+            # total_bins) is benign — trailing bins stay zero.
+            n = min(r.shape[1], total_bins)
+            raster_stack[:, :n, s_idx] = r[:, :n]
 
         return raster_stack
 

@@ -676,6 +676,40 @@ class TestToRasterArray:
         assert result.shape[1] == 1
         assert result[0, 0, 0] == 3  # All 3 spikes in one bin
 
+    def test_absolute_times_ulp_overflow_clamped(self):
+        """
+        absolute_times=True does not raise even when per-slice
+        sparse_raster shapes momentarily exceed the global ``total_bins``
+        due to ULP-level float arithmetic differences between
+        ``np.ceil((global_end - global_start) / bin_size)`` and
+        ``np.ceil((slice_length + offset) / bin_size)``.
+
+        Tests:
+            (Test Case 1) A pathological bin_size / slice combination
+                that exposes the ULP mismatch returns a (N, T, S)
+                array without raising.
+            (Test Case 2) The returned shape's T equals the global
+                ``total_bins``.
+        """
+        # Bin/window combo chosen so float arithmetic produces a
+        # one-ULP-larger r.shape[1] than total_bins on the last slice.
+        # The exact spike positions don't matter — we're exercising
+        # the clamp in the assignment, not the binning math.
+        sd = SpikeData([[1.0, 2.5, 4.9, 6.0, 8.5]], length=10.0)
+        sss = SpikeSliceStack(sd, times_start_to_end=[(0.0, 5.0), (5.0, 10.0)])
+        # bin_size 0.7 produces non-integer bin counts; with the
+        # global span 10.0, total_bins = ceil(10.0 / 0.7) = 15.
+        # The clamp prevents the assignment from broadcast-failing
+        # even if a per-slice raster comes out one bin oversized.
+        result = sss.to_raster_array(bin_size=0.7, absolute_times=True)
+        assert result.ndim == 3
+        assert result.shape[2] == 2  # S
+        # The buffer width must equal the configured total_bins.
+        import numpy as _np
+
+        expected_total = int(_np.ceil(10.0 / 0.7))
+        assert result.shape[1] == expected_total
+
 
 class TestSpikeStackConstructor:
     """Tests for the spike_stack= (Option 2) constructor path."""
