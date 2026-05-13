@@ -23,6 +23,7 @@ which folder to clean up.
 from __future__ import annotations
 
 import logging
+import math
 import os
 import shutil
 import subprocess
@@ -31,6 +32,8 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, List, Optional, Tuple
+
+import numpy as np
 
 from .._exceptions import DiskExhaustionError
 from ._audit import append_audit_event
@@ -226,16 +229,45 @@ class DiskUsageWatchdog:
         kill_callback: Optional[Callable[[], None]] = None,
         kill_grace_s: float = 5.0,
     ) -> None:
+        # NaN guards (must run before negative-value guards, since
+        # ``NaN < 0`` is False and a NaN would otherwise slip past the
+        # negative check and silently disable the watchdog).
+        # ``poll_interval_s`` is also rejected for NaN by the existing
+        # ``poll_interval_s <= 0`` check further down via ``np.isnan``,
+        # so it is intentionally omitted here.
+        if np.isnan(warn_free_gb):
+            raise ValueError("warn_free_gb must not be NaN")
+        if np.isnan(abort_free_gb):
+            raise ValueError("abort_free_gb must not be NaN")
+        if np.isnan(warn_repeat_s):
+            raise ValueError("warn_repeat_s must not be NaN")
+        if np.isnan(kill_grace_s):
+            raise ValueError("kill_grace_s must not be NaN")
+        if projected_need_gb is not None and np.isnan(projected_need_gb):
+            raise ValueError("projected_need_gb must not be NaN")
+
+        # Negative-value guards. ``abort_free_gb == 0`` is preserved as
+        # the explicit-disable sentinel (handled by the ``_enabled``
+        # computation below); only strict ``< 0`` is rejected here.
+        if warn_free_gb < 0:
+            raise ValueError(f"warn_free_gb must be >= 0, got {warn_free_gb}")
+        if abort_free_gb < 0:
+            raise ValueError(f"abort_free_gb must be >= 0, got {abort_free_gb}")
+        if warn_repeat_s < 0:
+            raise ValueError(f"warn_repeat_s must be >= 0, got {warn_repeat_s}")
+        if projected_need_gb is not None and projected_need_gb < 0:
+            raise ValueError(f"projected_need_gb must be >= 0, got {projected_need_gb}")
+
         if warn_free_gb <= abort_free_gb:
             raise ValueError(
                 f"warn_free_gb ({warn_free_gb}) must be greater than "
                 f"abort_free_gb ({abort_free_gb})."
             )
-        if poll_interval_s <= 0.0:
+        if np.isnan(poll_interval_s) or poll_interval_s <= 0.0:
             raise ValueError(
                 f"poll_interval_s must be positive, got {poll_interval_s}."
             )
-        if kill_grace_s < 0.0:
+        if np.isnan(kill_grace_s) or kill_grace_s < 0.0:
             raise ValueError(f"kill_grace_s must be non-negative, got {kill_grace_s}.")
 
         self.folder = Path(folder)

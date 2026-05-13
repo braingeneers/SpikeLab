@@ -860,3 +860,106 @@ class TestRunCanaryInterPathBoundaries:
         assert any(
             nonexistent in p.parents or p.parent == nonexistent for p in mkdir_paths
         )
+
+
+class TestExtractUnitCount:
+    """Boundary tests for _extract_unit_count covering tuple, list, None,
+    and numpy-int N values."""
+
+    def test_extract_unit_count_none_returns_none(self):
+        """
+        _extract_unit_count on None returns None because the candidate
+        lacks an N attribute.
+
+        Tests:
+            (Test Case 1) result=None returns None.
+        """
+        from spikelab.spike_sorting.canary import _extract_unit_count
+
+        assert _extract_unit_count(None) is None
+
+    def test_extract_unit_count_empty_tuple_returns_none(self):
+        """
+        _extract_unit_count on an empty tuple skips the tuple branch
+        (because ``result and ...`` is False) and the candidate (the
+        empty tuple itself) has no N attribute.
+
+        Tests:
+            (Test Case 1) result=() returns None.
+        """
+        from spikelab.spike_sorting.canary import _extract_unit_count
+
+        assert _extract_unit_count(()) is None
+
+    def test_extract_unit_count_two_tuple_returns_curated_count(self):
+        """
+        _extract_unit_count on a (sd, sd_curated) tuple returns the
+        curated SpikeData's N (the last entry).
+
+        Tests:
+            (Test Case 1) (sd_raw, sd_curated) returns sd_curated.N.
+        """
+        from spikelab.spike_sorting.canary import _extract_unit_count
+
+        class _FakeSD:
+            def __init__(self, n):
+                self.N = n
+
+        assert _extract_unit_count((_FakeSD(10), _FakeSD(7))) == 7
+
+    def test_extract_unit_count_list_returns_none(self):
+        """
+        _extract_unit_count only unwraps tuples, not lists. A list
+        result is treated as a candidate object, which lacks an N
+        attribute, so the helper returns None.
+
+        Tests:
+            (Test Case 1) result=[sd] returns None.
+        """
+        from spikelab.spike_sorting.canary import _extract_unit_count
+
+        class _FakeSD:
+            def __init__(self, n):
+                self.N = n
+
+        assert _extract_unit_count([_FakeSD(5)]) is None
+
+    def test_extract_unit_count_numpy_int_n_returns_python_int(self):
+        """
+        _extract_unit_count accepts numpy integer types (np.int64,
+        np.int32, etc.) — SpikeData.N can be assigned from numpy
+        operations like np.unique(...).size.
+
+        Tests:
+            (Test Case 1) np.int64(5) returns Python int 5.
+            (Test Case 2) np.int32(7) returns Python int 7.
+            (Test Case 3) The returned type is exactly Python int
+                (not a numpy scalar) so JSON serializers don't trip
+                on it.
+        """
+        import numpy as _np
+
+        from spikelab.spike_sorting.canary import _extract_unit_count
+
+        class _FakeSD:
+            def __init__(self, n):
+                self.N = n
+
+        result_int64 = _extract_unit_count(_FakeSD(_np.int64(5)))
+        assert result_int64 == 5
+        assert type(result_int64) is int
+
+        result_int32 = _extract_unit_count(_FakeSD(_np.int32(7)))
+        assert result_int32 == 7
+        assert type(result_int32) is int
+
+
+# TestRunCanaryGlobalsIsolation removed in Phase 5 of the _globals.py
+# refactor (iat/TO_IMPLEMENT.md). The canary's snapshot/restore helpers
+# (`_snapshot_pipeline_globals` / `_restore_pipeline_globals`) and the
+# `_globals.py` module itself were deleted: the canary now isolates its
+# state via the deep-copied SortingPipelineConfig clone returned by
+# `_build_canary_config` instead of mirroring overrides through globals.
+# The state-isolation contract is exercised by TestBuildCanaryConfig
+# (above), which verifies `_build_canary_config(config, ...)` does not
+# mutate its input.

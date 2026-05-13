@@ -203,6 +203,9 @@ class KilosortSortingExtractor:
             # before the midpoint.  Works for both KS2 (zero-padded) and
             # KS4 (dense, non-zero edges) templates.
             peak_amp = np.abs(template).max()
+            if peak_amp == 0:
+                half_windows_sizes.append(0)
+                continue
             threshold = peak_amp * 0.01
             small_indices = np.flatnonzero(np.abs(template[:template_mid]) < threshold)
             if small_indices.size > 0:

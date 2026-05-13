@@ -60,14 +60,19 @@ def is_s3_url(url: str) -> bool:
     """Return True if url looks like an S3 URL (s3:// or https://...amazonaws.com).
 
     Parameters:
-        url (str): URL string to check.
+        url (str): URL string to check. Surrounding whitespace is
+            stripped and the scheme prefix is matched
+            case-insensitively (so ``S3://``, ``  s3://...  `` etc.
+            are all recognised).
 
     Returns:
         is_s3 (bool): True if the URL matches an S3 pattern.
     """
-    if url.startswith("s3://"):
+    url = url.strip()
+    lower = url.lower()
+    if lower.startswith("s3://"):
         return True
-    if url.startswith("https://") or url.startswith("http://"):
+    if lower.startswith("https://") or lower.startswith("http://"):
         parsed = urlparse(url)
         # Matches path-style and virtual-hosted-style S3 endpoints:
         # - s3.amazonaws.com

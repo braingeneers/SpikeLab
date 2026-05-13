@@ -166,6 +166,22 @@ class SpikeSliceStack:
             self.spike_stack = list(spike_stack)
             self.times = times_start_to_end
 
+            # Validate that all slices share the same ``start_time``
+            # convention. Mixing 0-based slices (start_time=0) with
+            # event-centered slices (start_time=-pre) — or two event-
+            # centered stacks with different ``pre`` values — silently
+            # mis-aligns downstream raster outputs. Require uniformity.
+            if len(self.spike_stack) > 1:
+                start_times = [sd.start_time for sd in self.spike_stack]
+                if len(set(start_times)) > 1:
+                    raise ValueError(
+                        "All slices in spike_stack must share the same "
+                        f"start_time convention; got {sorted(set(start_times))}. "
+                        "Mixing 0-based and event-centered slices (or two "
+                        "event-centered stacks with different pre-windows) "
+                        "would silently mis-align downstream raster outputs."
+                    )
+
             # Validate that spike times are consistent with the slice
             # duration. Spike times must be relative to the slice (0-based
             # or event-centered), not absolute recording times.
@@ -317,6 +333,12 @@ class SpikeSliceStack:
                 spike times are preserved (not shifted). self.times is updated
                 to reflect the new absolute time bounds.
 
+        Raises:
+            ValueError: If the underlying slice duration (``times[0][1] -
+                times[0][0]``) is not an integer number of milliseconds.
+                Use ``SpikeData.subtime()`` with explicit ms bounds for
+                non-integer windows.
+
         Notes:
             - Indices are relative to each slice's own start (index 0 = slice
               start ms). They are converted to absolute recording times
@@ -327,6 +349,17 @@ class SpikeSliceStack:
               original.
         """
         slice_duration_ms = self.times[0][1] - self.times[0][0]
+        # 1 index = 1 ms; non-integer durations would silently drop the
+        # sub-ms tail. Push the rounding decision back to the caller.
+        if abs(slice_duration_ms - round(slice_duration_ms)) > 1e-9:
+            raise ValueError(
+                f"slice_duration_ms ({slice_duration_ms}) must be an "
+                f"integer number of milliseconds for subtime_by_index "
+                f"(1 index = 1 ms). For non-integer windows, call "
+                f"SpikeData.subtime() with explicit ms bounds, or "
+                f"reconstruct the SpikeSliceStack with an integer slice "
+                f"duration."
+            )
         T = int(round(slice_duration_ms))
 
         if start_idx < 0:

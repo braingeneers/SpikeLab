@@ -75,14 +75,12 @@ class RateSliceStack:
     ):
         if (data_obj is None) and (event_matrix is None):
             raise ValueError(
-                "Must input either data_obj(option 1) or event_matrix(option 2)"
+                "Must input either data_obj (option 1) or event_matrix (option 2)"
             )
         if (data_obj is not None) and (event_matrix is not None):
-            warnings.warn(
-                "User input both data_obj and event_matrix. Ignoring data_obj and using event_matrix instead.",
-                UserWarning,
+            raise ValueError(
+                "Provide exactly one of data_obj or event_matrix, not both."
             )
-            data_obj = None
 
         if sigma_ms is not None and sigma_ms < 0:
             raise ValueError("sigma_ms must be non-negative")
@@ -906,6 +904,12 @@ class RateSliceStack:
         unit_max_indices = np.argmax(slice_matrices, axis=1).astype(float)
         unit_max_rates = np.max(slice_matrices, axis=1)
         unit_max_indices[unit_max_rates < MIN_RATE_THRESHOLD] = np.nan
+        # All-NaN time vectors: np.argmax returns 0 (a valid-looking index) and
+        # np.max returns NaN, which fails the `< MIN_RATE_THRESHOLD` check
+        # (NaN < x is False), so the threshold mask above does not catch them.
+        # Explicitly set such (unit, slice) entries to NaN.
+        all_nan_mask = np.all(np.isnan(slice_matrices), axis=1)
+        unit_max_indices[all_nan_mask] = np.nan
         return unit_max_indices
 
     def rank_order_correlation(

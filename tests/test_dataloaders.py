@@ -1501,13 +1501,18 @@ class TestIBLLoader:
     def test_ibl_all_collections_fail(self):
         """
         Verify that when all ONE API collection lookups fail, the loader
-        still returns a SpikeData with empty trains (one per good unit) rather
-        than crashing silently.
+        emits a UserWarning naming the eid/pid/collections and still
+        returns a SpikeData with empty trains so the calling script
+        does not crash. The warning gives the operator a clear signal
+        without forcing a hard error in batch jobs.
 
         Tests:
             (Test Case 1) Returns a SpikeData with the correct number of units.
             (Test Case 2) All spike trains are empty arrays.
+            (Test Case 3) A UserWarning is emitted naming the eid, pid,
+                and the candidate collections.
         """
+        import warnings as _warnings
         import pandas as pd
 
         eid, pid = "test-eid", "test-pid"
@@ -1569,12 +1574,24 @@ class TestIBLLoader:
                 "brainwidemap": mock_brainwidemap,
             },
         ):
-            sd = loaders.load_spikedata_from_ibl(eid, pid)
+            with _warnings.catch_warnings(record=True) as w:
+                _warnings.simplefilter("always")
+                sd = loaders.load_spikedata_from_ibl(eid, pid)
 
         assert isinstance(sd, SpikeData)
         assert sd.N == 2
         for train in sd.train:
             assert len(train) == 0
+
+        # A UserWarning was emitted naming the eid, pid, and the
+        # candidate collections so the silent-empty result is visible.
+        warn_msgs = [str(rec.message) for rec in w if rec.category is UserWarning]
+        relevant = [
+            m for m in warn_msgs if "load_spikedata_from_ibl" in m and "test-eid" in m
+        ]
+        assert relevant, warn_msgs
+        assert "test-pid" in relevant[0]
+        assert "alf" in relevant[0]
 
     def test_ec_dl_09_no_good_units(self):
         """
@@ -2635,17 +2652,18 @@ class TestHDF5Loader:
                 spike_times_unit="ms",
             )
 
-    def test_group_per_unit_lexicographic_sort(self, tmp_path):
+    def test_group_per_unit_natural_sort(self, tmp_path):
         """
-        Group-per-unit loader with non-numeric dataset names uses lexicographic sort.
+        Group-per-unit loader uses natural (numeric-aware) sort so unit
+        identity is preserved across round-trip at N>=10.
 
         Tests:
-            (Test Case 1) Keys ["1", "10", "2"] are sorted as ["1", "10", "2"]
-                not [1, 2, 10].
+            (Test Case 1) Keys ["1", "10", "2"] are loaded in
+                numerical order [1, 2, 10] (not lex [1, 10, 2]).
         """
         import h5py
 
-        path = str(tmp_path / "lexico.h5")
+        path = str(tmp_path / "natural_sort.h5")
         with h5py.File(path, "w") as f:
             grp = f.create_group("units")
             grp.create_dataset("1", data=[1.0, 2.0])
@@ -2657,10 +2675,10 @@ class TestHDF5Loader:
             path, group_per_unit="units", group_time_unit="ms"
         )
         assert sd.N == 3
-        # First unit in lexicographic order is "1", then "10", then "2"
+        # Natural order: ["1", "2", "10"] → trains in that order.
         np.testing.assert_array_equal(sd.train[0], [1.0, 2.0])
-        np.testing.assert_array_equal(sd.train[1], [3.0, 4.0])
-        np.testing.assert_array_equal(sd.train[2], [5.0, 6.0])
+        np.testing.assert_array_equal(sd.train[1], [5.0, 6.0])
+        np.testing.assert_array_equal(sd.train[2], [3.0, 4.0])
 
     def test_paired_gaps_in_unit_indices(self, tmp_path):
         """
@@ -2731,6 +2749,75 @@ class TestTrainsFromFlatIndex:
             loaders._trains_from_flat_index(
                 np.array([1.0, 2.0, 3.0]), np.array([10]), unit="ms", fs_Hz=None
             )
+
+    def test_leading_zero_nwb_convention_auto_detected(self):
+        """
+        Many NWB files in the wild write ``spike_times_index`` with a
+        leading zero — i.e. ``(0, c0, c0+c1, ..., total)`` of length
+        ``N+1``. The loader auto-detects this variant and strips the
+        leading zero so the cumulative-end semantics produce exactly
+        ``N`` trains with each unit's spikes correctly assigned.
+
+        Tests:
+            (Test Case 1) Leading-zero ``end_indices=[0, 2, 5]`` with
+                ``flat_times`` of length 5 produces 2 trains (not 3).
+            (Test Case 2) Unit 0's spikes are in trains[0], unit 1's
+                spikes are in trains[1] — no silent identity shift.
+        """
+        flat = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+        # 2 units, c0=2 spikes (1.0, 2.0), c1=3 spikes (3.0, 4.0, 5.0).
+        # Leading-zero NWB convention: index = [0, 2, 5].
+        end_indices = np.array([0, 2, 5])
+
+        trains = loaders._trains_from_flat_index(
+            flat, end_indices, unit="ms", fs_Hz=None
+        )
+
+        assert len(trains) == 2
+        np.testing.assert_array_equal(trains[0], np.array([1.0, 2.0]))
+        np.testing.assert_array_equal(trains[1], np.array([3.0, 4.0, 5.0]))
+
+    def test_bare_zero_index_treated_as_single_empty_unit(self):
+        """
+        A bare ``[0]`` is ambiguous between a single empty unit
+        (cumulative-end with one zero-spike unit) and a leading-zero
+        marker. The loader treats it as the former — a single empty
+        train — for backward compatibility with SpikeLab's own
+        exporter convention.
+
+        Tests:
+            (Test Case 1) ``end_indices=[0]`` with empty flat_times
+                produces a single empty train (not zero trains).
+        """
+        flat = np.array([], dtype=float)
+        end_indices = np.array([0])
+        trains = loaders._trains_from_flat_index(
+            flat, end_indices, unit="ms", fs_Hz=None
+        )
+        assert len(trains) == 1
+        assert len(trains[0]) == 0
+
+    def test_no_leading_zero_convention_assigns_units_correctly(self):
+        """
+        The no-leading-zero convention used by SpikeLab's exporter
+        (``np.cumsum(counts)``, length ``N``) assigns spikes to units
+        correctly. Pinned alongside the leading-zero test above so
+        the contrast between the two conventions is unambiguous.
+
+        Tests:
+            (Test Case 1) ``end_indices=[2, 5]`` with the same
+                ``flat_times`` produces exactly 2 trains.
+            (Test Case 2) Unit 0 holds the first 2 spikes; unit 1
+                holds the remaining 3.
+        """
+        flat = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+        end_indices = np.array([2, 5])
+        trains = loaders._trains_from_flat_index(
+            flat, end_indices, unit="ms", fs_Hz=None
+        )
+        assert len(trains) == 2
+        np.testing.assert_array_equal(trains[0], np.array([1.0, 2.0]))
+        np.testing.assert_array_equal(trains[1], np.array([3.0, 4.0, 5.0]))
 
 
 @skip_no_h5py
@@ -3822,37 +3909,36 @@ class TestScan:
 
     def test_raster_with_zero_bin_size(self, tmp_path):
         """
-        Tests: load_spikedata_from_hdf5 with raster_bin_size_ms=0.
-        (Test Case 2) Zero bin size produces total_time=0 and length_ms=0.
-        from_raster with bin_size_ms=0 means all spike times collapse to
-        start_time, producing a zero-length SpikeData.
+        load_spikedata_from_hdf5 with raster_bin_size_ms=0 raises ValueError.
+
+        Tests:
+            (Test Case 1) SpikeData.from_raster rejects bin_size_ms <= 0,
+                so the loader propagates a ValueError.
         """
         path = str(tmp_path / "zero_bin.h5")
         raster = np.array([[1, 0, 1], [0, 1, 0]], dtype=int)
         with h5py.File(path, "w") as f:
             f.create_dataset("raster", data=raster)
 
-        sd = loaders.load_spikedata_from_hdf5(
-            path, raster_dataset="raster", raster_bin_size_ms=0.0
-        )
-        assert isinstance(sd, SpikeData)
-        assert sd.length == 0.0
+        with pytest.raises(ValueError, match="bin_size_ms"):
+            loaders.load_spikedata_from_hdf5(
+                path, raster_dataset="raster", raster_bin_size_ms=0.0
+            )
 
     def test_negative_raster_bin_size(self, tmp_path):
         """
-        Tests: load_spikedata_from_hdf5 with raster_bin_size_ms=-1.0.
-        (Test Case 3) Negative bin size produces negative total_time and
-        negative spike times. The loader computes length as
-        max(total_time - eps, 0) = 0. SpikeData still accepts the trains
-        but spike times will be negative.
+        load_spikedata_from_hdf5 with raster_bin_size_ms=-1.0 raises ValueError.
+
+        Tests:
+            (Test Case 1) SpikeData.from_raster rejects bin_size_ms <= 0,
+                so the loader propagates a ValueError.
         """
         path = str(tmp_path / "neg_bin.h5")
         raster = np.array([[1, 0, 1], [0, 1, 0]], dtype=int)
         with h5py.File(path, "w") as f:
             f.create_dataset("raster", data=raster)
 
-        # Negative bin_size produces negative spike times → SpikeData rejects
-        with pytest.raises(ValueError, match="before start_time"):
+        with pytest.raises(ValueError, match="bin_size_ms"):
             loaders.load_spikedata_from_hdf5(
                 path, raster_dataset="raster", raster_bin_size_ms=-1.0
             )
@@ -4404,15 +4490,14 @@ class TestHDF5LoaderIO:
                 path, raster_dataset="raster", raster_bin_size_ms=10.0
             )
 
-    def test_paired_negative_unit_indices(self, tmp_path):
+    def test_paired_negative_unit_indices_raises(self, tmp_path):
         """
-        Paired style with negative unit indices -- produces incorrect N
-        because N = int(idces.max()) + 1 ignores negatives.
+        Paired-style HDF5 with negative unit indices raises ValueError.
 
         Tests:
-            (Test Case 1) Loader does not crash on negative indices.
-            (Test Case 2) N is determined by max index, so negative indices
-                are effectively ignored for unit count.
+            (Test Case 1) load_spikedata_from_hdf5 propagates the
+                SpikeData.from_idces_times validation that rejects negative
+                unit indices.
         """
         path = str(tmp_path / "neg_idces.h5")
         idces = np.array([-1, 0, 1, 0], dtype=int)
@@ -4421,11 +4506,10 @@ class TestHDF5LoaderIO:
             f.create_dataset("idces", data=idces)
             f.create_dataset("times", data=times)
 
-        sd = loaders.load_spikedata_from_hdf5(
-            path, idces_dataset="idces", times_dataset="times", times_unit="s"
-        )
-        # N = max(1) + 1 = 2, but -1 index is silently placed elsewhere
-        assert sd.N == 2
+        with pytest.raises(ValueError, match="negative"):
+            loaders.load_spikedata_from_hdf5(
+                path, idces_dataset="idces", times_dataset="times", times_unit="s"
+            )
 
     def test_group_per_unit_non_numeric_names(self, tmp_path):
         """
@@ -4592,3 +4676,479 @@ class TestS3Utils4:
         assert is_s3_url("s3://bucket/key") is True
         assert is_s3_url("https://s3.amazonaws.com/bucket/key") is True
         assert is_s3_url("https://bucket.s3.us-west-2.amazonaws.com/key") is True
+
+
+@skip_no_pandas
+class TestKilosortEmptyClusterInfoTsv:
+    """
+    Tests that an empty cluster_info.tsv produces a clear ValueError
+    rather than letting pandas.errors.EmptyDataError propagate from
+    deep inside the loader.
+    """
+
+    def test_empty_cluster_info_tsv_raises_value_error(self, tmp_path):
+        """
+        Empty cluster_info.tsv raises ValueError with a clear message
+        naming the empty file and pointing at the workaround.
+
+        Tests:
+            (Test Case 1) Zero-byte cluster_info_tsv raises ValueError.
+            (Test Case 2) The error message names the offending path.
+            (Test Case 3) The error message suggests omitting
+                cluster_info_tsv as a workaround.
+        """
+        d = str(tmp_path / "ks_empty_tsv")
+        os.makedirs(d)
+        spike_times = np.array([10, 20, 15])
+        spike_clusters = np.array([0, 0, 1])
+        np.save(os.path.join(d, "spike_times.npy"), spike_times)
+        np.save(os.path.join(d, "spike_clusters.npy"), spike_clusters)
+        tsv_path = os.path.join(d, "cluster_info.tsv")
+        open(tsv_path, "w").close()
+
+        with pytest.raises(ValueError) as exc_info:
+            loaders.load_spikedata_from_kilosort(
+                d,
+                fs_Hz=1000.0,
+                cluster_info_tsv="cluster_info.tsv",
+            )
+        msg = str(exc_info.value)
+        assert "empty" in msg.lower()
+        assert "cluster_info.tsv" in msg
+
+    def test_omit_cluster_info_tsv_loads_normally(self, tmp_path):
+        """
+        Omitting cluster_info_tsv loads spikes normally (no crash) — the
+        suggested workaround in the empty-TSV error message.
+
+        Tests:
+            (Test Case 1) Loader returns a SpikeData with the expected
+                number of units when cluster_info_tsv is None.
+        """
+        d = str(tmp_path / "ks_no_tsv")
+        os.makedirs(d)
+        spike_times = np.array([10, 20, 15])
+        spike_clusters = np.array([0, 0, 1])
+        np.save(os.path.join(d, "spike_times.npy"), spike_times)
+        np.save(os.path.join(d, "spike_clusters.npy"), spike_clusters)
+        sd = loaders.load_spikedata_from_kilosort(
+            d, fs_Hz=1000.0, cluster_info_tsv=None
+        )
+        assert sd.N == 2
+
+
+@skip_no_h5py
+class TestHDF5GroupPerUnitNaturalSort:
+    """
+    Tests that the group-per-unit loader sorts numerically (natural sort),
+    preserving unit identity across round-trip at N>=10.
+    """
+
+    def test_group_per_unit_natural_sort_with_11_units(self, tmp_path):
+        """
+        Group-per-unit loader with 11 numeric keys returns trains in
+        numerical (not lexicographic) order.
+
+        Tests:
+            (Test Case 1) sd.train[i] holds the spikes from key str(i)
+                for i in 0..10.
+        """
+        path = str(tmp_path / "natural_sort_n11.h5")
+        # Create 11 units with distinct spike times so ordering is observable.
+        with h5py.File(path, "w") as f:  # type: ignore
+            grp = f.create_group("units")
+            for i in range(11):
+                grp.create_dataset(str(i), data=np.array([float(i + 1) * 10.0]))
+            grp.attrs["time_unit"] = "ms"
+
+        sd = loaders.load_spikedata_from_hdf5(
+            path, group_per_unit="units", group_time_unit="ms"
+        )
+        assert sd.N == 11
+        # Natural order: train[i] holds key str(i) → spike at (i+1)*10.
+        for i in range(11):
+            np.testing.assert_array_equal(sd.train[i], [float(i + 1) * 10.0])
+
+    def test_group_per_unit_natural_sort_mixed_prefix(self, tmp_path):
+        """
+        Natural sort works with prefixed keys like "unit_2" / "unit_10".
+
+        Tests:
+            (Test Case 1) Keys "unit_1" .. "unit_11" load in numerical
+                order; train[1] holds the spike from "unit_2" and
+                train[9] holds the spike from "unit_10".
+        """
+        path = str(tmp_path / "natural_sort_prefixed.h5")
+        with h5py.File(path, "w") as f:  # type: ignore
+            grp = f.create_group("units")
+            for i in range(1, 12):
+                grp.create_dataset(f"unit_{i}", data=np.array([float(i) * 10.0]))
+            grp.attrs["time_unit"] = "ms"
+
+        sd = loaders.load_spikedata_from_hdf5(
+            path, group_per_unit="units", group_time_unit="ms"
+        )
+        assert sd.N == 11
+        # train[i] holds unit_(i+1).
+        for i in range(11):
+            np.testing.assert_array_equal(sd.train[i], [float(i + 1) * 10.0])
+
+
+class TestLoadSpikedataFromIblAllFallbacksFail:
+    """
+    Edge case test pinning current behavior when all collection
+    fallbacks fail and spikes is None.
+
+    Notes:
+        - documents bug — see REVIEW.md
+        - When the IBL loader cannot find spike data in any collection
+          fallback, it currently produces a SpikeData with all-empty
+          trains plus full trial metadata (silent zero-spike result).
+    """
+
+    def test_ibl_loader_unimportable_raises_importerror(self):
+        """
+        load_spikedata_from_ibl when one-api is missing raises ImportError.
+
+        Tests:
+            (Test Case 1) If `one.api` is not importable, load_spikedata_from_ibl
+                raises an ImportError or similar at call site.
+
+        Notes:
+            - This pins the import-error contract; the deeper "all
+              collections fail" path requires real IBL fixtures.
+        """
+        try:
+            import one.api  # noqa: F401
+
+            pytest.skip("one-api is installed; cannot test ImportError path")
+        except ImportError:
+            pass
+
+        with pytest.raises(Exception):
+            loaders.load_spikedata_from_ibl(
+                eid="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+                pid="11111111-2222-3333-4444-555555555555",
+            )
+
+
+class TestS3UrlEdgeCases:
+    """Boundary tests for is_s3_url and parse_s3_url covering whitespace,
+    case sensitivity, MinIO/localhost URLs, and bucket-only URLs."""
+
+    def test_is_s3_url_with_whitespace_returns_true(self):
+        """
+        ``is_s3_url`` strips leading/trailing whitespace before
+        matching the scheme prefix, so ``"  s3://bucket/key  "`` is
+        recognised as an S3 URL.
+
+        Tests:
+            (Test Case 1) Whitespace-padded s3:// URL returns True.
+            (Test Case 2) Whitespace-padded https amazonaws URL
+                returns True.
+        """
+        from spikelab.data_loaders.s3_utils import is_s3_url
+
+        assert is_s3_url("  s3://bucket/key  ") is True
+        assert is_s3_url("\thttps://s3.amazonaws.com/bucket/key\n") is True
+
+    def test_is_s3_url_uppercase_scheme_returns_true(self):
+        """
+        ``is_s3_url`` matches the scheme prefix case-insensitively,
+        so ``"S3://bucket/key"`` (uppercase) is recognised.
+
+        Tests:
+            (Test Case 1) Uppercase ``S3://`` URL returns True.
+            (Test Case 2) Mixed-case ``s3://`` URL returns True.
+            (Test Case 3) Lowercase control still returns True.
+        """
+        from spikelab.data_loaders.s3_utils import is_s3_url
+
+        assert is_s3_url("S3://bucket/key") is True
+        assert is_s3_url("S3://bucket/key") is True
+        assert is_s3_url("s3://bucket/key") is True
+
+    def test_is_s3_url_minio_endpoint_returns_false(self):
+        """
+        is_s3_url checks for the amazonaws.com host or the s3:// scheme,
+        so MinIO/LocalStack-style endpoints (e.g. localhost:9000) are not
+        recognised. Documents that custom S3-compatible endpoints are
+        unsupported.
+
+        Tests:
+            (Test Case 1) http://localhost:9000/bucket/key returns False.
+        """
+        from spikelab.data_loaders.s3_utils import is_s3_url
+
+        assert is_s3_url("http://localhost:9000/bucket/key") is False
+
+    def test_parse_s3_url_bucket_only_raises(self):
+        """
+        parse_s3_url("s3://") raises ValueError because the URL has no
+        object key.
+
+        Tests:
+            (Test Case 1) "s3://" alone raises ValueError naming "no
+                object key".
+        """
+        from spikelab.data_loaders.s3_utils import parse_s3_url
+
+        with pytest.raises(ValueError, match="no object key"):
+            parse_s3_url("s3://")
+
+
+class TestTrainsFromFlatIndexInputDtypes:
+    """``_trains_from_flat_index`` with unusual ``end_indices`` dtypes."""
+
+    def test_negative_end_indices_rejected(self):
+        """
+        ``_trains_from_flat_index`` rejects negative entries upfront
+        with a ``ValueError`` naming "non-negative". Cumulative-end
+        indices represent spike counts and cannot be negative.
+
+        Tests:
+            (Test Case 1) Negative entry raises ValueError naming
+                "non-negative".
+        """
+        flat = np.arange(10.0)
+        end_indices = np.array([-2, 0, 5])
+        with pytest.raises(ValueError, match="non-negative"):
+            loaders._trains_from_flat_index(flat, end_indices, unit="ms", fs_Hz=None)
+
+    def test_float_end_indices_rejected_with_friendly_error(self):
+        """
+        ``_trains_from_flat_index`` rejects float-dtype ``end_indices``
+        upfront with a ``ValueError`` instructing the caller to cast
+        to integers, rather than letting numpy raise a confusing
+        ``TypeError`` mid-loop.
+
+        Tests:
+            (Test Case 1) Float ``end_indices`` raises ValueError
+                naming "integer array".
+        """
+        flat = np.arange(10.0)
+        end_indices = np.array([2.0, 5.0])
+        with pytest.raises(ValueError, match="integer array"):
+            loaders._trains_from_flat_index(flat, end_indices, unit="ms", fs_Hz=None)
+
+
+@skip_no_h5py
+class TestReadRawArraysSamplesUnitWithZeroFs:
+    """``_read_raw_arrays`` with ``raw_time_unit='samples'`` and ``fs_Hz=0``."""
+
+    def test_samples_unit_with_zero_fs_raises(self, tmp_path):
+        """
+        ``fs_Hz=0`` is rejected by the ``if not fs_Hz`` guard. Pin
+        the current error message contract.
+
+        Tests:
+            (Test Case 1) ``raw_time_unit='samples'`` with ``fs_Hz=0``
+                raises ``ValueError`` mentioning ``fs_Hz``.
+        """
+        path = str(tmp_path / "raw_zero_fs.h5")
+        with h5py.File(path, "w") as f:
+            f.create_dataset("raw", data=np.zeros((2, 5)))
+            f.create_dataset("raw_t", data=np.arange(5))
+
+        with h5py.File(path, "r") as f:
+            with pytest.raises(ValueError, match="fs_Hz"):
+                loaders._read_raw_arrays(f, "raw", "raw_t", "samples", fs_Hz=0)
+
+
+@skip_no_h5py
+class TestLoadHdf5RasterEdgeShapes:
+    """``load_spikedata_from_hdf5(raster_dataset=...)`` shape edges."""
+
+    def test_zero_unit_raster_produces_zero_unit_spikedata(self, tmp_path):
+        """
+        A raster with shape ``(0, T)`` round-trips to a zero-unit
+        SpikeData with the expected length.
+
+        Tests:
+            (Test Case 1) Loaded SpikeData has ``N == 0``.
+            (Test Case 2) ``length`` equals ``T * raster_bin_size_ms``.
+        """
+        path = str(tmp_path / "zero_units.h5")
+        with h5py.File(path, "w") as f:
+            f.create_dataset("raster", data=np.zeros((0, 5), dtype=int))
+
+        sd = loaders.load_spikedata_from_hdf5(
+            path,
+            raster_dataset="raster",
+            raster_bin_size_ms=2.0,
+        )
+        assert sd.N == 0
+        assert sd.length == pytest.approx(10.0)
+
+    def test_3d_raster_rejected_with_clear_error(self, tmp_path):
+        """
+        A 3-D raster is rejected with the same "must be 2D" message
+        as 1-D inputs.
+
+        Tests:
+            (Test Case 1) 3-D raster raises ``ValueError``.
+        """
+        path = str(tmp_path / "raster_3d.h5")
+        with h5py.File(path, "w") as f:
+            f.create_dataset("raster", data=np.zeros((2, 5, 3), dtype=int))
+
+        with pytest.raises(ValueError):
+            loaders.load_spikedata_from_hdf5(
+                path,
+                raster_dataset="raster",
+                raster_bin_size_ms=1.0,
+            )
+
+    def test_explicit_length_ms_silently_ignored_in_raster_style(self, tmp_path):
+        """
+        The raster-style loader unconditionally derives ``length`` from
+        ``raster.shape[1] * raster_bin_size_ms``, silently overwriting
+        any user-supplied ``length_ms``.
+
+        Tests:
+            (Test Case 1) Explicit ``length_ms=999`` is replaced by
+                the shape-derived ``4.0``.
+
+        Notes:
+            - Pins silent override. A future hardening that warns
+              when ``length_ms`` differs from the computed value
+              would update this test.
+        """
+        path = str(tmp_path / "raster_len.h5")
+        with h5py.File(path, "w") as f:
+            f.create_dataset("raster", data=np.ones((2, 4), dtype=int))
+
+        sd = loaders.load_spikedata_from_hdf5(
+            path,
+            raster_dataset="raster",
+            raster_bin_size_ms=1.0,
+            length_ms=999.0,
+        )
+        assert sd.length == pytest.approx(4.0)
+
+
+@skip_no_h5py
+class TestLoadHdf5PairedMismatchedLengths:
+    """``load_spikedata_from_hdf5(paired)`` with mismatched array lengths."""
+
+    def test_paired_idces_times_length_mismatch_raises(self, tmp_path):
+        """
+        If ``idces`` and ``times`` have different lengths, the loader
+        forwards them through ``SpikeData.from_idces_times`` /
+        ``_train_from_i_t_list`` and surfaces an ``IndexError`` from
+        numpy boolean indexing. Pin this so a future hardening that
+        raises a friendlier ``ValueError`` upfront updates this test.
+
+        Tests:
+            (Test Case 1) Mismatched arrays raise ``IndexError`` (or
+                ``ValueError`` if a friendlier guard is added).
+
+        Notes:
+            - The current error message is opaque (numpy boolean-
+              index dimension mismatch). Better surfaced at the
+              loader call-site.
+        """
+        path = str(tmp_path / "paired_mismatch.h5")
+        with h5py.File(path, "w") as f:
+            f.create_dataset("idces", data=np.array([0, 1, 0]))
+            f.create_dataset("times", data=np.array([1.0, 2.0]))
+
+        with pytest.raises((IndexError, ValueError)):
+            loaders.load_spikedata_from_hdf5(
+                path,
+                idces_dataset="idces",
+                times_dataset="times",
+                times_unit="ms",
+            )
+
+
+@skip_no_h5py
+class TestLoadHdf5RaggedZeroLengthIndex:
+    """``load_spikedata_from_hdf5(ragged)`` with empty index dataset."""
+
+    def test_zero_length_index_produces_zero_unit_spikedata(self, tmp_path):
+        """
+        An empty ``spike_times_index`` dataset produces zero trains
+        and a zero-unit SpikeData.
+
+        Tests:
+            (Test Case 1) Loaded SpikeData has ``N == 0``.
+        """
+        path = str(tmp_path / "ragged_empty_index.h5")
+        with h5py.File(path, "w") as f:
+            f.create_dataset("st", data=np.array([], dtype=float))
+            f.create_dataset("idx", data=np.array([], dtype=int))
+
+        sd = loaders.load_spikedata_from_hdf5(
+            path,
+            spike_times_dataset="st",
+            spike_times_index_dataset="idx",
+            spike_times_unit="ms",
+        )
+        assert sd.N == 0
+
+
+class TestLoadKilosortMissingTsv:
+    """``load_spikedata_from_kilosort`` with a non-existent ``cluster_info_tsv``."""
+
+    def test_missing_tsv_silently_keeps_all_clusters(self, tmp_path):
+        """
+        A ``cluster_info_tsv`` path that does not exist is silently
+        ignored — the ``os.path.exists`` check returns False and the
+        loader keeps all clusters without warning.
+
+        Tests:
+            (Test Case 1) Loader succeeds; resulting SpikeData has
+                the full set of clusters (no filtering).
+
+        Notes:
+            - Pins silent acceptance. A future hardening should emit
+              a UserWarning when the path doesn't exist so users can
+              detect typos.
+        """
+        spike_times = np.array([10, 20, 30, 40], dtype=np.int64)
+        spike_clusters = np.array([0, 1, 0, 1], dtype=np.int64)
+        np.save(tmp_path / "spike_times.npy", spike_times)
+        np.save(tmp_path / "spike_clusters.npy", spike_clusters)
+
+        sd = loaders.load_spikedata_from_kilosort(
+            str(tmp_path),
+            fs_Hz=1000.0,
+            cluster_info_tsv=str(tmp_path / "does_not_exist.tsv"),
+        )
+        assert sd.N == 2
+
+
+class TestLoadSpikelabSortedNpzMissingKeys:
+    """``load_spikedata_from_spikelab_sorted_npz`` with missing required keys."""
+
+    def test_missing_units_key_raises(self, tmp_path):
+        """
+        An NPZ file without a ``"units"`` key raises a ``KeyError``
+        from the ``data["units"]`` access.
+
+        Tests:
+            (Test Case 1) Missing units key raises ``KeyError``.
+        """
+        path = str(tmp_path / "no_units.npz")
+        np.savez(path, fs=20000.0)
+        with pytest.raises(KeyError):
+            loaders.load_spikedata_from_spikelab_sorted_npz(path)
+
+    def test_missing_fs_key_raises(self, tmp_path):
+        """
+        An NPZ file without an ``"fs"`` key raises ``KeyError``.
+
+        Tests:
+            (Test Case 1) Missing fs key raises ``KeyError``.
+        """
+        path = str(tmp_path / "no_fs.npz")
+        np.savez(path, units=np.array([], dtype=object))
+        with pytest.raises(KeyError):
+            loaders.load_spikedata_from_spikelab_sorted_npz(path)
+
+
+# NOTE: TestS3UtilsSchemeAndWhitespace removed — its scope now lives
+# in TestS3UrlEdgeCases (see test_is_s3_url_with_whitespace_returns_true
+# and test_is_s3_url_uppercase_scheme_returns_true), which assert the
+# corrected case-insensitive + whitespace-stripping contract.

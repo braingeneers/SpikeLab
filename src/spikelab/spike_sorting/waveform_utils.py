@@ -107,6 +107,10 @@ def compute_half_window_sizes(
         # before the midpoint.  Works for both zero-padded (KS2) and
         # dense (KS4) templates — matches KilosortSortingExtractor logic.
         peak_amp = np.abs(t).max()
+        if peak_amp == 0:
+            # Dead channel / all-zero template — no waveform to bound.
+            half_windows[i] = 0
+            continue
         threshold = peak_amp * 0.01
         small_before_mid = np.flatnonzero(np.abs(t[:template_mid]) < threshold)
         if len(small_before_mid) > 0:

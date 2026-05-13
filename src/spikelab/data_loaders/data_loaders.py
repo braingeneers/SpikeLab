@@ -18,6 +18,7 @@ from __future__ import annotations
 from typing import List, Mapping, Optional, Sequence, Union
 
 import os
+import re
 import warnings
 
 import numpy as np
@@ -52,15 +53,83 @@ __all__ = [
 from ..spikedata.utils import ensure_h5py, to_ms
 
 
+def _natural_sort_key(s: str):
+    """Sort key that orders embedded digit runs numerically.
+
+    `sorted(["1", "10", "2"], key=_natural_sort_key)` returns
+    `["1", "2", "10"]` instead of the lexicographic `["1", "10", "2"]`.
+    """
+    return [int(t) if t.isdigit() else t for t in re.split(r"(\d+)", s)]
+
+
 def _trains_from_flat_index(
     flat_times: np.ndarray,
     end_indices: np.ndarray,
     *,
     unit: str,
     fs_Hz: Optional[float],
+    n_units: Optional[int] = None,
 ) -> List[np.ndarray]:
-    """Split a flat time array into per-unit trains using end indices and convert to ms."""
+    """Split a flat time array into per-unit trains using end indices and convert to ms.
+
+    Two index conventions are accepted:
+
+    * **Cumulative-end (length N)**: ``[c0, c0+c1, ..., total]`` —
+      the convention used by SpikeLab's HDF5 ragged exporter and by
+      the NWB spec. Iterated with an implicit ``start = 0`` for
+      unit 0.
+    * **Leading-zero cumulative (length N+1)**: ``[0, c0, c0+c1,
+      ..., total]`` — common in NWB ``spike_times_index`` files in
+      the wild that don't strictly follow the NWB spec.
+
+    Disambiguation rules:
+
+    * **With ``n_units``** (preferred — used by the NWB loader): the
+      length is checked against both candidates. Length ``n_units``
+      → cumulative-end. Length ``n_units + 1`` with leading 0 →
+      leading-zero. A mismatch with both raises ``ValueError``.
+    * **Without ``n_units``**: a heuristic auto-detect runs. The
+      leading-zero variant is selected when ``len(end_indices) >= 2``,
+      ``end_indices[0] == 0``, **and** ``end_indices[-1] > 0`` (i.e.
+      there is at least one non-empty unit). A bare ``[0]`` or an
+      all-zero array stays cumulative-end so existing
+      all-empty-trains fixtures continue to round-trip correctly.
+      Callers that can supply ``n_units`` should — the heuristic
+      cannot disambiguate ``[0, 5]`` (two units, first empty vs one
+      unit with five spikes).
+
+    Parameters:
+        flat_times (np.ndarray): Concatenated spike times.
+        end_indices (np.ndarray): Cumulative end indices, in either
+            of the two supported conventions.
+        unit (str): Time unit of ``flat_times`` (``"ms"``, ``"s"``,
+            or ``"samples"``).
+        fs_Hz (float or None): Sample rate, required when
+            ``unit == "samples"``.
+        n_units (int or None): Known number of units, used to
+            disambiguate the index convention. ``None`` triggers
+            the heuristic auto-detect described above.
+
+    Returns:
+        trains (list of np.ndarray): Per-unit spike-time arrays in
+            milliseconds.
+    """
+    end_indices = np.asarray(end_indices)
     if len(end_indices) > 0:
+        # Reject float / non-integer dtype upfront with a friendly error;
+        # numpy slicing on float indices raises a confusing TypeError mid-loop.
+        if not np.issubdtype(end_indices.dtype, np.integer):
+            raise ValueError(
+                "spike_times_index must be an integer array, got dtype "
+                f"{end_indices.dtype}. HDF5 datasets stored as float should "
+                "be cast (e.g. `np.asarray(f[idx_key]).astype(np.int64)`)."
+            )
+        if end_indices[0] < 0:
+            raise ValueError(
+                f"spike_times_index entries must be non-negative; got "
+                f"{end_indices[0]} at position 0. Cumulative-end indices "
+                "represent spike counts and cannot be negative."
+            )
         if not np.all(np.diff(end_indices) >= 0):
             raise ValueError("spike_times_index must be monotonically non-decreasing")
         if end_indices[-1] > len(flat_times):
@@ -68,6 +137,27 @@ def _trains_from_flat_index(
                 f"spike_times_index final value ({end_indices[-1]}) exceeds "
                 f"flat_times length ({len(flat_times)})"
             )
+
+    if n_units is not None:
+        if len(end_indices) == n_units + 1 and (
+            len(end_indices) == 0 or end_indices[0] == 0
+        ):
+            # NWB leading-zero convention: strip the leading 0 to fall
+            # through to cumulative-end iteration.
+            end_indices = end_indices[1:]
+        elif len(end_indices) != n_units:
+            raise ValueError(
+                f"spike_times_index length {len(end_indices)} does not match "
+                f"n_units={n_units} for either cumulative-end (length N) or "
+                f"leading-zero (length N+1) convention."
+            )
+    elif len(end_indices) >= 2 and end_indices[0] == 0 and end_indices[-1] > 0:
+        # Heuristic auto-detect: leading 0 followed by at least one
+        # non-zero entry is unambiguously the leading-zero variant
+        # (cumulative-end with c0=0 produces the same prefix only
+        # when the array is entirely zero, which is excluded here).
+        end_indices = end_indices[1:]
+
     trains: List[np.ndarray] = []
     start = 0
     for stop in end_indices:
@@ -271,9 +361,22 @@ def load_spikedata_from_hdf5(
                 # subtract the smallest representable spacing so the length is
                 # slightly less than the exact bin-aligned value and avoids
                 # triggering the extra empty bin in `SpikeData.raster`.
-                length_ms = max(total_time - np.spacing(total_time), 0.0)
+                computed_length_ms = max(total_time - np.spacing(total_time), 0.0)
             else:
-                length_ms = 0.0
+                computed_length_ms = 0.0
+            # Warn when the user supplied an explicit length_ms that
+            # differs from the shape-derived value — the raster style
+            # always derives length from the matrix, so an explicit
+            # length_ms is silently ignored.
+            if length_ms is not None and length_ms != computed_length_ms:
+                warnings.warn(
+                    f"length_ms={length_ms} ignored for raster style; "
+                    f"length is derived from raster.shape[1] * raster_bin_size_ms "
+                    f"= {computed_length_ms}.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+            length_ms = computed_length_ms
             sd = SpikeData.from_raster(
                 raster, raster_bin_size_ms, length=length_ms, start_time=file_start_time
             )
@@ -297,9 +400,12 @@ def load_spikedata_from_hdf5(
             )
 
         if group_per_unit is not None:
-            # Style (3): each child dataset is a unit's spike times
+            # Style (3): each child dataset is a unit's spike times.
+            # Sort numerically (so "10" sorts after "9", not after "1") so
+            # round-trip with the matching exporter preserves unit identity
+            # at N>=10.
             grp = f[group_per_unit]
-            keys = sorted(list(grp.keys()))
+            keys = sorted(grp.keys(), key=_natural_sort_key)
             trains = [to_ms(np.asarray(grp[k]), group_time_unit, fs_Hz) for k in keys]
             return _build_spikedata(
                 trains,
@@ -313,6 +419,11 @@ def load_spikedata_from_hdf5(
         # Style (4): paired indices and times arrays
         idces = np.asarray(f[idces_dataset])  # type: ignore
         times = to_ms(np.asarray(f[times_dataset]), times_unit, fs_Hz)  # type: ignore
+        if len(idces) != len(times):
+            raise ValueError(
+                f"idces_dataset and times_dataset must have equal length; "
+                f"got len(idces)={len(idces)}, len(times)={len(times)}."
+            )
         N = int(idces.max()) + 1 if idces.size else 0
         sd = SpikeData.from_idces_times(
             idces, times, N=N, length=length_ms, start_time=file_start_time
@@ -476,8 +587,19 @@ def load_spikedata_from_nwb(
 
         flat = np.asarray(unit_grp[st_key])
         index = np.asarray(unit_grp[idx_key])
+        # Read the unit-id table first so we know N upfront. NWB
+        # files in the wild use either the spec-compliant
+        # cumulative-end (length N) or a leading-zero (length N+1)
+        # convention; the unit count disambiguates them.
+        n_units = int(np.asarray(unit_grp["id"]).shape[0]) if "id" in unit_grp else None
         trains.extend(
-            _trains_from_flat_index(flat.astype(float), index, unit="s", fs_Hz=None)
+            _trains_from_flat_index(
+                flat.astype(float),
+                index,
+                unit="s",
+                fs_Hz=None,
+                n_units=n_units,
+            )
         )
 
         unit_ids = (
@@ -690,6 +812,14 @@ def load_spikedata_from_kilosort(
     keep_clusters: Optional[set] = None
     if cluster_info_tsv is not None:
         tsv_path = os.path.join(folder, cluster_info_tsv)
+        if not os.path.exists(tsv_path):
+            warnings.warn(
+                f"cluster_info_tsv path does not exist: {tsv_path}. "
+                "Falling back to keeping all clusters; pass cluster_info_tsv=None "
+                "to silence this warning, or check the path for typos.",
+                UserWarning,
+                stacklevel=2,
+            )
         if os.path.exists(tsv_path):
             try:
                 import pandas as pd
@@ -726,6 +856,12 @@ def load_spikedata_from_kilosort(
                     "Install with: pip install oc-spikelab[io]. "
                     "Keeping all clusters."
                 )
+            except pd.errors.EmptyDataError as e:
+                raise ValueError(
+                    f"Cluster info TSV at {tsv_path!r} is empty (0 rows). "
+                    f"Provide a TSV with at least a header row, or omit "
+                    f"cluster_info_tsv to skip cluster filtering."
+                ) from e
             except (IOError, ValueError, KeyError) as e:
                 warnings.warn(
                     f"Failed parsing cluster info TSV: {e}; keeping all clusters"
@@ -812,6 +948,14 @@ def load_spikedata_from_spikelab_sorted_npz(
     """
     data = np.load(filepath, allow_pickle=True)
 
+    available_keys = list(data.files)
+    for required_key in ("units", "fs"):
+        if required_key not in available_keys:
+            raise KeyError(
+                f"NPZ file {filepath!r} is missing required key {required_key!r}. "
+                f"Available keys: {available_keys}. Verify the file was saved by "
+                "SpikeLab's sorter export pipeline."
+            )
     units = data["units"]
     fs_Hz = float(data["fs"])
     locations = data.get("locations", None)
@@ -1087,6 +1231,27 @@ def load_spikedata_from_ibl(
             break
         except (ValueError, KeyError, FileNotFoundError):
             continue
+
+    # When every collection fallback failed and the Brain-Wide Map lists
+    # good units for this probe, the loader is about to return a
+    # SpikeData full of empty trains — a result that looks valid to
+    # downstream code (correct N, correct neuron_attributes, correct
+    # trial metadata) but contains zero actual spikes. Surface the
+    # silent failure with a loud UserWarning so it shows up in batch
+    # logs without crashing the calling script.
+    if spikes is None and len(good_units) > 0:
+        warnings.warn(
+            f"load_spikedata_from_ibl: failed to load spikes for "
+            f"eid={eid!r}, pid={pid!r} from any of the candidate "
+            f"collections: {ordered_collections}. The Brain-Wide Map "
+            f"lists {len(good_units)} good unit(s) for this probe — "
+            f"the returned SpikeData will have {len(good_units)} units "
+            f"but zero spikes. Verify the eid/pid pair on the IBL "
+            f"server, or check ``sd.train`` for the all-empty "
+            f"signature before using.",
+            UserWarning,
+            stacklevel=2,
+        )
 
     # Build per-unit spike trains (seconds → milliseconds).
     spike_trains: List[np.ndarray] = []

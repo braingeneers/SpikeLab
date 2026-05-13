@@ -19,6 +19,7 @@ PairwiseCompMatrix, PairwiseCompMatrixStack, dict (with serializable leaf values
 
 import json
 import time
+import warnings
 from typing import Any, Optional, Tuple
 
 import numpy as np
@@ -203,6 +204,24 @@ def delete_item_from_file(
             del f[namespace][key]
 
 
+def set_note_in_file(h5_path: str, namespace: str, key: str, note: str) -> None:
+    """Write a note attribute onto an existing item in an HDF5 workspace file.
+
+    Parameters:
+        h5_path (str): Path to the HDF5 workspace file.
+        namespace (str): Namespace containing the target item.
+        key (str): Item key within the namespace.
+        note (str): Note text to attach.
+
+    Raises:
+        KeyError: If the item ``(namespace, key)`` does not exist.
+    """
+    with h5py.File(h5_path, "a") as f:
+        if namespace not in f or key not in f[namespace]:
+            raise KeyError(f"workspace item not found: ({namespace!r}, {key!r})")
+        f[namespace][key].attrs["__note__"] = note
+
+
 # ===========================================================================
 # Item-level dump / load
 # ===========================================================================
@@ -341,8 +360,30 @@ def _dump_dict(grp, d: dict, created_at: float) -> None:
     wrapped in a group are stored as scalar datasets with
     ``__type__ = "scalar"``.  Lists are converted to numpy arrays before
     serialisation.
+
+    Raises:
+        ValueError: If any dict key is not a non-empty string, or
+            contains a forward slash (h5py interprets ``/`` as a
+            group-path separator and would silently corrupt the
+            round-trip).
     """
     for k, v in d.items():
+        # Reject keys that h5py would either reject cryptically
+        # (empty / non-string) or silently misinterpret (slash). Up-front
+        # validation gives a clear error and avoids silent corruption.
+        if not isinstance(k, str):
+            raise ValueError(
+                f"Dict key {k!r} is not a string. HDF5 group names must "
+                f"be strings (got {type(k).__name__})."
+            )
+        if not k:
+            raise ValueError("Dict key is empty. HDF5 group names must be non-empty.")
+        if "/" in k:
+            raise ValueError(
+                f"Dict key {k!r} contains a forward slash. h5py treats "
+                f"'/' as a group-path separator; use a different "
+                f"separator (e.g. '_' or '.') in dict keys."
+            )
         if isinstance(v, list):
             v = np.asarray(v)
             if v.dtype == object:
@@ -420,15 +461,50 @@ def _dump_neuron_attributes(grp, neuron_attributes: list) -> None:
     for d in neuron_attributes:
         all_keys.update(d.keys())
 
+    _SUPPORTED_SCALAR_TYPES = (
+        str,
+        bool,
+        int,
+        float,
+        np.integer,
+        np.floating,
+        np.bool_,
+    )
+    _SUPPORTED_ARRAY_TYPES = (np.ndarray, list, tuple)
+
     for attr_key in all_keys:
+        # h5py interprets '/' in dataset names as a path separator, so a
+        # key like 'meta/info' would create a nested group rather than a
+        # literal attribute. Reject up front instead of silently
+        # corrupting the round-trip.
+        if "/" in attr_key:
+            raise ValueError(
+                f"Neuron attribute key {attr_key!r} contains a forward "
+                f"slash. h5py treats '/' as a group-path separator; use "
+                f"a different separator (e.g. '_' or '.') in attribute "
+                f"keys."
+            )
+
         values = [d.get(attr_key) for d in neuron_attributes]
         non_none = [v for v in values if v is not None]
+
+        # Reject unsupported value types upfront with a clear message
+        # naming the attribute and offending type. This guards against
+        # deep TypeError/IndexError later in dataset construction.
+        for v in non_none:
+            if not isinstance(v, _SUPPORTED_SCALAR_TYPES + _SUPPORTED_ARRAY_TYPES):
+                raise ValueError(
+                    f"Neuron attribute {attr_key!r} contains an unsupported "
+                    f"value type: {type(v).__name__}. Supported types are "
+                    f"numeric scalars, strings, and array-likes "
+                    f"(ndarray/list/tuple)."
+                )
 
         if not non_none:
             na_grp.create_dataset(attr_key, data=np.full(N, np.nan))
             continue
 
-        use_array = any(isinstance(v, (np.ndarray, list, tuple)) for v in non_none)
+        use_array = any(isinstance(v, _SUPPORTED_ARRAY_TYPES) for v in non_none)
         use_string = any(isinstance(v, str) for v in non_none)
 
         if use_array:
@@ -460,6 +536,24 @@ def _dump_neuron_attributes(grp, neuron_attributes: list) -> None:
                 dtype=dt,
             )
         else:
+            # NaN doubles as the missing-entry sentinel here, so a
+            # legitimate NaN supplied by the caller would be silently
+            # dropped on reload. Warn so the caller can pick a different
+            # convention (e.g. omit the attribute, or use a sentinel
+            # like -1).
+            if any(
+                isinstance(v, (float, np.floating)) and np.isnan(v) for v in non_none
+            ):
+                warnings.warn(
+                    f"Neuron attribute {attr_key!r} contains NaN values "
+                    f"that will be indistinguishable from missing "
+                    f"entries when reloaded (NaN is the missing-entry "
+                    f"sentinel for float attributes). Drop the "
+                    f"attribute or use a different convention if NaN "
+                    f"is meaningful here.",
+                    UserWarning,
+                    stacklevel=2,
+                )
             float_values = [float(v) if v is not None else np.nan for v in values]
             na_grp.create_dataset(
                 attr_key, data=np.array(float_values, dtype=np.float64)

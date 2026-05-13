@@ -827,6 +827,71 @@ class TestS3StorageClient:
         uri = client.build_uri(run_id="run-1", filename="my file (1).pkl")
         assert "my file (1).pkl" in uri
 
+    def test_prefixless_client_supports_download_upload(self):
+        """
+        S3StorageClient(prefix=None) supports the entrypoint pattern:
+        the container constructs a prefixless client and exercises only
+        download_file / upload_file with fully-formed S3 URIs. The
+        prefix-templating methods are off-limits in this mode.
+
+        Tests:
+            (Test Case 1) download_file works with prefix=None.
+            (Test Case 2) upload_file works with prefix=None.
+            (Test Case 3) self.prefix is None (not coerced).
+        """
+        with patch("spikelab.batch_jobs.storage_s3.boto3") as mock_boto3:
+            mock_s3 = MagicMock()
+            mock_boto3.client.return_value = mock_s3
+            client = S3StorageClient(prefix=None)
+        assert client.prefix is None
+
+        client.download_file(
+            s3_uri="s3://bucket/outputs/run-1/data.pkl",
+            local_path="/tmp/data.pkl",
+        )
+        mock_s3.download_file.assert_called_once_with(
+            "bucket", "outputs/run-1/data.pkl", "/tmp/data.pkl"
+        )
+
+        result = client.upload_file(
+            local_path="/tmp/out.pkl",
+            s3_uri="s3://bucket/outputs/run-1/out.pkl",
+        )
+        mock_s3.upload_file.assert_called_once_with(
+            "/tmp/out.pkl", "bucket", "outputs/run-1/out.pkl"
+        )
+        assert result == "s3://bucket/outputs/run-1/out.pkl"
+
+    def test_prefixless_client_rejects_template_methods(self):
+        """
+        Calling prefix-templating methods on a prefix=None client
+        raises ValueError naming the missing prefix — this is the
+        intended fail-fast for the container path so a future
+        refactor that accidentally calls build_uri / upload_bundle
+        in the entrypoint surfaces the bug instead of silently
+        producing double-templated URIs.
+
+        Tests:
+            (Test Case 1) build_uri raises.
+            (Test Case 2) upload_bundle raises (it composes build_uri).
+            (Test Case 3) output_prefix_for_run / logs_prefix_for_run
+                return empty string (documented existing behaviour).
+        """
+        with patch("spikelab.batch_jobs.storage_s3.boto3") as mock_boto3:
+            mock_boto3.client.return_value = MagicMock()
+            client = S3StorageClient(prefix=None)
+
+        with pytest.raises(ValueError, match="S3 prefix is not configured"):
+            client.build_uri(run_id="run-1", filename="data.pkl")
+        with pytest.raises(ValueError, match="S3 prefix is not configured"):
+            client.upload_bundle(local_zip="/tmp/x.zip", run_id="run-1")
+
+        # The two *_prefix_for_run methods return empty strings rather
+        # than raising — preserved as the documented existing behaviour
+        # (see test_output_prefix_no_prefix_returns_empty above).
+        assert client.output_prefix_for_run("run-1") == ""
+        assert client.logs_prefix_for_run("run-1") == ""
+
 
 # ---------------------------------------------------------------------------
 # backend_k8s tests (no real cluster)
@@ -1198,18 +1263,27 @@ class TestModelValidation:
         assert vol.pvc_name == "pvc"
 
     def test_name_prefix_special_chars_sanitized(self):
-        """JobSpec sanitizes special characters in name_prefix to hyphens."""
+        """JobSpec sanitizes special characters in name_prefix to hyphens and collapses runs.
+
+        Tests:
+            - Special characters are replaced with hyphens.
+            - Consecutive hyphens are collapsed to a single hyphen.
+        """
         payload = _example_payload()
         payload["name_prefix"] = "my job!@#test"
         job_spec = validate_job_spec(payload)
-        assert job_spec.name_prefix == "my-job---test"
+        assert job_spec.name_prefix == "my-job-test"
 
-    def test_name_prefix_all_special_chars_fallback(self):
-        """JobSpec falls back to 'analysis-job' when prefix is all special chars."""
+    def test_name_prefix_all_special_chars_raises(self):
+        """JobSpec raises ValueError when prefix is empty after ASCII sanitization.
+
+        Tests:
+            - An all-hyphen prefix sanitizes to empty and raises ValueError.
+        """
         payload = _example_payload()
         payload["name_prefix"] = "---"
-        job_spec = validate_job_spec(payload)
-        assert job_spec.name_prefix == "analysis-job"
+        with pytest.raises(ValueError, match="empty after ASCII sanitization"):
+            validate_job_spec(payload)
 
     def test_name_prefix_truncated_to_40(self):
         """JobSpec truncates name_prefix to 40 characters."""
@@ -1426,15 +1500,25 @@ class TestPolicy:
         codes = {f.code: f.level for f in findings}
         assert codes["long_runtime"] == "WARN"
 
-    def test_policy_no_runtime_warning_when_not_set(self):
-        """No long_runtime finding when active_deadline_seconds is None."""
+    def test_policy_long_runtime_pass_when_not_set(self):
+        """
+        No active_deadline_seconds set produces a PASS finding (cluster
+        default applies). The other policy checks always emit a finding;
+        long_runtime now matches that pattern for audit-trail symmetry.
+
+        Tests:
+            (Test Case 1) None deadline produces a long_runtime PASS.
+            (Test Case 2) The PASS message names the cluster-default
+                fallback so operators can see why no warning fired.
+        """
         payload = _example_payload()
         # active_deadline_seconds defaults to None
         job_spec = validate_job_spec(payload)
         profile = ClusterProfile(name="test")
         findings = evaluate_policy(job_spec, profile)
-        codes = {f.code for f in findings}
-        assert "long_runtime" not in codes
+        long_finding = [f for f in findings if f.code == "long_runtime"][0]
+        assert long_finding.level == "PASS"
+        assert "cluster default" in long_finding.message
 
     def test_policy_request_limit_mismatch_warning(self):
         """Mismatched CPU/memory requests and limits triggers WARN."""
@@ -1531,7 +1615,16 @@ class TestPolicyBoundary:
         assert sleep_finding.level == "PASS"
 
     def test_active_deadline_at_boundary(self):
-        """active_deadline_seconds == max_runtime_seconds should not WARN."""
+        """
+        active_deadline_seconds == max_runtime_seconds is treated as
+        within-limit and produces a long_runtime PASS finding (not WARN).
+
+        Tests:
+            (Test Case 1) Boundary deadline produces PASS (the WARN
+                threshold is strict ``>``).
+            (Test Case 2) The PASS message names both the actual
+                deadline and the configured maximum.
+        """
         payload = _example_payload()
         payload["active_deadline_seconds"] = 1_209_600  # exactly 14 days
         job_spec = validate_job_spec(payload)
@@ -1540,8 +1633,9 @@ class TestPolicyBoundary:
             policy=PolicyConfig(max_runtime_seconds=1_209_600),
         )
         findings = evaluate_policy(job_spec, profile)
-        codes = {f.code for f in findings}
-        assert "long_runtime" not in codes
+        long_finding = [f for f in findings if f.code == "long_runtime"][0]
+        assert long_finding.level == "PASS"
+        assert "1209600" in long_finding.message
 
     def test_mixed_block_and_warn_findings(self):
         """BLOCK takes precedence over WARN in summarize_preflight."""
@@ -1570,26 +1664,19 @@ class TestPolicyBoundary:
 
 
 class TestBuildJobName:
-    def test_empty_prefix(self):
-        """Empty prefix produces a name that is just '-<token>'."""
+    def test_empty_prefix_raises(self):
+        """Empty prefix raises ValueError (would produce a leading-hyphen name)."""
         from spikelab.batch_jobs.session import RunSession
 
-        name = RunSession._build_job_name("")
-        # Empty string rstripped of hyphens is still empty, so name is "-<8hex>"
-        assert len(name) <= 63
-        token = name.split("-")[-1]
-        assert len(token) == 8
-        int(token, 16)
+        with pytest.raises(ValueError, match="alphanumeric"):
+            RunSession._build_job_name("")
 
-    def test_all_hyphens_prefix(self):
-        """Prefix like '---' is rstripped to empty, producing '-<token>'."""
+    def test_all_hyphens_prefix_raises(self):
+        """All-hyphen prefix raises ValueError (rstrip reduces it to empty)."""
         from spikelab.batch_jobs.session import RunSession
 
-        name = RunSession._build_job_name("---")
-        assert len(name) <= 63
-        token = name.split("-")[-1]
-        assert len(token) == 8
-        int(token, 16)
+        with pytest.raises(ValueError, match="empty string"):
+            RunSession._build_job_name("---")
 
     def test_prefix_exactly_at_max_length(self):
         """54-char prefix fits exactly (54 + 1 + 8 = 63)."""
@@ -2528,6 +2615,167 @@ class TestWorkspaceEntrypoint:
         assert "s3://bucket/outputs/run-1/workspace.json" in uploaded_uris
 
 
+class TestFindWorkspaceH5:
+    """
+    ``_find_workspace_h5`` identifies the workspace by content
+    signature (the __workspace_id__ HDF5 attribute) rather than by
+    filename. Bundles can contain other .h5 inputs (recordings,
+    intermediate data) via ``bundle_input_paths``, and the workspace
+    itself can be saved under any base path the caller chose.
+    """
+
+    def _make_workspace_h5(self, path):
+        """Write a minimal SpikeLab workspace signature to ``path``."""
+        import h5py
+
+        with h5py.File(path, "w") as f:
+            f.attrs["__workspace_id__"] = "ws-test-123"
+            f.attrs["__workspace_name__"] = "test"
+            f.attrs["__created_at__"] = 0.0
+
+    def _make_recording_h5(self, path):
+        """Write an .h5 file that is NOT a SpikeLab workspace."""
+        import h5py
+        import numpy as np
+
+        with h5py.File(path, "w") as f:
+            f.create_dataset("traces", data=np.zeros((10, 4)))
+
+    def test_picks_workspace_with_arbitrary_name(self, tmp_path):
+        """
+        _find_workspace_h5 picks the workspace .h5 even when it has
+        a custom name (not 'workspace.h5'), because identification
+        is content-based.
+
+        Tests:
+            (Test Case 1) A bundle with my_analysis.h5 (the workspace)
+                + recording.h5 (no signature) returns my_analysis.h5.
+        """
+        try:
+            import h5py  # noqa: F401
+        except ImportError:
+            pytest.skip("h5py not installed")
+        from spikelab.batch_jobs.entrypoints.workspace import _find_workspace_h5
+
+        bundle = tmp_path / "bundle"
+        bundle.mkdir()
+        ws = bundle / "my_analysis.h5"
+        rec = bundle / "recording.h5"
+        self._make_workspace_h5(ws)
+        self._make_recording_h5(rec)
+
+        result = _find_workspace_h5(bundle)
+        assert result == ws
+
+    def test_ignores_non_workspace_h5_files(self, tmp_path):
+        """
+        Files without __workspace_id__ are skipped, so extra .h5
+        inputs (recordings, intermediate data) don't confuse the
+        identification.
+
+        Tests:
+            (Test Case 1) Bundle with workspace.h5 + extra rec.h5
+                returns workspace.h5 (not the first-rglob result).
+        """
+        try:
+            import h5py  # noqa: F401
+        except ImportError:
+            pytest.skip("h5py not installed")
+        from spikelab.batch_jobs.entrypoints.workspace import _find_workspace_h5
+
+        bundle = tmp_path / "bundle"
+        bundle.mkdir()
+        # Use names where the recording sorts BEFORE the workspace
+        # alphabetically, to exercise the "wrong-rglob-order" case.
+        ws = bundle / "workspace.h5"
+        rec1 = bundle / "aaa_recording.h5"
+        rec2 = bundle / "zzz_intermediate.h5"
+        self._make_workspace_h5(ws)
+        self._make_recording_h5(rec1)
+        self._make_recording_h5(rec2)
+
+        result = _find_workspace_h5(bundle)
+        assert result == ws
+
+    def test_no_workspace_raises_clear_error(self, tmp_path):
+        """
+        A bundle with no .h5 carrying __workspace_id__ raises
+        FileNotFoundError naming the expected attribute so operators
+        can debug the bundle layout.
+
+        Tests:
+            (Test Case 1) Bundle with only non-workspace .h5 raises.
+            (Test Case 2) The error names "__workspace_id__".
+        """
+        try:
+            import h5py  # noqa: F401
+        except ImportError:
+            pytest.skip("h5py not installed")
+        from spikelab.batch_jobs.entrypoints.workspace import _find_workspace_h5
+
+        bundle = tmp_path / "bundle"
+        bundle.mkdir()
+        self._make_recording_h5(bundle / "rec.h5")
+
+        with pytest.raises(FileNotFoundError, match="__workspace_id__"):
+            _find_workspace_h5(bundle)
+
+    def test_multiple_workspaces_raises_clear_error(self, tmp_path):
+        """
+        Two .h5 files both carrying __workspace_id__ are an
+        ambiguous bundle layout — refuse to guess and name both
+        candidates so the operator can fix the inputs.
+
+        Tests:
+            (Test Case 1) Two workspace files raise RuntimeError.
+            (Test Case 2) The error names both candidate paths.
+        """
+        try:
+            import h5py  # noqa: F401
+        except ImportError:
+            pytest.skip("h5py not installed")
+        from spikelab.batch_jobs.entrypoints.workspace import _find_workspace_h5
+
+        bundle = tmp_path / "bundle"
+        bundle.mkdir()
+        ws1 = bundle / "first.h5"
+        ws2 = bundle / "second.h5"
+        self._make_workspace_h5(ws1)
+        self._make_workspace_h5(ws2)
+
+        with pytest.raises(RuntimeError) as exc_info:
+            _find_workspace_h5(bundle)
+        msg = str(exc_info.value)
+        assert "first.h5" in msg
+        assert "second.h5" in msg
+
+    def test_malformed_h5_silently_skipped(self, tmp_path):
+        """
+        A non-HDF5 file with .h5 extension (e.g. corrupt download) is
+        silently skipped — h5py raises OSError, the helper continues
+        scanning, and a sibling valid workspace is still found.
+
+        Tests:
+            (Test Case 1) Bundle with a corrupt foo.h5 + a real
+                workspace returns the workspace.
+        """
+        try:
+            import h5py  # noqa: F401
+        except ImportError:
+            pytest.skip("h5py not installed")
+        from spikelab.batch_jobs.entrypoints.workspace import _find_workspace_h5
+
+        bundle = tmp_path / "bundle"
+        bundle.mkdir()
+        ws = bundle / "ws.h5"
+        corrupt = bundle / "corrupt.h5"
+        self._make_workspace_h5(ws)
+        corrupt.write_bytes(b"not an HDF5 file")
+
+        result = _find_workspace_h5(bundle)
+        assert result == ws
+
+
 class TestSortingEntrypoint:
     def test_require_env_raises_on_missing(self):
         """
@@ -2582,6 +2830,271 @@ class TestSortingEntrypoint:
         assert reconstructed.recording.freq_min == 200
 
 
+class TestSortingEntrypointMain:
+    """
+    End-to-end test for the ``main`` function in
+    ``spikelab.batch_jobs.entrypoints.sorting``. Mirrors the
+    ``TestWorkspaceEntrypoint.test_main_runs_script_with_workspace``
+    pattern: build a real bundle, mock S3 + ``sort_recording``, and
+    verify that ``main()`` downloads, sorts, and uploads as
+    documented.
+    """
+
+    def test_main_downloads_sorts_and_uploads(self, tmp_path, monkeypatch):
+        """
+        ``main()`` reads INPUT_URI / OUTPUT_PREFIX, downloads the
+        bundle zip, runs ``sort_recording`` on extracted recordings,
+        and uploads each curated SpikeData pickle plus a
+        ``sorting_report.json`` to ``output_prefix``.
+
+        Tests:
+            (Test Case 1) ``S3StorageClient.download_file`` is called
+                with INPUT_URI.
+            (Test Case 2) ``sort_recording`` receives the recording
+                file paths, the reconstructed config, and the auto-
+                generated intermediate / results folders.
+            (Test Case 3) Each returned SpikeData is uploaded as
+                ``{name}_curated.pkl`` under OUTPUT_PREFIX.
+            (Test Case 4) ``sorting_report.json`` is uploaded with
+                the expected metadata.
+        """
+        import dataclasses
+        import json
+        import pickle
+        import shutil
+        import zipfile
+        from unittest.mock import MagicMock
+
+        import numpy as np
+
+        from spikelab.batch_jobs.entrypoints.sorting import main as sorting_main
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+        from spikelab.spikedata import SpikeData
+
+        # --- Build a tiny bundle: one recording file + sorting_config.json ---
+        bundle_dir = tmp_path / "bundle"
+        bundle_dir.mkdir(parents=True)
+
+        config = SortingPipelineConfig()
+        config_dict = dataclasses.asdict(config)
+        (bundle_dir / "sorting_config.json").write_text(
+            json.dumps(config_dict), encoding="utf-8"
+        )
+
+        # Recording file is opaque to the entrypoint; a placeholder
+        # byte-blob is enough to exercise the file-discovery loop.
+        rec_a = bundle_dir / "rec_a.bin"
+        rec_a.write_bytes(b"binary recording payload")
+        # A second .bin to verify multi-recording handling.
+        rec_b = bundle_dir / "rec_b.bin"
+        rec_b.write_bytes(b"second recording payload")
+        # Manifest is excluded by the entrypoint's recording-file
+        # discovery loop.
+        (bundle_dir / "manifest.json").write_text("{}", encoding="utf-8")
+
+        zip_path = tmp_path / "bundle.zip"
+        with zipfile.ZipFile(zip_path, "w") as zf:
+            for path in bundle_dir.iterdir():
+                zf.write(path, path.name)
+
+        # --- Mock the S3 client: download = local copy; upload = capture ---
+        # Capture each upload's bytes immediately, since main()'s
+        # tempfile.TemporaryDirectory cleans up local_path on exit.
+        upload_calls: list[tuple[str, str, bytes]] = []
+
+        def fake_download(*, s3_uri, local_path):
+            shutil.copy2(zip_path, local_path)
+            return local_path
+
+        def fake_upload(*, local_path, s3_uri):
+            with open(local_path, "rb") as f:
+                payload = f.read()
+            upload_calls.append((local_path, s3_uri, payload))
+            return s3_uri
+
+        mock_storage = MagicMock()
+        mock_storage.download_file.side_effect = fake_download
+        mock_storage.upload_file.side_effect = fake_upload
+
+        monkeypatch.setattr(
+            "spikelab.batch_jobs.storage_s3.S3StorageClient",
+            lambda **kwargs: mock_storage,
+        )
+
+        # --- Mock sort_recording with a stub that returns one SpikeData per recording ---
+        sort_calls: list[dict] = []
+
+        def fake_sort_recording(
+            recording_files,
+            config,
+            intermediate_folders,
+            results_folders,
+        ):
+            # Snapshot existence-at-call-time: the temp dir holding
+            # these folders is cleaned up when main() returns, so
+            # later existence checks would be misleading.
+            folders_existed = all(
+                Path(p).exists() and Path(p).is_dir()
+                for p in list(intermediate_folders) + list(results_folders)
+            )
+            sort_calls.append(
+                {
+                    "recording_files": list(recording_files),
+                    "intermediate_folders": list(intermediate_folders),
+                    "results_folders": list(results_folders),
+                    "config": config,
+                    "folders_existed_at_call": folders_existed,
+                }
+            )
+            return [SpikeData([[1.0, 2.0]], length=10.0) for _ in recording_files]
+
+        monkeypatch.setattr(
+            "spikelab.spike_sorting.pipeline.sort_recording",
+            fake_sort_recording,
+        )
+
+        # --- Env vars consumed by main() ---
+        monkeypatch.setenv("INPUT_URI", "s3://bucket/input/bundle.zip")
+        monkeypatch.setenv("OUTPUT_PREFIX", "s3://bucket/outputs/run-1/")
+
+        sorting_main()
+
+        # --- Assertions on the orchestration ---
+        # Test Case 1: download_file invoked with INPUT_URI.
+        download_args = mock_storage.download_file.call_args
+        assert download_args.kwargs["s3_uri"] == "s3://bucket/input/bundle.zip"
+
+        # Test Case 2: sort_recording received the two recording files.
+        assert len(sort_calls) == 1
+        call = sort_calls[0]
+        rec_names = {Path(p).name for p in call["recording_files"]}
+        assert rec_names == {"rec_a.bin", "rec_b.bin"}
+        # Per-recording intermediate / results folders were materialised
+        # (existence captured inside the sort_recording stub before the
+        # tempdir was cleaned up).
+        assert len(call["intermediate_folders"]) == 2
+        assert len(call["results_folders"]) == 2
+        assert call["folders_existed_at_call"] is True
+        assert isinstance(call["config"], SortingPipelineConfig)
+
+        # Test Case 3: per-recording curated pickles uploaded.
+        uploaded_uris = {uri for _, uri, _ in upload_calls}
+        assert "s3://bucket/outputs/run-1/rec_a_curated.pkl" in uploaded_uris
+        assert "s3://bucket/outputs/run-1/rec_b_curated.pkl" in uploaded_uris
+
+        # Test Case 4: sorting_report.json uploaded with the expected metadata.
+        report_uploads = [
+            (local, uri, payload)
+            for local, uri, payload in upload_calls
+            if uri.endswith("sorting_report.json")
+        ]
+        assert len(report_uploads) == 1
+        _, _, report_bytes = report_uploads[0]
+        meta = json.loads(report_bytes.decode("utf-8"))
+        assert meta["n_recordings"] == 2
+        assert meta["n_results"] == 2
+        assert set(meta["recording_names"]) == {"rec_a", "rec_b"}
+        assert meta["sorter"] == config.sorter.sorter_name
+
+        # The pickled SpikeData should round-trip from the upload payloads.
+        pkl_uploads = [
+            payload for _, uri, payload in upload_calls if uri.endswith(".pkl")
+        ]
+        for payload in pkl_uploads:
+            loaded = pickle.loads(payload)
+            assert isinstance(loaded, SpikeData)
+
+    def test_main_raises_on_missing_sorting_config(self, tmp_path, monkeypatch):
+        """
+        ``main()`` raises FileNotFoundError when the bundle contains
+        no ``sorting_config.json``. The error must surface clearly so
+        the operator can repair the bundle.
+
+        Tests:
+            (Test Case 1) Bundle without sorting_config.json raises
+                FileNotFoundError mentioning the missing file.
+        """
+        import shutil
+        import zipfile
+        from unittest.mock import MagicMock
+
+        from spikelab.batch_jobs.entrypoints.sorting import main as sorting_main
+
+        bundle_dir = tmp_path / "bundle_no_cfg"
+        bundle_dir.mkdir(parents=True)
+        (bundle_dir / "rec.bin").write_bytes(b"recording")
+
+        zip_path = tmp_path / "bundle.zip"
+        with zipfile.ZipFile(zip_path, "w") as zf:
+            for path in bundle_dir.iterdir():
+                zf.write(path, path.name)
+
+        def fake_download(*, s3_uri, local_path):
+            shutil.copy2(zip_path, local_path)
+            return local_path
+
+        mock_storage = MagicMock()
+        mock_storage.download_file.side_effect = fake_download
+
+        monkeypatch.setattr(
+            "spikelab.batch_jobs.storage_s3.S3StorageClient",
+            lambda **kwargs: mock_storage,
+        )
+        monkeypatch.setenv("INPUT_URI", "s3://bucket/input/bundle.zip")
+        monkeypatch.setenv("OUTPUT_PREFIX", "s3://bucket/outputs/run-1/")
+
+        with pytest.raises(FileNotFoundError, match="sorting_config.json"):
+            sorting_main()
+
+    def test_main_raises_on_no_recording_files(self, tmp_path, monkeypatch):
+        """
+        ``main()`` raises FileNotFoundError when the bundle contains
+        ``sorting_config.json`` but no recording files. Documents the
+        ``"No recording files found in input bundle"`` branch.
+
+        Tests:
+            (Test Case 1) Config-only bundle raises FileNotFoundError.
+        """
+        import dataclasses
+        import json
+        import shutil
+        import zipfile
+        from unittest.mock import MagicMock
+
+        from spikelab.batch_jobs.entrypoints.sorting import main as sorting_main
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+
+        bundle_dir = tmp_path / "bundle_no_rec"
+        bundle_dir.mkdir(parents=True)
+        config_dict = dataclasses.asdict(SortingPipelineConfig())
+        (bundle_dir / "sorting_config.json").write_text(
+            json.dumps(config_dict), encoding="utf-8"
+        )
+        (bundle_dir / "manifest.json").write_text("{}", encoding="utf-8")
+
+        zip_path = tmp_path / "bundle.zip"
+        with zipfile.ZipFile(zip_path, "w") as zf:
+            for path in bundle_dir.iterdir():
+                zf.write(path, path.name)
+
+        def fake_download(*, s3_uri, local_path):
+            shutil.copy2(zip_path, local_path)
+            return local_path
+
+        mock_storage = MagicMock()
+        mock_storage.download_file.side_effect = fake_download
+
+        monkeypatch.setattr(
+            "spikelab.batch_jobs.storage_s3.S3StorageClient",
+            lambda **kwargs: mock_storage,
+        )
+        monkeypatch.setenv("INPUT_URI", "s3://bucket/input/bundle.zip")
+        monkeypatch.setenv("OUTPUT_PREFIX", "s3://bucket/outputs/run-1/")
+
+        with pytest.raises(FileNotFoundError, match="recording files"):
+            sorting_main()
+
+
 # ---------------------------------------------------------------------------
 # Edge case tests — batch_jobs (HIGH and MEDIUM severity findings)
 # ---------------------------------------------------------------------------
@@ -2609,34 +3122,39 @@ class TestVolumeMountSpec:
 class TestJobSpecNamePrefix:
     """Edge cases for JobSpec._validate_name_prefix."""
 
-    def test_unicode_characters_pass_through(self):
-        """Unicode letters pass isalnum() but are invalid for K8s RFC 1123 labels.
+    def test_unicode_characters_replaced_with_hyphens(self):
+        """Non-ASCII characters in name_prefix are replaced with hyphens.
 
-        This documents a known gap: the sanitizer uses Python's isalnum()
-        which accepts Unicode letters, but K8s labels require ASCII only.
+        Tests:
+            - Mixed ASCII/non-ASCII input produces an ASCII-only result.
+            - An all non-ASCII input raises ValueError after sanitization.
         """
         payload = _example_payload()
         payload["name_prefix"] = "análysis-jöb"
         job_spec = validate_job_spec(payload)
-        # Unicode chars pass through isalnum() check — this is the gap
-        assert "á" in job_spec.name_prefix or "ö" in job_spec.name_prefix
-        # Verify the result is NOT valid ASCII (documenting the issue)
-        with pytest.raises(UnicodeEncodeError):
-            job_spec.name_prefix.encode("ascii")
+        assert job_spec.name_prefix == "an-lysis-j-b"
+        # Result must be valid ASCII.
+        job_spec.name_prefix.encode("ascii")
 
-    def test_trailing_hyphens_after_truncation(self):
-        """Truncation at 40 chars can leave trailing hyphens.
+        payload_all_non_ascii = _example_payload()
+        payload_all_non_ascii["name_prefix"] = "áöü"
+        with pytest.raises(ValueError, match="empty after ASCII sanitization"):
+            validate_job_spec(payload_all_non_ascii)
 
-        This documents a known gap: strip("-") runs before [:40], so
-        truncation can expose interior hyphens at the boundary.
+    def test_trailing_hyphens_stripped_after_truncation(self):
+        """Trailing hyphens exposed by 40-char truncation are stripped.
+
+        Tests:
+            - Result length is at most 40 characters.
+            - Result does not start or end with a hyphen.
         """
         payload = _example_payload()
         # Create a prefix where position 40 falls right after hyphens
         payload["name_prefix"] = "a" * 37 + "---xyz"
         job_spec = validate_job_spec(payload)
         assert len(job_spec.name_prefix) <= 40
-        # Documenting the gap: trailing hyphens remain after truncation
-        assert job_spec.name_prefix.endswith("-")
+        assert not job_spec.name_prefix.endswith("-")
+        assert not job_spec.name_prefix.startswith("-")
 
 
 class TestSleepDetectionMore:
@@ -3357,3 +3875,298 @@ class TestCredentialExtended:
         """AWS_ACCESS_KEY_ID should not be redacted (no SECRET/TOKEN/PASSWORD)."""
         redacted = redact_sensitive_map({"AWS_ACCESS_KEY_ID": "AKIAEXAMPLE"})
         assert redacted["AWS_ACCESS_KEY_ID"] == "AKIAEXAMPLE"
+
+
+class TestRetrieveSortingWarnsOnCorruptOutputs:
+    """
+    Tests that _retrieve_sorting emits a UserWarning naming the corrupt
+    file when a pickle or JSON output fails to load, instead of silently
+    swallowing the error. The retrieval still completes (continuing
+    through the remaining files) so a single bad output does not abort
+    the whole batch.
+    """
+
+    def _make_session(self):
+        from spikelab.batch_jobs.backend_k8s import KubernetesBatchJobBackend
+        from spikelab.batch_jobs.models import ClusterProfile
+        from spikelab.batch_jobs.session import RunSession
+        from spikelab.batch_jobs.storage_s3 import S3StorageClient
+
+        profile = ClusterProfile(name="test")
+        backend = MagicMock(spec=KubernetesBatchJobBackend)
+        storage = MagicMock(spec=S3StorageClient)
+        storage.output_prefix_for_run.return_value = "s3://b/out/run/"
+        storage.logs_prefix_for_run.return_value = "s3://b/logs/run/"
+        session = RunSession(
+            profile=profile,
+            backend=backend,
+            storage_client=storage,
+            credentials=MagicMock(),
+        )
+        return session, storage
+
+    def test_corrupt_pickle_warns_and_skips(self, tmp_path):
+        """
+        _retrieve_sorting emits a UserWarning naming the corrupt pickle
+        and continues; the workspace ends up without that entry.
+
+        Tests:
+            (Test Case 1) A UserWarning is emitted whose message names
+                the corrupt file.
+            (Test Case 2) The workspace is returned (no exception) and
+                contains no spikedata entry from the corrupt pickle.
+        """
+        import warnings
+
+        from spikelab.batch_jobs.models import SubmitResult
+        from spikelab.workspace.workspace import AnalysisWorkspace
+
+        session, storage = self._make_session()
+
+        # Source for the fake download lives in a separate subdirectory so
+        # local_path (derived from local_dir/relative) does not collide
+        # with the source — copy2 raises SameFileError otherwise.
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        bad_pkl = src_dir / "bad.pkl"
+        bad_pkl.write_bytes(b"not a real pickle")
+        local_dir = tmp_path / "local"
+        local_dir.mkdir()
+
+        storage.list_output_files.return_value = ["pfx/out/run-1/bad.pkl"]
+        storage.output_prefix_for_run.return_value = "s3://b/pfx/out/run-1/"
+
+        def fake_download(*, s3_uri, local_path):
+            import shutil
+
+            shutil.copy2(str(bad_pkl), local_path)
+            return local_path
+
+        storage.download_file.side_effect = fake_download
+
+        submit_result = SubmitResult(
+            job_name="sort-job",
+            manifest_yaml="",
+            run_id="run-1",
+            uploaded_input_uri="s3://b/pfx/inputs/run-1/bundle.zip",
+            output_prefix="s3://b/pfx/out/run-1/",
+            logs_prefix="s3://b/pfx/logs/run-1/",
+            job_type="sorting",
+        )
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            result_ws = session.retrieve_result(submit_result, str(local_dir))
+
+        assert isinstance(result_ws, AnalysisWorkspace)
+        assert len(result_ws._index) == 0
+        # A UserWarning naming the corrupt pickle was emitted.
+        warn_msgs = [str(rec.message) for rec in w if rec.category is UserWarning]
+        assert any("bad.pkl" in m for m in warn_msgs), warn_msgs
+
+    def test_corrupt_json_warns_and_skips(self, tmp_path):
+        """
+        _retrieve_sorting emits a UserWarning naming the unreadable JSON
+        and continues; the workspace ends up without that entry.
+
+        Tests:
+            (Test Case 1) A UserWarning is emitted whose message names
+                the unreadable JSON file.
+            (Test Case 2) The workspace is returned and contains no
+                metadata entry from the corrupt JSON.
+        """
+        import warnings
+
+        from spikelab.batch_jobs.models import SubmitResult
+        from spikelab.workspace.workspace import AnalysisWorkspace
+
+        session, storage = self._make_session()
+
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        bad_json = src_dir / "metadata.json"
+        bad_json.write_text("not valid json {")
+        local_dir = tmp_path / "local"
+        local_dir.mkdir()
+
+        storage.list_output_files.return_value = ["pfx/out/run-1/metadata.json"]
+        storage.output_prefix_for_run.return_value = "s3://b/pfx/out/run-1/"
+
+        def fake_download(*, s3_uri, local_path):
+            import shutil
+
+            shutil.copy2(str(bad_json), local_path)
+            return local_path
+
+        storage.download_file.side_effect = fake_download
+
+        submit_result = SubmitResult(
+            job_name="sort-job",
+            manifest_yaml="",
+            run_id="run-1",
+            uploaded_input_uri="s3://b/pfx/inputs/run-1/bundle.zip",
+            output_prefix="s3://b/pfx/out/run-1/",
+            logs_prefix="s3://b/pfx/logs/run-1/",
+            job_type="sorting",
+        )
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            result_ws = session.retrieve_result(submit_result, str(local_dir))
+
+        assert isinstance(result_ws, AnalysisWorkspace)
+        assert len(result_ws._index) == 0
+        warn_msgs = [str(rec.message) for rec in w if rec.category is UserWarning]
+        assert any("metadata.json" in m for m in warn_msgs), warn_msgs
+
+
+class TestBuildJobNameRfc1123Compliance:
+    """
+    Tests that _build_job_name rejects prefixes that would produce an
+    RFC 1123-invalid Kubernetes job name (leading hyphen) instead of
+    letting the cluster reject the manifest at apply time.
+    """
+
+    def test_empty_prefix_raises(self):
+        """
+        _build_job_name("") raises ValueError naming "alphanumeric".
+
+        Tests:
+            (Test Case 1) Empty prefix raises ValueError.
+            (Test Case 2) The error names the offending input and the
+                reason (RFC 1123 / alphanumeric).
+        """
+        from spikelab.batch_jobs.session import RunSession
+
+        with pytest.raises(ValueError) as exc_info:
+            RunSession._build_job_name("")
+        msg = str(exc_info.value)
+        assert "''" in msg or "empty" in msg.lower()
+        assert "alphanumeric" in msg.lower() or "RFC 1123" in msg
+
+    def test_all_hyphens_prefix_raises(self):
+        """
+        _build_job_name("---") raises ValueError because trailing-hyphen
+        stripping reduces it to the empty string.
+
+        Tests:
+            (Test Case 1) All-hyphen prefix raises ValueError.
+        """
+        from spikelab.batch_jobs.session import RunSession
+
+        with pytest.raises(ValueError, match="empty string"):
+            RunSession._build_job_name("---")
+
+    def test_valid_prefix_succeeds(self):
+        """
+        Valid prefixes still produce well-formed job names — no
+        regression for the happy path.
+
+        Tests:
+            (Test Case 1) "spikelab-sort" produces a name starting with
+                "spikelab-sort-" and containing the 8-char hex token.
+            (Test Case 2) Total length ≤ 63 (K8s job name limit).
+            (Test Case 3) Trailing-hyphen prefix "foo--" still works
+                because "foo" is left after rstrip.
+        """
+        from spikelab.batch_jobs.session import RunSession
+
+        name = RunSession._build_job_name("spikelab-sort")
+        assert name.startswith("spikelab-sort-")
+        assert len(name) <= 63
+        assert name[0].isalpha()
+
+        name2 = RunSession._build_job_name("foo--")
+        assert name2.startswith("foo-")
+
+
+class TestSleepDetectionEdgeCases:
+    """Boundary tests for _contains_disallowed_sleep covering NaN durations,
+    -infinity, mixed case, and whitespace-padded tokens."""
+
+    def test_nan_duration_flagged(self):
+        """
+        ``sleep NaN`` is flagged as a disallowed sleep pattern — NaN is
+        not a finite duration; the actual sleep binary rejects it, but
+        a job spec containing it is suspicious (bug or obfuscation
+        around the literal 'inf'/'infinity' check).
+
+        Tests:
+            (Test Case 1) ['sleep', 'NaN'] is flagged.
+        """
+        from spikelab.batch_jobs.policy import _contains_disallowed_sleep
+
+        assert _contains_disallowed_sleep(["sleep", "NaN"], []) is True
+
+    def test_negative_infinity_duration_flagged(self):
+        """
+        ``sleep -infinity`` is flagged as a disallowed sleep pattern —
+        non-finite duration suggests intent to bypass the literal
+        'inf'/'infinity' string check.
+
+        Tests:
+            (Test Case 1) ['sleep', '-infinity'] is flagged.
+            (Test Case 2) ['sleep', '-inf'] is flagged.
+        """
+        from spikelab.batch_jobs.policy import _contains_disallowed_sleep
+
+        assert _contains_disallowed_sleep(["sleep", "-infinity"], []) is True
+        assert _contains_disallowed_sleep(["sleep", "-inf"], []) is True
+
+    def test_mixed_case_sleep_infinity_flagged(self):
+        """
+        The token-pair check lowercases both sides, so ``SLEEP infinity``
+        is correctly flagged.
+
+        Tests:
+            (Test Case 1) ['SLEEP', 'infinity'] is flagged.
+        """
+        from spikelab.batch_jobs.policy import _contains_disallowed_sleep
+
+        assert _contains_disallowed_sleep(["SLEEP", "infinity"], []) is True
+
+    def test_whitespace_padded_sleep_token_flagged(self):
+        """
+        Tokens are split on whitespace before the bare-sleep check, so
+        a single token with internal whitespace ("  sleep  ") is split
+        into ["sleep"] and triggers the bare-sleep branch.
+
+        Tests:
+            (Test Case 1) [' sleep '] alone is flagged as bare-sleep.
+        """
+        from spikelab.batch_jobs.policy import _contains_disallowed_sleep
+
+        assert _contains_disallowed_sleep([" sleep "], []) is True
+
+
+class TestRedactSensitiveMapBoundary:
+    """Boundary test for redact_sensitive_map covering an empty mapping."""
+
+    def test_empty_mapping_returns_empty_dict(self):
+        """
+        redact_sensitive_map on an empty input returns an empty dict
+        rather than raising.
+
+        Tests:
+            (Test Case 1) {} returns {}.
+        """
+        assert redact_sensitive_map({}) == {}
+
+
+class TestProfilesEdgeCases:
+    """Boundary tests for load_profile_from_name covering whitespace and
+    empty-string inputs."""
+
+    def test_load_profile_with_whitespace_name(self):
+        """
+        load_profile_from_name strips leading/trailing whitespace and
+        lowercases before matching, so "  NRP  " resolves to the nrp
+        profile.
+
+        Tests:
+            (Test Case 1) "  NRP  " loads the nrp.yaml profile.
+        """
+        from spikelab.batch_jobs.profiles import load_profile_from_name
+
+        prof = load_profile_from_name("  NRP  ")
+        assert prof.name == "nrp"

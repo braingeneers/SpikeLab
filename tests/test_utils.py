@@ -3893,6 +3893,54 @@ class TestSlidingRateSingleTrain:
         # Gaussian smoothing reduces variance
         assert np.var(rd_gauss.inst_Frate_data) < np.var(rd_no_gauss.inst_Frate_data)
 
+    def test_t_end_less_than_t_start_raises(self):
+        """
+        ``t_end <= t_start`` is rejected with a ``ValueError`` naming
+        both bounds. Pins the boundary contract.
+
+        Tests:
+            (Test Case 1) ``t_end < t_start`` raises ValueError.
+            (Test Case 2) ``t_end == t_start`` raises ValueError.
+        """
+        from spikelab.spikedata.utils import _sliding_rate_single_train
+
+        spikes = np.array([10.0, 20.0, 30.0])
+        with pytest.raises(ValueError, match="t_end must be greater than t_start"):
+            _sliding_rate_single_train(
+                spikes, window_size=5.0, step_size=1.0, t_start=50.0, t_end=10.0
+            )
+        with pytest.raises(ValueError, match="t_end must be greater than t_start"):
+            _sliding_rate_single_train(
+                spikes, window_size=5.0, step_size=1.0, t_start=20.0, t_end=20.0
+            )
+
+    def test_apply_square_false_returns_per_bin_counts(self):
+        """
+        With ``apply_square=False``, each output bin equals the spike
+        count in that bin divided by ``step_size`` (no averaging across
+        adjacent bins).
+
+        Tests:
+            (Test Case 1) Three well-separated single spikes with
+                ``step_size=1.0`` produce exactly three non-zero bins,
+                each at value ``1 / step_size``.
+        """
+        from spikelab.spikedata.utils import _sliding_rate_single_train
+
+        spikes = np.array([5.0, 15.0, 25.0])
+        rd = _sliding_rate_single_train(
+            spikes,
+            window_size=10.0,
+            step_size=1.0,
+            t_start=0.0,
+            t_end=30.0,
+            apply_square=False,
+        )
+        rates = rd.inst_Frate_data[0]
+        nonzero = rates[rates > 0]
+        assert nonzero.size == 3
+        np.testing.assert_allclose(nonzero, np.ones(3) * 1.0 / 1.0)
+
 
 # ---------------------------------------------------------------------------
 # Edge case tests from REVIEW.md — Edge Case Scan (HIGH + MEDIUM)
@@ -4095,3 +4143,24 @@ class TestUtilsCoreReview:
         # Only 1 slice has both units valid → overlap=1 < min_overlap=2
         assert np.isnan(corr.matrix[0, 1])
         assert np.isnan(corr.matrix[1, 0])
+
+
+class TestResampledIsiEmptyTimes:
+    """Boundary tests for _resampled_isi with degenerate ``times`` arrays."""
+
+    def test_resampled_isi_empty_times_with_multi_spikes_raises(self):
+        """
+        _resampled_isi falls into the single-time branch when len(times) < 2,
+        but a length-0 ``times`` array makes the times[0] access raise
+        IndexError. Pin current behaviour.
+
+        Tests:
+            (Test Case 1) Multi-spike train with len(times)==0 raises
+                IndexError out of times[0].
+        """
+        from spikelab.spikedata.utils import _resampled_isi
+
+        spikes = [1.0, 2.0, 3.0]
+        times = np.array([], dtype=float)
+        with pytest.raises(IndexError):
+            _resampled_isi(spikes, times, sigma_ms=1.0)

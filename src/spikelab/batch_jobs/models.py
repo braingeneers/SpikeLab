@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -100,8 +101,16 @@ class JobSpec(BaseModel):
         value = value.strip().lower()
         if not value:
             raise ValueError("name_prefix cannot be empty")
-        safe = "".join(ch if ch.isalnum() or ch == "-" else "-" for ch in value)
-        return safe.strip("-")[:40] or "analysis-job"
+        # Replace any character outside the RFC 1123 ASCII subset with '-'.
+        safe = re.sub(r"[^a-z0-9-]", "-", value)
+        # Collapse runs of hyphens.
+        safe = re.sub(r"-+", "-", safe)
+        # Truncate, then strip leading/trailing hyphens so the result never
+        # ends in '-' after truncation (RFC 1123 violation).
+        safe = safe[:40].strip("-")
+        if not safe:
+            raise ValueError("name_prefix is empty after ASCII sanitization")
+        return safe
 
 
 class ClusterProfile(BaseModel):

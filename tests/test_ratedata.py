@@ -198,19 +198,13 @@ class TestRateDataConstructor:
 
     def test_zero_time_bins(self):
         """
-        RateData with 0 time bins is accepted but subtime crashes.
+        RateData with 0 time bins is accepted but subtime raises ValueError.
 
         Tests:
             (Test Case 1) Construction with shape (3, 0) and empty times succeeds.
             (Test Case 2) N and shape are correct.
-            (Test Case 3) Calling subtime on zero-time-bin RateData raises an error.
-
-        Notes:
-            Construction succeeds, but calling subtime raises because
-            `self.times[-1]` on an empty array raises IndexError. The length
-            guard `if len(self.times) > 0` was added for `subtime` but the
-            fallback `end = length` (which is 0) combined with `start >= end`
-            may still raise ValueError.
+            (Test Case 3) Calling subtime on zero-time-bin RateData raises
+                ValueError with an "empty times" message.
         """
         data = np.zeros((3, 0))
         times = np.array([])
@@ -219,8 +213,7 @@ class TestRateDataConstructor:
         assert rd.inst_Frate_data.shape == (3, 0)
         assert len(rd.times) == 0
 
-        # subtime on empty times should raise
-        with pytest.raises((ValueError, IndexError)):
+        with pytest.raises(ValueError, match="empty times"):
             rd.subtime(0.0, 10.0)
 
     def test_non_array_times_input(self):
@@ -691,21 +684,16 @@ class TestRateDataSubtime:
 
     def test_subtime_empty_times_array(self):
         """
-        subtime on a RateData with empty times array raises an error.
+        subtime on a RateData with empty times array raises ValueError.
 
         Tests:
             (Test Case 1) Calling subtime(0.0, 10.0) on a zero-time-bin
-                          RateData raises ValueError or IndexError.
-
-        Notes:
-            The constructor accepts shape (U, 0) with empty times, but
-            subtime accesses self.times[-1] which raises IndexError on
-            empty arrays, or the validation logic produces a ValueError.
+                RateData raises ValueError at the empty-times guard.
         """
         data = np.zeros((2, 0))
         times = np.array([])
         rd = RateData(data, times)
-        with pytest.raises((ValueError, IndexError)):
+        with pytest.raises(ValueError, match="empty times"):
             rd.subtime(0.0, 10.0)
 
     def test_subtime_both_none(self):
@@ -928,17 +916,20 @@ class TestRateDataFrames:
         assert isinstance(stack, RateSliceStack)
         assert stack.event_stack.shape[2] == 1
 
-    def test_frames_single_time_bin(self):
+    def test_frames_single_time_bin_raises(self):
         """
-        Verify that frames produces a valid single-slice stack for T=1 RateData.
+        frames() on a single-time-bin RateData raises ValueError —
+        a single time point cannot define a step_size and the
+        previous silent fallback to step_size=1.0 produced
+        misleading downstream errors.
 
         Tests:
-            (Test Case 1) A RateSliceStack with one slice and shape (U, 1, 1)
-                          is returned when the RateData has only one time bin.
+            (Test Case 1) Single-time-bin RateData raises ValueError
+                naming "fewer than 2 time points".
         """
         rd = make_ratedata(n_units=2, n_times=1)
-        result = rd.frames(length=1.0)
-        assert result.event_stack.shape == (2, 1, 1)
+        with pytest.raises(ValueError, match="fewer than 2 time points"):
+            rd.frames(length=1.0)
 
     def test_frames_length_zero(self):
         """
@@ -951,24 +942,45 @@ class TestRateDataFrames:
         with pytest.raises(ValueError, match="overlap must be less than length"):
             rd.frames(length=0, overlap=0)
 
-    def test_frames_single_time_point_step_size_fallback(self):
+    def test_frames_single_time_point_raises(self):
         """
-        frames() on a single-time-point RateData uses step_size=1.0 fallback.
+        frames() on a single-time-point RateData raises ValueError —
+        a single time point cannot define a step_size, so framing
+        is undefined.
 
         Tests:
-            (Test Case 1) RateData with T=1 and frames(length=1.0) succeeds.
-            (Test Case 2) Result has shape (U, 1, 1).
-
-        Notes:
-            When len(self.times) == 1, the code uses a fallback step_size of
-            1.0 instead of computing self.times[1] - self.times[0], which
-            would raise IndexError.
+            (Test Case 1) RateData with T=1 raises ValueError naming
+                "fewer than 2 time points".
         """
         data = np.ones((2, 1))
         times = np.array([5.0])
         rd = RateData(data, times)
-        result = rd.frames(length=1.0)
-        assert result.event_stack.shape == (2, 1, 1)
+        with pytest.raises(ValueError, match="fewer than 2 time points"):
+            rd.frames(length=1.0)
+
+    def test_frames_non_uniform_times_raises(self):
+        """
+        frames() on a RateData with non-uniformly-spaced times raises
+        ValueError naming the actual step range. The constructor
+        accepts non-uniform times (legitimate for event-aligned rate
+        data), but frames() requires a uniform grid for arange-based
+        window placement and downstream np.stack.
+
+        Tests:
+            (Test Case 1) Non-uniform times raise ValueError.
+            (Test Case 2) The error names the min and max steps so
+                the user can see the offending grid.
+        """
+        data = np.ones((2, 5))
+        # Steps: 1.0, 1.0, 2.0, 1.0 — non-uniform.
+        times = np.array([0.0, 1.0, 2.0, 4.0, 5.0])
+        rd = RateData(data, times)
+        with pytest.raises(ValueError) as exc_info:
+            rd.frames(length=2.0)
+        msg = str(exc_info.value)
+        assert "uniformly-spaced" in msg
+        # Min step 1.0, max step 2.0 should be visible.
+        assert "1" in msg and "2" in msg
 
     def test_frames_float_precision_boundaries(self):
         """
@@ -1386,13 +1398,15 @@ class TestRateDataGetManifold:
             rd.get_manifold("PCA", n_components=20)
 
     def test_get_manifold_n_components_zero(self):
-        """n_components=0 returns an embedding with zero columns.
+        """n_components=0 raises ValueError at the input boundary.
 
-        Tests: PCA with zero components produces shape (T, 0).
+        Tests:
+            (Test Case 1) Requesting zero components is a caller bug and
+                raises ValueError before reaching the backend.
         """
         rd = make_ratedata(n_units=3, n_times=20)
-        embedding, var_ratio, components = rd.get_manifold("PCA", n_components=0)
-        assert embedding.shape == (20, 0)
+        with pytest.raises(ValueError, match="n_components"):
+            rd.get_manifold("PCA", n_components=0)
 
     def test_get_manifold_single_unit(self):
         """
@@ -1730,3 +1744,50 @@ class TestRateDataCoreReview:
         assert isinstance(stack, RateSliceStack)
         # step = 20 - 19 = 1; starts = 0,1,2,...,80 = 81 frames
         assert stack.event_stack.shape[2] == 81
+
+
+class TestRateDataConstructorTimeSequenceEdges:
+    """Constructor validation for ``RateData.times``."""
+
+    def test_nan_in_times_rejected(self):
+        """
+        ``RateData`` rejects ``times`` containing NaN or inf with a
+        ValueError naming "finite".
+
+        Tests:
+            (Test Case 1) NaN in times raises ValueError.
+            (Test Case 2) ``inf`` in times raises ValueError.
+        """
+        data = np.array([[0.1, 0.2, 0.3]])
+        with pytest.raises(ValueError, match="finite"):
+            RateData(data, np.array([0.0, np.nan, 2.0]))
+        with pytest.raises(ValueError, match="finite"):
+            RateData(data, np.array([0.0, np.inf, 2.0]))
+
+    def test_unsorted_times_rejected(self):
+        """
+        ``RateData`` rejects unsorted ``times`` with a ValueError
+        naming "monotonic".
+
+        Tests:
+            (Test Case 1) Reverse-sorted times raise ValueError.
+            (Test Case 2) Locally-out-of-order times raise ValueError.
+        """
+        data = np.array([[0.1, 0.2, 0.3, 0.4]])
+        with pytest.raises(ValueError, match="monotonic"):
+            RateData(data, np.array([3.0, 2.0, 1.0, 0.0]))
+        with pytest.raises(ValueError, match="monotonic"):
+            RateData(data, np.array([0.0, 2.0, 1.0, 3.0]))
+
+    def test_equal_times_accepted(self):
+        """
+        Monotonic non-decreasing allows duplicates (``np.diff >= 0``);
+        repeated time values are accepted.
+
+        Tests:
+            (Test Case 1) ``times = [0, 1, 1, 2]`` constructs without
+                error.
+        """
+        data = np.array([[0.1, 0.2, 0.3, 0.4]])
+        rd = RateData(data, np.array([0.0, 1.0, 1.0, 2.0]))
+        np.testing.assert_array_equal(rd.times, np.array([0.0, 1.0, 1.0, 2.0]))

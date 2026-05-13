@@ -54,7 +54,12 @@ import time
 from pathlib import Path
 from typing import Any, Optional
 
-from ._exceptions import CLASSIFIED_FAILURES as _CLASSIFIED_FAILURES
+import numpy as np
+
+from ._exceptions import (
+    CLASSIFIED_FAILURES as _CLASSIFIED_FAILURES,
+    EnvironmentSortFailure,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -91,6 +96,12 @@ def _build_canary_config(config: Any, canary_window_s: float) -> Any:
     overrides = {
         # Restrict to the leading window; clear any rec_chunks that
         # would otherwise force the loader into a multi-segment path.
+        # Note: ``start_time_s`` / ``end_time_s`` are allowed to
+        # coexist with the per-file rec_chunks that directory
+        # concatenation auto-populates — the loader treats time
+        # slicing as an explicit override of those auto-populated
+        # boundaries (see ``_load_recording_with_state`` in
+        # ``recording_io.py`` for the precedence rules).
         "start_time_s": 0.0,
         "end_time_s": float(canary_window_s),
         "rec_chunks": [],
@@ -198,6 +209,12 @@ def run_canary(
     if math.isnan(canary_window_s) or canary_window_s <= 0:
         return None
 
+    # The canary backend is constructed below with a derived clone of
+    # *config*; the full sort retains its own config reference, so no
+    # state is shared between the two runs. (The pre-refactor design
+    # mutated ``_globals.*`` to apply canary overrides and needed a
+    # snapshot/restore wrapper here; that bridge was removed in Phase 5
+    # of ``iat/TO_IMPLEMENT.md`` when the global state was deleted.)
     canary_config = _build_canary_config(config, canary_window_s)
     # Per-pid subfolder so two direct callers of run_canary against
     # the same inter_path cannot race on the wipe + mkdir. The
@@ -205,9 +222,9 @@ def run_canary(
     # on inter_path, but run_canary is also exposed as a public
     # function and direct callers have no such protection.
     canary_root = Path(inter_path) / f"_canary_{os.getpid()}"
-    # Strict wipe at entry — running the canary against a
-    # partially-cleaned folder could mask sorter behaviour. The
-    # cleanup-phase wipe at exit stays best-effort.
+    # Strict wipe at entry — running the canary against a partially-
+    # cleaned folder could mask sorter behaviour. The cleanup-phase
+    # wipe at exit stays best-effort.
     _wipe_canary_folder(canary_root, strict=True)
     canary_root.mkdir(parents=True, exist_ok=True)
     canary_inter = canary_root / "inter"
@@ -223,9 +240,15 @@ def run_canary(
 
     started_t = time.monotonic()
     try:
-        from .backends import get_backend_class
+        from .backends import get_backend_class, list_sorters
         from .pipeline import process_recording
 
+        known_sorters = list_sorters()
+        if sorter not in known_sorters:
+            raise EnvironmentSortFailure(
+                f"unknown sorter name: {sorter!r}. "
+                f"Known sorters: {sorted(known_sorters)}"
+            )
         backend_cls = get_backend_class(sorter)
         canary_backend = backend_cls(canary_config)
 
@@ -252,11 +275,11 @@ def run_canary(
         _wipe_canary_folder(canary_root)
         raise
     except Exception as exc:
-        # Unexpected failure — the canary is a smoke test, not a
-        # hard gate. Log and let the full sort proceed; live
-        # watchdogs handle resource-shaped issues at runtime.
+        # Unexpected failure — the canary is a smoke test, not a hard
+        # gate. Log and let the full sort proceed; live watchdogs
+        # handle resource-shaped issues at runtime.
         _logger.warning(
-            "non-classified failure (%s: %s); proceeding with the " "full sort.",
+            "non-classified failure (%s: %s); proceeding with the full sort.",
             type(exc).__name__,
             exc,
         )
@@ -274,7 +297,7 @@ def run_canary(
         raise result
     if isinstance(result, BaseException):
         _logger.warning(
-            "non-classified failure (%s: %s); proceeding with the " "full sort.",
+            "non-classified failure (%s: %s); proceeding with the full sort.",
             type(result).__name__,
             result,
         )
@@ -290,7 +313,7 @@ def run_canary(
         )
     else:
         _logger.info(
-            "passed: produced %d unit(s) in %.1fs; proceeding with " "the full sort.",
+            "passed: produced %d unit(s) in %.1fs; proceeding with the full sort.",
             n_units,
             elapsed_s,
         )
@@ -312,6 +335,9 @@ def _extract_unit_count(result: Any) -> Optional[int]:
         # Prefer the curated SpikeData if present (last entry).
         candidate = result[-1]
     n = getattr(candidate, "N", None)
-    if isinstance(n, int):
-        return n
+    # Accept numpy integer types (np.int64, etc.) as well as Python int.
+    # SpikeData.N is sometimes assigned from numpy operations such as
+    # np.unique(...).size, which returns a numpy scalar.
+    if isinstance(n, (int, np.integer)):
+        return int(n)
     return None

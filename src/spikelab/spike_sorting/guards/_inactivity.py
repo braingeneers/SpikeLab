@@ -46,6 +46,8 @@ import time
 from pathlib import Path
 from typing import Callable, Optional, Tuple
 
+import numpy as np
+
 from .._exceptions import SorterTimeoutError
 from ._audit import append_audit_event
 
@@ -312,15 +314,15 @@ class LogInactivityWatchdog:
         kill_grace_s: float = 5.0,
         kill_callback: Optional[Callable[[], None]] = None,
     ) -> None:
-        if inactivity_s is not None and inactivity_s <= 0.0:
+        if inactivity_s is not None and (np.isnan(inactivity_s) or inactivity_s <= 0.0):
             raise ValueError(
                 f"inactivity_s must be positive or None, got {inactivity_s}."
             )
-        if poll_interval_s <= 0.0:
+        if np.isnan(poll_interval_s) or poll_interval_s <= 0.0:
             raise ValueError(
                 f"poll_interval_s must be positive, got {poll_interval_s}."
             )
-        if kill_grace_s < 0.0:
+        if np.isnan(kill_grace_s) or kill_grace_s < 0.0:
             raise ValueError(f"kill_grace_s must be non-negative, got {kill_grace_s}.")
         self.log_path = Path(log_path)
         self.popen = popen

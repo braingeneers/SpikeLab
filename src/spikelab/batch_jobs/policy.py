@@ -6,6 +6,7 @@ different clusters can enforce different rules.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import Iterable, List, Literal, Sequence
 
@@ -53,7 +54,11 @@ def _contains_disallowed_sleep(command: Sequence[str], args: Sequence[str]) -> b
             return True
         try:
             duration = float(next_tok)
-            if duration >= _SLEEP_THRESHOLD:
+            # Flag any non-finite duration (NaN, +inf, -inf) as suspicious —
+            # the actual sleep binary rejects these, and a job spec with
+            # such a token is almost certainly a bug or an obfuscation
+            # attempt around the literal "inf" / "infinity" check above.
+            if not math.isfinite(duration) or duration >= _SLEEP_THRESHOLD:
                 return True
         except (ValueError, IndexError):
             pass
@@ -115,7 +120,7 @@ def evaluate_policy(
             PolicyFinding(
                 "request_limit_mismatch",
                 "WARN",
-                "Cluster recommends requests close to limits; tune with " "monitoring.",
+                "Cluster recommends requests close to limits; tune with monitoring.",
             )
         )
     else:
@@ -127,15 +132,32 @@ def evaluate_policy(
             )
         )
 
-    if (
-        job_spec.active_deadline_seconds
-        and job_spec.active_deadline_seconds > cfg.max_runtime_seconds
-    ):
+    if not job_spec.active_deadline_seconds:
+        # No deadline set; the cluster's own max applies via Kubernetes.
+        # Emit a PASS finding so the audit trail is complete.
+        findings.append(
+            PolicyFinding(
+                "long_runtime",
+                "PASS",
+                "No active_deadline_seconds set; cluster default applies.",
+            )
+        )
+    elif job_spec.active_deadline_seconds > cfg.max_runtime_seconds:
         findings.append(
             PolicyFinding(
                 "long_runtime",
                 "WARN",
-                f"Runtime exceeds configured maximum " f"({cfg.max_runtime_seconds}s).",
+                f"Runtime ({job_spec.active_deadline_seconds}s) exceeds "
+                f"configured maximum ({cfg.max_runtime_seconds}s).",
+            )
+        )
+    else:
+        findings.append(
+            PolicyFinding(
+                "long_runtime",
+                "PASS",
+                f"Runtime ({job_spec.active_deadline_seconds}s) within "
+                f"configured maximum ({cfg.max_runtime_seconds}s).",
             )
         )
     return findings
