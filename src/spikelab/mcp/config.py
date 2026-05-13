@@ -35,13 +35,22 @@ MAP_UPDATER_SKILL = _SKILLS_BASE / "spikelab-map-updater" / "SKILL.md"
 # ---------------------------------------------------------------------------
 # Project root + system_config.json
 # ---------------------------------------------------------------------------
-def _discover_project_root() -> Path:
+def _discover_project_root() -> Path | None:
     """Find the project root.
 
     ``$OC_SPIKELAB_PROJECT_ROOT`` first (the normal path — set by the systemd
     unit / launch.sh / orchestrator's MCP-server config). Falls back to walking
     upward from this file looking for ``system_config.json`` — only useful when
     the package happens to live under the project tree.
+
+    Returns ``None`` when neither path turns up a valid project root. Importing
+    the module then still succeeds — the daemon/server raises later when it
+    actually tries to read config. This keeps pure unit tests importable in
+    CI environments that don't ship a ``system_config.json``.
+
+    Still raises if ``$OC_SPIKELAB_PROJECT_ROOT`` is explicitly set but points
+    at a directory that doesn't contain ``system_config.json`` — that's a
+    deployment misconfiguration the user should hear about loudly.
     """
     explicit = os.environ.get("OC_SPIKELAB_PROJECT_ROOT")
     if explicit:
@@ -55,32 +64,40 @@ def _discover_project_root() -> Path:
     for parent in [here, *here.parents]:
         if (parent / "system_config.json").exists():
             return parent
-    raise RuntimeError(
-        "could not locate system_config.json from "
-        f"{here} or any ancestor; set OC_SPIKELAB_PROJECT_ROOT"
-    )
+    return None
 
 
 PROJECT_ROOT = _discover_project_root()
-SYSTEM_CONFIG_PATH = PROJECT_ROOT / "system_config.json"
-SYSTEM_PARAMS_PATH = PROJECT_ROOT / "system_params.json"
+SYSTEM_CONFIG_PATH = (PROJECT_ROOT / "system_config.json") if PROJECT_ROOT else None
+SYSTEM_PARAMS_PATH = (PROJECT_ROOT / "system_params.json") if PROJECT_ROOT else None
 
 
 def load_system_config() -> dict[str, Any]:
+    if SYSTEM_CONFIG_PATH is None:
+        raise RuntimeError(
+            "system_config.json was not found at import time — set "
+            "OC_SPIKELAB_PROJECT_ROOT to the directory that contains it"
+        )
     return json.loads(SYSTEM_CONFIG_PATH.read_text())
 
 
 def load_system_params() -> dict[str, Any]:
-    """Load ``system_params.json``. Returns ``{}`` if the file is missing —
-    tunables fall back to compiled-in defaults below."""
-    if not SYSTEM_PARAMS_PATH.exists():
+    """Load ``system_params.json``. Returns ``{}`` if the file is missing or
+    no project root was discoverable — tunables fall back to compiled-in
+    defaults below."""
+    if SYSTEM_PARAMS_PATH is None or not SYSTEM_PARAMS_PATH.exists():
         return {}
     return json.loads(SYSTEM_PARAMS_PATH.read_text())
 
 
 # Cached at import time. Tests that mutate the on-disk file can call
 # ``load_system_config()`` / ``load_system_params()`` directly to re-read.
-SYSTEM_CONFIG = load_system_config()
+# ``SYSTEM_CONFIG`` is not consumed inside spikelab.mcp itself, so we tolerate
+# a missing config file by leaving the dict empty (the daemon/server will
+# raise via ``load_system_config()`` if something downstream actually needs it).
+SYSTEM_CONFIG: dict[str, Any] = {}
+if SYSTEM_CONFIG_PATH is not None:
+    SYSTEM_CONFIG = load_system_config()
 SYSTEM_PARAMS = load_system_params()
 
 
