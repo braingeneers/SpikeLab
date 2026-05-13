@@ -8074,3 +8074,79 @@ class TestSpikeDataGetPairwiseCcgMaxLagClamp:
             if "exceeds raster length" in str(rec.message)
         ]
         assert msgs == []
+
+
+class TestSpikeDataCvIsi:
+    """Tests for SpikeData.cv_isi and SpikeData.cv2_isi firing regularity metrics."""
+
+    def test_regular_train_cv_near_zero(self):
+        """
+        A perfectly regular spike train has CV approx 0 and CV2 approx 0.
+
+        Tests:
+            (Test Case 1) cv_isi[0] within 1e-9 of 0.
+            (Test Case 2) cv2_isi[0] within 1e-9 of 0.
+        """
+        times = np.arange(1.0, 1001.0, 1.0)
+        sd = SpikeData([times])
+        assert abs(sd.cv_isi()[0]) < 1e-9
+        assert abs(sd.cv2_isi()[0]) < 1e-9
+
+    def test_poisson_train_cv_near_one(self):
+        """
+        A Poisson process has CV approx 1.
+
+        Tests:
+            (Test Case 1) cv_isi[0] within 0.15 of 1.0 for a long Poisson train.
+        """
+        rng = np.random.default_rng(0)
+        isi = rng.exponential(scale=10.0, size=20000)
+        times = np.cumsum(isi)
+        sd = SpikeData([times])
+        assert abs(sd.cv_isi()[0] - 1.0) < 0.15
+
+    def test_cv_handles_short_units(self):
+        """
+        Units with fewer than 3 spikes return NaN for both metrics.
+
+        Tests:
+            (Test Case 1) Empty unit returns NaN.
+            (Test Case 2) Single-spike unit returns NaN.
+            (Test Case 3) Two-spike unit returns NaN (only 1 ISI).
+        """
+        sd = SpikeData(
+            [np.array([]), np.array([5.0]), np.array([5.0, 10.0])],
+            length=100.0,
+        )
+        cv = sd.cv_isi()
+        cv2 = sd.cv2_isi()
+        assert np.isnan(cv).all()
+        assert np.isnan(cv2).all()
+
+    def test_cv_isi_shape(self):
+        """
+        Output arrays match the number of units.
+
+        Tests:
+            (Test Case 1) cv_isi returns shape (N,).
+            (Test Case 2) cv2_isi returns shape (N,).
+        """
+        sd = SpikeData(
+            [np.arange(1.0, 100.0), np.arange(2.0, 200.0, 2.0)], length=300.0
+        )
+        assert sd.cv_isi().shape == (2,)
+        assert sd.cv2_isi().shape == (2,)
+
+    def test_cv2_alternating_intervals(self):
+        """
+        CV2 for alternating short / long intervals matches the analytical
+        expectation 2|b-a|/(a+b).
+
+        Tests:
+            (Test Case 1) CV2 approx 2*8/12 ≈ 1.333 for ISIs alternating 2, 10.
+        """
+        isi = np.tile([2.0, 10.0], 500)
+        times = np.cumsum(isi)
+        sd = SpikeData([times])
+        expected = 2.0 * 8.0 / 12.0
+        assert abs(sd.cv2_isi()[0] - expected) < 1e-6

@@ -1428,6 +1428,63 @@ class SpikeData:
         """
         return [np.diff(ts) for ts in self.train]
 
+    def cv_isi(self):
+        """Coefficient of variation of inter-spike intervals per unit.
+
+        Standard CV = ``std(ISI) / mean(ISI)``. A Poisson process has
+        CV close to 1.0; a regular (clock-like) train approaches 0.
+
+        Returns:
+            cv (np.ndarray): Array of shape ``(N,)`` with the CV per unit.
+                Units with fewer than 2 ISIs (i.e. fewer than 3 spikes) or
+                a non-positive mean ISI return NaN.
+
+        Notes:
+            - Builds on ``interspike_intervals()``.
+        """
+        isis = self.interspike_intervals()
+        out = np.full(self.N, np.nan)
+        for u, isi in enumerate(isis):
+            isi = np.asarray(isi, dtype=float)
+            if isi.size < 2:
+                continue
+            mean = float(np.mean(isi))
+            if mean <= 0.0 or not np.isfinite(mean):
+                continue
+            out[u] = float(np.std(isi)) / mean
+        return out
+
+    def cv2_isi(self):
+        """CV2 of inter-spike intervals per unit (Holt et al., 1996).
+
+        For each adjacent ISI pair ``(I_k, I_{k+1})``, computes
+        ``2 * |I_{k+1} - I_k| / (I_{k+1} + I_k)``. The per-unit CV2 is
+        the mean of these values. CV2 is robust to slow firing-rate
+        drift because it only compares consecutive intervals.
+
+        Returns:
+            cv2 (np.ndarray): Array of shape ``(N,)`` with the mean CV2
+                per unit. Units with fewer than 3 spikes (i.e. fewer
+                than 2 ISIs) return NaN.
+
+        Notes:
+            - Builds on ``interspike_intervals()``.
+        """
+        isis = self.interspike_intervals()
+        out = np.full(self.N, np.nan)
+        for u, isi in enumerate(isis):
+            isi = np.asarray(isi, dtype=float)
+            if isi.size < 2:
+                continue
+            num = 2.0 * np.abs(isi[1:] - isi[:-1])
+            den = isi[1:] + isi[:-1]
+            with np.errstate(divide="ignore", invalid="ignore"):
+                ratio = np.where(den > 0, num / den, np.nan)
+            if not np.any(np.isfinite(ratio)):
+                continue
+            out[u] = float(np.nanmean(ratio))
+        return out
+
     def concatenate_spike_data(self, sd):
         """Combine units from another SpikeData object with this one.
 
