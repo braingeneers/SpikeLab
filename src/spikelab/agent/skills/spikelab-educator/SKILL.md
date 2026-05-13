@@ -231,7 +231,7 @@ When answering a question, point the user to relevant resources for further read
 | Exporting data | `docs/source/guides/exporting_data.rst` | Section 6 | `src/spikelab/data_loaders/exporters.py` |
 | Workspace | `docs/source/guides/workspace.rst` | Section 6 | `src/spikelab/workspace/workspace.py` |
 | Plotting | -- | All sections | `src/spikelab/spikedata/plot_utils.py` |
-| MCP server | `docs/source/guides/mcp_server.rst` | -- | `src/spikelab/mcp_server/` |
+| MCP server | `docs/source/guides/mcp_server.rst` | -- | `src/spikelab/mcp/` |
 | Spike sorting | `docs/source/guides/spike_sorting.rst` | -- | `src/spikelab/spike_sorting/` |
 | Curation | -- | -- | `src/spikelab/spikedata/curation.py` |
 
