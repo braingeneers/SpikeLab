@@ -936,6 +936,17 @@ class TestOmnibusTest:
 # ---------------------------------------------------------------------------
 
 
+import importlib.util as _ilu
+
+_HAS_LME_DEPS = (
+    _ilu.find_spec("statsmodels") is not None and _ilu.find_spec("pandas") is not None
+)
+
+
+@pytest.mark.skipif(
+    not _HAS_LME_DEPS,
+    reason="mixed_effects_compare requires pandas + statsmodels (optional deps)",
+)
 class TestMixedEffectsCompare:
     """Tests for the mixed_effects_compare LME wrapper."""
 
