@@ -73,9 +73,9 @@ io = [
   "pandas>=1.3",
 ]
 mcp = [
+  "claude-agent-sdk>=0.0.1",
   "mcp>=0.9.0",
-  "pydantic>=2.7",
-  "pydantic-settings>=2.3",
+  "httpx>=0.27",
 ]
 sse = [
   "uvicorn>=0.20",
