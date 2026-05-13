@@ -60,7 +60,6 @@ For workflow and conceptual questions, read the relevant guide from `docs/source
 | `event_aligned_analysis.rst` | Event alignment, RateSliceStack, SpikeSliceStack, burst correlations, PCA, rank-order |
 | `exporting_data.rst` | Export formats, CSV, HDF5, NWB |
 | `workspace.rst` | AnalysisWorkspace usage, HDF5 persistence |
-| `mcp_server.rst` | MCP protocol server for programmatic access |
 
 ### 3. Source code — implementation details
 
@@ -231,7 +230,6 @@ When answering a question, point the user to relevant resources for further read
 | Exporting data | `docs/source/guides/exporting_data.rst` | Section 6 | `src/spikelab/data_loaders/exporters.py` |
 | Workspace | `docs/source/guides/workspace.rst` | Section 6 | `src/spikelab/workspace/workspace.py` |
 | Plotting | -- | All sections | `src/spikelab/spikedata/plot_utils.py` |
-| MCP server | `docs/source/guides/mcp_server.rst` | -- | `src/spikelab/mcp/` |
 | Spike sorting | `docs/source/guides/spike_sorting.rst` | -- | `src/spikelab/spike_sorting/` |
 | Curation | -- | -- | `src/spikelab/spikedata/curation.py` |
 
