@@ -60,6 +60,7 @@ def _thread_map(num_workers, fn, items):
 
 
 import os
+import sys
 from pathlib import Path
 import pickle
 import shutil
@@ -1699,7 +1700,8 @@ def save_traces_si(
             end_frame=chunk_rec_end,
             return_scaled=recording.has_scaleable_traces(),
         )  # (samples, channels)
-        out[:, chunk_out_start:chunk_out_end] = traces_chunk.T.astype(dtype, copy=False)
+        actual = traces_chunk.shape[0]
+        out[:, chunk_out_start : chunk_out_start + actual] = traces_chunk.T.astype(dtype, copy=False)
 
     out.flush()
     del out
@@ -1965,7 +1967,7 @@ def run_detection_model(
     # region Run model
     print("Running model ...")
     with torch.no_grad():
-        for start_frame in tqdm(all_start_frames):
+        for start_frame in tqdm(all_start_frames, file=sys.stdout):
             traces_torch = torch.tensor(
                 scaled_traces[:, start_frame : start_frame + sample_size],
                 device=device,
@@ -2361,7 +2363,7 @@ def form_all_clusters(params):
     tasks = [(root_elec, params) for root_elec in range(elec_locs.shape[0])]
     with Pool(processes=num_processes) as pool:
         for clusters in tqdm(
-            pool.imap_unordered(_form_all_clusters, tasks), total=len(tasks)
+            pool.imap_unordered(_form_all_clusters, tasks), total=len(tasks), file=sys.stdout
         ):
             all_clusters += clusters
 
