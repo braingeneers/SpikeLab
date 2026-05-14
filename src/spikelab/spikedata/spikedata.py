@@ -666,7 +666,11 @@ class SpikeData:
         if bin_size <= 0:
             raise ValueError(f"bin_size must be > 0, got {bin_size}.")
         if self.N == 0:
-            return np.zeros(int(np.ceil(self.length / bin_size)))
+            # Read the bin count from sparse_raster (which handles
+            # N==0 by returning a (0, T) matrix) so this branch can
+            # never silently diverge from the non-empty path's
+            # bin-count formula.
+            return np.zeros(self.sparse_raster(bin_size).shape[1])
         binned_rate = self.binned(bin_size) / self.N / bin_size
         if unit == "Hz":
             return 1e3 * binned_rate

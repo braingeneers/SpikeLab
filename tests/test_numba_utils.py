@@ -387,6 +387,49 @@ class TestNumbaLatenciesAllPairs:
         np.testing.assert_array_equal(np.diag(nb_mean), 0.0)
         np.testing.assert_array_equal(np.diag(nb_std), 0.0)
 
+    def test_single_spike_trains_correctness(self):
+        """
+        nb_latencies_all_pairs handles single-spike trains correctly.
+
+        The numpy fallback in SpikeData.get_pairwise_latencies had a
+        clip-degeneracy bug (``np.clip(idx, 1, len(train_j) - 1)``
+        with ``nJ == 1`` collapsed to ``np.clip(idx, 1, 0)``, wrapping
+        indices to -1). The numba kernel uses a different algorithm —
+        explicit ``lo < nJ`` / ``lo > 0`` bounds checks around the
+        binary-search result — so it has no equivalent of that bug
+        by construction. This test pins that correctness so a future
+        refactor of the numba kernel can't reintroduce a regression.
+
+        Tests:
+            (Test Case 1) Two single-spike units at known offset:
+                mean latency 0→1 equals the literal offset; std is 0.
+            (Test Case 2) Mix of single-spike and multi-spike units:
+                results agree with SpikeData.get_pairwise_latencies
+                (which now also fixes the numpy fallback path).
+        """
+        # Two single-spike units, offset 10 ms.
+        sd = SpikeData([[5.0], [15.0]], length=50.0)
+        flat, offsets = flatten_spike_trains(sd.train, sd.start_time)
+        nb_mean, nb_std = nb_latencies_all_pairs(flat, offsets, sd.N, 0.0, False)
+        assert nb_mean.shape == (2, 2)
+        # 0 → 1: nearest spike in train_1=15 to train_0=5 is +10.
+        assert nb_mean[0, 1] == pytest.approx(10.0)
+        # 1 → 0: nearest spike in train_0=5 to train_1=15 is -10.
+        assert nb_mean[1, 0] == pytest.approx(-10.0)
+        # Single latency per pair → std = 0.
+        assert nb_std[0, 1] == pytest.approx(0.0)
+        assert nb_std[1, 0] == pytest.approx(0.0)
+
+        # Mix: one single-spike, one multi-spike. Compare numba
+        # kernel result against the public method (which uses the
+        # numba path when available).
+        sd = SpikeData([[5.0], [3.0, 7.0, 12.0]], length=50.0)
+        flat, offsets = flatten_spike_trains(sd.train, sd.start_time)
+        nb_mean, nb_std = nb_latencies_all_pairs(flat, offsets, sd.N, 0.0, False)
+        ref_mean, ref_std = sd.get_pairwise_latencies(window_ms=None)
+        np.testing.assert_allclose(nb_mean, ref_mean.matrix, atol=1e-12)
+        np.testing.assert_allclose(nb_std, ref_std.matrix, atol=1e-12)
+
 
 # ---------------------------------------------------------------------------
 # Spike-triggered population rate kernel

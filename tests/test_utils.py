@@ -439,6 +439,43 @@ class TestComputeCrossCorrelationWithLag:
         assert abs(int(lag)) == 5
         assert corr == pytest.approx(1.0, abs=5e-3)
 
+    def test_max_lag_zero_matches_max_lag_positive_at_lag_zero(self):
+        """
+        compute_cross_correlation_with_lag agrees numerically between
+        the fast (max_lag=0) and slow (max_lag>0) paths when the
+        max-correlation lag is 0. Previously, the slow path normalised
+        by ``correlate(ref, ref, 'same')[len(ref)//2]`` which could
+        pick up a half-sample offset for even-length signals; the
+        fix routes both paths through the same L2-norm denominator.
+
+        Tests:
+            (Test Case 1) Even-length signals: r_fast == r_slow when
+                the slow-path max happens at lag 0.
+            (Test Case 2) Odd-length signals: same.
+            (Test Case 3) Auto-correlation still returns exactly 1.0
+                at lag 0 in both paths.
+        """
+        rng = np.random.default_rng(0)
+
+        # Even-length: most likely to expose the previous half-sample
+        # offset bug.
+        even_ref = rng.standard_normal(8)
+        even_comp = even_ref.copy()  # max correlation will land at lag 0
+        r_fast, _ = compute_cross_correlation_with_lag(even_ref, even_comp, max_lag=0)
+        r_slow, _ = compute_cross_correlation_with_lag(even_ref, even_comp, max_lag=2)
+        assert r_fast == pytest.approx(
+            r_slow, abs=1e-12
+        ), f"even-length disagreement: fast={r_fast} slow={r_slow}"
+        assert r_fast == pytest.approx(1.0, abs=1e-12)
+
+        # Odd-length.
+        odd_ref = rng.standard_normal(9)
+        odd_comp = odd_ref.copy()
+        r_fast, _ = compute_cross_correlation_with_lag(odd_ref, odd_comp, max_lag=0)
+        r_slow, _ = compute_cross_correlation_with_lag(odd_ref, odd_comp, max_lag=2)
+        assert r_fast == pytest.approx(r_slow, abs=1e-12)
+        assert r_fast == pytest.approx(1.0, abs=1e-12)
+
 
 # ---------------------------------------------------------------------------
 # butter_filter

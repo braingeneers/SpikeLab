@@ -612,18 +612,17 @@ def compute_cross_correlation_with_lag(ref_rate, comp_rate, max_lag=0):
     if max_lag == 0:
         max_corr = np.sum(ref_rate * comp_rate) / np.sqrt(norm_product)
         return max_corr, 0
-    # General path: use scipy.signal.correlate and normalise by
-    # sqrt(autocorr_ref[0] * autocorr_comp[0]).  For practical signal
-    # lengths this equals the L2-norm product used in the fast path;
-    # a tiny difference can arise for very short even-length signals
-    # because correlate(..., 'same') may offset the centre by half a
-    # sample.
-    auto_ref = signal.correlate(ref_rate, ref_rate, mode="same")[len(ref_rate) // 2]
-    auto_comp = signal.correlate(comp_rate, comp_rate, mode="same")[len(comp_rate) // 2]
-    denom = auto_ref * auto_comp
-    if denom <= 0:
-        return 0.0, 0
-    r = signal.correlate(ref_rate, comp_rate, mode="same") / np.sqrt(denom)
+    # General path: use scipy.signal.correlate and normalise by the
+    # L2-norm product — the same denominator as the max_lag==0 fast
+    # path, so the two paths agree numerically regardless of max_lag.
+    # The previous denominator went through
+    # ``correlate(ref, ref, 'same')[len(ref)//2]``, which equals
+    # ref_norm in theory but can pick up a half-sample offset for
+    # even-length signals under 'same' mode — making max_lag=0 and
+    # max_lag>0 disagree by a few ULPs on the same inputs.
+    # norm_product is guaranteed > 0 after the ref_norm/comp_norm
+    # zero-checks above.
+    r = signal.correlate(ref_rate, comp_rate, mode="same") / np.sqrt(norm_product)
 
     center = len(r) // 2
 
