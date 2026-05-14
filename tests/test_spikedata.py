@@ -2504,6 +2504,31 @@ class TestSpikeDataRates:
         rate = sd.binned_meanrate(bin_size=100.0)
         assert len(rate) == 1
 
+    def test_binned_meanrate_n_zero_matches_sparse_raster_width(self):
+        """
+        binned_meanrate(N=0) returns a zero-vector whose length equals
+        sparse_raster(N>0).shape[1] for the same recording length and
+        bin_size. The N==0 path now reads the bin count from
+        sparse_raster so the two paths cannot silently diverge if the
+        bin-count rule ever changes.
+
+        Tests:
+            (Test Case 1) Length matches sparse_raster's width for an
+                integer-divisible bin_size.
+            (Test Case 2) Length matches for a non-divisible bin_size
+                (catches an off-by-one if floor/ceil rules disagree).
+        """
+        for bin_size in (1.0, 4.0, 7.0):
+            sd_empty = SpikeData([], length=20.0, N=0)
+            sd_filled = SpikeData([[1.0, 5.0]], length=20.0)
+            empty_rate = sd_empty.binned_meanrate(bin_size=bin_size)
+            filled_raster_width = sd_filled.sparse_raster(bin_size=bin_size).shape[1]
+            assert len(empty_rate) == filled_raster_width, (
+                f"binned_meanrate(N=0) width {len(empty_rate)} != "
+                f"sparse_raster(N=1) width {filled_raster_width} "
+                f"for bin_size={bin_size}"
+            )
+
     def test_rates_zero_length(self):
         """
         SpikeData with length=0.0 returns zeros from rates().
