@@ -892,7 +892,15 @@
         <span class="k">for</span> <span class="n">s_idx</span><span class="p">,</span> <span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">_</span><span class="p">))</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spike_stack</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">times</span><span class="p">)):</span>
             <span class="n">offset</span> <span class="o">=</span> <span class="n">start</span> <span class="o">-</span> <span class="n">global_start</span>
             <span class="n">r</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">sparse_raster</span><span class="p">(</span><span class="n">bin_size</span><span class="o">=</span><span class="n">bin_size</span><span class="p">,</span> <span class="n">time_offset</span><span class="o">=</span><span class="n">offset</span><span class="p">)</span><span class="o">.</span><span class="n">toarray</span><span class="p">()</span>
-            <span class="n">raster_stack</span><span class="p">[:,</span> <span class="p">:</span> <span class="n">r</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">s_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">r</span>
+            <span class="c1"># Clamp r.shape[1] to total_bins. Both shapes come from</span>
+            <span class="c1"># independent np.ceil calls on float arithmetic, so a</span>
+            <span class="c1"># ULP-level difference between (global_end - global_start)</span>
+            <span class="c1"># and (slice_length + offset) can leave r one bin larger</span>
+            <span class="c1"># than the buffer — the unclamped assignment would raise</span>
+            <span class="c1"># a broadcasting error. The reverse case (r smaller than</span>
+            <span class="c1"># total_bins) is benign — trailing bins stay zero.</span>
+            <span class="n">n</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">total_bins</span><span class="p">)</span>
+            <span class="n">raster_stack</span><span class="p">[:,</span> <span class="p">:</span><span class="n">n</span><span class="p">,</span> <span class="n">s_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">r</span><span class="p">[:,</span> <span class="p">:</span><span class="n">n</span><span class="p">]</span>
 
         <span class="k">return</span> <span class="n">raster_stack</span></div>
 

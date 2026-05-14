@@ -1144,7 +1144,11 @@
         <span class="k">if</span> <span class="n">bin_size</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;bin_size must be &gt; 0, got </span><span class="si">{</span><span class="n">bin_size</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">N</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">/</span> <span class="n">bin_size</span><span class="p">)))</span>
+            <span class="c1"># Read the bin count from sparse_raster (which handles</span>
+            <span class="c1"># N==0 by returning a (0, T) matrix) so this branch can</span>
+            <span class="c1"># never silently diverge from the non-empty path&#39;s</span>
+            <span class="c1"># bin-count formula.</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sparse_raster</span><span class="p">(</span><span class="n">bin_size</span><span class="p">)</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
         <span class="n">binned_rate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">binned</span><span class="p">(</span><span class="n">bin_size</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">N</span> <span class="o">/</span> <span class="n">bin_size</span>
         <span class="k">if</span> <span class="n">unit</span> <span class="o">==</span> <span class="s2">&quot;Hz&quot;</span><span class="p">:</span>
             <span class="k">return</span> <span class="mf">1e3</span> <span class="o">*</span> <span class="n">binned_rate</span>

@@ -1068,18 +1068,17 @@
     <span class="k">if</span> <span class="n">max_lag</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
         <span class="n">max_corr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">ref_rate</span> <span class="o">*</span> <span class="n">comp_rate</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">norm_product</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">max_corr</span><span class="p">,</span> <span class="mi">0</span>
-    <span class="c1"># General path: use scipy.signal.correlate and normalise by</span>
-    <span class="c1"># sqrt(autocorr_ref[0] * autocorr_comp[0]).  For practical signal</span>
-    <span class="c1"># lengths this equals the L2-norm product used in the fast path;</span>
-    <span class="c1"># a tiny difference can arise for very short even-length signals</span>
-    <span class="c1"># because correlate(..., &#39;same&#39;) may offset the centre by half a</span>
-    <span class="c1"># sample.</span>
-    <span class="n">auto_ref</span> <span class="o">=</span> <span class="n">signal</span><span class="o">.</span><span class="n">correlate</span><span class="p">(</span><span class="n">ref_rate</span><span class="p">,</span> <span class="n">ref_rate</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;same&quot;</span><span class="p">)[</span><span class="nb">len</span><span class="p">(</span><span class="n">ref_rate</span><span class="p">)</span> <span class="o">//</span> <span class="mi">2</span><span class="p">]</span>
-    <span class="n">auto_comp</span> <span class="o">=</span> <span class="n">signal</span><span class="o">.</span><span class="n">correlate</span><span class="p">(</span><span class="n">comp_rate</span><span class="p">,</span> <span class="n">comp_rate</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;same&quot;</span><span class="p">)[</span><span class="nb">len</span><span class="p">(</span><span class="n">comp_rate</span><span class="p">)</span> <span class="o">//</span> <span class="mi">2</span><span class="p">]</span>
-    <span class="n">denom</span> <span class="o">=</span> <span class="n">auto_ref</span> <span class="o">*</span> <span class="n">auto_comp</span>
-    <span class="k">if</span> <span class="n">denom</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="k">return</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mi">0</span>
-    <span class="n">r</span> <span class="o">=</span> <span class="n">signal</span><span class="o">.</span><span class="n">correlate</span><span class="p">(</span><span class="n">ref_rate</span><span class="p">,</span> <span class="n">comp_rate</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;same&quot;</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">denom</span><span class="p">)</span>
+    <span class="c1"># General path: use scipy.signal.correlate and normalise by the</span>
+    <span class="c1"># L2-norm product — the same denominator as the max_lag==0 fast</span>
+    <span class="c1"># path, so the two paths agree numerically regardless of max_lag.</span>
+    <span class="c1"># The previous denominator went through</span>
+    <span class="c1"># ``correlate(ref, ref, &#39;same&#39;)[len(ref)//2]``, which equals</span>
+    <span class="c1"># ref_norm in theory but can pick up a half-sample offset for</span>
+    <span class="c1"># even-length signals under &#39;same&#39; mode — making max_lag=0 and</span>
+    <span class="c1"># max_lag&gt;0 disagree by a few ULPs on the same inputs.</span>
+    <span class="c1"># norm_product is guaranteed &gt; 0 after the ref_norm/comp_norm</span>
+    <span class="c1"># zero-checks above.</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="n">signal</span><span class="o">.</span><span class="n">correlate</span><span class="p">(</span><span class="n">ref_rate</span><span class="p">,</span> <span class="n">comp_rate</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;same&quot;</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">norm_product</span><span class="p">)</span>
 
     <span class="n">center</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="o">//</span> <span class="mi">2</span>
 
