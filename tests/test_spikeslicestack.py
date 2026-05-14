@@ -970,6 +970,29 @@ class TestSubset:
         assert len(result.spike_stack) == 2
         assert result.neuron_attributes == [{"id": "B", "region": "hpc"}]
 
+    def test_subset_preserve_order(self):
+        """
+        ``preserve_order=True`` returns units in caller's order
+        rather than sorted ascending by index.
+
+        Tests:
+            (Test Case 1) Default returns sorted order.
+            (Test Case 2) preserve_order=True returns caller's order
+                (verified via neuron_attributes which carry the
+                identifying ``id`` field).
+            (Test Case 3) Duplicates are deduplicated.
+        """
+        sss = self._make_stack()
+
+        default = sss.subset([2, 0])
+        assert [a["id"] for a in default.neuron_attributes] == ["A", "C"]
+
+        ordered = sss.subset([2, 0], preserve_order=True)
+        assert [a["id"] for a in ordered.neuron_attributes] == ["C", "A"]
+
+        dedup = sss.subset([2, 0, 0, 2, 1], preserve_order=True)
+        assert [a["id"] for a in dedup.neuron_attributes] == ["C", "A", "B"]
+
     def test_subset_by_index_list(self):
         """
         Extract multiple units by index list.

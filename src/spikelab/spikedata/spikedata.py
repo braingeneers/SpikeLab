@@ -871,7 +871,7 @@ class SpikeData:
             return [default] * self.N
         return [attr.get(key, default) for attr in self.neuron_attributes]
 
-    def subset(self, units, by=None):
+    def subset(self, units, by=None, preserve_order=False):
         """Return a new SpikeData with only the selected units.
 
         Units are selected either by their indices or by an ID stored under
@@ -881,14 +881,19 @@ class SpikeData:
             units (list): List of unit indices to select.
             by (str): Key to select units by in the neuron_attributes.
                 Index-based if None.
+            preserve_order (bool): When False (default), output is
+                sorted ascending by index — the documented historical
+                behavior, consistent across SpikeData / RateData /
+                RateSliceStack / SpikeSliceStack. When True, output
+                respects the order of the input ``units`` list, useful
+                for paired plotting or ordered concatenation
+                downstream. Duplicates in the input are deduplicated
+                either way.
 
         Returns:
             sd (SpikeData): New SpikeData object with the selected units.
 
         Notes:
-            - Units are included in the output according to their order in
-              self.train, not the order in the unit list (which is treated
-              as a set).
             - raw_data and raw_time are not propagated to the subset -- they
               remain on the original SpikeData object.
             - If IDs are not unique, every neuron which matches is included
@@ -901,30 +906,55 @@ class SpikeData:
         # For case where user inputs a single string for units when using by option
         if isinstance(units, str):
             units = [units]
-        units = set(units)
+
         if by is not None:
             if self.neuron_attributes is None:
                 raise ValueError("can't use `by` without `neuron_attributes`")
             _missing = object()
-            units = {
+            wanted = set(units)
+            matched = [
                 i
                 for i in range(self.N)
-                if _get_attr(self.neuron_attributes[i], by, _missing) in units
-            }
+                if _get_attr(self.neuron_attributes[i], by, _missing) in wanted
+            ]
+            # ``by`` resolves to whichever units carry the matching
+            # attribute, in self.train order — caller-supplied order
+            # cannot be honoured because there's no positional
+            # correspondence between the value list and unit indices.
+            selected = matched
         else:
+            # Match historical semantics: only integer-typed entries
+            # are bounds-checked. Floats / strings / other types pass
+            # through validation; if they don't equal any integer
+            # index (via Python ==, so ``1.0 == 1`` is True), they
+            # simply produce no match — same silent-empty behavior
+            # as the previous ``set(units)`` + ``if i in units``.
             for u in units:
                 if isinstance(u, (bool, np.bool_)):
                     continue
                 if isinstance(u, (int, np.integer)) and (u < 0 or u >= self.N):
                     raise ValueError(f"unit index out of range: {int(u)} (N={self.N})")
 
-        train = []
-        neuron_attributes = []
-        for i, ts in enumerate(self.train):
-            if i in units:
-                train.append(ts)
-                if self.neuron_attributes is not None:
-                    neuron_attributes.append(self.neuron_attributes[i])
+            unit_set = set(units)
+            matching: List[int] = [i for i in range(self.N) if i in unit_set]
+            if preserve_order:
+                seen: set = set()
+                ordered: List[int] = []
+                for u in units:
+                    for i in matching:
+                        if i == u and i not in seen:
+                            seen.add(i)
+                            ordered.append(i)
+                            break
+                selected = ordered
+            else:
+                selected = matching
+
+        train = [self.train[i] for i in selected]
+        if self.neuron_attributes is not None:
+            neuron_attributes = [self.neuron_attributes[i] for i in selected]
+        else:
+            neuron_attributes = None
 
         # raw_data/raw_time are not propagated to subsets — they remain
         # on the original SpikeData object and can be accessed there.

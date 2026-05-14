@@ -265,6 +265,35 @@ class TestRateDataSubset:
         assert sub_single.N == 1
         assert sub_single.inst_Frate_data.shape == (1, 50)
 
+    def test_subset_preserve_order(self):
+        """
+        ``preserve_order=True`` returns units in caller's order
+        rather than sorted ascending by index.
+
+        Tests:
+            (Test Case 1) Default returns sorted order.
+            (Test Case 2) preserve_order=True returns caller's order.
+            (Test Case 3) Duplicates are deduplicated.
+        """
+        rd = make_ratedata(n_units=4, n_times=10)
+
+        default = rd.subset([3, 0, 1])
+        # Sorted: rows 0, 1, 3 in that order.
+        np.testing.assert_array_equal(default.inst_Frate_data[0], rd.inst_Frate_data[0])
+        np.testing.assert_array_equal(default.inst_Frate_data[1], rd.inst_Frate_data[1])
+        np.testing.assert_array_equal(default.inst_Frate_data[2], rd.inst_Frate_data[3])
+
+        ordered = rd.subset([3, 0, 1], preserve_order=True)
+        np.testing.assert_array_equal(ordered.inst_Frate_data[0], rd.inst_Frate_data[3])
+        np.testing.assert_array_equal(ordered.inst_Frate_data[1], rd.inst_Frate_data[0])
+        np.testing.assert_array_equal(ordered.inst_Frate_data[2], rd.inst_Frate_data[1])
+
+        dedup = rd.subset([2, 0, 0, 2, 1], preserve_order=True)
+        assert dedup.N == 3
+        np.testing.assert_array_equal(dedup.inst_Frate_data[0], rd.inst_Frate_data[2])
+        np.testing.assert_array_equal(dedup.inst_Frate_data[1], rd.inst_Frate_data[0])
+        np.testing.assert_array_equal(dedup.inst_Frate_data[2], rd.inst_Frate_data[1])
+
     def test_subset_by_attribute(self):
         """
         Tests subset() with the by parameter for attribute-based selection.

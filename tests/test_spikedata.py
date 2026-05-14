@@ -1051,6 +1051,48 @@ class TestSpikeDataSlicing:
         sub = sd.subset(units=[0, 0, 1])
         assert sub.N == 2
 
+    def test_subset_preserve_order(self):
+        """
+        ``preserve_order=True`` returns units in the caller's supplied
+        order rather than sorted ascending by index.
+
+        Tests:
+            (Test Case 1) Default ``preserve_order=False`` returns
+                units in sorted order, matching the historical
+                contract.
+            (Test Case 2) ``preserve_order=True`` returns units in
+                the caller's order.
+            (Test Case 3) Duplicates are deduplicated in either mode.
+            (Test Case 4) Float-equivalent indices (1.0 → unit 1)
+                still match in preserve_order mode.
+        """
+        sd = SpikeData(
+            [[1.0], [2.0], [3.0], [4.0]],
+            length=50.0,
+            neuron_attributes=[
+                {"unit_id": 0},
+                {"unit_id": 1},
+                {"unit_id": 2},
+                {"unit_id": 3},
+            ],
+        )
+
+        # Default: sorted output.
+        default = sd.subset(units=[3, 0, 1])
+        assert [a["unit_id"] for a in default.neuron_attributes] == [0, 1, 3]
+
+        # preserve_order: caller's order.
+        ordered = sd.subset(units=[3, 0, 1], preserve_order=True)
+        assert [a["unit_id"] for a in ordered.neuron_attributes] == [3, 0, 1]
+
+        # Duplicates are deduplicated in preserve_order mode.
+        dedup = sd.subset(units=[2, 0, 0, 2, 1], preserve_order=True)
+        assert [a["unit_id"] for a in dedup.neuron_attributes] == [2, 0, 1]
+
+        # Float-equivalent indices still match.
+        floats = sd.subset(units=[2.0, 0.0], preserve_order=True)
+        assert [a["unit_id"] for a in floats.neuron_attributes] == [2, 0]
+
     def test_subtime_start_equals_end(self):
         """
         subtime raises ValueError when start equals end.
