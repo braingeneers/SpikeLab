@@ -1053,6 +1053,35 @@ class TestSubset:
         sub = rss.subset(2)
         assert sub.event_stack.shape == (1, 10, 3)
 
+    def test_subset_preserve_order(self):
+        """
+        ``preserve_order=True`` returns units in caller's order
+        rather than sorted ascending by index.
+
+        Tests:
+            (Test Case 1) Default returns sorted order.
+            (Test Case 2) preserve_order=True returns caller's order.
+            (Test Case 3) Duplicates are deduplicated.
+        """
+        mat = make_event_matrix(4, 10, 3)
+        rss = RateSliceStack(event_matrix=mat)
+
+        default = rss.subset([3, 0, 1])
+        np.testing.assert_array_equal(default.event_stack[0], mat[0])
+        np.testing.assert_array_equal(default.event_stack[1], mat[1])
+        np.testing.assert_array_equal(default.event_stack[2], mat[3])
+
+        ordered = rss.subset([3, 0, 1], preserve_order=True)
+        np.testing.assert_array_equal(ordered.event_stack[0], mat[3])
+        np.testing.assert_array_equal(ordered.event_stack[1], mat[0])
+        np.testing.assert_array_equal(ordered.event_stack[2], mat[1])
+
+        dedup = rss.subset([2, 0, 0, 2, 1], preserve_order=True)
+        assert dedup.event_stack.shape == (3, 10, 3)
+        np.testing.assert_array_equal(dedup.event_stack[0], mat[2])
+        np.testing.assert_array_equal(dedup.event_stack[1], mat[0])
+        np.testing.assert_array_equal(dedup.event_stack[2], mat[1])
+
     def test_subset_by_attribute(self):
         """
         Tests subset using the by parameter with neuron_attributes.

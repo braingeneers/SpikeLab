@@ -115,7 +115,7 @@ class RateData:
         t1 = float(self.times[-1]) if len(self.times) > 0 else 0.0
         return f"RateData(shape={self.inst_Frate_data.shape}, time_range=[{t0:.1f}, {t1:.1f}])"
 
-    def subset(self, units, by=None):
+    def subset(self, units, by=None, preserve_order=False):
         """Extract a subset of units/neurons from the rate data.
 
         Parameters:
@@ -126,6 +126,11 @@ class RateData:
                 use this if you initialized the object with
                 neuron_attributes. Set to the key that contains neuron_id
                 values. None selects by index (default).
+            preserve_order (bool): When False (default), output is
+                sorted ascending by index — consistent with the other
+                SpikeLab data classes. When True, output respects the
+                order of the input ``units`` list. Duplicates are
+                deduplicated either way.
 
         Returns:
             result (RateData): New RateData object containing only the
@@ -137,23 +142,37 @@ class RateData:
         # For case where user inputs a single string for units when using by option
         if isinstance(units, str):
             units = [units]
-        units = set(units)
+
         if by is not None:
-            # VALUE-BASED: Look up by neuron_attribute
+            # VALUE-BASED: Look up by neuron_attribute. Order falls back
+            # to self.train order (sorted) — caller-supplied order
+            # cannot be honoured because the value list has no
+            # positional correspondence to unit indices.
             if self.neuron_attributes is None:
                 raise ValueError("can't use `by` without `neuron_attributes`")
             _missing = object()
-            units = {
+            wanted = set(units)
+            selected = [
                 i
                 for i in range(self.N)
-                if _get_attr(self.neuron_attributes[i], by, _missing) in units
-            }
-        units = sorted(units)
+                if _get_attr(self.neuron_attributes[i], by, _missing) in wanted
+            ]
+        elif preserve_order:
+            seen: set = set()
+            ordered = []
+            for u in units:
+                ui = int(u)
+                if ui not in seen:
+                    seen.add(ui)
+                    ordered.append(ui)
+            selected = ordered
+        else:
+            selected = sorted({int(u) for u in units})
 
-        output = self.inst_Frate_data[units, :]
+        output = self.inst_Frate_data[selected, :]
         neuron_attributes = None
         if self.neuron_attributes is not None:
-            neuron_attributes = [self.neuron_attributes[i] for i in units]
+            neuron_attributes = [self.neuron_attributes[i] for i in selected]
 
         return RateData(
             inst_Frate_data=output,

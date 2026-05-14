@@ -260,7 +260,7 @@ class SpikeSliceStack:
             neuron_attributes=self.neuron_attributes,
         )
 
-    def subset(self, units, by=None):
+    def subset(self, units, by=None, preserve_order=False):
         """Extract a subset of units from every slice in the spike stack.
 
         Parameters:
@@ -269,6 +269,11 @@ class SpikeSliceStack:
                 neuron_attributes.
             by (str or None): If set, select units by this neuron_attribute
                 key instead of by index.
+            preserve_order (bool): When False (default), output is
+                sorted ascending by index — consistent with the other
+                SpikeLab data classes. When True, output respects the
+                order of the input ``units`` list. Duplicates are
+                deduplicated either way.
 
         Returns:
             result (SpikeSliceStack): New SpikeSliceStack containing only the
@@ -276,8 +281,6 @@ class SpikeSliceStack:
                 neuron_attributes are carried over.
 
         Notes:
-            - Units are included in the output in the order they appear in the
-              train (ascending index order), not the order listed in units.
             - If IDs are not unique (when using by), every matching neuron is
               included.
         """
@@ -286,6 +289,10 @@ class SpikeSliceStack:
 
         # Resolve which indices will be kept so we can update neuron_attributes
         if by is not None:
+            # ``by`` resolves to whichever units carry the matching
+            # attribute, in self.train order — caller-supplied order
+            # cannot be honoured because the value list has no
+            # positional correspondence to unit indices.
             if self.neuron_attributes is None:
                 raise ValueError("can't use `by` without `neuron_attributes`")
             _missing = object()
@@ -295,14 +302,29 @@ class SpikeSliceStack:
                 if _get_attr(self.neuron_attributes[i], by, _missing) in unit_set:
                     kept_indices.append(i)
         else:
-            kept_indices = sorted(set(int(u) for u in units))
-            for u in kept_indices:
-                if u < 0 or u >= self.N:
-                    raise ValueError(f"Unit index {u} out of range for {self.N} units.")
+            for u in units:
+                ui = int(u)
+                if ui < 0 or ui >= self.N:
+                    raise ValueError(
+                        f"Unit index {ui} out of range for {self.N} units."
+                    )
+            if preserve_order:
+                seen: set = set()
+                ordered = []
+                for u in units:
+                    ui = int(u)
+                    if ui not in seen:
+                        seen.add(ui)
+                        ordered.append(ui)
+                kept_indices = ordered
+            else:
+                kept_indices = sorted({int(u) for u in units})
 
         new_spike_stack = []
         for sd in self.spike_stack:
-            new_spike_stack.append(sd.subset(kept_indices))
+            # Forward preserve_order so per-slice subsets agree with
+            # the SpikeSliceStack-level ordering decision.
+            new_spike_stack.append(sd.subset(kept_indices, preserve_order=True))
 
         new_neuron_attributes = None
         if self.neuron_attributes is not None:
