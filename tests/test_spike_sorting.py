@@ -6472,6 +6472,72 @@ class TestSaveTracesSiFastPath:
         # ~10 µV recording noise floor.
         np.testing.assert_allclose(small, big, atol=1.0)
 
+    @skip_no_torch
+    def test_partial_last_chunk_does_not_raise(self, tmp_path, monkeypatch):
+        """get_total_samples() may exceed the actual sample count in the HDF5
+        file.  The memmap is pre-allocated to the reported size; without the
+        fix the last chunk write broadcast-fails because the source is shorter
+        than the target slice.  Regression test for the (923, 199800) into
+        (923, 200000) shape mismatch seen on hCO-stim-demo_2026-05-13.
+        """
+        from unittest.mock import MagicMock
+
+        from spikelab.spike_sorting.rt_sort import _algorithm
+
+        n_channels = 4
+        reported_samples = 2_200  # what get_total_samples() claims
+        actual_samples = 2_000    # what the HDF5 actually contains
+
+        rng = np.random.default_rng(7)
+        fake_full = (rng.standard_normal((actual_samples, n_channels)) * 10.0).astype(
+            np.float32
+        )
+
+        def fake_get_traces(start_frame=None, end_frame=None, return_scaled=False):
+            sf = 0 if start_frame is None else start_frame
+            ef = actual_samples if end_frame is None else min(end_frame, actual_samples)
+            return fake_full[sf:ef]
+
+        rec = MagicMock()
+        rec.get_sampling_frequency.return_value = 20_000.0
+        rec.get_num_channels.return_value = n_channels
+        rec.get_total_samples.return_value = reported_samples
+        rec.get_channel_ids.return_value = np.arange(n_channels)
+        rec.has_scaleable_traces.return_value = True
+        rec.get_traces.side_effect = fake_get_traces
+
+        from spikeinterface.core import NumpyRecording
+
+        assert not isinstance(rec, NumpyRecording)
+
+        monkeypatch.setattr(
+            _algorithm, "Pool", lambda *a, **kw: (_ for _ in ()).throw(AssertionError("Pool used"))
+        )
+        monkeypatch.setattr(
+            _algorithm, "Manager", lambda *a, **kw: (_ for _ in ()).throw(AssertionError("Manager used"))
+        )
+
+        out_path = tmp_path / "scaled_traces.npy"
+        # chunk_seconds=0.1 → 2 000-sample chunks; reported=2 200 means the
+        # second chunk requests frames 2000–2200 but the recording only has
+        # 2000, so get_traces returns 0 samples — exercises the partial path.
+        _algorithm.save_traces_si(
+            rec,
+            out_path,
+            start_ms=0,
+            end_ms=None,
+            num_processes=1,
+            dtype="float32",
+            verbose=False,
+            chunk_seconds=0.1,
+        )
+
+        saved = np.load(out_path)
+        # Output shape is (n_channels, reported_samples) — partial tail is zeros.
+        assert saved.shape == (n_channels, reported_samples)
+        # The actual data region must match.
+        np.testing.assert_allclose(saved[:, :actual_samples], fake_full.T, atol=1e-6)
+
 
 class TestChunkedStimSort:
     """Unit tests for the per-event-chunked ``sort_stim_recording``
