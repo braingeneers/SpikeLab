@@ -499,15 +499,21 @@
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Estimate per-channel noise using MAD on random recording chunks.</span>
 
+<span class="sd">    *recording* is expected to be the bandpass-filtered SpikeInterface</span>
+<span class="sd">    recording object (as produced by ``recording_io.load_recording``), so</span>
+<span class="sd">    ``get_traces`` returns filtered µV values.  The MAD estimate therefore</span>
+<span class="sd">    reflects spike-band noise, not LFP-inflated broadband noise — consistent</span>
+<span class="sd">    with ``curation._estimate_noise_levels`` when called with ``fs`` set.</span>
+
 <span class="sd">    Parameters:</span>
-<span class="sd">        recording: SpikeInterface BaseRecording.</span>
-<span class="sd">        return_scaled (bool): Use scaled traces.</span>
+<span class="sd">        recording: SpikeInterface BaseRecording (bandpass-filtered).</span>
+<span class="sd">        return_scaled (bool): Use scaled (µV) traces.</span>
 <span class="sd">        num_chunks (int): Number of random chunks to sample.</span>
 <span class="sd">        chunk_size (int): Samples per chunk.</span>
 <span class="sd">        seed (int): Random seed.</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">        noise_levels (np.ndarray): Per-channel noise, shape ``(channels,)``.</span>
+<span class="sd">        noise_levels (np.ndarray): Per-channel spike-band noise, shape ``(channels,)``.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">length</span> <span class="o">=</span> <span class="n">recording</span><span class="o">.</span><span class="n">get_num_samples</span><span class="p">()</span>
     <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">RandomState</span><span class="p">(</span><span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">)</span>

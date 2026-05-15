@@ -665,12 +665,19 @@
     <span class="n">at_peak</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
     <span class="n">window_ms_before</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
     <span class="n">window_ms_after</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span>
+    <span class="n">freq_min</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span>
+    <span class="n">freq_max</span><span class="o">=</span><span class="mi">6000</span><span class="p">,</span>
 <span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute average waveforms, SNR, and normalized STD for every unit.</span>
 
 <span class="sd">    Results are stored in ``neuron_attributes`` under the keys</span>
 <span class="sd">    ``&quot;snr&quot;`` and ``&quot;std_norm&quot;``.  Average waveforms are stored by</span>
 <span class="sd">    ``get_waveform_traces`` (called internally with ``store=True``).</span>
+
+<span class="sd">    Waveforms are extracted from bandpass-filtered data (*freq_min*–*freq_max*</span>
+<span class="sd">    Hz) and noise is estimated on the same filtered band.  This matches</span>
+<span class="sd">    SpikeInterface&#39;s quality-metrics convention and avoids inflating the SNR</span>
+<span class="sd">    denominator with LFP energy.</span>
 
 <span class="sd">    Parameters:</span>
 <span class="sd">        sd (SpikeData): Source spike data.  Must have non-empty</span>
@@ -682,6 +689,10 @@
 <span class="sd">            (only used when *at_peak* is False).</span>
 <span class="sd">        window_ms_after (float): Window after peak for averaging STD</span>
 <span class="sd">            (only used when *at_peak* is False).</span>
+<span class="sd">        freq_min (float): Low-cut frequency for bandpass filter (Hz).</span>
+<span class="sd">            Defaults to 300 Hz (matches ``_globals.FREQ_MIN``).</span>
+<span class="sd">        freq_max (float): High-cut frequency for bandpass filter (Hz).</span>
+<span class="sd">            Defaults to 6000 Hz (matches ``_globals.FREQ_MAX``).</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        sd (SpikeData): The same SpikeData object (modified in place</span>
@@ -699,26 +710,30 @@
     <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="o">=</span> <span class="p">[{}</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="p">)]</span>
 
-    <span class="c1"># Extract waveforms for all units (stores avg_waveform in neuron_attributes)</span>
+    <span class="c1"># Determine sampling rate (needed for bandpass filter and STD window)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">ndim</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">raw_time</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">sd</span><span class="o">.</span><span class="n">raw_time</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">():</span>
+        <span class="n">fs_kHz</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">raw_time</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">fs_kHz</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">raw_time</span><span class="p">))</span>
+    <span class="n">fs_Hz</span> <span class="o">=</span> <span class="n">fs_kHz</span> <span class="o">*</span> <span class="mf">1000.0</span>
+
+    <span class="c1"># Extract waveforms from bandpass-filtered data (stores avg_waveform in neuron_attributes)</span>
     <span class="n">sd</span><span class="o">.</span><span class="n">get_waveform_traces</span><span class="p">(</span>
         <span class="n">unit</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">ms_before</span><span class="o">=</span><span class="n">ms_before</span><span class="p">,</span>
         <span class="n">ms_after</span><span class="o">=</span><span class="n">ms_after</span><span class="p">,</span>
         <span class="n">store</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
         <span class="n">return_avg_waveform</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">bandpass</span><span class="o">=</span><span class="p">(</span><span class="n">freq_min</span><span class="p">,</span> <span class="n">freq_max</span><span class="p">),</span>
     <span class="p">)</span>
 
-    <span class="c1"># Compute noise levels via MAD on raw_data</span>
-    <span class="n">noise_levels</span> <span class="o">=</span> <span class="n">_estimate_noise_levels</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">raw_data</span><span class="p">)</span>
+    <span class="c1"># Estimate noise on bandpass-filtered chunks — matches waveform extraction band</span>
+    <span class="n">noise_levels</span> <span class="o">=</span> <span class="n">_estimate_noise_levels</span><span class="p">(</span>
+        <span class="n">sd</span><span class="o">.</span><span class="n">raw_data</span><span class="p">,</span> <span class="n">fs</span><span class="o">=</span><span class="n">fs_Hz</span><span class="p">,</span> <span class="n">freq_min</span><span class="o">=</span><span class="n">freq_min</span><span class="p">,</span> <span class="n">freq_max</span><span class="o">=</span><span class="n">freq_max</span>
+    <span class="p">)</span>
 
     <span class="n">snr_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
     <span class="n">std_norm_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-
-    <span class="c1"># Determine sampling rate for window conversion</span>
-    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">ndim</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">raw_time</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">sd</span><span class="o">.</span><span class="n">raw_time</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">():</span>
-        <span class="n">fs_kHz</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">raw_time</span><span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">fs_kHz</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">raw_time</span><span class="p">))</span>
 
     <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="p">):</span>
         <span class="n">attrs</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
@@ -950,18 +965,45 @@
 <span class="c1"># ---------------------------------------------------------------------------</span>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_estimate_noise_levels</span><span class="p">(</span><span class="n">raw_data</span><span class="p">,</span> <span class="n">num_chunks</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">chunk_size</span><span class="o">=</span><span class="mi">10000</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_estimate_noise_levels</span><span class="p">(</span>
+    <span class="n">raw_data</span><span class="p">,</span>
+    <span class="n">num_chunks</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+    <span class="n">chunk_size</span><span class="o">=</span><span class="mi">10000</span><span class="p">,</span>
+    <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+    <span class="n">fs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">freq_min</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span>
+    <span class="n">freq_max</span><span class="o">=</span><span class="mi">6000</span><span class="p">,</span>
+<span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Estimate per-channel noise via MAD on random chunks of *raw_data*.</span>
+
+<span class="sd">    When *fs* is provided the full *raw_data* array is bandpass-filtered first</span>
+<span class="sd">    (4th-order Butterworth, *freq_min*–*freq_max* Hz, zero-phase), then random</span>
+<span class="sd">    chunks are sampled from the filtered result for the MAD estimate.  Filtering</span>
+<span class="sd">    before chunking avoids the edge artifacts that arise when short segments are</span>
+<span class="sd">    filtered independently.  This removes LFP energy from the noise denominator</span>
+<span class="sd">    and matches SpikeInterface&#39;s quality-metrics convention.</span>
 
 <span class="sd">    Parameters:</span>
 <span class="sd">        raw_data (np.ndarray): Shape ``(channels, time)``.</span>
 <span class="sd">        num_chunks (int): Number of random chunks to sample.</span>
 <span class="sd">        chunk_size (int): Samples per chunk.</span>
 <span class="sd">        seed (int): Random seed.</span>
+<span class="sd">        fs (float or None): Sampling rate in Hz.  When provided, bandpass</span>
+<span class="sd">            filtering is applied before noise estimation.</span>
+<span class="sd">        freq_min (float): Low-cut frequency for bandpass filter (Hz).</span>
+<span class="sd">        freq_max (float): High-cut frequency for bandpass filter (Hz).</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        noise (np.ndarray): Shape ``(channels,)``.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Filter the full trace before sampling so chunk boundaries don&#39;t introduce</span>
+    <span class="c1"># edge artifacts from the zero-phase filter&#39;s start/end padding.</span>
+    <span class="k">if</span> <span class="n">fs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">freq_min</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">freq_max</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.signal</span><span class="w"> </span><span class="kn">import</span> <span class="n">butter</span><span class="p">,</span> <span class="n">sosfiltfilt</span>
+
+        <span class="n">sos</span> <span class="o">=</span> <span class="n">butter</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="p">[</span><span class="n">freq_min</span><span class="p">,</span> <span class="n">freq_max</span><span class="p">],</span> <span class="n">btype</span><span class="o">=</span><span class="s2">&quot;bandpass&quot;</span><span class="p">,</span> <span class="n">fs</span><span class="o">=</span><span class="n">fs</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="s2">&quot;sos&quot;</span><span class="p">)</span>
+        <span class="n">raw_data</span> <span class="o">=</span> <span class="n">sosfiltfilt</span><span class="p">(</span><span class="n">sos</span><span class="p">,</span> <span class="n">raw_data</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
     <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
     <span class="n">n_channels</span><span class="p">,</span> <span class="n">n_samples</span> <span class="o">=</span> <span class="n">raw_data</span><span class="o">.</span><span class="n">shape</span>
     <span class="n">max_start</span> <span class="o">=</span> <span class="n">n_samples</span> <span class="o">-</span> <span class="n">chunk_size</span>
@@ -970,9 +1012,7 @@
         <span class="n">data</span> <span class="o">=</span> <span class="n">raw_data</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">starts</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">max_start</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">num_chunks</span><span class="p">)</span>
-        <span class="n">chunks</span> <span class="o">=</span> <span class="p">[</span><span class="n">raw_data</span><span class="p">[:,</span> <span class="n">s</span> <span class="p">:</span> <span class="n">s</span> <span class="o">+</span> <span class="n">chunk_size</span><span class="p">]</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">starts</span><span class="p">]</span>
-        <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">chunks</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-
+        <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">raw_data</span><span class="p">[:,</span> <span class="n">s</span> <span class="p">:</span> <span class="n">s</span> <span class="o">+</span> <span class="n">chunk_size</span><span class="p">]</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">starts</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
     <span class="c1"># MAD-based noise estimate: median(|x - median(x)|) / 0.6745</span>
     <span class="n">medians</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="n">noise</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">data</span> <span class="o">-</span> <span class="n">medians</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="mf">0.6745</span>
