@@ -6551,6 +6551,30 @@ class TestSpikeDataSubtime:
         assert result.length == sd.length
         assert len(result.train[0]) == 3
 
+    def test_subtime_empty_raw_data_skips_mask(self):
+        """
+        subtime short-circuits the raw-data slicing branch when raw_data is
+        empty (the default), avoiding boolean-mask construction over the
+        default empty raw_time/raw_data arrays.
+
+        Tests:
+            (Test Case 1) Output raw_time and raw_data are the same empty
+                arrays as the source — same shape, same content, no error.
+            (Test Case 2) The output is functionally equivalent to slicing
+                the empty arrays the long way round.
+        """
+        sd = SpikeData([[5.0, 10.0, 15.0]], length=20.0)
+        # Default empty raw arrays.
+        assert sd.raw_data.size == 0
+        assert sd.raw_time.size == 0
+
+        result = sd.subtime(5.0, 15.0)
+
+        assert result.raw_data.size == 0
+        assert result.raw_time.size == 0
+        assert result.raw_data.shape == sd.raw_data.shape
+        assert result.raw_time.shape == sd.raw_time.shape
+
 
 class TestSpikeDataFrames:
     """Edge case tests for SpikeData.frames."""

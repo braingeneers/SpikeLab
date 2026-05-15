@@ -1107,8 +1107,17 @@ class SpikeData:
         train = [t[(t >= start) & (t < end)] - shift_to for t in self.train]
         new_start_time = start - shift_to
 
-        # Subset and propagate the raw data
-        rawmask = (self.raw_time >= start) & (self.raw_time < end)
+        # Subset and propagate the raw data. Skip mask construction when
+        # there is no raw data to slice — matches the empty-in/empty-out
+        # behaviour the masked path would produce and avoids broadcasting
+        # work on the default empty arrays.
+        if self.raw_data.size > 0:
+            rawmask = (self.raw_time >= start) & (self.raw_time < end)
+            raw_time_out = self.raw_time[rawmask] - shift_to
+            raw_data_out = self.raw_data[..., rawmask]
+        else:
+            raw_time_out = self.raw_time
+            raw_data_out = self.raw_data
 
         return SpikeData(
             train,
@@ -1117,8 +1126,8 @@ class SpikeData:
             N=self.N,
             neuron_attributes=self.neuron_attributes,
             metadata=self.metadata,
-            raw_time=self.raw_time[rawmask] - shift_to,
-            raw_data=self.raw_data[..., rawmask],
+            raw_time=raw_time_out,
+            raw_data=raw_data_out,
         )
 
     def __getitem__(self, key):
