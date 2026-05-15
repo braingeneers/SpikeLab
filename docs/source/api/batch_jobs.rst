@@ -8,7 +8,7 @@ It requires the ``batch-jobs`` optional dependency group:
 
 .. code-block:: bash
 
-   pip install spikelab[batch-jobs]
+   pip install oc-spikelab[batch-jobs]
 
 See the :doc:`/guides/batch_jobs` guide for usage examples.
 

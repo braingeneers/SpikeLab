@@ -1051,6 +1051,48 @@ class TestSpikeDataSlicing:
         sub = sd.subset(units=[0, 0, 1])
         assert sub.N == 2
 
+    def test_subset_preserve_order(self):
+        """
+        ``preserve_order=True`` returns units in the caller's supplied
+        order rather than sorted ascending by index.
+
+        Tests:
+            (Test Case 1) Default ``preserve_order=False`` returns
+                units in sorted order, matching the historical
+                contract.
+            (Test Case 2) ``preserve_order=True`` returns units in
+                the caller's order.
+            (Test Case 3) Duplicates are deduplicated in either mode.
+            (Test Case 4) Float-equivalent indices (1.0 → unit 1)
+                still match in preserve_order mode.
+        """
+        sd = SpikeData(
+            [[1.0], [2.0], [3.0], [4.0]],
+            length=50.0,
+            neuron_attributes=[
+                {"unit_id": 0},
+                {"unit_id": 1},
+                {"unit_id": 2},
+                {"unit_id": 3},
+            ],
+        )
+
+        # Default: sorted output.
+        default = sd.subset(units=[3, 0, 1])
+        assert [a["unit_id"] for a in default.neuron_attributes] == [0, 1, 3]
+
+        # preserve_order: caller's order.
+        ordered = sd.subset(units=[3, 0, 1], preserve_order=True)
+        assert [a["unit_id"] for a in ordered.neuron_attributes] == [3, 0, 1]
+
+        # Duplicates are deduplicated in preserve_order mode.
+        dedup = sd.subset(units=[2, 0, 0, 2, 1], preserve_order=True)
+        assert [a["unit_id"] for a in dedup.neuron_attributes] == [2, 0, 1]
+
+        # Float-equivalent indices still match.
+        floats = sd.subset(units=[2.0, 0.0], preserve_order=True)
+        assert [a["unit_id"] for a in floats.neuron_attributes] == [2, 0]
+
     def test_subtime_start_equals_end(self):
         """
         subtime raises ValueError when start equals end.
@@ -1480,6 +1522,80 @@ class TestSpikeDataSlicing:
         # neuron_attributes from self are propagated
         assert combined.neuron_attributes is not None
         assert combined.neuron_attributes[0]["id"] == "a"
+
+    def test_append_salvages_appended_neuron_attributes(self):
+        """
+        When self has no neuron_attributes but the appended SpikeData
+        does, ``append`` salvages the appended operand's attributes and
+        emits a RuntimeWarning. Previously the appended attrs were
+        silently dropped.
+
+        Tests:
+            (Test Case 1) Result carries the appended operand's
+                neuron_attributes.
+            (Test Case 2) A RuntimeWarning naming "append" is emitted.
+        """
+        sd1 = SpikeData([[5.0]], length=20.0)
+        sd2 = SpikeData(
+            [[3.0]],
+            length=10.0,
+            neuron_attributes=[{"id": "b"}],
+        )
+        assert sd1.neuron_attributes is None
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            combined = sd1.append(sd2)
+
+        assert combined.neuron_attributes == [{"id": "b"}]
+        msgs = [str(rec.message) for rec in caught if rec.category is RuntimeWarning]
+        assert any("append" in m for m in msgs), msgs
+
+    def test_append_drop_neuron_attributes(self):
+        """
+        ``drop_neuron_attributes=True`` returns a SpikeData with
+        ``neuron_attributes=None`` regardless of either operand's
+        attributes, and does not emit a salvage warning.
+
+        Tests:
+            (Test Case 1) Both have attrs + drop=True → None,
+                no warning.
+            (Test Case 2) Only appended has attrs + drop=True → None,
+                no salvage warning fires.
+        """
+        sd_a = SpikeData(
+            [[5.0]],
+            length=20.0,
+            neuron_attributes=[{"id": "a"}],
+        )
+        sd_b = SpikeData(
+            [[3.0]],
+            length=10.0,
+            neuron_attributes=[{"id": "b"}],
+        )
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            combined = sd_a.append(sd_b, drop_neuron_attributes=True)
+        assert combined.neuron_attributes is None
+        salvage_warns = [
+            rec
+            for rec in caught
+            if rec.category is RuntimeWarning and "append" in str(rec.message)
+        ]
+        assert salvage_warns == []
+
+        sd_no_attrs = SpikeData([[5.0]], length=20.0)
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            combined = sd_no_attrs.append(sd_b, drop_neuron_attributes=True)
+        assert combined.neuron_attributes is None
+        salvage_warns = [
+            rec
+            for rec in caught
+            if rec.category is RuntimeWarning and "append" in str(rec.message)
+        ]
+        assert salvage_warns == []
 
     def test_concatenate_one_has_neuron_attributes(self):
         """
@@ -6109,6 +6225,24 @@ class TestAlignToEvents:
         with pytest.raises(ValueError, match="No valid events remain"):
             sd.align_to_events([0.0, 50.0], pre_ms=5.0, post_ms=5.0)
 
+    def test_align_to_events_all_dropped_error_includes_count_and_bounds(self):
+        """
+        When every event falls outside the recording window the ValueError
+        embeds both the number of dropped events and the recording bounds,
+        so the user does not have to rely on the (possibly silenced) warning
+        to learn the count.
+
+        Tests:
+            (Test Case 1) Error message contains the dropped-event count.
+            (Test Case 2) Error message contains the recording bounds.
+        """
+        sd = SpikeData([[10.0, 20.0, 30.0]], length=50.0)
+        with pytest.raises(ValueError) as excinfo:
+            sd.align_to_events([0.0, 50.0], pre_ms=5.0, post_ms=5.0)
+        msg = str(excinfo.value)
+        assert "All 2 event(s)" in msg
+        assert "[0.0, 50.0] ms" in msg
+
     def test_align_to_events_duplicate_events(self):
         """
         align_to_events with identical event times.
@@ -6416,6 +6550,30 @@ class TestSpikeDataSubtime:
         result = sd.subtime(Ellipsis, Ellipsis)
         assert result.length == sd.length
         assert len(result.train[0]) == 3
+
+    def test_subtime_empty_raw_data_skips_mask(self):
+        """
+        subtime short-circuits the raw-data slicing branch when raw_data is
+        empty (the default), avoiding boolean-mask construction over the
+        default empty raw_time/raw_data arrays.
+
+        Tests:
+            (Test Case 1) Output raw_time and raw_data are the same empty
+                arrays as the source — same shape, same content, no error.
+            (Test Case 2) The output is functionally equivalent to slicing
+                the empty arrays the long way round.
+        """
+        sd = SpikeData([[5.0, 10.0, 15.0]], length=20.0)
+        # Default empty raw arrays.
+        assert sd.raw_data.size == 0
+        assert sd.raw_time.size == 0
+
+        result = sd.subtime(5.0, 15.0)
+
+        assert result.raw_data.size == 0
+        assert result.raw_time.size == 0
+        assert result.raw_data.shape == sd.raw_data.shape
+        assert result.raw_time.shape == sd.raw_time.shape
 
 
 class TestSpikeDataFrames:
@@ -8099,3 +8257,79 @@ class TestSpikeDataGetPairwiseCcgMaxLagClamp:
             if "exceeds raster length" in str(rec.message)
         ]
         assert msgs == []
+
+
+class TestSpikeDataCvIsi:
+    """Tests for SpikeData.cv_isi and SpikeData.cv2_isi firing regularity metrics."""
+
+    def test_regular_train_cv_near_zero(self):
+        """
+        A perfectly regular spike train has CV approx 0 and CV2 approx 0.
+
+        Tests:
+            (Test Case 1) cv_isi[0] within 1e-9 of 0.
+            (Test Case 2) cv2_isi[0] within 1e-9 of 0.
+        """
+        times = np.arange(1.0, 1001.0, 1.0)
+        sd = SpikeData([times])
+        assert abs(sd.cv_isi()[0]) < 1e-9
+        assert abs(sd.cv2_isi()[0]) < 1e-9
+
+    def test_poisson_train_cv_near_one(self):
+        """
+        A Poisson process has CV approx 1.
+
+        Tests:
+            (Test Case 1) cv_isi[0] within 0.15 of 1.0 for a long Poisson train.
+        """
+        rng = np.random.default_rng(0)
+        isi = rng.exponential(scale=10.0, size=20000)
+        times = np.cumsum(isi)
+        sd = SpikeData([times])
+        assert abs(sd.cv_isi()[0] - 1.0) < 0.15
+
+    def test_cv_handles_short_units(self):
+        """
+        Units with fewer than 3 spikes return NaN for both metrics.
+
+        Tests:
+            (Test Case 1) Empty unit returns NaN.
+            (Test Case 2) Single-spike unit returns NaN.
+            (Test Case 3) Two-spike unit returns NaN (only 1 ISI).
+        """
+        sd = SpikeData(
+            [np.array([]), np.array([5.0]), np.array([5.0, 10.0])],
+            length=100.0,
+        )
+        cv = sd.cv_isi()
+        cv2 = sd.cv2_isi()
+        assert np.isnan(cv).all()
+        assert np.isnan(cv2).all()
+
+    def test_cv_isi_shape(self):
+        """
+        Output arrays match the number of units.
+
+        Tests:
+            (Test Case 1) cv_isi returns shape (N,).
+            (Test Case 2) cv2_isi returns shape (N,).
+        """
+        sd = SpikeData(
+            [np.arange(1.0, 100.0), np.arange(2.0, 200.0, 2.0)], length=300.0
+        )
+        assert sd.cv_isi().shape == (2,)
+        assert sd.cv2_isi().shape == (2,)
+
+    def test_cv2_alternating_intervals(self):
+        """
+        CV2 for alternating short / long intervals matches the analytical
+        expectation 2|b-a|/(a+b).
+
+        Tests:
+            (Test Case 1) CV2 approx 2*8/12 ≈ 1.333 for ISIs alternating 2, 10.
+        """
+        isi = np.tile([2.0, 10.0], 500)
+        times = np.cumsum(isi)
+        sd = SpikeData([times])
+        expected = 2.0 * 8.0 / 12.0
+        assert abs(sd.cv2_isi()[0] - expected) < 1e-6

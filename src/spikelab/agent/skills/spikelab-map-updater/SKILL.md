@@ -24,7 +24,7 @@ It may also be triggered by other skills if the repo maps are not found in the e
 
 ### Resolving the spikelab package root
 
-This skill must work for both editable installs (`pip install -e SpikeLab/`) and PyPI installs (`pip install spikelab`). Resolve the package directory dynamically:
+This skill must work for both editable installs (`pip install -e SpikeLab/`) and PyPI installs (`pip install oc-spikelab`). Resolve the package directory dynamically:
 
 ```bash
 python -c "import spikelab; print(spikelab.__path__[0])"
@@ -34,7 +34,7 @@ Call the result `<spikelab>`. It expands to:
 - Editable install: `<clone>/SpikeLab/src/spikelab/`
 - PyPI install:     `<env>/site-packages/spikelab/`
 
-All path references below use this `<spikelab>` prefix. For PyPI installs the maps are written into `site-packages` and will be wiped by `pip install --upgrade spikelab` — this is expected; regenerate after each upgrade.
+All path references below use this `<spikelab>` prefix. For PyPI installs the maps are written into `site-packages` and will be wiped by `pip install --upgrade oc-spikelab` — this is expected; regenerate after each upgrade.
 
 ### File boundaries
 

@@ -3314,6 +3314,82 @@ class TestValidateTimeStartToEnd:
         assert len(result) == 1
         assert result[0] == (0.0, 100.0)
 
+    def test_zero_duration_warnings_are_aggregated(self):
+        """
+        Multiple zero-duration windows produce a single aggregated warning
+        rather than one per element. Avoids warning spam when many slices
+        happen to collapse (e.g. step_size=0 with hundreds of slices).
+
+        Tests:
+            (Test Case 1) 5 zero-duration windows produce exactly 1
+                UserWarning containing all five elements.
+            (Test Case 2) The aggregated count appears in the message.
+            (Test Case 3) The "Zero-duration" prefix is preserved so existing
+                callers matching on that token still work.
+        """
+        from spikelab.spikedata.utils import _validate_time_start_to_end
+
+        windows = [(float(i), float(i)) for i in range(5)]
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            _validate_time_start_to_end(windows)
+        zd = [
+            w
+            for w in caught
+            if issubclass(w.category, UserWarning) and "Zero-duration" in str(w.message)
+        ]
+        assert len(zd) == 1
+        assert "(5)" in str(zd[0].message)
+
+    def test_zero_duration_warnings_truncate_past_ten(self):
+        """
+        Aggregated warning lists at most the first 10 offenders and ends
+        with ``... and N more`` for any excess. The full count remains in
+        the leading ``(N)`` summary.
+
+        Tests:
+            (Test Case 1) 15 zero-duration windows produce 1 warning.
+            (Test Case 2) ``... and 5 more`` appears in the message.
+        """
+        from spikelab.spikedata.utils import _validate_time_start_to_end
+
+        windows = [(float(i), float(i)) for i in range(15)]
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            _validate_time_start_to_end(windows)
+        zd = [
+            w
+            for w in caught
+            if issubclass(w.category, UserWarning) and "Zero-duration" in str(w.message)
+        ]
+        assert len(zd) == 1
+        assert "(15)" in str(zd[0].message)
+        assert "and 5 more" in str(zd[0].message)
+
+    def test_negative_start_warnings_are_aggregated(self):
+        """
+        When ``warn_negative_start=True``, negative-start windows likewise
+        produce one aggregated warning instead of one per element.
+
+        Tests:
+            (Test Case 1) 3 negative-start windows produce exactly 1 warning.
+            (Test Case 2) The aggregated count appears in the message.
+        """
+        from spikelab.spikedata.utils import _validate_time_start_to_end
+
+        windows = [(-30.0, 70.0), (-20.0, 80.0), (-10.0, 90.0)]
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            _validate_time_start_to_end(windows, warn_negative_start=True)
+        ns = [
+            w
+            for w in caught
+            if issubclass(w.category, UserWarning)
+            and "negative start" in str(w.message)
+        ]
+        assert len(ns) == 1
+        assert "(3)" in str(ns[0].message)
+
 
 # ---------------------------------------------------------------------------
 # Edge Case Tests — times_from_ms / to_ms
@@ -4201,3 +4277,119 @@ class TestResampledIsiEmptyTimes:
         times = np.array([], dtype=float)
         with pytest.raises(IndexError):
             _resampled_isi(spikes, times, sigma_ms=1.0)
+
+
+class TestSliceToSliceSimilarityMatrix:
+    """Tests for _slice_to_slice_similarity_matrix helper."""
+
+    def test_cosine_identity_diagonal(self):
+        """
+        Cosine of a slice with itself is 1.0.
+
+        Tests:
+            (Test Case 1) Diagonal entries are ~1.0.
+        """
+        from spikelab.spikedata.utils import _slice_to_slice_similarity_matrix
+
+        rng = np.random.default_rng(0)
+        stack = rng.uniform(0, 5, (4, 10, 3))
+        sim = _slice_to_slice_similarity_matrix(stack, metric="cosine")
+        assert sim.shape == (3, 3)
+        np.testing.assert_allclose(np.diag(sim), 1.0)
+
+    def test_pearson_identity_diagonal(self):
+        """
+        Pearson of a slice with itself is 1.0.
+
+        Tests:
+            (Test Case 1) Diagonal entries are ~1.0.
+        """
+        from spikelab.spikedata.utils import _slice_to_slice_similarity_matrix
+
+        rng = np.random.default_rng(1)
+        stack = rng.uniform(0, 5, (4, 10, 3))
+        sim = _slice_to_slice_similarity_matrix(stack, metric="pearson")
+        np.testing.assert_allclose(np.diag(sim), 1.0)
+
+    def test_euclidean_self_zero(self):
+        """
+        Euclidean distance of a slice with itself is 0.
+
+        Tests:
+            (Test Case 1) Diagonal entries are 0.0.
+        """
+        from spikelab.spikedata.utils import _slice_to_slice_similarity_matrix
+
+        rng = np.random.default_rng(2)
+        stack = rng.uniform(0, 5, (3, 8, 4))
+        sim = _slice_to_slice_similarity_matrix(stack, metric="euclidean")
+        np.testing.assert_allclose(np.diag(sim), 0.0)
+
+    def test_cross_entropy_self_zero(self):
+        """
+        Symmetric KL of a slice with itself is 0.
+
+        Tests:
+            (Test Case 1) Diagonal entries are 0.0 (within numerical eps).
+        """
+        from spikelab.spikedata.utils import _slice_to_slice_similarity_matrix
+
+        rng = np.random.default_rng(3)
+        stack = rng.uniform(0, 5, (3, 8, 4)) + 0.1
+        sim = _slice_to_slice_similarity_matrix(stack, metric="cross_entropy")
+        np.testing.assert_allclose(np.diag(sim), 0.0, atol=1e-10)
+
+    def test_cosine_orthogonal(self):
+        """
+        Two orthogonal slices have cosine 0.
+
+        Tests:
+            (Test Case 1) Cosine off-diagonal is ~0 for orthogonal slices.
+        """
+        from spikelab.spikedata.utils import _slice_to_slice_similarity_matrix
+
+        # Slice 0: ones in first half, zeros in second; slice 1: opposite
+        stack = np.zeros((2, 4, 2))
+        stack[:, :2, 0] = 1.0  # slice 0 occupies first 2 bins
+        stack[:, 2:, 1] = 1.0  # slice 1 occupies last 2 bins
+        sim = _slice_to_slice_similarity_matrix(stack, metric="cosine")
+        assert sim[0, 1] == pytest.approx(0.0)
+
+    def test_symmetric(self):
+        """
+        All similarity matrices are symmetric.
+
+        Tests:
+            (Test Case 1) sim equals sim.T for all metrics.
+        """
+        from spikelab.spikedata.utils import _slice_to_slice_similarity_matrix
+
+        rng = np.random.default_rng(4)
+        stack = rng.uniform(0, 5, (3, 8, 4)) + 0.1
+        for m in ("cosine", "pearson", "euclidean", "cross_entropy"):
+            sim = _slice_to_slice_similarity_matrix(stack, metric=m)
+            np.testing.assert_allclose(sim, sim.T, equal_nan=True)
+
+    def test_unknown_metric_raises(self):
+        """
+        Invalid metric raises ValueError.
+
+        Tests:
+            (Test Case 1) ValueError for bogus metric.
+        """
+        from spikelab.spikedata.utils import _slice_to_slice_similarity_matrix
+
+        with pytest.raises(ValueError, match="metric"):
+            _slice_to_slice_similarity_matrix(np.zeros((1, 1, 1)), metric="bogus")
+
+    def test_wrong_shape_raises(self):
+        """
+        Non-3D input raises ValueError.
+
+        Tests:
+            (Test Case 1) 2-D input raises.
+        """
+        from spikelab.spikedata.utils import _slice_to_slice_similarity_matrix
+
+        with pytest.raises(ValueError, match="3-D"):
+            _slice_to_slice_similarity_matrix(np.zeros((3, 3)), metric="cosine")

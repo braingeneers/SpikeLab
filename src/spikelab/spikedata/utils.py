@@ -648,6 +648,116 @@ def _cosine_sim(a, b):
     return float(np.dot(a, b) / (norm_a * norm_b))
 
 
+_VALID_SLICE_SIM_METRICS = ("cosine", "pearson", "euclidean", "cross_entropy")
+
+
+def _slice_to_slice_similarity_matrix(stack_3d, metric):
+    """Pairwise similarity between slices of a (U, T, S) stack.
+
+    Each slice is flattened to a (U*T,) vector, then a square (S, S)
+    similarity matrix is computed using the requested metric.
+
+    Parameters:
+        stack_3d (np.ndarray): Array of shape ``(U, T, S)``.
+        metric (str): One of:
+            - ``"cosine"`` — cosine similarity in [-1, 1] (high = similar).
+            - ``"pearson"`` — Pearson correlation in [-1, 1] (high = similar).
+            - ``"euclidean"`` — Euclidean distance in [0, inf)
+              (low = similar; this is a *distance*, not a similarity).
+            - ``"cross_entropy"`` — symmetric KL divergence between bin
+              distributions normalized to sum 1, in [0, inf)
+              (low = similar; distance-like).
+
+    Returns:
+        sim (np.ndarray): ``(S, S)`` matrix. Diagonal is the
+            self-similarity (1.0 for cosine/pearson, 0.0 for
+            euclidean/cross_entropy).
+
+    Notes:
+        - Slices with zero norm yield NaN entries except the diagonal.
+        - For ``cross_entropy``, slices are normalized so values sum to 1
+          across (U*T) bins; bins with zero in either distribution are
+          treated as zero contribution (0 * log(0) := 0).
+    """
+    if metric not in _VALID_SLICE_SIM_METRICS:
+        raise ValueError(
+            f"metric must be one of {_VALID_SLICE_SIM_METRICS}, got {metric!r}"
+        )
+    arr = np.asarray(stack_3d, dtype=float)
+    if arr.ndim != 3:
+        raise ValueError(f"stack_3d must be 3-D (U, T, S); got shape {arr.shape}.")
+    U, T, S = arr.shape
+    flat = arr.reshape(U * T, S).T  # shape (S, U*T)
+
+    sim = np.full((S, S), np.nan, dtype=float)
+
+    if metric == "pearson":
+        # Mean-center each row, then cosine
+        centered = flat - flat.mean(axis=1, keepdims=True)
+        norms = np.linalg.norm(centered, axis=1)
+        for i in range(S):
+            for j in range(i, S):
+                ni, nj = norms[i], norms[j]
+                if ni == 0.0 and nj == 0.0:
+                    val = np.nan
+                elif ni == 0.0 or nj == 0.0:
+                    val = 0.0
+                else:
+                    val = float(np.dot(centered[i], centered[j]) / (ni * nj))
+                sim[i, j] = val
+                sim[j, i] = val
+        return sim
+
+    if metric == "cosine":
+        norms = np.linalg.norm(flat, axis=1)
+        for i in range(S):
+            for j in range(i, S):
+                ni, nj = norms[i], norms[j]
+                if ni == 0.0 and nj == 0.0:
+                    val = np.nan
+                elif ni == 0.0 or nj == 0.0:
+                    val = 0.0
+                else:
+                    val = float(np.dot(flat[i], flat[j]) / (ni * nj))
+                sim[i, j] = val
+                sim[j, i] = val
+        return sim
+
+    if metric == "euclidean":
+        for i in range(S):
+            for j in range(i, S):
+                val = float(np.linalg.norm(flat[i] - flat[j]))
+                sim[i, j] = val
+                sim[j, i] = val
+        return sim
+
+    # cross_entropy — symmetric KL on normalized distributions
+    sums = flat.sum(axis=1)
+    distros = np.full_like(flat, np.nan)
+    nonzero_mask = sums > 0
+    distros[nonzero_mask] = flat[nonzero_mask] / sums[nonzero_mask, np.newaxis]
+    eps = 1e-12
+    for i in range(S):
+        for j in range(i, S):
+            if not (nonzero_mask[i] and nonzero_mask[j]):
+                val = np.nan
+            else:
+                p = distros[i]
+                q = distros[j]
+                # KL(p||q) = sum p * log(p/q); treat 0 * log(0) := 0
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    kl_pq = np.where(
+                        p > 0, p * (np.log(p + eps) - np.log(q + eps)), 0.0
+                    )
+                    kl_qp = np.where(
+                        q > 0, q * (np.log(q + eps) - np.log(p + eps)), 0.0
+                    )
+                val = float(0.5 * (np.sum(kl_pq) + np.sum(kl_qp)))
+            sim[i, j] = val
+            sim[j, i] = val
+    return sim
+
+
 def compute_cosine_similarity_with_lag(ref_rate, comp_rate, max_lag=0):
     """Compute cosine similarity with lag information.
 
@@ -1462,6 +1572,8 @@ def _validate_time_start_to_end(
         raise TypeError("times must be a list of tuples")
     time_diff_check = []
     valid_time_tuples = []
+    zero_duration_offenders = []
+    negative_start_offenders = []
     times_start_to_end = sorted(times_start_to_end)
     for i, time_window in enumerate(times_start_to_end):
         if not isinstance(time_window, tuple):
@@ -1483,19 +1595,9 @@ def _validate_time_start_to_end(
                 f"Start time must not exceed end time in element {i}: {time_window}"
             )
         if time_window[0] == time_window[1]:
-            warnings.warn(
-                f"Zero-duration time window in element {i}: {time_window}. "
-                "Treating as an empty slice.",
-                UserWarning,
-            )
+            zero_duration_offenders.append((i, time_window))
         if warn_negative_start and time_window[0] < 0:
-            warnings.warn(
-                f"Time window {i} has negative start ({time_window[0]}). "
-                "If these are absolute recording times, negative values are "
-                "unexpected. For event-centered data constructed via "
-                "time_peaks + time_bounds, this is normal.",
-                UserWarning,
-            )
+            negative_start_offenders.append((i, time_window))
         if recording_range is not None:
             rec_start, rec_end = recording_range
             if time_window[0] < rec_start or time_window[1] > rec_end:
@@ -1506,6 +1608,34 @@ def _validate_time_start_to_end(
                 )
         time_diff_check.append(time_window[1] - time_window[0])
         valid_time_tuples.append(time_window)
+
+    if zero_duration_offenders:
+        n = len(zero_duration_offenders)
+        head = zero_duration_offenders[:10]
+        head_str = ", ".join(f"element {i}: {w}" for i, w in head)
+        if n > 10:
+            head_str += f", ... and {n - 10} more"
+        warnings.warn(
+            f"Zero-duration time window(s) detected ({n}): {head_str}. "
+            "Treating as empty slices.",
+            UserWarning,
+            stacklevel=2,
+        )
+
+    if negative_start_offenders:
+        n = len(negative_start_offenders)
+        head = negative_start_offenders[:10]
+        head_str = ", ".join(f"element {i}: {w}" for i, w in head)
+        if n > 10:
+            head_str += f", ... and {n - 10} more"
+        warnings.warn(
+            f"Time window(s) with negative start ({n}): {head_str}. "
+            "If these are absolute recording times, negative values are "
+            "unexpected. For event-centered data constructed via "
+            "time_peaks + time_bounds, this is normal.",
+            UserWarning,
+            stacklevel=2,
+        )
 
     if len(time_diff_check) > 1:
         diffs = np.array(time_diff_check)

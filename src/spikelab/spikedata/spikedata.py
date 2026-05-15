@@ -612,7 +612,9 @@ class SpikeData:
 
         if len(event_times) == 0:
             raise ValueError(
-                "No valid events remain after filtering for recording bounds."
+                f"No valid events remain after filtering for recording bounds. "
+                f"All {n_dropped} event(s) had windows outside "
+                f"[{rec_start:.1f}, {rec_end:.1f}] ms."
             )
 
         time_bounds = (pre_ms, post_ms)
@@ -871,7 +873,7 @@ class SpikeData:
             return [default] * self.N
         return [attr.get(key, default) for attr in self.neuron_attributes]
 
-    def subset(self, units, by=None):
+    def subset(self, units, by=None, preserve_order=False):
         """Return a new SpikeData with only the selected units.
 
         Units are selected either by their indices or by an ID stored under
@@ -881,14 +883,19 @@ class SpikeData:
             units (list): List of unit indices to select.
             by (str): Key to select units by in the neuron_attributes.
                 Index-based if None.
+            preserve_order (bool): When False (default), output is
+                sorted ascending by index — the documented historical
+                behavior, consistent across SpikeData / RateData /
+                RateSliceStack / SpikeSliceStack. When True, output
+                respects the order of the input ``units`` list, useful
+                for paired plotting or ordered concatenation
+                downstream. Duplicates in the input are deduplicated
+                either way.
 
         Returns:
             sd (SpikeData): New SpikeData object with the selected units.
 
         Notes:
-            - Units are included in the output according to their order in
-              self.train, not the order in the unit list (which is treated
-              as a set).
             - raw_data and raw_time are not propagated to the subset -- they
               remain on the original SpikeData object.
             - If IDs are not unique, every neuron which matches is included
@@ -901,30 +908,55 @@ class SpikeData:
         # For case where user inputs a single string for units when using by option
         if isinstance(units, str):
             units = [units]
-        units = set(units)
+
         if by is not None:
             if self.neuron_attributes is None:
                 raise ValueError("can't use `by` without `neuron_attributes`")
             _missing = object()
-            units = {
+            wanted = set(units)
+            matched = [
                 i
                 for i in range(self.N)
-                if _get_attr(self.neuron_attributes[i], by, _missing) in units
-            }
+                if _get_attr(self.neuron_attributes[i], by, _missing) in wanted
+            ]
+            # ``by`` resolves to whichever units carry the matching
+            # attribute, in self.train order — caller-supplied order
+            # cannot be honoured because there's no positional
+            # correspondence between the value list and unit indices.
+            selected = matched
         else:
+            # Match historical semantics: only integer-typed entries
+            # are bounds-checked. Floats / strings / other types pass
+            # through validation; if they don't equal any integer
+            # index (via Python ==, so ``1.0 == 1`` is True), they
+            # simply produce no match — same silent-empty behavior
+            # as the previous ``set(units)`` + ``if i in units``.
             for u in units:
                 if isinstance(u, (bool, np.bool_)):
                     continue
                 if isinstance(u, (int, np.integer)) and (u < 0 or u >= self.N):
                     raise ValueError(f"unit index out of range: {int(u)} (N={self.N})")
 
-        train = []
-        neuron_attributes = []
-        for i, ts in enumerate(self.train):
-            if i in units:
-                train.append(ts)
-                if self.neuron_attributes is not None:
-                    neuron_attributes.append(self.neuron_attributes[i])
+            unit_set = set(units)
+            matching: List[int] = [i for i in range(self.N) if i in unit_set]
+            if preserve_order:
+                seen: set = set()
+                ordered: List[int] = []
+                for u in units:
+                    for i in matching:
+                        if i == u and i not in seen:
+                            seen.add(i)
+                            ordered.append(i)
+                            break
+                selected = ordered
+            else:
+                selected = matching
+
+        train = [self.train[i] for i in selected]
+        if self.neuron_attributes is not None:
+            neuron_attributes = [self.neuron_attributes[i] for i in selected]
+        else:
+            neuron_attributes = None
 
         # raw_data/raw_time are not propagated to subsets — they remain
         # on the original SpikeData object and can be accessed there.
@@ -1075,8 +1107,17 @@ class SpikeData:
         train = [t[(t >= start) & (t < end)] - shift_to for t in self.train]
         new_start_time = start - shift_to
 
-        # Subset and propagate the raw data
-        rawmask = (self.raw_time >= start) & (self.raw_time < end)
+        # Subset and propagate the raw data. Skip mask construction when
+        # there is no raw data to slice — matches the empty-in/empty-out
+        # behaviour the masked path would produce and avoids broadcasting
+        # work on the default empty arrays.
+        if self.raw_data.size > 0:
+            rawmask = (self.raw_time >= start) & (self.raw_time < end)
+            raw_time_out = self.raw_time[rawmask] - shift_to
+            raw_data_out = self.raw_data[..., rawmask]
+        else:
+            raw_time_out = self.raw_time
+            raw_data_out = self.raw_data
 
         return SpikeData(
             train,
@@ -1085,8 +1126,8 @@ class SpikeData:
             N=self.N,
             neuron_attributes=self.neuron_attributes,
             metadata=self.metadata,
-            raw_time=self.raw_time[rawmask] - shift_to,
-            raw_data=self.raw_data[..., rawmask],
+            raw_time=raw_time_out,
+            raw_data=raw_data_out,
         )
 
     def __getitem__(self, key):
@@ -1107,13 +1148,19 @@ class SpikeData:
         else:
             return self.subset(key)
 
-    def append(self, spikeData, offset=0):
+    def append(self, spikeData, offset=0, drop_neuron_attributes=False):
         """Append spike times from another SpikeData object to this one.
 
         Parameters:
             spikeData (SpikeData): SpikeData object to append.
             offset (float): Offset in milliseconds to add to the spike times
                 of the appended data.
+            drop_neuron_attributes (bool): When True, the result has
+                ``neuron_attributes=None`` regardless of either operand.
+                Use this when the two operands describe units with
+                incompatible attribute schemas and you don't want
+                either side's attributes in the result. Defaults to
+                False — see the salvage logic in the Notes below.
 
         Returns:
             sd (SpikeData): New SpikeData object with the appended data.
@@ -1121,6 +1168,13 @@ class SpikeData:
         Notes:
             - The two SpikeData objects must have the same number of neurons.
             - On metadata key collision, values from ``self`` take precedence.
+            - ``neuron_attributes`` are salvaged when only one operand
+              has them: if ``self.neuron_attributes is None`` and the
+              appended SpikeData has them, a ``RuntimeWarning`` is
+              emitted and the appended operand's attributes are used
+              for the result. When both have attributes, ``self``'s
+              are used (consistent with the metadata-collision rule).
+              Pass ``drop_neuron_attributes=True`` to skip salvage.
         """
         if self.N != spikeData.N:
             raise ValueError("Cannot concatenate SpikeData with different N")
@@ -1143,12 +1197,40 @@ class SpikeData:
             raw_data = self.raw_data
             raw_time = self.raw_time
         length = self.length + spikeData.length + offset
+
+        # neuron_attributes salvage: when only one operand has them,
+        # use the available set (with a warning) rather than silently
+        # dropping. Opt out with ``drop_neuron_attributes=True``.
+        if drop_neuron_attributes:
+            new_neuron_attributes = None
+        elif (
+            self.neuron_attributes is not None
+            and spikeData.neuron_attributes is not None
+        ):
+            # Both have attrs — keep self's (the receiving SpikeData
+            # wins on collision, matching the metadata precedence rule).
+            new_neuron_attributes = self.neuron_attributes
+        elif self.neuron_attributes is not None:
+            new_neuron_attributes = self.neuron_attributes
+        elif spikeData.neuron_attributes is not None:
+            warnings.warn(
+                "SpikeData.append: self has no neuron_attributes but "
+                "the appended SpikeData does. Using the appended "
+                "data's attributes for the result. Pass "
+                "drop_neuron_attributes=True to suppress salvage.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+            new_neuron_attributes = spikeData.neuron_attributes
+        else:
+            new_neuron_attributes = None
+
         return SpikeData(
             train,
             length=length,
             start_time=self.start_time,
             N=self.N,
-            neuron_attributes=self.neuron_attributes,
+            neuron_attributes=new_neuron_attributes,
             raw_time=raw_time,
             raw_data=raw_data,
             metadata={
@@ -1431,6 +1513,63 @@ class SpikeData:
             isis (list): List of arrays of interspike intervals per unit.
         """
         return [np.diff(ts) for ts in self.train]
+
+    def cv_isi(self):
+        """Coefficient of variation of inter-spike intervals per unit.
+
+        Standard CV = ``std(ISI) / mean(ISI)``. A Poisson process has
+        CV close to 1.0; a regular (clock-like) train approaches 0.
+
+        Returns:
+            cv (np.ndarray): Array of shape ``(N,)`` with the CV per unit.
+                Units with fewer than 2 ISIs (i.e. fewer than 3 spikes) or
+                a non-positive mean ISI return NaN.
+
+        Notes:
+            - Builds on ``interspike_intervals()``.
+        """
+        isis = self.interspike_intervals()
+        out = np.full(self.N, np.nan)
+        for u, isi in enumerate(isis):
+            isi = np.asarray(isi, dtype=float)
+            if isi.size < 2:
+                continue
+            mean = float(np.mean(isi))
+            if mean <= 0.0 or not np.isfinite(mean):
+                continue
+            out[u] = float(np.std(isi)) / mean
+        return out
+
+    def cv2_isi(self):
+        """CV2 of inter-spike intervals per unit (Holt et al., 1996).
+
+        For each adjacent ISI pair ``(I_k, I_{k+1})``, computes
+        ``2 * |I_{k+1} - I_k| / (I_{k+1} + I_k)``. The per-unit CV2 is
+        the mean of these values. CV2 is robust to slow firing-rate
+        drift because it only compares consecutive intervals.
+
+        Returns:
+            cv2 (np.ndarray): Array of shape ``(N,)`` with the mean CV2
+                per unit. Units with fewer than 3 spikes (i.e. fewer
+                than 2 ISIs) return NaN.
+
+        Notes:
+            - Builds on ``interspike_intervals()``.
+        """
+        isis = self.interspike_intervals()
+        out = np.full(self.N, np.nan)
+        for u, isi in enumerate(isis):
+            isi = np.asarray(isi, dtype=float)
+            if isi.size < 2:
+                continue
+            num = 2.0 * np.abs(isi[1:] - isi[:-1])
+            den = isi[1:] + isi[:-1]
+            with np.errstate(divide="ignore", invalid="ignore"):
+                ratio = np.where(den > 0, num / den, np.nan)
+            if not np.any(np.isfinite(ratio)):
+                continue
+            out[u] = float(np.nanmean(ratio))
+        return out
 
     def concatenate_spike_data(self, sd):
         """Combine units from another SpikeData object with this one.

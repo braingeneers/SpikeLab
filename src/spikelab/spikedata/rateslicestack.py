@@ -15,6 +15,7 @@ from .utils import (
     _validate_time_start_to_end,
     _get_attr,
     _resolve_n_jobs,
+    _slice_to_slice_similarity_matrix,
 )
 
 
@@ -736,7 +737,34 @@ class RateSliceStack:
     def __iter__(self):
         return iter(self.convert_to_list_of_RateData())
 
-    def subset(self, units, by=None):
+    def slice_to_slice_similarity(self, metric="cosine"):
+        """Pairwise similarity between slice-wise rate vectors.
+
+        Each slice is flattened from ``(U, T)`` to ``(U * T,)`` and a
+        square ``(S, S)`` similarity matrix is computed using the
+        requested metric.
+
+        Parameters:
+            metric (str): One of ``"cosine"`` (default), ``"pearson"``,
+                ``"euclidean"`` (distance), or ``"cross_entropy"``
+                (symmetric KL on rate distributions normalized to sum 1).
+
+        Returns:
+            sim (PairwiseCompMatrix): ``(S, S)`` similarity matrix. For
+                cosine and pearson, higher = more similar (diagonal ~1.0);
+                for euclidean and cross_entropy, lower = more similar
+                (diagonal 0).
+
+        Notes:
+            - Operates directly on ``self.event_stack`` (the underlying
+              ``(U, T, S)`` rate array).
+            - Use ``PairwiseCompMatrix.extract_lower_triangle()`` for
+              feature extraction.
+        """
+        sim = _slice_to_slice_similarity_matrix(self.event_stack, metric)
+        return PairwiseCompMatrix(matrix=sim, metadata={"metric": metric})
+
+    def subset(self, units, by=None, preserve_order=False):
         """Extract a subset of units/neurons from the rate slice stack.
 
         Parameters:
@@ -747,6 +775,11 @@ class RateSliceStack:
                 use this if you initialized the object with
                 neuron_attributes. Set to the key that contains neuron_id
                 values. None selects by index (default).
+            preserve_order (bool): When False (default), output is
+                sorted ascending by index — consistent with the other
+                SpikeLab data classes. When True, output respects the
+                order of the input ``units`` list. Duplicates are
+                deduplicated either way.
 
         Returns:
             result (RateSliceStack): New RateSliceStack object containing
@@ -757,30 +790,44 @@ class RateSliceStack:
             units = [units]
         if isinstance(units, str):
             units = [units]
-        units = set(units)
-        if by is None:
+
+        if by is not None:
+            # VALUE-BASED: Look up by neuron_attribute. Order falls back
+            # to index order — caller-supplied order cannot be honoured
+            # because the value list has no positional correspondence
+            # to unit indices.
+            if self.neuron_attributes is None:
+                raise ValueError("can't use `by` without `neuron_attributes`")
+            _missing = object()
+            wanted = set(units)
+            selected = [
+                i
+                for i in range(N)
+                if _get_attr(self.neuron_attributes[i], by, _missing) in wanted
+            ]
+        else:
             for u in units:
                 if not isinstance(u, (int, np.integer)):
                     raise TypeError(f"Unit index must be an integer, got {type(u)}")
                 if u < 0 or u >= N:
                     raise ValueError(f"Unit index {u} out of range for {N} units.")
-        if by is not None:
-            # VALUE-BASED: Look up by neuron_attribute
-            if self.neuron_attributes is None:
-                raise ValueError("can't use `by` without `neuron_attributes`")
+            if preserve_order:
+                seen: set = set()
+                ordered = []
+                for u in units:
+                    ui = int(u)
+                    if ui not in seen:
+                        seen.add(ui)
+                        ordered.append(ui)
+                selected = ordered
+            else:
+                selected = sorted({int(u) for u in units})
 
-            _missing = object()
-            units = {
-                i
-                for i in range(N)
-                if _get_attr(self.neuron_attributes[i], by, _missing) in units
-            }
-        units = sorted(units)
         neuron_attributes = None
         if self.neuron_attributes is not None:
-            neuron_attributes = [self.neuron_attributes[i] for i in units]
+            neuron_attributes = [self.neuron_attributes[i] for i in selected]
 
-        new_stack = self.event_stack[units, :, :]
+        new_stack = self.event_stack[selected, :, :]
         return RateSliceStack(
             event_matrix=new_stack,
             times_start_to_end=self.times,

@@ -1,0 +1,183 @@
+# SOURCE FILE — DO NOT EDIT GENERATED COPIES
+#
+# This is the canonical source for the two OC-SpikeLab client skills:
+#
+#   - agent/skills/oc-spikelab-remote/SKILL.md
+#       The "remote" variant for callers on a different host from the
+#       spikelab daemon. Only the MCP tool surface is available; no direct
+#       library access.
+#
+#   - <project_root>/.claude/skills/OC-spikelab/SKILL.md
+#       The "local" variant for callers co-located with the spikelab repo.
+#       They can read in-library sub-skill files directly (zero-latency
+#       delegation), OR use the MCP if they want session isolation.
+#
+# Regenerate both with: python scripts/gen_client_skills.py [--local-dest <path>]
+#
+# Variant markers below — only the matching variant is kept in each output.
+# Lines inside <!-- variant: both --> blocks appear in both outputs.
+
+<!-- variant: remote -->
+---
+name: OC-spikelab-remote
+description: Drive OC-SpikeLab spike sorting + electrophysiological analysis on a different host via its MCP server. Use when an orchestrator or bench-companion session running off-host needs to sort recordings, run analyses, ask conceptual questions, or integrate analysis code into the library without direct access to the spikelab Python package.
+---
+
+# OC-SpikeLab (remote)
+
+You are operating **OC-SpikeLab** through an MCP server on a different host. You never SSH in interactively, never `import spikelab` locally, and never read sub-skill files yourself — all spikelab interaction goes through MCP tools.
+<!-- endvariant -->
+<!-- variant: local -->
+---
+name: OC-spikelab
+description: Sets up and manages the OC-SpikeLab environment — the private development fork of SpikeLab. Clones the repository, installs the library into the OC_env conda environment, generates repo maps, and delegates to in-repo skills for analysis, spike sorting, development, and education. Use when the user wants to work with OC-SpikeLab (the private fork at open-culture-science/OC-SpikeLab).
+---
+
+# OC-SpikeLab
+
+OC-SpikeLab is the private development fork of SpikeLab — a Python library for loading, analyzing, visualizing, and exporting neuronal spike train data from multi-electrode array (MEA) electrophysiology experiments. The installed package name is still `spikelab`; the only differences from the public release are the source directory (`OC-SpikeLab/`), the conda env name (`OC_env`), and the GitHub remote (`open-culture-science/OC-SpikeLab` private, with `braingeneers/SpikeLab` as `upstream`).
+<!-- endvariant -->
+
+<!-- variant: both -->
+---
+
+## MCP tool surface
+
+A long-lived MCP server exposes spikelab through these tools. The daemon owns persistent per-`task_id` child agents — the first turn on a new task pays the SDK session spawn cost (~10 s), subsequent turns on the same `task_id` are much faster.
+
+**Always-on endpoints (4):**
+
+| Tool | When to use |
+|---|---|
+| `ask_spikelab_educator(prompt, task_id=None)` | Concept questions, interpretation of results, neuroscience background, SpikeLab API explanations. Read-only — cannot write files or execute analyses. |
+| `ask_spikelab_sorter(prompt, task_id=None)` | Run spike sorting (Kilosort 2, Kilosort 4, RT-Sort), configure sorters, curate units, generate QC figures. Long-running — sorts can take many minutes. |
+| `ask_spikelab_analyzer(prompt, task_id=None)` | Load sorted data, run analyses (firing rates, STTC, burst detection, pairwise correlations, event-aligned stacks, PCA / UMAP), produce figures, write analysis scripts. |
+| `ask_spikelab_developer(prompt, task_id=None)` | Integrate analysis code into the library: audit scripts, replace reimplementations, add novel methods, write tests, submit PRs. |
+
+**Lifecycle and progress helpers (3, parallel-safe — read on-disk SDK state, no daemon hop, no blocking):**
+
+| Tool | Purpose |
+|---|---|
+| `list_spikelab_tasks(kind=None)` | List all known tasks, most recently active first. Filter by `kind`. |
+| `get_spikelab_task_status(task_id)` | Full metadata + message transcript for one task. |
+| `get_spikelab_task_progress(task_id, log_path=None, tail_lines=100)` | Lightweight progress snapshot for a long-running sort or analysis. Resolution order: (1) explicit `log_path` argument → tail that file; (2) scan the SDK transcript for `kilosort2.log` / `kilosort4.log` / `rt_sort.log` / `sorting_*.log` mentions and tail the most recent existing one; (3) fall back to recent transcript events. Use during multi-minute sorts to check iteration counts, spike-detection progress, etc., without interrupting the agent. |
+
+**Explicit lifecycle:**
+
+| Tool | Purpose |
+|---|---|
+| `kill_spikelab_task(task_id)` | Terminate the live child agent for `task_id`. Conversation history on disk is preserved; the next `ask_spikelab_*` call respawns and resumes. Use to free memory when a session is known to be done. |
+
+### Multi-turn conversations
+
+Pass `task_id=None` on the first call; the returned `task_id` is the SDK session UUID — feed it back to subsequent calls on the same endpoint to keep one persistent child agent in memory. Each endpoint enforces a kind-mismatch check: calling `ask_spikelab_analyzer(task_id=<a-sorter-task>)` errors out, because resuming with a different system prompt would silently corrupt context.
+
+### Progress checks during long runs
+
+When the sorter or analyzer agent is mid-turn (sort_recording running, GPLVM fit going, etc.), the `ask_spikelab_*` call blocks until that turn returns. Use `get_spikelab_task_progress(task_id)` from a parallel session to peek at recent activity without blocking. For sorter runs in particular, the spikelab library writes Kilosort logs to known paths (`<output_folder>/kilosort{2,4}.log`, `<output_folder>/rt_sort.log`); the progress tool tails them directly when it can find them in the transcript.
+
+### Concurrency model
+
+- Same `task_id` → calls queue at the daemon's per-task `in_flight` mutex (intrinsic — a child serves one turn at a time on its single stdin pipe).
+- Different `task_id`s on the same kind, or any two different kinds → run in parallel. Educator + analyzer + sorter can be active simultaneously.
+- GPU contention across concurrent sorter calls on different `task_id`s is **not** coordinated cross-process — the spikelab library has an intra-process VRAM watchdog only. Running two simultaneous sorts on the same GPU may trip the watchdog mid-run. Avoid until cross-process coordination lands.
+<!-- endvariant -->
+
+<!-- variant: remote -->
+### Installation on the host
+
+The MCP daemon must be running on the spikelab host before any `ask_spikelab_*` call works. Host setup (clone path, conda env, `[mcp]` extra, systemd user unit, `OC_SPIKELAB_PROJECT_ROOT`) is documented in the host operator's `INSTALL.md` shipped with the OC-SpikeLab repository — link it to whoever administers the spikelab host. From this side, if `ask_spikelab_*` returns `"oc-spikelab daemon not reachable: ..."`, the daemon is down; coordinate with the host operator.
+
+---
+<!-- endvariant -->
+
+<!-- variant: local -->
+
+---
+
+## Session Start — Environment Detection
+
+Run this detection sequence once at the start of every session:
+
+1. Check if `spikelab` is importable in the default `python` and that the install resolves to an `OC-SpikeLab/` clone:
+   ```bash
+   python -c "import spikelab; print(spikelab.__path__[0])" 2>/dev/null
+   ```
+   If this succeeds and the path contains `OC-SpikeLab`, use bare `python` for all commands.
+
+2. If it fails (or resolves to a non-OC clone), check for the `OC_env` conda environment:
+   ```bash
+   conda env list 2>/dev/null | grep OC_env
+   ```
+   If found, prefix all commands with `conda run -n OC_env` for the rest of the session.
+
+3. If neither works, **read `INSTALL.md`** in this skill directory for full installation instructions. Prefer the conda approach (Option A) unless the user specifies otherwise.
+
+Use the detected invocation method consistently for all Python/pip commands in the session.
+
+---
+
+## When to use MCP vs co-located delegation
+
+This skill exposes two paths to spikelab work:
+
+- **MCP tools (`ask_spikelab_*`)** — Use when you want session isolation: the child agent's conversation survives your session ending, you can resume by `task_id`, and `get_spikelab_task_progress` lets a parallel session peek at progress during a long sort or analysis. Recommended for long-running work the user will check back on later.
+- **Co-located delegation (read the in-repo `SKILL.md` directly)** — Use when you want zero MCP latency and don't need conversation persistence. Useful for short interactive sessions where you're driving spikelab work yourself.
+
+If the MCP tools are visible in the current session, prefer them for sorter, analyzer, and developer work that the user might leave running. For quick educator-style questions, either path is fine.
+
+## Delegation (co-located path)
+
+Once OC-SpikeLab is available, delegate to the appropriate in-repo skill based on the user's request:
+
+**Spike sorting** — the user wants to sort raw recordings, configure sorting parameters, curate units, assess sorting quality, or troubleshoot sorting failures:
+```
+OC-SpikeLab/src/spikelab/agent/skills/spikelab-spikesorter/SKILL.md
+```
+It covers: `sort_recording`, `sort_multistream`, curation, QC figures, and loading/inspecting sorted results. Outputs are saved as `sorted_spikedata_curated.pkl` files that the analysis implementer can load.
+
+**Explanatory and conceptual questions** — the user asks what an analysis does, how a method works, what a result means, wants to understand the underlying neuroscience, or asks about SpikeLab's API and data structures:
+```
+OC-SpikeLab/src/spikelab/agent/skills/spikelab-educator/SKILL.md
+```
+It contains concept definitions, interpretation guidance, literature references, and cross-references to documentation, examples, and source code.
+
+**Library development** — the user wants to integrate analysis code into the library, promote a script's computations to reusable methods, add new functionality, write tests, or expose methods through MCP:
+```
+OC-SpikeLab/src/spikelab/agent/skills/spikelab-developer/SKILL.md
+```
+It covers the full integration pipeline: auditing scripts against existing methods, replacing reimplementations, adding novel methods, writing tests (main usage + edge cases), and PR submission.
+
+**Data analysis and visualization** — loading sorted data, running analyses, producing figures, writing scripts, and any ambiguous requests that are not sorting-related or development-related:
+```
+OC-SpikeLab/src/spikelab/agent/skills/spikelab-analysis-implementer/SKILL.md
+```
+It contains the full analysis workflow: API orientation via repo maps, script structure, workspace usage, figure conventions, and reporting. It knows how to load sorting outputs from `sorted_spikedata_curated.pkl` files.
+
+---
+
+## Repo Maps
+
+The repo maps do not ship with the repository — they must be generated after installation and after every library update. Without them, the analysis-implementer, educator, developer, and spike-sorter skills cannot orient themselves to the library API and will produce unreliable results.
+
+Run the `spikelab-map-updater` skill to generate `REPO_MAP.md` and `REPO_MAP_DETAILED.md`:
+```
+OC-SpikeLab/src/spikelab/agent/skills/spikelab-map-updater/SKILL.md
+```
+
+---
+
+## Quick Reference
+
+| What | Where |
+|---|---|
+| Library source | `OC-SpikeLab/src/spikelab/` |
+| Repo maps (API docs) | `OC-SpikeLab/src/spikelab/agent/skills/spikelab-map-updater/REPO_MAP.md`, `REPO_MAP_DETAILED.md` |
+| Map updater skill | `OC-SpikeLab/src/spikelab/agent/skills/spikelab-map-updater/SKILL.md` |
+| In-repo spike sorter skill | `OC-SpikeLab/src/spikelab/agent/skills/spikelab-spikesorter/SKILL.md` |
+| In-repo developer skill | `OC-SpikeLab/src/spikelab/agent/skills/spikelab-developer/SKILL.md` |
+| In-repo analysis skill | `OC-SpikeLab/src/spikelab/agent/skills/spikelab-analysis-implementer/SKILL.md` |
+| In-repo educator skill | `OC-SpikeLab/src/spikelab/agent/skills/spikelab-educator/SKILL.md` |
+| MCP daemon source | `OC-SpikeLab/src/spikelab/mcp/` |
+| Daemon install + clone path | `INSTALL.md` (this skill directory) |
+<!-- endvariant -->

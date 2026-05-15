@@ -1053,6 +1053,35 @@ class TestSubset:
         sub = rss.subset(2)
         assert sub.event_stack.shape == (1, 10, 3)
 
+    def test_subset_preserve_order(self):
+        """
+        ``preserve_order=True`` returns units in caller's order
+        rather than sorted ascending by index.
+
+        Tests:
+            (Test Case 1) Default returns sorted order.
+            (Test Case 2) preserve_order=True returns caller's order.
+            (Test Case 3) Duplicates are deduplicated.
+        """
+        mat = make_event_matrix(4, 10, 3)
+        rss = RateSliceStack(event_matrix=mat)
+
+        default = rss.subset([3, 0, 1])
+        np.testing.assert_array_equal(default.event_stack[0], mat[0])
+        np.testing.assert_array_equal(default.event_stack[1], mat[1])
+        np.testing.assert_array_equal(default.event_stack[2], mat[3])
+
+        ordered = rss.subset([3, 0, 1], preserve_order=True)
+        np.testing.assert_array_equal(ordered.event_stack[0], mat[3])
+        np.testing.assert_array_equal(ordered.event_stack[1], mat[0])
+        np.testing.assert_array_equal(ordered.event_stack[2], mat[1])
+
+        dedup = rss.subset([2, 0, 0, 2, 1], preserve_order=True)
+        assert dedup.event_stack.shape == (3, 10, 3)
+        np.testing.assert_array_equal(dedup.event_stack[0], mat[2])
+        np.testing.assert_array_equal(dedup.event_stack[1], mat[0])
+        np.testing.assert_array_equal(dedup.event_stack[2], mat[1])
+
     def test_subset_by_attribute(self):
         """
         Tests subset using the by parameter with neuron_attributes.
@@ -2444,3 +2473,67 @@ class TestRateSliceStackCoreReview:
         rss = RateSliceStack(data_obj=sd, times_start_to_end=times)
         assert rss.event_stack.shape[2] == 2
         assert rss.event_stack.shape[0] == 1
+
+
+from spikelab.spikedata.pairwise import PairwiseCompMatrix as _PairwiseCompMatrix
+
+
+class TestRateSliceStackSliceSimilarity:
+    """Tests for RateSliceStack.slice_to_slice_similarity."""
+
+    def _build(self):
+        """Build a (3 units, 10 bins, 4 slices) rate stack."""
+        rng = np.random.default_rng(0)
+        event_matrix = rng.uniform(0, 5, (3, 10, 4))
+        return RateSliceStack(event_matrix=event_matrix)
+
+    def test_returns_pairwisecompmatrix(self):
+        """
+        Returns a PairwiseCompMatrix with shape (S, S).
+
+        Tests:
+            (Test Case 1) Result is PairwiseCompMatrix.
+            (Test Case 2) Matrix shape is (S, S).
+            (Test Case 3) Metric is recorded in metadata.
+        """
+        rss = self._build()
+        result = rss.slice_to_slice_similarity(metric="cosine")
+        assert isinstance(result, _PairwiseCompMatrix)
+        assert result.matrix.shape == (4, 4)
+        assert result.metadata["metric"] == "cosine"
+
+    def test_cosine_diagonal_one(self):
+        """
+        Cosine diagonal is 1.0.
+
+        Tests:
+            (Test Case 1) np.diag is 1.0 everywhere.
+        """
+        rss = self._build()
+        result = rss.slice_to_slice_similarity(metric="cosine")
+        np.testing.assert_allclose(np.diag(result.matrix), 1.0)
+
+    def test_all_metrics_run(self):
+        """
+        All four metrics produce finite (S, S) output.
+
+        Tests:
+            (Test Case 1) Each metric returns a valid PairwiseCompMatrix.
+        """
+        rss = self._build()
+        for m in ("cosine", "pearson", "euclidean", "cross_entropy"):
+            result = rss.slice_to_slice_similarity(metric=m)
+            assert result.matrix.shape == (4, 4)
+            # Symmetric
+            np.testing.assert_allclose(result.matrix, result.matrix.T, equal_nan=True)
+
+    def test_unknown_metric_raises(self):
+        """
+        Unknown metric raises ValueError.
+
+        Tests:
+            (Test Case 1) ValueError for bogus metric.
+        """
+        rss = self._build()
+        with pytest.raises(ValueError, match="metric"):
+            rss.slice_to_slice_similarity(metric="bogus")

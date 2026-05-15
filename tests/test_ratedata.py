@@ -265,6 +265,35 @@ class TestRateDataSubset:
         assert sub_single.N == 1
         assert sub_single.inst_Frate_data.shape == (1, 50)
 
+    def test_subset_preserve_order(self):
+        """
+        ``preserve_order=True`` returns units in caller's order
+        rather than sorted ascending by index.
+
+        Tests:
+            (Test Case 1) Default returns sorted order.
+            (Test Case 2) preserve_order=True returns caller's order.
+            (Test Case 3) Duplicates are deduplicated.
+        """
+        rd = make_ratedata(n_units=4, n_times=10)
+
+        default = rd.subset([3, 0, 1])
+        # Sorted: rows 0, 1, 3 in that order.
+        np.testing.assert_array_equal(default.inst_Frate_data[0], rd.inst_Frate_data[0])
+        np.testing.assert_array_equal(default.inst_Frate_data[1], rd.inst_Frate_data[1])
+        np.testing.assert_array_equal(default.inst_Frate_data[2], rd.inst_Frate_data[3])
+
+        ordered = rd.subset([3, 0, 1], preserve_order=True)
+        np.testing.assert_array_equal(ordered.inst_Frate_data[0], rd.inst_Frate_data[3])
+        np.testing.assert_array_equal(ordered.inst_Frate_data[1], rd.inst_Frate_data[0])
+        np.testing.assert_array_equal(ordered.inst_Frate_data[2], rd.inst_Frate_data[1])
+
+        dedup = rd.subset([2, 0, 0, 2, 1], preserve_order=True)
+        assert dedup.N == 3
+        np.testing.assert_array_equal(dedup.inst_Frate_data[0], rd.inst_Frate_data[2])
+        np.testing.assert_array_equal(dedup.inst_Frate_data[1], rd.inst_Frate_data[0])
+        np.testing.assert_array_equal(dedup.inst_Frate_data[2], rd.inst_Frate_data[1])
+
     def test_subset_by_attribute(self):
         """
         Tests subset() with the by parameter for attribute-based selection.
@@ -344,13 +373,15 @@ class TestRateDataSubset:
         np.testing.assert_array_equal(sub.inst_Frate_data[1], rd.inst_Frate_data[1])
 
     def test_subset_out_of_bounds_index(self):
-        """Out-of-bounds unit index should raise an IndexError.
+        """Out-of-bounds unit index raises a ValueError with a clear message.
 
-        Tests: Requesting a unit index beyond the number of units
-        should raise an IndexError from numpy array indexing.
+        Tests: Requesting a unit index beyond the number of units raises
+        ValueError naming the offending index and N — same format used by
+        ``SpikeData.subset``, ``SpikeSliceStack.subset``, and
+        ``RateSliceStack.subset``.
         """
         rd = make_ratedata(n_units=3, n_times=20)
-        with pytest.raises(IndexError):
+        with pytest.raises(ValueError, match="Unit index 100 out of range"):
             rd.subset([0, 1, 100])
 
     def test_subset_by_no_matching_attribute(self):
@@ -441,23 +472,26 @@ class TestRateDataSubset:
         with pytest.raises(TypeError):
             rd.subset(np.int64(2))
 
-    def test_subset_negative_index(self):
+    def test_subset_negative_index_raises(self):
         """
-        Negative index in subset silently wraps around via numpy indexing.
+        Negative unit indices raise ValueError instead of silently
+        wrapping to the last unit via numpy indexing.
 
         Tests:
-            (Test Case 1) subset([-1]) selects the last unit (numpy wrap-around).
-            (Test Case 2) The returned data matches the last unit's data.
+            (Test Case 1) subset([-1]) raises ValueError naming the
+                offending index and N.
 
         Notes:
-            This is standard numpy behavior — negative indices wrap around.
-            The method does not guard against this, so subset([-1]) silently
-            selects the last unit rather than raising an error.
+            Unit indices have no "from-the-end" semantic — a negative
+            value almost always indicates a caller bug (off-by-one,
+            miscalculated index). Matches the validation in
+            ``SpikeData.subset``, ``SpikeSliceStack.subset``, and
+            ``RateSliceStack.subset``. ``subtime_by_index`` and
+            ``subslice`` retain Pythonic semantics on the time axis.
         """
         rd = make_ratedata(n_units=4, n_times=20)
-        sub = rd.subset([-1])
-        assert sub.N == 1
-        np.testing.assert_array_equal(sub.inst_Frate_data[0], rd.inst_Frate_data[-1])
+        with pytest.raises(ValueError, match="Unit index -1 out of range"):
+            rd.subset([-1])
 
 
 class TestRateDataSubtime:

@@ -48,4 +48,4 @@ switches to the accelerated kernels automatically. Install with:
 
 .. code-block:: bash
 
-   pip install spikelab[numba]
+   pip install oc-spikelab[numba]

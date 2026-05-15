@@ -14,6 +14,7 @@ from .utils import (
     get_sttc,
     compute_cross_correlation_with_lag,
     _resolve_n_jobs,
+    _slice_to_slice_similarity_matrix,
 )
 
 
@@ -259,7 +260,7 @@ class SpikeSliceStack:
             neuron_attributes=self.neuron_attributes,
         )
 
-    def subset(self, units, by=None):
+    def subset(self, units, by=None, preserve_order=False):
         """Extract a subset of units from every slice in the spike stack.
 
         Parameters:
@@ -268,6 +269,11 @@ class SpikeSliceStack:
                 neuron_attributes.
             by (str or None): If set, select units by this neuron_attribute
                 key instead of by index.
+            preserve_order (bool): When False (default), output is
+                sorted ascending by index — consistent with the other
+                SpikeLab data classes. When True, output respects the
+                order of the input ``units`` list. Duplicates are
+                deduplicated either way.
 
         Returns:
             result (SpikeSliceStack): New SpikeSliceStack containing only the
@@ -275,8 +281,6 @@ class SpikeSliceStack:
                 neuron_attributes are carried over.
 
         Notes:
-            - Units are included in the output in the order they appear in the
-              train (ascending index order), not the order listed in units.
             - If IDs are not unique (when using by), every matching neuron is
               included.
         """
@@ -285,6 +289,10 @@ class SpikeSliceStack:
 
         # Resolve which indices will be kept so we can update neuron_attributes
         if by is not None:
+            # ``by`` resolves to whichever units carry the matching
+            # attribute, in self.train order — caller-supplied order
+            # cannot be honoured because the value list has no
+            # positional correspondence to unit indices.
             if self.neuron_attributes is None:
                 raise ValueError("can't use `by` without `neuron_attributes`")
             _missing = object()
@@ -294,14 +302,29 @@ class SpikeSliceStack:
                 if _get_attr(self.neuron_attributes[i], by, _missing) in unit_set:
                     kept_indices.append(i)
         else:
-            kept_indices = sorted(set(int(u) for u in units))
-            for u in kept_indices:
-                if u < 0 or u >= self.N:
-                    raise ValueError(f"Unit index {u} out of range for {self.N} units.")
+            for u in units:
+                ui = int(u)
+                if ui < 0 or ui >= self.N:
+                    raise ValueError(
+                        f"Unit index {ui} out of range for {self.N} units."
+                    )
+            if preserve_order:
+                seen: set = set()
+                ordered = []
+                for u in units:
+                    ui = int(u)
+                    if ui not in seen:
+                        seen.add(ui)
+                        ordered.append(ui)
+                kept_indices = ordered
+            else:
+                kept_indices = sorted({int(u) for u in units})
 
         new_spike_stack = []
         for sd in self.spike_stack:
-            new_spike_stack.append(sd.subset(kept_indices))
+            # Forward preserve_order so per-slice subsets agree with
+            # the SpikeSliceStack-level ordering decision.
+            new_spike_stack.append(sd.subset(kept_indices, preserve_order=True))
 
         new_neuron_attributes = None
         if self.neuron_attributes is not None:
@@ -444,6 +467,657 @@ class SpikeSliceStack:
 
         return raster_stack
 
+    def baseline_normalized_raster(
+        self, bin_size, baseline_window_ms, *, mode="subtract"
+    ):
+        """Per-slice raster normalized against a per-slice baseline rate.
+
+        Wraps ``to_raster_array(bin_size)`` and converts each bin into a
+        baseline-normalized response value. The baseline rate is computed
+        from spikes inside ``baseline_window_ms`` (in milliseconds relative
+        to each slice's time origin) and projected to each bin via
+        ``rate * bin_size``. Output shape matches the raster: ``(U, T, S)``.
+
+        Parameters:
+            bin_size (float): Raster bin size in milliseconds. Passed to
+                ``to_raster_array``.
+            baseline_window_ms (tuple[float, float]): ``(start_ms, end_ms)``
+                window relative to slice origin used to estimate the
+                per-slice baseline rate.
+            mode (str): Normalization mode:
+                - ``"subtract"`` (default) — counts above baseline expectation.
+                - ``"ratio"`` — counts / expected_counts (NaN where expected
+                  is 0).
+                - ``"zscore"`` — (counts - expected) / sqrt(expected), the
+                  Poisson z-score (NaN where expected is 0).
+
+        Returns:
+            normalized (np.ndarray): Float array of shape ``(U, T, S)``.
+
+        Notes:
+            - Baseline window is validated against each slice's actual time
+              range. ``ValueError`` if any slice doesn't contain it.
+            - For uniform-bin response counts (no normalization), use
+              ``to_raster_array(bin_size)`` directly; this method adds the
+              per-slice baseline correction on top.
+        """
+        if mode not in ("subtract", "ratio", "zscore"):
+            raise ValueError(
+                f"mode must be 'subtract', 'ratio', or 'zscore', got {mode!r}"
+            )
+        if (
+            not isinstance(baseline_window_ms, (tuple, list))
+            or len(baseline_window_ms) != 2
+        ):
+            raise ValueError("baseline_window_ms must be a (start_ms, end_ms) tuple.")
+        b_start, b_end = float(baseline_window_ms[0]), float(baseline_window_ms[1])
+        if b_end <= b_start:
+            raise ValueError("baseline_window_ms end must be greater than start.")
+
+        for s_idx, sd in enumerate(self.spike_stack):
+            slice_start = sd.start_time
+            slice_end = sd.start_time + (self.times[s_idx][1] - self.times[s_idx][0])
+            if b_start < slice_start - 1e-9 or b_end > slice_end + 1e-9:
+                raise ValueError(
+                    f"baseline_window_ms ({b_start}, {b_end}) falls outside "
+                    f"slice {s_idx} time range [{slice_start}, {slice_end}]."
+                )
+
+        counts = self.to_raster_array(bin_size=bin_size).astype(float)  # (U, T, S)
+
+        baseline_width = b_end - b_start
+        baseline_counts = np.zeros((self.N, len(self.spike_stack)), dtype=float)
+        for s_idx, sd in enumerate(self.spike_stack):
+            for u in range(self.N):
+                train = np.asarray(sd.train[u], dtype=float)
+                if train.size == 0:
+                    continue
+                baseline_counts[u, s_idx] = float(
+                    np.sum((train >= b_start) & (train < b_end))
+                )
+
+        # Per-slice expected counts per bin = rate * bin_size
+        expected_per_bin = baseline_counts * (bin_size / baseline_width)  # (U, S)
+        expected = expected_per_bin[:, np.newaxis, :]  # broadcasts over T
+
+        if mode == "subtract":
+            return counts - expected
+        if mode == "ratio":
+            with np.errstate(divide="ignore", invalid="ignore"):
+                return np.where(expected > 0, counts / expected, np.nan)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            return np.where(
+                expected > 0, (counts - expected) / np.sqrt(expected), np.nan
+            )
+
+    def responsive_units(
+        self,
+        bin_size,
+        baseline_window_ms,
+        *,
+        response_window_ms=None,
+        z_threshold=2.0,
+        aggregator="mean",
+    ):
+        """Identify units that show a significant evoked response.
+
+        Builds the Poisson-z-scored baseline-normalized raster, optionally
+        restricts to a response time window, aggregates across slices
+        (mean or max), and returns a unit mask where any time bin's
+        aggregated z-score exceeds ``z_threshold``.
+
+        Parameters:
+            bin_size (float): Raster bin size in milliseconds.
+            baseline_window_ms (tuple[float, float]): Baseline window
+                ``(start_ms, end_ms)`` relative to slice origin used to
+                estimate the per-slice baseline rate.
+            response_window_ms (tuple[float, float] or None): Optional
+                response window ``(start_ms, end_ms)`` relative to slice
+                origin. When None (default), the full slice is searched.
+            z_threshold (float): Z-score threshold (default 2.0).
+            aggregator (str): How to combine z-scores across slices before
+                thresholding. ``"mean"`` (default) or ``"max"``.
+
+        Returns:
+            mask (np.ndarray): Boolean array of shape ``(U,)``. True for
+                responsive units.
+
+        Notes:
+            - Units with no baseline spikes in any slice are flagged
+              non-responsive (z-scores are NaN there).
+        """
+        if aggregator not in ("mean", "max"):
+            raise ValueError(f"aggregator must be 'mean' or 'max', got {aggregator!r}")
+        z = self.baseline_normalized_raster(
+            bin_size, baseline_window_ms, mode="zscore"
+        )  # (U, T, S)
+
+        if response_window_ms is not None:
+            if (
+                not isinstance(response_window_ms, (tuple, list))
+                or len(response_window_ms) != 2
+            ):
+                raise ValueError(
+                    "response_window_ms must be a (start_ms, end_ms) tuple or None."
+                )
+            r_start = float(response_window_ms[0])
+            r_end = float(response_window_ms[1])
+            if r_end <= r_start:
+                raise ValueError("response_window_ms end must be greater than start.")
+            sd0 = self.spike_stack[0]
+            bin_start = int(np.floor((r_start - sd0.start_time) / bin_size))
+            bin_end = int(np.ceil((r_end - sd0.start_time) / bin_size))
+            bin_start = max(0, bin_start)
+            bin_end = min(z.shape[1], bin_end)
+            if bin_end <= bin_start:
+                raise ValueError(
+                    f"response_window_ms ({r_start}, {r_end}) maps to an empty "
+                    f"bin range; check it against the slice duration and bin_size."
+                )
+            z = z[:, bin_start:bin_end, :]
+
+        if aggregator == "mean":
+            agg = np.nanmean(z, axis=2)
+        else:
+            agg = np.nanmax(z, axis=2)
+        with np.errstate(invalid="ignore"):
+            return np.any(agg > z_threshold, axis=1)
+
+    def decode_slice_labels(
+        self,
+        labels,
+        response_window_ms,
+        *,
+        bin_size,
+        baseline_window_ms=None,
+        classifier="ridge",
+        cv="loo",
+        classifier_kwargs=None,
+        random_state=None,
+    ):
+        """Decode per-slice labels (e.g. stim identity) from population responses.
+
+        Builds an ``(S, U)`` feature matrix by summing per-unit spike counts
+        in ``response_window_ms`` (optionally with baseline subtraction) and
+        runs cross-validated classifier decoding via
+        :func:`spikelab.spikedata.decoding.cross_validated_decode`.
+
+        Parameters:
+            labels (array-like): Per-slice labels of length ``S``
+                (e.g. stim electrode index, treatment category).
+            response_window_ms (tuple[float, float]): Window relative to
+                slice origin over which response counts are summed.
+            bin_size (float): Raster bin size in ms.
+            baseline_window_ms (tuple[float, float] or None): Optional
+                per-slice baseline window; when provided, counts are
+                baseline-subtracted via ``baseline_normalized_raster``.
+            classifier (str): ``"ridge"`` (default), ``"mlp"``, or
+                ``"random_forest"``.
+            cv (str or int): ``"loo"`` (default) or int ``>= 2``.
+            classifier_kwargs (dict or None): Forwarded to the sklearn
+                classifier constructor.
+            random_state (int or None): Reproducibility seed.
+
+        Returns:
+            result (dict): Same shape as
+                :func:`spikelab.spikedata.decoding.cross_validated_decode` —
+                ``accuracy``, ``predictions``, ``true_labels``,
+                ``confusion_matrix``, ``per_fold_accuracy``, ``classes``,
+                ``classifier_name``.
+
+        Notes:
+            - Requires ``scikit-learn`` (optional dependency).
+            - For decoding from the full ``(U, T)`` raster (not just summed
+              counts), call ``decoding.cross_validated_decode`` directly on
+              ``self.to_raster_array(bin_size).reshape(U * T, S).T``.
+        """
+        from .decoding import cross_validated_decode
+
+        if (
+            not isinstance(response_window_ms, (tuple, list))
+            or len(response_window_ms) != 2
+        ):
+            raise ValueError("response_window_ms must be a (start_ms, end_ms) tuple.")
+        r_start = float(response_window_ms[0])
+        r_end = float(response_window_ms[1])
+        if r_end <= r_start:
+            raise ValueError("response_window_ms end must be greater than start.")
+
+        if baseline_window_ms is None:
+            counts = self.to_raster_array(bin_size=bin_size).astype(float)
+        else:
+            counts = self.baseline_normalized_raster(
+                bin_size, baseline_window_ms, mode="subtract"
+            )
+
+        sd0 = self.spike_stack[0]
+        bin_start = int(np.floor((r_start - sd0.start_time) / bin_size))
+        bin_end = int(np.ceil((r_end - sd0.start_time) / bin_size))
+        bin_start = max(0, bin_start)
+        bin_end = min(counts.shape[1], bin_end)
+        if bin_end <= bin_start:
+            raise ValueError(
+                f"response_window_ms ({r_start}, {r_end}) maps to an empty "
+                f"bin range; check it against the slice duration and bin_size."
+            )
+
+        # (U, S) per-unit summed response amplitude per slice -> (S, U) features
+        X = counts[:, bin_start:bin_end, :].sum(axis=1).T
+
+        labels = np.asarray(labels).ravel()
+        if len(labels) != X.shape[0]:
+            raise ValueError(
+                f"labels must have length S={X.shape[0]}; got {len(labels)}."
+            )
+
+        return cross_validated_decode(
+            X,
+            labels,
+            classifier=classifier,
+            cv=cv,
+            classifier_kwargs=classifier_kwargs,
+            random_state=random_state,
+        )
+
+    def group_pair_similarity(
+        self,
+        stim_labels,
+        *,
+        metric="cosine",
+        bin_size=1.0,
+        slice_indices=None,
+    ):
+        """Pairwise similarity between mean response vectors for each stim class.
+
+        For each unique stimulus label, averages the per-slice
+        ``(U, T)`` raster across all slices that share that label, then
+        computes a ``(K, K)`` similarity matrix between the resulting
+        per-stim mean response vectors. Lets you ask: "how distinguishable
+        are responses to different stims?".
+
+        Parameters:
+            stim_labels (array-like): Per-slice stim label of length ``S``.
+            metric (str): ``"cosine"`` (default), ``"pearson"``,
+                ``"euclidean"`` (distance), or ``"cross_entropy"``.
+            bin_size (float): Raster bin size in ms (default 1.0).
+            slice_indices (array-like or None): Optional subset of slice
+                indices to use (e.g. an "early-cycle" or "late-cycle"
+                window). When None (default), uses all slices.
+
+        Returns:
+            sim (PairwiseCompMatrix): ``(K, K)`` similarity matrix with
+                ``labels`` set to the unique stim classes (sorted).
+
+        Notes:
+            - Stim classes that have no slices in ``slice_indices`` are
+              dropped from the output.
+        """
+        from .utils import _slice_to_slice_similarity_matrix
+
+        stim_labels = np.asarray(stim_labels).ravel()
+        if len(stim_labels) != len(self):
+            raise ValueError(
+                f"stim_labels must have length S={len(self)}; got {len(stim_labels)}."
+            )
+
+        if slice_indices is None:
+            slice_indices = np.arange(len(self))
+        else:
+            slice_indices = np.asarray(slice_indices, dtype=int).ravel()
+            if (slice_indices < 0).any() or (slice_indices >= len(self)).any():
+                raise IndexError(f"slice_indices out of range for S={len(self)}.")
+
+        unique_labels = np.array(sorted(np.unique(stim_labels[slice_indices])))
+        if len(unique_labels) < 2:
+            raise ValueError(
+                "Need at least 2 distinct stim classes in the selected slices."
+            )
+
+        # (U, T, S_subset)
+        raster = self.subslice(list(slice_indices)).to_raster_array(bin_size=bin_size)
+        sub_labels = stim_labels[slice_indices]
+
+        # Per-class mean across slices -> (U, T, K)
+        mean_per_class = np.stack(
+            [raster[:, :, sub_labels == cls].mean(axis=2) for cls in unique_labels],
+            axis=2,
+        )
+        sim = _slice_to_slice_similarity_matrix(mean_per_class, metric)
+        return PairwiseCompMatrix(
+            matrix=sim,
+            labels=list(unique_labels),
+            metadata={"metric": metric, "n_classes": len(unique_labels)},
+        )
+
+    def responsive_units_per_group(
+        self,
+        group_labels,
+        bin_size,
+        baseline_window_ms,
+        *,
+        response_window_ms=None,
+        z_threshold=2.0,
+        aggregator="mean",
+    ):
+        """Per-cycle responsive-unit mask for tracking responsiveness over time.
+
+        For each unique cycle, runs ``responsive_units`` on the slices
+        belonging to that cycle and returns a ``(U, n_cycles)`` boolean
+        matrix. Use the per-cycle masks to compute gained / lost /
+        preserved responsive units across cycle groups, or to correlate
+        responsiveness changes with intrinsic activity changes per unit.
+
+        Parameters:
+            group_labels (array-like): Per-slice cycle index of length ``S``.
+            bin_size (float): Raster bin size in ms.
+            baseline_window_ms (tuple[float, float]): Baseline window for
+                Poisson z-score normalization.
+            response_window_ms (tuple[float, float] or None): Optional
+                response window (default: full slice).
+            z_threshold (float): Per-cycle z-threshold (default 2.0).
+            aggregator (str): ``"mean"`` (default) or ``"max"`` across
+                slices within each cycle.
+
+        Returns:
+            result (dict):
+                - ``cycles`` (np.ndarray): Sorted unique cycle indices.
+                - ``mask`` (np.ndarray): ``(U, n_cycles)`` boolean
+                  responsiveness mask.
+                - ``responsive_count`` (np.ndarray): Per-cycle responsive
+                  unit count, shape ``(n_cycles,)``.
+        """
+        group_labels = np.asarray(group_labels).ravel()
+        if len(group_labels) != len(self):
+            raise ValueError(
+                f"group_labels must have length S={len(self)}; got {len(group_labels)}."
+            )
+
+        groups = np.array(sorted(np.unique(group_labels)))
+        mask = np.zeros((self.N, len(groups)), dtype=bool)
+        for j, c in enumerate(groups):
+            slice_idx = np.where(group_labels == c)[0]
+            if slice_idx.size == 0:
+                continue
+            sub = self.subslice(slice_idx.tolist())
+            mask[:, j] = sub.responsive_units(
+                bin_size=bin_size,
+                baseline_window_ms=baseline_window_ms,
+                response_window_ms=response_window_ms,
+                z_threshold=z_threshold,
+                aggregator=aggregator,
+            )
+        return {
+            "groups": groups,
+            "mask": mask,
+            "responsive_count": mask.sum(axis=0),
+        }
+
+    def responsiveness_change(
+        self,
+        group_labels,
+        early_groups,
+        late_groups,
+        bin_size,
+        baseline_window_ms,
+        *,
+        response_window_ms=None,
+        z_threshold=2.0,
+        aggregator="mean",
+    ):
+        """Gained / lost / preserved responsive units between two cycle groups.
+
+        Computes responsive-unit masks separately for slices in
+        ``early_groups`` and ``late_groups`` (any iterables of cycle
+        indices), and reports which units become responsive ("gained"),
+        stop being responsive ("lost"), or stay responsive ("preserved").
+
+        Parameters:
+            group_labels (array-like): Per-slice cycle index of length ``S``.
+            early_groups (array-like): Cycle indices for the early group.
+            late_groups (array-like): Cycle indices for the late group.
+            bin_size (float): Raster bin size in ms.
+            baseline_window_ms (tuple[float, float]): Baseline window.
+            response_window_ms (tuple[float, float] or None): Response
+                window (default: full slice).
+            z_threshold (float): Per-group z-threshold.
+            aggregator (str): ``"mean"`` (default) or ``"max"``.
+
+        Returns:
+            result (dict):
+                - ``early_mask`` (np.ndarray ``(U,)`` bool): Responsive in
+                  early.
+                - ``late_mask`` (np.ndarray ``(U,)`` bool): Responsive in
+                  late.
+                - ``gained`` (np.ndarray ``(U,)`` bool): NOT responsive
+                  in early AND responsive in late.
+                - ``lost`` (np.ndarray ``(U,)`` bool): Responsive in
+                  early AND NOT responsive in late.
+                - ``preserved`` (np.ndarray ``(U,)`` bool): Responsive
+                  in BOTH.
+                - ``early_count``, ``late_count``, ``gained_count``,
+                  ``lost_count``, ``preserved_count`` (int).
+
+        Notes:
+            - Pair this with intrinsic-activity changes per unit (e.g.
+              ``cv_isi`` differences) and correlate via
+              ``stat_utils.linear_regression`` to ask whether
+              responsiveness changes track changes in baseline activity.
+        """
+        group_labels = np.asarray(group_labels).ravel()
+        if len(group_labels) != len(self):
+            raise ValueError(
+                f"group_labels must have length S={len(self)}; got {len(group_labels)}."
+            )
+        early_groups = np.asarray(early_groups).ravel()
+        late_groups = np.asarray(late_groups).ravel()
+
+        early_idx = np.where(np.isin(group_labels, early_groups))[0]
+        late_idx = np.where(np.isin(group_labels, late_groups))[0]
+        if early_idx.size == 0:
+            raise ValueError("No slices match early_groups.")
+        if late_idx.size == 0:
+            raise ValueError("No slices match late_groups.")
+
+        kwargs = dict(
+            bin_size=bin_size,
+            baseline_window_ms=baseline_window_ms,
+            response_window_ms=response_window_ms,
+            z_threshold=z_threshold,
+            aggregator=aggregator,
+        )
+        early_mask = self.subslice(early_idx.tolist()).responsive_units(**kwargs)
+        late_mask = self.subslice(late_idx.tolist()).responsive_units(**kwargs)
+
+        gained = (~early_mask) & late_mask
+        lost = early_mask & (~late_mask)
+        preserved = early_mask & late_mask
+
+        return {
+            "early_mask": early_mask,
+            "late_mask": late_mask,
+            "gained": gained,
+            "lost": lost,
+            "preserved": preserved,
+            "early_count": int(early_mask.sum()),
+            "late_count": int(late_mask.sum()),
+            "gained_count": int(gained.sum()),
+            "lost_count": int(lost.sum()),
+            "preserved_count": int(preserved.sum()),
+        }
+
+    def slice_to_slice_similarity(self, metric="cosine", *, bin_size=1.0):
+        """Pairwise similarity between slice-wise population response vectors.
+
+        Each slice is converted to a ``(U * T)`` flat vector via
+        ``to_raster_array(bin_size).reshape(U*T, S).T`` and a square
+        ``(S, S)`` similarity matrix is computed using the requested metric.
+
+        Parameters:
+            metric (str): One of ``"cosine"`` (default), ``"pearson"``,
+                ``"euclidean"`` (distance), or ``"cross_entropy"``
+                (symmetric KL on normalized bin distributions).
+            bin_size (float): Raster bin size in ms (default 1.0).
+
+        Returns:
+            sim (PairwiseCompMatrix): ``(S, S)`` similarity matrix. For
+                cosine and pearson, higher = more similar (diagonal ~1.0);
+                for euclidean and cross_entropy, lower = more similar
+                (diagonal 0).
+
+        Notes:
+            - ``cosine`` and ``pearson`` return values in ``[-1, 1]``.
+            - ``euclidean`` returns raw L2 distance.
+            - ``cross_entropy`` returns symmetric KL divergence (i.e.
+              ``(KL(p||q) + KL(q||p)) / 2``) between bin distributions
+              normalized to sum to 1.
+            - Use ``PairwiseCompMatrix.extract_lower_triangle()`` for
+              feature extraction.
+        """
+        stack = self.to_raster_array(bin_size=bin_size)  # (U, T, S)
+        sim = _slice_to_slice_similarity_matrix(stack, metric)
+        return PairwiseCompMatrix(matrix=sim, metadata={"metric": metric})
+
+    def per_unit_response_regression(
+        self,
+        bin_size,
+        response_window_ms,
+        *,
+        x_values=None,
+        baseline_window_ms=None,
+        min_valid_slices=3,
+    ):
+        """Per-unit OLS regression of evoked response amplitude across slices.
+
+        For each slice and unit, computes response amplitude as the sum of
+        spike counts in ``response_window_ms`` — optionally with a per-slice
+        baseline subtraction. Then fits a linear regression of amplitude
+        against ``x_values`` for every unit. Use this to detect facilitation
+        / depression of the evoked response across cycles or stimulus
+        intensities.
+
+        Parameters:
+            bin_size (float): Raster bin size in milliseconds (passed to
+                ``to_raster_array``).
+            response_window_ms (tuple[float, float]): ``(start_ms, end_ms)``
+                window relative to slice origin over which response counts
+                are summed.
+            x_values (array-like or None): Per-slice x values for the
+                regression (e.g. cycle index, stimulus intensity). Length
+                must equal the number of slices ``S``. When None (default),
+                uses ``np.arange(S)``.
+            baseline_window_ms (tuple[float, float] or None): Optional
+                baseline window for per-slice subtraction. When None
+                (default), uses raw response counts; otherwise subtracts the
+                expected count per bin (``baseline_rate * bin_size``) before
+                summing.
+            min_valid_slices (int): Minimum number of valid (non-NaN)
+                ``(x, y)`` pairs required to fit a regression. Units with
+                fewer return NaN for all coefficients. Default 3.
+
+        Returns:
+            result (dict): Dictionary with keys:
+                - ``slope`` (np.ndarray ``(U,)``): Slope per unit.
+                - ``intercept`` (np.ndarray ``(U,)``): Intercept per unit.
+                - ``r_squared`` (np.ndarray ``(U,)``): R² per unit.
+                - ``p_value`` (np.ndarray ``(U,)``): Two-sided p-value of
+                  the slope per unit.
+                - ``stderr`` (np.ndarray ``(U,)``): Standard error of the
+                  slope per unit.
+                - ``amplitudes`` (np.ndarray ``(U, S)``): Per-slice response
+                  amplitude (raw or baseline-subtracted).
+                - ``x_values`` (np.ndarray ``(S,)``): The x values used.
+
+        Notes:
+            - Requires ``scipy`` (optional dependency); raises
+              ``ImportError`` with installation instructions if missing.
+            - Units with constant amplitudes get ``r_squared = 0``,
+              ``slope = 0`` and ``p_value = 1.0``.
+        """
+        try:
+            from scipy import stats as sp_stats
+        except ImportError as e:
+            raise ImportError(
+                "per_unit_response_regression requires 'scipy'. "
+                "Install with: pip install scipy"
+            ) from e
+
+        if (
+            not isinstance(response_window_ms, (tuple, list))
+            or len(response_window_ms) != 2
+        ):
+            raise ValueError("response_window_ms must be a (start_ms, end_ms) tuple.")
+        r_start = float(response_window_ms[0])
+        r_end = float(response_window_ms[1])
+        if r_end <= r_start:
+            raise ValueError("response_window_ms end must be greater than start.")
+
+        S = len(self.spike_stack)
+        if x_values is None:
+            x_values = np.arange(S, dtype=float)
+        else:
+            x_values = np.asarray(x_values, dtype=float).ravel()
+            if x_values.size != S:
+                raise ValueError(
+                    f"x_values must have length S={S}, got {x_values.size}."
+                )
+
+        if baseline_window_ms is None:
+            counts = self.to_raster_array(bin_size=bin_size).astype(float)  # (U, T, S)
+        else:
+            counts = self.baseline_normalized_raster(
+                bin_size, baseline_window_ms, mode="subtract"
+            )
+
+        sd0 = self.spike_stack[0]
+        bin_start = int(np.floor((r_start - sd0.start_time) / bin_size))
+        bin_end = int(np.ceil((r_end - sd0.start_time) / bin_size))
+        bin_start = max(0, bin_start)
+        bin_end = min(counts.shape[1], bin_end)
+        if bin_end <= bin_start:
+            raise ValueError(
+                f"response_window_ms ({r_start}, {r_end}) maps to an empty "
+                f"bin range; check it against the slice duration and bin_size."
+            )
+
+        amplitudes = np.nansum(counts[:, bin_start:bin_end, :], axis=1)  # (U, S)
+
+        slope = np.full(self.N, np.nan)
+        intercept = np.full(self.N, np.nan)
+        r_squared = np.full(self.N, np.nan)
+        p_value = np.full(self.N, np.nan)
+        stderr = np.full(self.N, np.nan)
+
+        for u in range(self.N):
+            y = amplitudes[u, :]
+            valid = np.isfinite(x_values) & np.isfinite(y)
+            if int(np.sum(valid)) < min_valid_slices:
+                continue
+            xv = x_values[valid]
+            yv = y[valid]
+            # Constant predictor or response: linregress would emit a warning
+            # and return NaN; handle explicitly.
+            if np.ptp(xv) == 0:
+                continue
+            try:
+                res = sp_stats.linregress(xv, yv)
+            except (ValueError, FloatingPointError):
+                continue
+            slope[u] = float(res.slope)
+            intercept[u] = float(res.intercept)
+            r_squared[u] = float(res.rvalue) ** 2
+            p_value[u] = float(res.pvalue)
+            stderr[u] = float(res.stderr)
+
+        return {
+            "slope": slope,
+            "intercept": intercept,
+            "r_squared": r_squared,
+            "p_value": p_value,
+            "stderr": stderr,
+            "amplitudes": amplitudes,
+            "x_values": x_values,
+        }
+
     def compute_frac_active(self, min_spikes=2):
         """Compute the fraction of slices each unit is active in.
 
@@ -476,8 +1150,7 @@ class SpikeSliceStack:
             for u in range(num_units):
                 spikes = np.asarray(sd.train[u])
                 n_valid = np.sum(
-                    (spikes >= sd.start_time)
-                    & (spikes <= sd.start_time + (end - start))
+                    (spikes >= sd.start_time) & (spikes < sd.start_time + (end - start))
                 )
                 if n_valid >= min_spikes:
                     active_count[u] += 1
@@ -1008,7 +1681,7 @@ class SpikeSliceStack:
                 spikes = np.asarray(sd.train[u])
                 duration = end - start
                 spikes = spikes[
-                    (spikes >= sd.start_time) & (spikes <= sd.start_time + duration)
+                    (spikes >= sd.start_time) & (spikes < sd.start_time + duration)
                 ]
                 if len(spikes) < min_spikes:
                     continue

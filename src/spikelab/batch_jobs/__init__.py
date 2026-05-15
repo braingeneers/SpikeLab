@@ -2,7 +2,7 @@
 
 Requires the ``batch-jobs`` optional dependency group::
 
-    pip install spikelab[batch-jobs]
+    pip install oc-spikelab[batch-jobs]
 """
 
 
@@ -53,7 +53,7 @@ def __getattr__(name):
         except ImportError as exc:
             raise ImportError(
                 f"Cannot import '{name}' — install the batch-jobs extra: "
-                "pip install spikelab[batch-jobs]"
+                "pip install oc-spikelab[batch-jobs]"
             ) from exc
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
