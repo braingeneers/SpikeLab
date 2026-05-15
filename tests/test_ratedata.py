@@ -373,13 +373,15 @@ class TestRateDataSubset:
         np.testing.assert_array_equal(sub.inst_Frate_data[1], rd.inst_Frate_data[1])
 
     def test_subset_out_of_bounds_index(self):
-        """Out-of-bounds unit index should raise an IndexError.
+        """Out-of-bounds unit index raises a ValueError with a clear message.
 
-        Tests: Requesting a unit index beyond the number of units
-        should raise an IndexError from numpy array indexing.
+        Tests: Requesting a unit index beyond the number of units raises
+        ValueError naming the offending index and N — same format used by
+        ``SpikeData.subset``, ``SpikeSliceStack.subset``, and
+        ``RateSliceStack.subset``.
         """
         rd = make_ratedata(n_units=3, n_times=20)
-        with pytest.raises(IndexError):
+        with pytest.raises(ValueError, match="Unit index 100 out of range"):
             rd.subset([0, 1, 100])
 
     def test_subset_by_no_matching_attribute(self):
@@ -470,23 +472,26 @@ class TestRateDataSubset:
         with pytest.raises(TypeError):
             rd.subset(np.int64(2))
 
-    def test_subset_negative_index(self):
+    def test_subset_negative_index_raises(self):
         """
-        Negative index in subset silently wraps around via numpy indexing.
+        Negative unit indices raise ValueError instead of silently
+        wrapping to the last unit via numpy indexing.
 
         Tests:
-            (Test Case 1) subset([-1]) selects the last unit (numpy wrap-around).
-            (Test Case 2) The returned data matches the last unit's data.
+            (Test Case 1) subset([-1]) raises ValueError naming the
+                offending index and N.
 
         Notes:
-            This is standard numpy behavior — negative indices wrap around.
-            The method does not guard against this, so subset([-1]) silently
-            selects the last unit rather than raising an error.
+            Unit indices have no "from-the-end" semantic — a negative
+            value almost always indicates a caller bug (off-by-one,
+            miscalculated index). Matches the validation in
+            ``SpikeData.subset``, ``SpikeSliceStack.subset``, and
+            ``RateSliceStack.subset``. ``subtime_by_index`` and
+            ``subslice`` retain Pythonic semantics on the time axis.
         """
         rd = make_ratedata(n_units=4, n_times=20)
-        sub = rd.subset([-1])
-        assert sub.N == 1
-        np.testing.assert_array_equal(sub.inst_Frate_data[0], rd.inst_Frate_data[-1])
+        with pytest.raises(ValueError, match="Unit index -1 out of range"):
+            rd.subset([-1])
 
 
 class TestRateDataSubtime:

@@ -157,17 +157,28 @@ class RateData:
                 for i in range(self.N)
                 if _get_attr(self.neuron_attributes[i], by, _missing) in wanted
             ]
-        elif preserve_order:
-            seen: set = set()
-            ordered = []
-            for u in units:
-                ui = int(u)
-                if ui not in seen:
-                    seen.add(ui)
-                    ordered.append(ui)
-            selected = ordered
         else:
-            selected = sorted({int(u) for u in units})
+            # INDEX-BASED: Validate types and range up-front so negative
+            # or out-of-range indices raise a clear error instead of
+            # silently dispatching to numpy's Pythonic negative indexing.
+            # Matches the validation in SpikeData / SpikeSliceStack /
+            # RateSliceStack.subset.
+            for u in units:
+                if not isinstance(u, (int, np.integer)):
+                    raise TypeError(f"Unit index must be an integer, got {type(u)}")
+                if u < 0 or u >= self.N:
+                    raise ValueError(f"Unit index {u} out of range for {self.N} units.")
+            if preserve_order:
+                seen: set = set()
+                ordered = []
+                for u in units:
+                    ui = int(u)
+                    if ui not in seen:
+                        seen.add(ui)
+                        ordered.append(ui)
+                selected = ordered
+            else:
+                selected = sorted({int(u) for u in units})
 
         output = self.inst_Frate_data[selected, :]
         neuron_attributes = None
