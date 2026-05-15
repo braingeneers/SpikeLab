@@ -6225,6 +6225,24 @@ class TestAlignToEvents:
         with pytest.raises(ValueError, match="No valid events remain"):
             sd.align_to_events([0.0, 50.0], pre_ms=5.0, post_ms=5.0)
 
+    def test_align_to_events_all_dropped_error_includes_count_and_bounds(self):
+        """
+        When every event falls outside the recording window the ValueError
+        embeds both the number of dropped events and the recording bounds,
+        so the user does not have to rely on the (possibly silenced) warning
+        to learn the count.
+
+        Tests:
+            (Test Case 1) Error message contains the dropped-event count.
+            (Test Case 2) Error message contains the recording bounds.
+        """
+        sd = SpikeData([[10.0, 20.0, 30.0]], length=50.0)
+        with pytest.raises(ValueError) as excinfo:
+            sd.align_to_events([0.0, 50.0], pre_ms=5.0, post_ms=5.0)
+        msg = str(excinfo.value)
+        assert "All 2 event(s)" in msg
+        assert "[0.0, 50.0] ms" in msg
+
     def test_align_to_events_duplicate_events(self):
         """
         align_to_events with identical event times.

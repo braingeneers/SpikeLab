@@ -612,7 +612,9 @@ class SpikeData:
 
         if len(event_times) == 0:
             raise ValueError(
-                "No valid events remain after filtering for recording bounds."
+                f"No valid events remain after filtering for recording bounds. "
+                f"All {n_dropped} event(s) had windows outside "
+                f"[{rec_start:.1f}, {rec_end:.1f}] ms."
             )
 
         time_bounds = (pre_ms, post_ms)
