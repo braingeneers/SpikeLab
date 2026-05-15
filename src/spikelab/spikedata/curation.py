@@ -234,12 +234,19 @@ def compute_waveform_metrics(
     at_peak=True,
     window_ms_before=0.5,
     window_ms_after=1.5,
+    freq_min=300,
+    freq_max=6000,
 ):
     """Compute average waveforms, SNR, and normalized STD for every unit.
 
     Results are stored in ``neuron_attributes`` under the keys
     ``"snr"`` and ``"std_norm"``.  Average waveforms are stored by
     ``get_waveform_traces`` (called internally with ``store=True``).
+
+    Waveforms are extracted from bandpass-filtered data (*freq_min*–*freq_max*
+    Hz) and noise is estimated on the same filtered band.  This matches
+    SpikeInterface's quality-metrics convention and avoids inflating the SNR
+    denominator with LFP energy.
 
     Parameters:
         sd (SpikeData): Source spike data.  Must have non-empty
@@ -251,6 +258,10 @@ def compute_waveform_metrics(
             (only used when *at_peak* is False).
         window_ms_after (float): Window after peak for averaging STD
             (only used when *at_peak* is False).
+        freq_min (float): Low-cut frequency for bandpass filter (Hz).
+            Defaults to 300 Hz (matches ``_globals.FREQ_MIN``).
+        freq_max (float): High-cut frequency for bandpass filter (Hz).
+            Defaults to 6000 Hz (matches ``_globals.FREQ_MAX``).
 
     Returns:
         sd (SpikeData): The same SpikeData object (modified in place
@@ -268,26 +279,30 @@ def compute_waveform_metrics(
     if sd.neuron_attributes is None:
         sd.neuron_attributes = [{} for _ in range(sd.N)]
 
-    # Extract waveforms for all units (stores avg_waveform in neuron_attributes)
+    # Determine sampling rate (needed for bandpass filter and STD window)
+    if np.ndim(sd.raw_time) == 0 or sd.raw_time.shape == ():
+        fs_kHz = float(sd.raw_time)
+    else:
+        fs_kHz = 1.0 / np.median(np.diff(sd.raw_time))
+    fs_Hz = fs_kHz * 1000.0
+
+    # Extract waveforms from bandpass-filtered data (stores avg_waveform in neuron_attributes)
     sd.get_waveform_traces(
         unit=None,
         ms_before=ms_before,
         ms_after=ms_after,
         store=True,
         return_avg_waveform=True,
+        bandpass=(freq_min, freq_max),
     )
 
-    # Compute noise levels via MAD on raw_data
-    noise_levels = _estimate_noise_levels(sd.raw_data)
+    # Estimate noise on bandpass-filtered chunks — matches waveform extraction band
+    noise_levels = _estimate_noise_levels(
+        sd.raw_data, fs=fs_Hz, freq_min=freq_min, freq_max=freq_max
+    )
 
     snr_arr = np.zeros(sd.N, dtype=float)
     std_norm_arr = np.zeros(sd.N, dtype=float)
-
-    # Determine sampling rate for window conversion
-    if np.ndim(sd.raw_time) == 0 or sd.raw_time.shape == ():
-        fs_kHz = float(sd.raw_time)
-    else:
-        fs_kHz = 1.0 / np.median(np.diff(sd.raw_time))
 
     for i in range(sd.N):
         attrs = sd.neuron_attributes[i]
@@ -512,18 +527,44 @@ def build_curation_history(sd_original, sd_curated, results, parameters=None):
 # ---------------------------------------------------------------------------
 
 
-def _estimate_noise_levels(raw_data, num_chunks=20, chunk_size=10000, seed=0):
+def _estimate_noise_levels(
+    raw_data,
+    num_chunks=20,
+    chunk_size=10000,
+    seed=0,
+    fs=None,
+    freq_min=300,
+    freq_max=6000,
+):
     """Estimate per-channel noise via MAD on random chunks of *raw_data*.
+
+    When *fs* is provided the full *raw_data* array is bandpass-filtered first
+    (4th-order Butterworth, *freq_min*–*freq_max* Hz, zero-phase), then random
+    chunks are sampled from the filtered result for the MAD estimate.  Filtering
+    before chunking avoids the edge artifacts that arise when short segments are
+    filtered independently.  This removes LFP energy from the noise denominator
+    and matches SpikeInterface's quality-metrics convention.
 
     Parameters:
         raw_data (np.ndarray): Shape ``(channels, time)``.
         num_chunks (int): Number of random chunks to sample.
         chunk_size (int): Samples per chunk.
         seed (int): Random seed.
+        fs (float or None): Sampling rate in Hz.  When provided, bandpass
+            filtering is applied before noise estimation.
+        freq_min (float): Low-cut frequency for bandpass filter (Hz).
+        freq_max (float): High-cut frequency for bandpass filter (Hz).
 
     Returns:
         noise (np.ndarray): Shape ``(channels,)``.
     """
+    # Filter the full trace before sampling so chunk boundaries don't introduce
+    # edge artifacts from the zero-phase filter's start/end padding.
+    if fs is not None and freq_min is not None and freq_max is not None:
+        from scipy.signal import butter, sosfiltfilt
+        sos = butter(4, [freq_min, freq_max], btype="bandpass", fs=fs, output="sos")
+        raw_data = sosfiltfilt(sos, raw_data, axis=1)
+
     rng = np.random.default_rng(seed)
     n_channels, n_samples = raw_data.shape
     max_start = n_samples - chunk_size
@@ -532,9 +573,7 @@ def _estimate_noise_levels(raw_data, num_chunks=20, chunk_size=10000, seed=0):
         data = raw_data
     else:
         starts = rng.integers(0, max_start, size=num_chunks)
-        chunks = [raw_data[:, s : s + chunk_size] for s in starts]
-        data = np.concatenate(chunks, axis=1)
-
+        data = np.concatenate([raw_data[:, s : s + chunk_size] for s in starts], axis=1)
     # MAD-based noise estimate: median(|x - median(x)|) / 0.6745
     medians = np.median(data, axis=1, keepdims=True)
     noise = np.median(np.abs(data - medians), axis=1) / 0.6745

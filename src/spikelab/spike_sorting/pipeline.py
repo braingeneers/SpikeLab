@@ -55,15 +55,21 @@ def _get_noise_levels(
 ) -> np.ndarray:
     """Estimate per-channel noise using MAD on random recording chunks.
 
+    *recording* is expected to be the bandpass-filtered SpikeInterface
+    recording object (as produced by ``recording_io.load_recording``), so
+    ``get_traces`` returns filtered µV values.  The MAD estimate therefore
+    reflects spike-band noise, not LFP-inflated broadband noise — consistent
+    with ``curation._estimate_noise_levels`` when called with ``fs`` set.
+
     Parameters:
-        recording: SpikeInterface BaseRecording.
-        return_scaled (bool): Use scaled traces.
+        recording: SpikeInterface BaseRecording (bandpass-filtered).
+        return_scaled (bool): Use scaled (µV) traces.
         num_chunks (int): Number of random chunks to sample.
         chunk_size (int): Samples per chunk.
         seed (int): Random seed.
 
     Returns:
-        noise_levels (np.ndarray): Per-channel noise, shape ``(channels,)``.
+        noise_levels (np.ndarray): Per-channel spike-band noise, shape ``(channels,)``.
     """
     length = recording.get_num_samples()
     rng = np.random.RandomState(seed=seed)
