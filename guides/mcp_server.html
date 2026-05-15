@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Loading Data &mdash; SpikeLab 0.1.1 documentation</title>
+  <title>MCP Server &mdash; SpikeLab 0.1.1 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
 
@@ -19,8 +19,8 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Spike Sorting and Curation" href="spike_sorting.html" />
-    <link rel="prev" title="Guides" href="index.html" /> 
+    <link rel="next" title="Parallel Computing" href="parallel_computing.html" />
+    <link rel="prev" title="Workspace Persistence" href="workspace.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -62,21 +62,21 @@
 </ul>
 </li>
 <li class="toctree-l1 current"><a class="reference internal" href="index.html">Guides</a><ul class="current">
-<li class="toctree-l2 current"><a class="current reference internal" href="#">Loading Data</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#from-pickle-files">From pickle files</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#from-hdf5-files">From HDF5 files</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#the-spike-times-unit-parameter">The <code class="docutils literal notranslate"><span class="pre">spike_times_unit</span></code> parameter</a></li>
+<li class="toctree-l2"><a class="reference internal" href="loading_data.html">Loading Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="loading_data.html#from-pickle-files">From pickle files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="loading_data.html#from-hdf5-files">From HDF5 files</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="loading_data.html#the-spike-times-unit-parameter">The <code class="docutils literal notranslate"><span class="pre">spike_times_unit</span></code> parameter</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#from-nwb-files">From NWB files</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#from-kilosort-phy-output">From KiloSort/Phy output</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#from-spikeinterface">From SpikeInterface</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#from-spikelab-sorted-npz">From SpikeLab sorted .npz</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#from-the-ibl-database">From the IBL database</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#from-neo-spiketrains">From Neo SpikeTrains</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#from-raw-data">From raw data</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#from-threshold-detection">From threshold detection</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#from-a-spike-count-raster">From a spike count raster</a></li>
+<li class="toctree-l3"><a class="reference internal" href="loading_data.html#from-nwb-files">From NWB files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="loading_data.html#from-kilosort-phy-output">From KiloSort/Phy output</a></li>
+<li class="toctree-l3"><a class="reference internal" href="loading_data.html#from-spikeinterface">From SpikeInterface</a></li>
+<li class="toctree-l3"><a class="reference internal" href="loading_data.html#from-spikelab-sorted-npz">From SpikeLab sorted .npz</a></li>
+<li class="toctree-l3"><a class="reference internal" href="loading_data.html#from-the-ibl-database">From the IBL database</a></li>
+<li class="toctree-l3"><a class="reference internal" href="loading_data.html#from-neo-spiketrains">From Neo SpikeTrains</a></li>
+<li class="toctree-l3"><a class="reference internal" href="loading_data.html#from-raw-data">From raw data</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="loading_data.html#from-threshold-detection">From threshold detection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="loading_data.html#from-a-spike-count-raster">From a spike count raster</a></li>
 </ul>
 </li>
 </ul>
@@ -209,15 +209,15 @@
 <li class="toctree-l3"><a class="reference internal" href="workspace.html#merging-workspaces">Merging Workspaces</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="mcp_server.html">MCP Server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="mcp_server.html#starting-the-server">Starting the server</a></li>
-<li class="toctree-l3"><a class="reference internal" href="mcp_server.html#tool-categories">Tool categories</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="mcp_server.html#data-loading-tools">Data loading tools</a></li>
-<li class="toctree-l4"><a class="reference internal" href="mcp_server.html#analysis-tools">Analysis tools</a></li>
-<li class="toctree-l4"><a class="reference internal" href="mcp_server.html#export-tools">Export tools</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">MCP Server</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#starting-the-server">Starting the server</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#tool-categories">Tool categories</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#data-loading-tools">Data loading tools</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#analysis-tools">Analysis tools</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#export-tools">Export tools</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="mcp_server.html#workspace-addressing">Workspace addressing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#workspace-addressing">Workspace addressing</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="parallel_computing.html">Parallel Computing</a><ul>
@@ -438,9 +438,9 @@
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="index.html">Guides</a></li>
-      <li class="breadcrumb-item active">Loading Data</li>
+      <li class="breadcrumb-item active">MCP Server</li>
       <li class="wy-breadcrumbs-aside">
-            <a href="../_sources/guides/loading_data.rst.txt" rel="nofollow"> View page source</a>
+            <a href="../_sources/guides/mcp_server.rst.txt" rel="nofollow"> View page source</a>
       </li>
   </ul>
   <hr/>
@@ -448,280 +448,113 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="loading-data">
-<h1>Loading Data<a class="headerlink" href="#loading-data" title="Link to this heading"></a></h1>
-<p>SpikeLab supports loading spike train data from a variety of common
-electrophysiology formats. All loaders return a
-<code class="xref py py-class docutils literal notranslate"><span class="pre">SpikeData</span></code> object and convert spike
-times to <strong>milliseconds</strong> where possible, since all analyses assume this unit.</p>
-<p>The main loader functions live in
-<code class="docutils literal notranslate"><span class="pre">spikelab.data_loaders.data_loaders</span></code>. In addition,
-<code class="xref py py-class docutils literal notranslate"><span class="pre">SpikeData</span></code> provides static constructors
-for building spike data directly from arrays or raw traces.</p>
-<section id="from-pickle-files">
-<h2>From pickle files<a class="headerlink" href="#from-pickle-files" title="Link to this heading"></a></h2>
-<p>If you have a previously saved <code class="docutils literal notranslate"><span class="pre">SpikeData</span></code> object in a pickle file, you can
-load it with the standard library or with the SpikeLab convenience loader.</p>
-<p>Using the standard library:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">pickle</span>
-
-<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;my_data.pkl&quot;</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-    <span class="n">sd</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+  <section id="mcp-server">
+<h1>MCP Server<a class="headerlink" href="#mcp-server" title="Link to this heading"></a></h1>
+<p>SpikeLab includes an MCP (Model Context Protocol) server that exposes analysis
+tools for programmatic access by AI agents and other MCP clients. The server
+provides a workspace-centric interface to SpikeLab’s data loading, analysis,
+and export capabilities over the standard MCP stdio transport.</p>
+<section id="starting-the-server">
+<h2>Starting the server<a class="headerlink" href="#starting-the-server" title="Link to this heading"></a></h2>
+<p>Run the MCP server as a Python module:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>spikelab.mcp_server
 </pre></div>
 </div>
-<p>Using the SpikeLab loader (which also supports S3 URLs):</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.data_loaders.data_loaders</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_spikedata_from_pickle</span>
-
-<span class="n">sd</span> <span class="o">=</span> <span class="n">load_spikedata_from_pickle</span><span class="p">(</span><span class="s2">&quot;my_data.pkl&quot;</span><span class="p">)</span>
-
-<span class="c1"># Load from S3</span>
-<span class="n">sd</span> <span class="o">=</span> <span class="n">load_spikedata_from_pickle</span><span class="p">(</span>
-    <span class="s2">&quot;s3://my-bucket/my_data.pkl&quot;</span><span class="p">,</span>
-    <span class="n">aws_access_key_id</span><span class="o">=</span><span class="s2">&quot;...&quot;</span><span class="p">,</span>
-    <span class="n">aws_secret_access_key</span><span class="o">=</span><span class="s2">&quot;...&quot;</span><span class="p">,</span>
-<span class="p">)</span>
+<p>This starts the server on stdio transport (the default). MCP clients (such as
+Claude Desktop or other MCP-compatible tools) connect by launching this command
+as a subprocess and communicating over stdin/stdout.</p>
+<p>Example configuration for an MCP client:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;mcpServers&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;spikelab&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;command&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;python&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;-m&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;spikelab.mcp_server&quot;</span><span class="p">]</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
 </pre></div>
 </div>
+<p>To use SSE (Server-Sent Events) transport instead, pass <code class="docutils literal notranslate"><span class="pre">--transport</span> <span class="pre">sse</span></code>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>spikelab.mcp_server<span class="w"> </span>--transport<span class="w"> </span>sse<span class="w"> </span>--port<span class="w"> </span><span class="m">8080</span>
+</pre></div>
+</div>
+<p>SSE transport requires the <code class="docutils literal notranslate"><span class="pre">sse</span></code> optional dependency group
+(<code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">oc-spikelab[sse]</span></code>).</p>
+<p>The server requires the <code class="docutils literal notranslate"><span class="pre">mcp</span></code> Python package as a dependency.</p>
 </section>
-<section id="from-hdf5-files">
-<h2>From HDF5 files<a class="headerlink" href="#from-hdf5-files" title="Link to this heading"></a></h2>
-<p>HDF5 is the most flexible format. SpikeLab supports four different storage
-styles within an HDF5 file:</p>
+<section id="tool-categories">
+<h2>Tool categories<a class="headerlink" href="#tool-categories" title="Link to this heading"></a></h2>
+<p>The server registers over 90 tools organized into several categories:</p>
+<section id="data-loading-tools">
+<h3>Data loading tools<a class="headerlink" href="#data-loading-tools" title="Link to this heading"></a></h3>
+<p>Load spike train data from various formats into the workspace. Each loader
+stores a <code class="xref py py-class docutils literal notranslate"><span class="pre">SpikeData</span></code> object in the
+workspace and returns the workspace ID, namespace, key, and a data summary.</p>
 <ul class="simple">
-<li><p><strong>Raster</strong> – a <code class="docutils literal notranslate"><span class="pre">(N,</span> <span class="pre">T)</span></code> spike count matrix stored as a single dataset.</p></li>
-<li><p><strong>Ragged</strong> – a flat array of spike times plus an index array that marks the
-boundaries of each unit (NWB-like layout).</p></li>
-<li><p><strong>Group</strong> – one HDF5 group per unit, each containing a 1-D array of spike
-times.</p></li>
-<li><p><strong>Paired</strong> – two parallel 1-D arrays: unit indices and spike times.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">load_from_hdf5_raster</span></code> – HDF5 raster style</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">load_from_hdf5_ragged</span></code> – HDF5 ragged (flat spike_times + index) style</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">load_from_hdf5_group</span></code> – HDF5 group-per-unit style</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">load_from_hdf5_paired</span></code> – HDF5 paired (idces + times) style</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">load_from_nwb</span></code> – Neurodata Without Borders format</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">load_from_kilosort</span></code> – KiloSort/Phy output folder</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">load_from_pickle</span></code> – Pickle files (local or S3)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">load_from_hdf5_thresholded</span></code> – Raw HDF5 traces with threshold detection</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">load_from_ibl</span></code> – International Brain Laboratory public data</p></li>
 </ul>
-<p>You choose which style to load by setting the corresponding parameters.
-Exactly one style must be specified per call.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.data_loaders.data_loaders</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_spikedata_from_hdf5</span>
-
-<span class="c1"># Raster style</span>
-<span class="n">sd</span> <span class="o">=</span> <span class="n">load_spikedata_from_hdf5</span><span class="p">(</span>
-    <span class="s2">&quot;recording.h5&quot;</span><span class="p">,</span>
-    <span class="n">raster_dataset</span><span class="o">=</span><span class="s2">&quot;raster&quot;</span><span class="p">,</span>
-    <span class="n">raster_bin_size_ms</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
-<span class="p">)</span>
-
-<span class="c1"># Ragged style (spike_times + spike_times_index)</span>
-<span class="n">sd</span> <span class="o">=</span> <span class="n">load_spikedata_from_hdf5</span><span class="p">(</span>
-    <span class="s2">&quot;recording.h5&quot;</span><span class="p">,</span>
-    <span class="n">spike_times_dataset</span><span class="o">=</span><span class="s2">&quot;spike_times&quot;</span><span class="p">,</span>
-    <span class="n">spike_times_index_dataset</span><span class="o">=</span><span class="s2">&quot;spike_times_index&quot;</span><span class="p">,</span>
-    <span class="n">spike_times_unit</span><span class="o">=</span><span class="s2">&quot;s&quot;</span><span class="p">,</span>       <span class="c1"># times in the file are in seconds</span>
-<span class="p">)</span>
-
-<span class="c1"># Group-per-unit style</span>
-<span class="n">sd</span> <span class="o">=</span> <span class="n">load_spikedata_from_hdf5</span><span class="p">(</span>
-    <span class="s2">&quot;recording.h5&quot;</span><span class="p">,</span>
-    <span class="n">group_per_unit</span><span class="o">=</span><span class="s2">&quot;units&quot;</span><span class="p">,</span>
-    <span class="n">group_time_unit</span><span class="o">=</span><span class="s2">&quot;s&quot;</span><span class="p">,</span>
-<span class="p">)</span>
-
-<span class="c1"># Paired style (idces + times)</span>
-<span class="n">sd</span> <span class="o">=</span> <span class="n">load_spikedata_from_hdf5</span><span class="p">(</span>
-    <span class="s2">&quot;recording.h5&quot;</span><span class="p">,</span>
-    <span class="n">idces_dataset</span><span class="o">=</span><span class="s2">&quot;idces&quot;</span><span class="p">,</span>
-    <span class="n">times_dataset</span><span class="o">=</span><span class="s2">&quot;times&quot;</span><span class="p">,</span>
-    <span class="n">times_unit</span><span class="o">=</span><span class="s2">&quot;ms&quot;</span><span class="p">,</span>
-<span class="p">)</span>
-</pre></div>
-</div>
-<section id="the-spike-times-unit-parameter">
-<h3>The <code class="docutils literal notranslate"><span class="pre">spike_times_unit</span></code> parameter<a class="headerlink" href="#the-spike-times-unit-parameter" title="Link to this heading"></a></h3>
-<p>For the ragged style, the <code class="docutils literal notranslate"><span class="pre">spike_times_unit</span></code> parameter (default <code class="docutils literal notranslate"><span class="pre">'s'</span></code>)
-tells the loader what unit the times in the file are stored in. The loader
-converts them to milliseconds automatically. Set this to <code class="docutils literal notranslate"><span class="pre">'ms'</span></code> if your file
-already stores times in milliseconds.</p>
-<p>Analogous parameters exist for the other styles: <code class="docutils literal notranslate"><span class="pre">group_time_unit</span></code> for group
-style and <code class="docutils literal notranslate"><span class="pre">times_unit</span></code> for paired style.</p>
+</section>
+<section id="analysis-tools">
+<h3>Analysis tools<a class="headerlink" href="#analysis-tools" title="Link to this heading"></a></h3>
+<p>Run analysis operations on data already loaded into the workspace. Results are
+stored back into the workspace for subsequent use. Examples include:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">compute_rates</span></code>, <code class="docutils literal notranslate"><span class="pre">compute_binned</span></code>, <code class="docutils literal notranslate"><span class="pre">compute_raster</span></code> – basic firing statistics</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">compute_spike_time_tilings</span></code> – pairwise spike time tiling coefficients</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">compute_pairwise_fr_corr</span></code>, <code class="docutils literal notranslate"><span class="pre">compute_pairwise_ccg</span></code> – pairwise comparisons</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">create_rate_slice_stack</span></code>, <code class="docutils literal notranslate"><span class="pre">create_spike_slice_stack</span></code> – event-aligned slicing</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">align_to_events</span></code> – align data to stimulus or behavioral events</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">compute_rate_manifold</span></code> – dimensionality reduction (PCA, UMAP, t-SNE)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">fit_gplvm</span></code> – Gaussian Process Latent Variable Model fitting</p></li>
+</ul>
+</section>
+<section id="export-tools">
+<h3>Export tools<a class="headerlink" href="#export-tools" title="Link to this heading"></a></h3>
+<p>Export data from the workspace to files:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">export_to_hdf5</span></code> – HDF5 format (multiple styles)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">export_to_nwb</span></code> – NWB format</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">export_to_kilosort</span></code> – KiloSort/Phy folder format</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">export_to_pickle</span></code> – Pickle format (local or S3)</p></li>
+</ul>
 </section>
 </section>
-<section id="from-nwb-files">
-<h2>From NWB files<a class="headerlink" href="#from-nwb-files" title="Link to this heading"></a></h2>
-<p>SpikeLab can load spike trains from NWB (Neurodata Without Borders) files. The
-loader reads the <code class="docutils literal notranslate"><span class="pre">/units</span></code> group and populates <code class="docutils literal notranslate"><span class="pre">neuron_attributes</span></code> with
-<code class="docutils literal notranslate"><span class="pre">unit_id</span></code>, <code class="docutils literal notranslate"><span class="pre">electrode</span></code> (or <code class="docutils literal notranslate"><span class="pre">electrode_group</span></code>/<code class="docutils literal notranslate"><span class="pre">channel</span></code>), <code class="docutils literal notranslate"><span class="pre">location</span></code>,
-and electrode positions (<code class="docutils literal notranslate"><span class="pre">x</span></code>, <code class="docutils literal notranslate"><span class="pre">y</span></code>, <code class="docutils literal notranslate"><span class="pre">z</span></code>) when these are present in the
-file.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.data_loaders.data_loaders</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_spikedata_from_nwb</span>
-
-<span class="n">sd</span> <span class="o">=</span> <span class="n">load_spikedata_from_nwb</span><span class="p">(</span><span class="s2">&quot;session.nwb&quot;</span><span class="p">)</span>
-
-<span class="c1"># Optionally control the backend and recording length</span>
-<span class="n">sd</span> <span class="o">=</span> <span class="n">load_spikedata_from_nwb</span><span class="p">(</span>
-    <span class="s2">&quot;session.nwb&quot;</span><span class="p">,</span>
-    <span class="n">prefer_pynwb</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>    <span class="c1"># try pynwb first, fall back to h5py</span>
-    <span class="n">length_ms</span><span class="o">=</span><span class="mf">600000.0</span><span class="p">,</span>   <span class="c1"># truncate to first 10 minutes</span>
-<span class="p">)</span>
-</pre></div>
-</div>
-<p>The NWB loader tries <code class="docutils literal notranslate"><span class="pre">pynwb</span></code> first by default. If <code class="docutils literal notranslate"><span class="pre">pynwb</span></code> is not installed
-it falls back to reading the HDF5 file directly with <code class="docutils literal notranslate"><span class="pre">h5py</span></code>.</p>
-</section>
-<section id="from-kilosort-phy-output">
-<h2>From KiloSort/Phy output<a class="headerlink" href="#from-kilosort-phy-output" title="Link to this heading"></a></h2>
-<p>KiloSort and Phy produce a folder of <code class="docutils literal notranslate"><span class="pre">.npy</span></code> files. SpikeLab reads
-<code class="docutils literal notranslate"><span class="pre">spike_times.npy</span></code> and <code class="docutils literal notranslate"><span class="pre">spike_clusters.npy</span></code> and optionally filters clusters
-using the TSV cluster info file produced by Phy (keeping <code class="docutils literal notranslate"><span class="pre">good</span></code> and <code class="docutils literal notranslate"><span class="pre">mua</span></code>
-labels by default).</p>
-<p>The <code class="docutils literal notranslate"><span class="pre">fs_Hz</span></code> parameter is required – it specifies the sampling frequency so
-that sample indices can be converted to milliseconds.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.data_loaders.data_loaders</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_spikedata_from_kilosort</span>
-
-<span class="n">sd</span> <span class="o">=</span> <span class="n">load_spikedata_from_kilosort</span><span class="p">(</span>
-    <span class="s2">&quot;path/to/kilosort_output/&quot;</span><span class="p">,</span>
-    <span class="n">fs_Hz</span><span class="o">=</span><span class="mi">30000</span><span class="p">,</span>
-<span class="p">)</span>
-
-<span class="c1"># With cluster filtering and custom file names</span>
-<span class="n">sd</span> <span class="o">=</span> <span class="n">load_spikedata_from_kilosort</span><span class="p">(</span>
-    <span class="s2">&quot;path/to/kilosort_output/&quot;</span><span class="p">,</span>
-    <span class="n">fs_Hz</span><span class="o">=</span><span class="mi">30000</span><span class="p">,</span>
-    <span class="n">cluster_info_tsv</span><span class="o">=</span><span class="s2">&quot;cluster_info.tsv&quot;</span><span class="p">,</span>
-    <span class="n">include_noise</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-    <span class="n">spike_times_file</span><span class="o">=</span><span class="s2">&quot;spike_times.npy&quot;</span><span class="p">,</span>
-    <span class="n">spike_clusters_file</span><span class="o">=</span><span class="s2">&quot;spike_clusters.npy&quot;</span><span class="p">,</span>
-<span class="p">)</span>
-</pre></div>
-</div>
-<p>The loader populates <code class="docutils literal notranslate"><span class="pre">neuron_attributes</span></code> with <code class="docutils literal notranslate"><span class="pre">unit_id</span></code>, <code class="docutils literal notranslate"><span class="pre">electrode</span></code>,
-and <code class="docutils literal notranslate"><span class="pre">location</span></code> when the corresponding information is available in the
-KiloSort output.</p>
-</section>
-<section id="from-spikeinterface">
-<h2>From SpikeInterface<a class="headerlink" href="#from-spikeinterface" title="Link to this heading"></a></h2>
-<p>If you are using <a class="reference external" href="https://spikeinterface.readthedocs.io/">SpikeInterface</a>
-for spike sorting, you can convert a <code class="docutils literal notranslate"><span class="pre">SortingExtractor</span></code> directly into a
-<code class="xref py py-class docutils literal notranslate"><span class="pre">SpikeData</span></code>:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.data_loaders.data_loaders</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_spikedata_from_spikeinterface</span>
-
-<span class="c1"># sorting is any SpikeInterface SortingExtractor-like object</span>
-<span class="n">sd</span> <span class="o">=</span> <span class="n">load_spikedata_from_spikeinterface</span><span class="p">(</span>
-    <span class="n">sorting</span><span class="p">,</span>
-    <span class="n">sampling_frequency</span><span class="o">=</span><span class="mi">30000</span><span class="p">,</span>   <span class="c1"># override if not set on the object</span>
-    <span class="n">unit_ids</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>              <span class="c1"># load all units</span>
-    <span class="n">segment_index</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
-<span class="p">)</span>
-</pre></div>
-</div>
-<p>SpikeLab also supports loading from a SpikeInterface <code class="docutils literal notranslate"><span class="pre">BaseRecording</span></code> object,
-which applies threshold detection to the raw traces:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.data_loaders.data_loaders</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_spikedata_from_spikeinterface_recording</span>
-
-<span class="n">sd</span> <span class="o">=</span> <span class="n">load_spikedata_from_spikeinterface_recording</span><span class="p">(</span>
-    <span class="n">recording</span><span class="p">,</span>
-    <span class="n">segment_index</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
-    <span class="n">threshold_sigma</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span>
-    <span class="nb">filter</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-    <span class="n">hysteresis</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-    <span class="n">direction</span><span class="o">=</span><span class="s2">&quot;both&quot;</span><span class="p">,</span>
-<span class="p">)</span>
-</pre></div>
-</div>
-</section>
-<section id="from-spikelab-sorted-npz">
-<h2>From SpikeLab sorted .npz<a class="headerlink" href="#from-spikelab-sorted-npz" title="Link to this heading"></a></h2>
-<p>The SpikeLab spike-sorting pipeline (see <a class="reference internal" href="spike_sorting.html"><span class="doc">Spike Sorting and Curation</span></a>) can compile
-its output into <code class="docutils literal notranslate"><span class="pre">.npz</span></code> files containing per-unit spike trains, electrode
-locations, waveform templates, and quality metrics. Load these with:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.data_loaders.data_loaders</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_spikedata_from_spikelab_sorted_npz</span>
-
-<span class="n">sd</span> <span class="o">=</span> <span class="n">load_spikedata_from_spikelab_sorted_npz</span><span class="p">(</span>
-    <span class="s2">&quot;sorted_results.npz&quot;</span><span class="p">,</span>
-    <span class="n">length_ms</span><span class="o">=</span><span class="mf">600000.0</span><span class="p">,</span>  <span class="c1"># optional; inferred from latest spike if omitted</span>
-<span class="p">)</span>
-</pre></div>
-</div>
-<p>The loader populates <code class="docutils literal notranslate"><span class="pre">neuron_attributes</span></code> with electrode positions, waveform
-templates, and quality metrics when available.</p>
-</section>
-<section id="from-the-ibl-database">
-<h2>From the IBL database<a class="headerlink" href="#from-the-ibl-database" title="Link to this heading"></a></h2>
-<p>SpikeLab can load spike trains directly from the <a class="reference external" href="https://www.internationalbrainlab.com/">International Brain
-Laboratory</a> public server. This
-requires the <code class="docutils literal notranslate"><span class="pre">one-api</span></code> and <code class="docutils literal notranslate"><span class="pre">brainwidemap</span></code> packages.</p>
-<p>First, search for probes matching your criteria:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.data_loaders.data_loaders</span><span class="w"> </span><span class="kn">import</span> <span class="n">query_ibl_probes</span>
-
-<span class="n">probes</span><span class="p">,</span> <span class="n">stats_df</span> <span class="o">=</span> <span class="n">query_ibl_probes</span><span class="p">(</span>
-    <span class="n">target_regions</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;MOs&quot;</span><span class="p">,</span> <span class="s2">&quot;MOp&quot;</span><span class="p">],</span>   <span class="c1"># Beryl atlas region names</span>
-    <span class="n">min_units</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>                     <span class="c1"># minimum good units per probe</span>
-    <span class="n">min_fraction_in_target</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>       <span class="c1"># at least 50% of units in target regions</span>
-<span class="p">)</span>
-
-<span class="c1"># probes is a list of (eid, pid) tuples</span>
-<span class="c1"># stats_df is a pandas DataFrame with per-probe statistics</span>
-</pre></div>
-</div>
-<p>Then load a specific probe:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.data_loaders.data_loaders</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_spikedata_from_ibl</span>
-
-<span class="n">eid</span><span class="p">,</span> <span class="n">pid</span> <span class="o">=</span> <span class="n">probes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-<span class="n">sd</span> <span class="o">=</span> <span class="n">load_spikedata_from_ibl</span><span class="p">(</span><span class="n">eid</span><span class="p">,</span> <span class="n">pid</span><span class="p">)</span>
-</pre></div>
-</div>
-<p>Only units labelled as good in the Brain-Wide Map unit table are included.
-Trial event times are stored in <code class="docutils literal notranslate"><span class="pre">sd.metadata</span></code> as numpy arrays in
-milliseconds.</p>
-</section>
-<section id="from-neo-spiketrains">
-<h2>From Neo SpikeTrains<a class="headerlink" href="#from-neo-spiketrains" title="Link to this heading"></a></h2>
-<p>If you have a list of <a class="reference external" href="https://neo.readthedocs.io/">Neo</a> <code class="docutils literal notranslate"><span class="pre">SpikeTrain</span></code>
-objects, convert them directly using the static constructor:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpikeData</span>
-
-<span class="c1"># spiketrains is a list of neo.SpikeTrain objects</span>
-<span class="n">sd</span> <span class="o">=</span> <span class="n">SpikeData</span><span class="o">.</span><span class="n">from_neo_spiketrains</span><span class="p">(</span><span class="n">spiketrains</span><span class="p">)</span>
-</pre></div>
-</div>
-<p>The constructor converts spike times to milliseconds automatically using the
-units attached to each <code class="docutils literal notranslate"><span class="pre">SpikeTrain</span></code>.</p>
-</section>
-<section id="from-raw-data">
-<h2>From raw data<a class="headerlink" href="#from-raw-data" title="Link to this heading"></a></h2>
-<p><code class="xref py py-class docutils literal notranslate"><span class="pre">SpikeData</span></code> provides two static
-constructors for building spike data from arrays that do not require any
-external file format.</p>
-<section id="from-threshold-detection">
-<h3>From threshold detection<a class="headerlink" href="#from-threshold-detection" title="Link to this heading"></a></h3>
-<p>If you have raw voltage traces as a NumPy array of shape <code class="docutils literal notranslate"><span class="pre">(channels,</span> <span class="pre">time)</span></code>,
-you can detect spikes using a threshold crossing method:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.spikedata.spike_data</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpikeData</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-
-<span class="n">raw_traces</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">64</span><span class="p">,</span> <span class="mi">600000</span><span class="p">)</span>  <span class="c1"># 64 channels, 30 s at 20 kHz</span>
-
-<span class="n">sd</span> <span class="o">=</span> <span class="n">SpikeData</span><span class="o">.</span><span class="n">from_thresholding</span><span class="p">(</span>
-    <span class="n">raw_traces</span><span class="p">,</span>
-    <span class="n">fs_Hz</span><span class="o">=</span><span class="mi">20000</span><span class="p">,</span>
-    <span class="n">threshold_sigma</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span>
-    <span class="nb">filter</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>           <span class="c1"># 300-6000 Hz Butterworth bandpass</span>
-    <span class="n">hysteresis</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-    <span class="n">direction</span><span class="o">=</span><span class="s2">&quot;both&quot;</span><span class="p">,</span>      <span class="c1"># detect both positive and negative crossings</span>
-<span class="p">)</span>
-</pre></div>
-</div>
-<p>The resulting <code class="docutils literal notranslate"><span class="pre">SpikeData</span></code> object has the original traces attached as
-<code class="docutils literal notranslate"><span class="pre">raw_data</span></code> and <code class="docutils literal notranslate"><span class="pre">raw_time</span></code> attributes.</p>
-</section>
-<section id="from-a-spike-count-raster">
-<h3>From a spike count raster<a class="headerlink" href="#from-a-spike-count-raster" title="Link to this heading"></a></h3>
-<p>If you already have a <code class="docutils literal notranslate"><span class="pre">(N,</span> <span class="pre">T)</span></code> spike count raster, you can convert it
-directly:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.spikedata.spike_data</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpikeData</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-
-<span class="n">raster</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">poisson</span><span class="p">(</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">100000</span><span class="p">))</span>
-
-<span class="n">sd</span> <span class="o">=</span> <span class="n">SpikeData</span><span class="o">.</span><span class="n">from_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">bin_size_ms</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
-</pre></div>
-</div>
-<p>Spikes are placed evenly within each bin.</p>
-</section>
+<section id="workspace-addressing">
+<h2>Workspace addressing<a class="headerlink" href="#workspace-addressing" title="Link to this heading"></a></h2>
+<p>All MCP tools use a workspace-centric addressing model. Data items are
+identified by three coordinates:</p>
+<ul class="simple">
+<li><p><strong>workspace_id</strong> – identifies the workspace instance. When left empty on a
+loader call, a new workspace is created and its ID is returned.</p></li>
+<li><p><strong>namespace</strong> – a logical grouping within a workspace, typically one per
+recording or experimental session. When left empty on a loader call, the
+namespace is derived from the input file or folder name. If that namespace
+already exists, a numeric suffix (<code class="docutils literal notranslate"><span class="pre">_1</span></code>, <code class="docutils literal notranslate"><span class="pre">_2</span></code>, …) is appended.</p></li>
+<li><p><strong>key</strong> – identifies a specific data item within a namespace. For example,
+<code class="docutils literal notranslate"><span class="pre">SpikeData</span></code> is always stored at key <code class="docutils literal notranslate"><span class="pre">&quot;spikedata&quot;</span></code>. Analysis results are
+stored at user-specified keys.</p></li>
+</ul>
+<p>A typical workflow looks like this:</p>
+<ol class="arabic simple">
+<li><p>Call a loader tool (e.g. <code class="docutils literal notranslate"><span class="pre">load_from_hdf5_ragged</span></code>) with an empty
+<code class="docutils literal notranslate"><span class="pre">workspace_id</span></code>. The server creates a workspace and returns its ID.</p></li>
+<li><p>Call analysis tools using the returned <code class="docutils literal notranslate"><span class="pre">workspace_id</span></code> and <code class="docutils literal notranslate"><span class="pre">namespace</span></code>,
+specifying output keys for each result.</p></li>
+<li><p>Call further analysis tools that build on previous results by referencing
+their keys.</p></li>
+<li><p>Call export tools to save results to files.</p></li>
+</ol>
+<p>All tools return JSON-serializable dictionaries. Errors are returned as
+<code class="docutils literal notranslate"><span class="pre">{&quot;error&quot;:</span> <span class="pre">&quot;...&quot;,</span> <span class="pre">&quot;type&quot;:</span> <span class="pre">&quot;...&quot;}</span></code> rather than raising exceptions, making the
+server safe for automated use.</p>
 </section>
 </section>
 
@@ -729,8 +562,8 @@ directly:</p>
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="index.html" class="btn btn-neutral float-left" title="Guides" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="spike_sorting.html" class="btn btn-neutral float-right" title="Spike Sorting and Curation" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="workspace.html" class="btn btn-neutral float-left" title="Workspace Persistence" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="parallel_computing.html" class="btn btn-neutral float-right" title="Parallel Computing" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

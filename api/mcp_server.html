@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RateData &mdash; SpikeLab 0.1.1 documentation</title>
+  <title>MCP Server &mdash; SpikeLab 0.1.1 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
 
@@ -19,8 +19,7 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Pairwise Comparisons" href="pairwise.html" />
-    <link rel="prev" title="SpikeData" href="spikedata.html" /> 
+    <link rel="prev" title="Batch Jobs" href="batch_jobs.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -251,13 +250,13 @@
 </ul>
 </li>
 <li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a><ul class="current">
-<li class="toctree-l2 current"><a class="reference internal" href="index.html#core-data-structures">Core Data Structures</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="index.html#core-data-structures">Core Data Structures</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="spikedata.html">SpikeData</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData"><code class="docutils literal notranslate"><span class="pre">SpikeData</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l3 current"><a class="current reference internal" href="#">RateData</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#spikelab.spikedata.ratedata.RateData"><code class="docutils literal notranslate"><span class="pre">RateData</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="ratedata.html">RateData</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="ratedata.html#spikelab.spikedata.ratedata.RateData"><code class="docutils literal notranslate"><span class="pre">RateData</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="pairwise.html">Pairwise Comparisons</a><ul>
@@ -412,9 +411,9 @@
 </li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="index.html#server">Server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="mcp_server.html">MCP Server</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html#server">Server</a><ul class="current">
+<li class="toctree-l3 current"><a class="current reference internal" href="#">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -438,9 +437,9 @@
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="index.html">API Reference</a></li>
-      <li class="breadcrumb-item active">RateData</li>
+      <li class="breadcrumb-item active">MCP Server</li>
       <li class="wy-breadcrumbs-aside">
-            <a href="../_sources/api/ratedata.rst.txt" rel="nofollow"> View page source</a>
+            <a href="../_sources/api/mcp_server.rst.txt" rel="nofollow"> View page source</a>
       </li>
   </ul>
   <hr/>
@@ -448,317 +447,18 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="ratedata">
-<h1>RateData<a class="headerlink" href="#ratedata" title="Link to this heading"></a></h1>
-<p>The <code class="docutils literal notranslate"><span class="pre">RateData</span></code> class represents instantaneous firing rates for one or more
-units. It stores a 2-D array of shape <code class="docutils literal notranslate"><span class="pre">(num_units,</span> <span class="pre">num_bins)</span></code> along with
-bin size and time axis metadata. <code class="docutils literal notranslate"><span class="pre">RateData</span></code> objects are typically created
-from a <code class="docutils literal notranslate"><span class="pre">SpikeData</span></code> object via binning and optional smoothing.</p>
-<dl class="py class">
-<dt class="sig sig-object py" id="spikelab.spikedata.ratedata.RateData">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">spikelab.spikedata.ratedata.</span></span><span class="sig-name descname"><span class="pre">RateData</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">inst_Frate_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">times</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">neuron_attributes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rate_unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/ratedata.html#RateData"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.ratedata.RateData" title="Link to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
-<p>A 2D instantaneous firing rate matrix with unit-to-unit correlation capabilities.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>inst_Frate_data</strong> (<em>array</em>) – 2D array of shape (U, T). Each value is the
-instantaneous firing rate. U is the number of units/neurons and
-T is the number of time bins.</p></li>
-<li><p><strong>times</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – List of time values that each column index in
-inst_Frate_data represents. For example, times = [5, 10, 15]
-so inst_Frate_data column 0 is 5 ms, column 1 is 10 ms, and
-column 2 is 15 ms.</p></li>
-<li><p><strong>neuron_attributes</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em> or </em><em>None</em>) – List of dicts, one per unit,
-containing arbitrary metadata about each neuron. None if not
-provided.</p></li>
-</ul>
-</dd>
-</dl>
-<dl class="py attribute">
-<dt class="sig sig-object py" id="spikelab.spikedata.ratedata.RateData.inst_Frate_data">
-<span class="sig-name descname"><span class="pre">inst_Frate_data</span></span><a class="headerlink" href="#spikelab.spikedata.ratedata.RateData.inst_Frate_data" title="Link to this definition"></a></dt>
-<dd><p>2D array of shape (U, T). Each value is the
-instantaneous firing rate. U is the number of units/neurons and
-T is the number of time bins.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>array</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="spikelab.spikedata.ratedata.RateData.times">
-<span class="sig-name descname"><span class="pre">times</span></span><a class="headerlink" href="#spikelab.spikedata.ratedata.RateData.times" title="Link to this definition"></a></dt>
-<dd><p>List of time values that each column index in
-inst_Frate_data represents. For example, times = [5, 10, 15]
-so inst_Frate_data column 0 is 5 ms, column 1 is 10 ms, and
-column 2 is 15 ms.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)">list</a></p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="spikelab.spikedata.ratedata.RateData.neuron_attributes">
-<span class="sig-name descname"><span class="pre">neuron_attributes</span></span><a class="headerlink" href="#spikelab.spikedata.ratedata.RateData.neuron_attributes" title="Link to this definition"></a></dt>
-<dd><p>List of dicts, one per unit,
-containing arbitrary metadata about each neuron. None if not
-provided.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)">list</a> or None</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="spikelab.spikedata.ratedata.RateData.N">
-<span class="sig-name descname"><span class="pre">N</span></span><a class="headerlink" href="#spikelab.spikedata.ratedata.RateData.N" title="Link to this definition"></a></dt>
-<dd><p>Number of units in inst_Frate_data.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)">int</a></p>
-</dd>
-</dl>
-</dd></dl>
-
-<p class="rubric">Notes</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">times</span></code> may contain negative values when the RateData represents an
-event-aligned window (e.g., times from -200 to +500 ms around a stimulus).</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">subtime</span></code> always treats <code class="docutils literal notranslate"><span class="pre">start</span></code>/<code class="docutils literal notranslate"><span class="pre">end</span></code> as literal time values.
-Use <code class="docutils literal notranslate"><span class="pre">subtime_by_index</span></code> for index-based slicing with negative indexing.</p></li>
-</ul>
-<dl class="py method">
-<dt class="sig sig-object py" id="spikelab.spikedata.ratedata.RateData.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">inst_Frate_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">times</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">neuron_attributes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rate_unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/ratedata.html#RateData.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.ratedata.RateData.__init__" title="Link to this definition"></a></dt>
-<dd><p>Initialize a RateData object.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>inst_Frate_data</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><em>numpy.ndarray</em></a>) – Firing rate data, shape (N, T).</p></li>
-<li><p><strong>times</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><em>numpy.ndarray</em></a><em> or </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – Time points, length T.</p></li>
-<li><p><strong>neuron_attributes</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em> or </em><em>None</em>) – Per-unit attribute dicts.</p></li>
-<li><p><strong>rate_unit</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><em>None</em>) – Unit of the rate values. Typically
-<code class="docutils literal notranslate"><span class="pre">&quot;Hz&quot;</span></code> (spikes/s) for <code class="docutils literal notranslate"><span class="pre">resampled_isi</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;kHz&quot;</span></code>
-(spikes/ms) for <code class="docutils literal notranslate"><span class="pre">sliding_rate</span></code>. When <em>None</em>, the unit
-is unspecified.</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="spikelab.spikedata.ratedata.RateData.subset">
-<span class="sig-name descname"><span class="pre">subset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">units</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">by</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">preserve_order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/ratedata.html#RateData.subset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.ratedata.RateData.subset" title="Link to this definition"></a></dt>
-<dd><p>Extract a subset of units/neurons from the rate data.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>units</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em> or </em><em>array</em>) – Unit indices to extract. If by is None,
-this should always be a list of ints. If by is not None,
-the list can contain ints or strings.</p></li>
-<li><p><strong>by</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><em>None</em>) – Neuron attribute key to match against. Only
-use this if you initialized the object with
-neuron_attributes. Set to the key that contains neuron_id
-values. None selects by index (default).</p></li>
-<li><p><strong>preserve_order</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – When False (default), output is
-sorted ascending by index — consistent with the other
-SpikeLab data classes. When True, output respects the
-order of the input <code class="docutils literal notranslate"><span class="pre">units</span></code> list. Duplicates are
-deduplicated either way.</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p><dl class="simple">
-<dt>New RateData object containing only the</dt><dd><p>specified units.</p>
-</dd>
-</dl>
-</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>result (<a class="reference internal" href="#spikelab.spikedata.ratedata.RateData" title="spikelab.spikedata.ratedata.RateData">RateData</a>)</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="spikelab.spikedata.ratedata.RateData.subtime">
-<span class="sig-name descname"><span class="pre">subtime</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/ratedata.html#RateData.subtime"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.ratedata.RateData.subtime" title="Link to this definition"></a></dt>
-<dd><p>Extract a subset of time points from the rate data using time values.</p>
-<p>Original time values are preserved in the output.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>start</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Starting time value (inclusive).</p></li>
-<li><p><strong>end</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Ending time value (exclusive).</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p><dl class="simple">
-<dt>New RateData object containing only the</dt><dd><p>specified time range.</p>
-</dd>
-</dl>
-</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>result (<a class="reference internal" href="#spikelab.spikedata.ratedata.RateData" title="spikelab.spikedata.ratedata.RateData">RateData</a>)</p>
-</dd>
-</dl>
-<p class="rubric">Notes</p>
-<ul class="simple">
-<li><p>Start and end are always treated as literal time values (not
-offsets from the end). To slice by array index with negative
-indexing support, use <code class="docutils literal notranslate"><span class="pre">subtime_by_index(start_idx,</span> <span class="pre">end_idx)</span></code>.</p></li>
-</ul>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="spikelab.spikedata.ratedata.RateData.subtime_by_index">
-<span class="sig-name descname"><span class="pre">subtime_by_index</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start_idx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end_idx</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/ratedata.html#RateData.subtime_by_index"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.ratedata.RateData.subtime_by_index" title="Link to this definition"></a></dt>
-<dd><p>Extract a subset of time points from the rate data using time index values.</p>
-<p>Original time values are preserved in the output.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>start_idx</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Starting time index (inclusive).</p></li>
-<li><p><strong>end_idx</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Ending time index (exclusive).</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p><dl class="simple">
-<dt>New RateData object containing only the</dt><dd><p>specified time range.</p>
-</dd>
-</dl>
-</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>result (<a class="reference internal" href="#spikelab.spikedata.ratedata.RateData" title="spikelab.spikedata.ratedata.RateData">RateData</a>)</p>
-</dd>
-</dl>
-<p class="rubric">Notes</p>
-<ul class="simple">
-<li><p>Supports negative indexing (e.g., -5 selects 5 from the end).</p></li>
-<li><p>To slice by time values instead of array indices, use
-<code class="docutils literal notranslate"><span class="pre">subtime(start,</span> <span class="pre">end)</span></code>.</p></li>
-</ul>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="spikelab.spikedata.ratedata.RateData.frames">
-<span class="sig-name descname"><span class="pre">frames</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">length</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overlap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/ratedata.html#RateData.frames"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.ratedata.RateData.frames" title="Link to this definition"></a></dt>
-<dd><p>Split the rate data into a RateSliceStack of fixed-length windows.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>length</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Length of each window in milliseconds.</p></li>
-<li><p><strong>overlap</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Overlap between consecutive windows in
-milliseconds. Default 0. Must be in <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">length)</span></code>.</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Stack of rate data windows, one per frame.</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>stack (<a class="reference internal" href="rateslicestack.html#spikelab.spikedata.rateslicestack.RateSliceStack" title="spikelab.spikedata.rateslicestack.RateSliceStack">RateSliceStack</a>)</p>
-</dd>
-</dl>
-<p class="rubric">Notes</p>
-<ul class="simple">
-<li><p>Windows that would extend past the end of the recording are
-excluded.</p></li>
-<li><p>overlap must be non-negative and strictly less than length.
-Negative overlap (i.e. gaps between windows) is rejected
-because the parameter semantically means an overlap, not a
-stride.</p></li>
-</ul>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="spikelab.spikedata.ratedata.RateData.get_pairwise_fr_corr">
-<span class="sig-name descname"><span class="pre">get_pairwise_fr_corr</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">compare_func=&lt;function</span> <span class="pre">compute_cross_correlation_with_lag&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_lag=10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_jobs=-1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/ratedata.html#RateData.get_pairwise_fr_corr"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.ratedata.RateData.get_pairwise_fr_corr" title="Link to this definition"></a></dt>
-<dd><p>Compute unit-to-unit similarity from the firing rate matrix (U, T).</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>compare_func</strong> (<em>callable</em>) – Comparison function from utils. Specify
-cross-correlation or cosine similarity. The default is cross
-correlation. See utils.py for details.</p></li>
-<li><p><strong>max_lag</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Max number of lag steps around 0 to consider for
-finding the max correlation. If None, lag is set to 0.</p></li>
-<li><p><strong>n_jobs</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Number of threads for parallel computation. -1 uses
-all cores (default), 1 disables parallelism, None is serial.</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p><dl class="simple">
-<dt>Maximum correlation coefficients</dt><dd><p>between all unit/neuron pairs. matrix[i, j] is the max
-correlation between unit i and unit j. Values range from -1
-to 1. Diagonal is always 1 (self-correlation).</p>
-</dd>
-<dt>lag_matrix (PairwiseCompMatrix): Time lags (in time bins) at which</dt><dd><p>maximum correlation occurs. lag_matrix[i, j] is the lag where
-correlation between i and j is maximal. Positive lag means
-unit j leads unit i (j fires earlier). Negative lag means
-unit i leads unit j (i fires earlier). Diagonal is always 0.</p>
-</dd>
-</dl>
-</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>corr_matrix (<a class="reference internal" href="pairwise.html#spikelab.spikedata.pairwise.PairwiseCompMatrix" title="spikelab.spikedata.pairwise.PairwiseCompMatrix">PairwiseCompMatrix</a>)</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="spikelab.spikedata.ratedata.RateData.get_manifold">
-<span class="sig-name descname"><span class="pre">get_manifold</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'PCA'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_components</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/ratedata.html#RateData.get_manifold"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.ratedata.RateData.get_manifold" title="Link to this definition"></a></dt>
-<dd><p>Project the firing-rate data into a low-dimensional manifold using PCA or UMAP.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>method</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Which dimensionality reduction method to use.
-Either <code class="docutils literal notranslate"><span class="pre">&quot;PCA&quot;</span></code> (default) or <code class="docutils literal notranslate"><span class="pre">&quot;UMAP&quot;</span></code>.</p></li>
-<li><p><strong>n_components</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Number of output dimensions to return
-(default 2).</p></li>
-<li><p><strong>**kwargs</strong> – Additional options for UMAP. If method is <code class="docutils literal notranslate"><span class="pre">&quot;UMAP&quot;</span></code>,
-you can specify use_graph_communities (bool), return_labels
-(bool), and other UMAP-specific keyword arguments such as
-n_neighbors, min_dist, metric, or resolution.</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p><dl class="simple">
-<dt>Depends on method and options:</dt><dd><p>If method is <code class="docutils literal notranslate"><span class="pre">&quot;PCA&quot;</span></code>: <code class="docutils literal notranslate"><span class="pre">(embedding,</span> <span class="pre">explained_variance_ratio,</span>
-<span class="pre">components)</span></code> where embedding has shape (T, n_components),
-explained_variance_ratio has shape (n_components,), and
-components has shape (n_components, U).
-If method is <code class="docutils literal notranslate"><span class="pre">&quot;UMAP&quot;</span></code>: <code class="docutils literal notranslate"><span class="pre">(embedding,</span> <span class="pre">trustworthiness)</span></code> where
-embedding has shape (T, n_components) and trustworthiness is
-a float from 0 to 1.
-If method is <code class="docutils literal notranslate"><span class="pre">&quot;UMAP&quot;</span></code> with use_graph_communities=True and
-return_labels=True: <code class="docutils literal notranslate"><span class="pre">(embedding,</span> <span class="pre">labels,</span> <span class="pre">trustworthiness)</span></code>.</p>
-</dd>
-</dl>
-</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>result (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)">tuple</a>)</p>
-</dd>
-</dl>
-<p class="rubric">Notes</p>
-<ul class="simple">
-<li><p>To visualise the resulting embedding, use
-<a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_manifold" title="spikelab.spikedata.plot_utils.plot_manifold"><code class="xref py py-func docutils literal notranslate"><span class="pre">plot_manifold()</span></code></a>. It
-accepts the embedding array directly and supports background
-masks, continuous colour values, and discrete group colouring.</p></li>
-</ul>
-</dd></dl>
-
+  <section id="mcp-server">
+<h1>MCP Server<a class="headerlink" href="#mcp-server" title="Link to this heading"></a></h1>
+<p>The MCP (Model Context Protocol) server exposes SpikeLab’s core analysis
+methods as tools that can be called programmatically by LLM-based analysis
+agents. It provides a JSON-based interface to load data, run analyses, and
+retrieve results.</p>
+<p id="module-spikelab.mcp_server.server">Main MCP server implementation for spike data analysis.</p>
+<p>Registers all tools and handles transport (stdio or SSE).</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="spikelab.mcp_server.server.main">
+<em class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">spikelab.mcp_server.server.</span></span><span class="sig-name descname"><span class="pre">main</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/mcp_server/server.html#main"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.mcp_server.server.main" title="Link to this definition"></a></dt>
+<dd><p>Run the MCP server with the selected transport.</p>
 </dd></dl>
 
 </section>
@@ -767,8 +467,7 @@ masks, continuous colour values, and discrete group colouring.</p></li>
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="spikedata.html" class="btn btn-neutral float-left" title="SpikeData" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="pairwise.html" class="btn btn-neutral float-right" title="Pairwise Comparisons" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="batch_jobs.html" class="btn btn-neutral float-left" title="Batch Jobs" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
     </div>
 
   <hr/>
