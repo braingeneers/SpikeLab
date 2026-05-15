@@ -80,7 +80,8 @@ pip install "oc-spikelab[all]"         # everything except kilosort4
 
 | Extra | Install command | What it enables |
 |---|---|---|
-| `mcp` | `pip install "oc-spikelab[mcp]"` | Persistent per-`task_id` MCP daemon + agent endpoints (`ask_spikelab_*`); see [INSTALL guide](../OC-spikelab/INSTALL.md) in the consuming project for the systemd setup |
+| `mcp` | `pip install "oc-spikelab[mcp]"` | Built-in MCP server for tool-based workflows |
+| `sse` | `pip install "oc-spikelab[sse]"` | SSE transport for the MCP server (uvicorn + starlette) |
 | `s3` | `pip install "oc-spikelab[s3]"` | Upload/download data from Amazon S3 (or any S3-compatible store) |
 | `io` | `pip install "oc-spikelab[io]"` | Extra I/O helpers (pandas) |
 | `ml` | `pip install "oc-spikelab[ml]"` | scikit-learn, UMAP, networkx, python-louvain |
@@ -177,13 +178,9 @@ SpikeLab/
 │       ├── workspace/          # Analysis workspace for storing intermediate results
 │       │   ├── workspace.py        # AnalysisWorkspace class
 │       │   └── hdf5_io.py          # HDF5 serialization for workspace objects
-│       ├── mcp/                # MCP daemon + per-task_id agent endpoints
-│       │   ├── daemon.py           # Long-lived registry + watchdog
-│       │   ├── child.py            # Per-task_id child agent (one SDK session)
-│       │   ├── server.py           # Per-connection MCP stdio server (thin proxy)
-│       │   ├── progress.py         # get_spikelab_task_progress (tails Kilosort logs)
-│       │   ├── sessions.py         # list / get_status / kind tagging
-│       │   └── config.py           # Watchdog windows + socket path
+│       ├── mcp_server/         # MCP protocol server for programmatic access
+│       │   ├── server.py           # MCP server implementation
+│       │   └── tools/              # MCP tool definitions
 │       ├── batch_jobs/         # Remote Kubernetes job submission
 │       │   ├── cli.py              # spikelab-batch-jobs CLI
 │       │   ├── session.py          # RunSession entry point

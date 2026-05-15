@@ -139,7 +139,36 @@ def test_something(self):
 conda run -n spikelab python -m pytest SpikeLab/tests/<test_file>.py::<TestClass> -v
 ```
 
-### Phase 5: PR — submit a pull request
+### Phase 5: MCP — expose through MCP server (if applicable)
+
+Not all methods need MCP exposure. Expose a method if it:
+- Produces a result that would be stored in the workspace
+- Would be useful as a standalone tool call (not just an internal helper)
+- Follows the input/output pattern of existing MCP tools
+
+If MCP exposure is appropriate:
+
+**Write the async wrapper** in `src/spikelab/mcp_server/tools/analysis.py`:
+```python
+async def new_method(
+    workspace_id: str,
+    namespace: str,
+    key: str,
+    ...
+) -> Dict[str, Any]:
+    ws = _get_workspace(workspace_id)
+    sd = _get_spikedata(ws, namespace)
+    result = sd.new_method(...)
+    ws.store(namespace, key, result)
+    return {"workspace_id": workspace_id, "namespace": namespace, "key": key}
+```
+
+**Register the tool** in `src/spikelab/mcp_server/server.py`:
+- Add `inputSchema` with proper types and descriptions
+- Add dispatch entry mapping tool name to wrapper function
+- Use `_WS_PROPS` for shared workspace/namespace properties
+
+### Phase 6: PR — submit a pull request
 
 Once all phases are complete:
 
@@ -166,6 +195,7 @@ Before moving to the PR phase, verify:
 - [ ] New tests cover main usage, edge cases, and error paths
 - [ ] New tests pass
 - [ ] Black formatting passes on all modified files
+- [ ] MCP tools registered and documented (if applicable)
 
 ---
 
