@@ -562,6 +562,7 @@ def _estimate_noise_levels(
     # edge artifacts from the zero-phase filter's start/end padding.
     if fs is not None and freq_min is not None and freq_max is not None:
         from scipy.signal import butter, sosfiltfilt
+
         sos = butter(4, [freq_min, freq_max], btype="bandpass", fs=fs, output="sos")
         raw_data = sosfiltfilt(sos, raw_data, axis=1)
 
