@@ -1941,6 +1941,26 @@ class TestComputeFracActive:
         np.testing.assert_array_equal(frac_neg, frac_zero)
         np.testing.assert_array_equal(frac_neg, 1.0)
 
+    def test_boundary_half_open_excludes_end(self):
+        """
+        Boundary behaviour matches the half-open ``[start, end)`` convention
+        used by ``SpikeData.subtime`` and ``RateData.subtime``:
+
+        - A spike at exactly ``sd.start_time`` is counted (inclusive lower).
+        - A spike at exactly ``sd.start_time + (end - start)`` is excluded
+          (exclusive upper).
+
+        Tests:
+            (Test Case 1) Unit with one spike at the lower bound and one at the
+                upper bound has ``n_valid = 1``, so ``frac_active = 0.0`` with
+                ``min_spikes=2``.
+        """
+        sd = SpikeData([np.array([0.0, 100.0])], length=200.0)
+        sss = SpikeSliceStack(spike_stack=[sd], times_start_to_end=[(0.0, 100.0)])
+
+        frac = sss.compute_frac_active(min_spikes=2)
+        np.testing.assert_array_equal(frac, 0.0)
+
 
 # ---------------------------------------------------------------------------
 # order_units_across_slices
@@ -2396,6 +2416,26 @@ class TestGetUnitTimingPerSlice:
         valid = tm_mean[~np.isnan(tm_mean)]
         assert np.all(valid >= 0)
         assert np.all(valid <= 100.0)
+
+    def test_boundary_half_open_excludes_end(self):
+        """
+        Boundary behaviour matches the half-open ``[start, end)`` convention
+        used by ``SpikeData.subtime`` and ``RateData.subtime``:
+
+        - A spike at exactly ``sd.start_time`` is counted (inclusive lower).
+        - A spike at exactly ``sd.start_time + duration`` is excluded
+          (exclusive upper).
+
+        Tests:
+            (Test Case 1) Unit with one spike at the lower bound and one at the
+                upper bound has only 1 valid spike, so it falls below
+                ``min_spikes=2`` and the timing entry is NaN.
+        """
+        sd = SpikeData([np.array([0.0, 100.0])], length=200.0)
+        sss = SpikeSliceStack(spike_stack=[sd], times_start_to_end=[(0.0, 100.0)])
+
+        tm = sss.get_unit_timing_per_slice(timing="median", min_spikes=2)
+        assert np.isnan(tm[0, 0])
 
 
 class TestRankOrderCorrelationSpike:

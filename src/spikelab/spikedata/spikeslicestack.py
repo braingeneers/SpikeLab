@@ -1150,8 +1150,7 @@ class SpikeSliceStack:
             for u in range(num_units):
                 spikes = np.asarray(sd.train[u])
                 n_valid = np.sum(
-                    (spikes >= sd.start_time)
-                    & (spikes <= sd.start_time + (end - start))
+                    (spikes >= sd.start_time) & (spikes < sd.start_time + (end - start))
                 )
                 if n_valid >= min_spikes:
                     active_count[u] += 1
@@ -1682,7 +1681,7 @@ class SpikeSliceStack:
                 spikes = np.asarray(sd.train[u])
                 duration = end - start
                 spikes = spikes[
-                    (spikes >= sd.start_time) & (spikes <= sd.start_time + duration)
+                    (spikes >= sd.start_time) & (spikes < sd.start_time + duration)
                 ]
                 if len(spikes) < min_spikes:
                     continue
