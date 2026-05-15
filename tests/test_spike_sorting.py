@@ -6486,7 +6486,7 @@ class TestSaveTracesSiFastPath:
 
         n_channels = 4
         reported_samples = 2_200  # what get_total_samples() claims
-        actual_samples = 2_000    # what the HDF5 actually contains
+        actual_samples = 2_000  # what the HDF5 actually contains
 
         rng = np.random.default_rng(7)
         fake_full = (rng.standard_normal((actual_samples, n_channels)) * 10.0).astype(
@@ -6511,10 +6511,14 @@ class TestSaveTracesSiFastPath:
         assert not isinstance(rec, NumpyRecording)
 
         monkeypatch.setattr(
-            _algorithm, "Pool", lambda *a, **kw: (_ for _ in ()).throw(AssertionError("Pool used"))
+            _algorithm,
+            "Pool",
+            lambda *a, **kw: (_ for _ in ()).throw(AssertionError("Pool used")),
         )
         monkeypatch.setattr(
-            _algorithm, "Manager", lambda *a, **kw: (_ for _ in ()).throw(AssertionError("Manager used"))
+            _algorithm,
+            "Manager",
+            lambda *a, **kw: (_ for _ in ()).throw(AssertionError("Manager used")),
         )
 
         out_path = tmp_path / "scaled_traces.npy"
