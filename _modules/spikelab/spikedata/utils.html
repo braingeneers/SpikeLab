@@ -206,17 +206,6 @@
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/workspace.html#merging-workspaces">Merging Workspaces</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../../../guides/mcp_server.html">MCP Server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../guides/mcp_server.html#starting-the-server">Starting the server</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../guides/mcp_server.html#tool-categories">Tool categories</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../guides/mcp_server.html#data-loading-tools">Data loading tools</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../guides/mcp_server.html#analysis-tools">Analysis tools</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../guides/mcp_server.html#export-tools">Export tools</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../../../guides/mcp_server.html#workspace-addressing">Workspace addressing</a></li>
-</ul>
-</li>
 <li class="toctree-l2"><a class="reference internal" href="../../../guides/parallel_computing.html">Parallel Computing</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/parallel_computing.html#thread-pool-parallelism">Thread-Pool Parallelism</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/parallel_computing.html#numba-acceleration">Numba Acceleration</a></li>
@@ -302,6 +291,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.linear_regression"><code class="docutils literal notranslate"><span class="pre">linear_regression()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.pairwise_tests"><code class="docutils literal notranslate"><span class="pre">pairwise_tests()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.paired_test"><code class="docutils literal notranslate"><span class="pre">paired_test()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.mixed_effects_compare"><code class="docutils literal notranslate"><span class="pre">mixed_effects_compare()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.omnibus_test"><code class="docutils literal notranslate"><span class="pre">omnibus_test()</span></code></a></li>
 </ul>
 </li>
@@ -319,6 +309,8 @@
 <li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_recording"><code class="docutils literal notranslate"><span class="pre">plot_recording()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_spatial_network"><code class="docutils literal notranslate"><span class="pre">plot_spatial_network()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_unit_footprints"><code class="docutils literal notranslate"><span class="pre">plot_unit_footprints()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_prediction_probability_heatmap"><code class="docutils literal notranslate"><span class="pre">plot_prediction_probability_heatmap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_responsive_unit_map"><code class="docutils literal notranslate"><span class="pre">plot_responsive_unit_map()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -402,13 +394,6 @@
 <li class="toctree-l4"><a class="reference internal" href="../../../api/batch_jobs.html#module-spikelab.batch_jobs.artifact_packager">Artifact Packager</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/batch_jobs.html#module-spikelab.batch_jobs.credentials">Credentials</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/batch_jobs.html#module-spikelab.batch_jobs.validation">Validation</a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#server">Server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../api/mcp_server.html">MCP Server</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -1102,6 +1087,116 @@
     <span class="k">if</span> <span class="n">norm_a</span> <span class="o">==</span> <span class="mf">0.0</span> <span class="ow">or</span> <span class="n">norm_b</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">:</span>
         <span class="k">return</span> <span class="mf">0.0</span>
     <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">norm_a</span> <span class="o">*</span> <span class="n">norm_b</span><span class="p">))</span>
+
+
+<span class="n">_VALID_SLICE_SIM_METRICS</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;cosine&quot;</span><span class="p">,</span> <span class="s2">&quot;pearson&quot;</span><span class="p">,</span> <span class="s2">&quot;euclidean&quot;</span><span class="p">,</span> <span class="s2">&quot;cross_entropy&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_slice_to_slice_similarity_matrix</span><span class="p">(</span><span class="n">stack_3d</span><span class="p">,</span> <span class="n">metric</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Pairwise similarity between slices of a (U, T, S) stack.</span>
+
+<span class="sd">    Each slice is flattened to a (U*T,) vector, then a square (S, S)</span>
+<span class="sd">    similarity matrix is computed using the requested metric.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        stack_3d (np.ndarray): Array of shape ``(U, T, S)``.</span>
+<span class="sd">        metric (str): One of:</span>
+<span class="sd">            - ``&quot;cosine&quot;`` — cosine similarity in [-1, 1] (high = similar).</span>
+<span class="sd">            - ``&quot;pearson&quot;`` — Pearson correlation in [-1, 1] (high = similar).</span>
+<span class="sd">            - ``&quot;euclidean&quot;`` — Euclidean distance in [0, inf)</span>
+<span class="sd">              (low = similar; this is a *distance*, not a similarity).</span>
+<span class="sd">            - ``&quot;cross_entropy&quot;`` — symmetric KL divergence between bin</span>
+<span class="sd">              distributions normalized to sum 1, in [0, inf)</span>
+<span class="sd">              (low = similar; distance-like).</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        sim (np.ndarray): ``(S, S)`` matrix. Diagonal is the</span>
+<span class="sd">            self-similarity (1.0 for cosine/pearson, 0.0 for</span>
+<span class="sd">            euclidean/cross_entropy).</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        - Slices with zero norm yield NaN entries except the diagonal.</span>
+<span class="sd">        - For ``cross_entropy``, slices are normalized so values sum to 1</span>
+<span class="sd">          across (U*T) bins; bins with zero in either distribution are</span>
+<span class="sd">          treated as zero contribution (0 * log(0) := 0).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">metric</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_VALID_SLICE_SIM_METRICS</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;metric must be one of </span><span class="si">{</span><span class="n">_VALID_SLICE_SIM_METRICS</span><span class="si">}</span><span class="s2">, got </span><span class="si">{</span><span class="n">metric</span><span class="si">!r}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+    <span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">stack_3d</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">arr</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;stack_3d must be 3-D (U, T, S); got shape </span><span class="si">{</span><span class="n">arr</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+    <span class="n">U</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span> <span class="n">S</span> <span class="o">=</span> <span class="n">arr</span><span class="o">.</span><span class="n">shape</span>
+    <span class="n">flat</span> <span class="o">=</span> <span class="n">arr</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">U</span> <span class="o">*</span> <span class="n">T</span><span class="p">,</span> <span class="n">S</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>  <span class="c1"># shape (S, U*T)</span>
+
+    <span class="n">sim</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">S</span><span class="p">,</span> <span class="n">S</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">metric</span> <span class="o">==</span> <span class="s2">&quot;pearson&quot;</span><span class="p">:</span>
+        <span class="c1"># Mean-center each row, then cosine</span>
+        <span class="n">centered</span> <span class="o">=</span> <span class="n">flat</span> <span class="o">-</span> <span class="n">flat</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">norms</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">centered</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">S</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">S</span><span class="p">):</span>
+                <span class="n">ni</span><span class="p">,</span> <span class="n">nj</span> <span class="o">=</span> <span class="n">norms</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">norms</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">ni</span> <span class="o">==</span> <span class="mf">0.0</span> <span class="ow">and</span> <span class="n">nj</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">:</span>
+                    <span class="n">val</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+                <span class="k">elif</span> <span class="n">ni</span> <span class="o">==</span> <span class="mf">0.0</span> <span class="ow">or</span> <span class="n">nj</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">:</span>
+                    <span class="n">val</span> <span class="o">=</span> <span class="mf">0.0</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">val</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">centered</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">centered</span><span class="p">[</span><span class="n">j</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="n">ni</span> <span class="o">*</span> <span class="n">nj</span><span class="p">))</span>
+                <span class="n">sim</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+                <span class="n">sim</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+        <span class="k">return</span> <span class="n">sim</span>
+
+    <span class="k">if</span> <span class="n">metric</span> <span class="o">==</span> <span class="s2">&quot;cosine&quot;</span><span class="p">:</span>
+        <span class="n">norms</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">flat</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">S</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">S</span><span class="p">):</span>
+                <span class="n">ni</span><span class="p">,</span> <span class="n">nj</span> <span class="o">=</span> <span class="n">norms</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">norms</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">ni</span> <span class="o">==</span> <span class="mf">0.0</span> <span class="ow">and</span> <span class="n">nj</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">:</span>
+                    <span class="n">val</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+                <span class="k">elif</span> <span class="n">ni</span> <span class="o">==</span> <span class="mf">0.0</span> <span class="ow">or</span> <span class="n">nj</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">:</span>
+                    <span class="n">val</span> <span class="o">=</span> <span class="mf">0.0</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">val</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">flat</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">flat</span><span class="p">[</span><span class="n">j</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="n">ni</span> <span class="o">*</span> <span class="n">nj</span><span class="p">))</span>
+                <span class="n">sim</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+                <span class="n">sim</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+        <span class="k">return</span> <span class="n">sim</span>
+
+    <span class="k">if</span> <span class="n">metric</span> <span class="o">==</span> <span class="s2">&quot;euclidean&quot;</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">S</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">S</span><span class="p">):</span>
+                <span class="n">val</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">flat</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="n">flat</span><span class="p">[</span><span class="n">j</span><span class="p">]))</span>
+                <span class="n">sim</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+                <span class="n">sim</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+        <span class="k">return</span> <span class="n">sim</span>
+
+    <span class="c1"># cross_entropy — symmetric KL on normalized distributions</span>
+    <span class="n">sums</span> <span class="o">=</span> <span class="n">flat</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">distros</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full_like</span><span class="p">(</span><span class="n">flat</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
+    <span class="n">nonzero_mask</span> <span class="o">=</span> <span class="n">sums</span> <span class="o">&gt;</span> <span class="mi">0</span>
+    <span class="n">distros</span><span class="p">[</span><span class="n">nonzero_mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">flat</span><span class="p">[</span><span class="n">nonzero_mask</span><span class="p">]</span> <span class="o">/</span> <span class="n">sums</span><span class="p">[</span><span class="n">nonzero_mask</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
+    <span class="n">eps</span> <span class="o">=</span> <span class="mf">1e-12</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">S</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">S</span><span class="p">):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">nonzero_mask</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="ow">and</span> <span class="n">nonzero_mask</span><span class="p">[</span><span class="n">j</span><span class="p">]):</span>
+                <span class="n">val</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">p</span> <span class="o">=</span> <span class="n">distros</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                <span class="n">q</span> <span class="o">=</span> <span class="n">distros</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+                <span class="c1"># KL(p||q) = sum p * log(p/q); treat 0 * log(0) := 0</span>
+                <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">invalid</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">):</span>
+                    <span class="n">kl_pq</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+                        <span class="n">p</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">p</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">p</span> <span class="o">+</span> <span class="n">eps</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">q</span> <span class="o">+</span> <span class="n">eps</span><span class="p">)),</span> <span class="mf">0.0</span>
+                    <span class="p">)</span>
+                    <span class="n">kl_qp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+                        <span class="n">q</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">q</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">q</span> <span class="o">+</span> <span class="n">eps</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">p</span> <span class="o">+</span> <span class="n">eps</span><span class="p">)),</span> <span class="mf">0.0</span>
+                    <span class="p">)</span>
+                <span class="n">val</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">kl_pq</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">kl_qp</span><span class="p">)))</span>
+            <span class="n">sim</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+            <span class="n">sim</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+    <span class="k">return</span> <span class="n">sim</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">compute_cosine_similarity_with_lag</span><span class="p">(</span><span class="n">ref_rate</span><span class="p">,</span> <span class="n">comp_rate</span><span class="p">,</span> <span class="n">max_lag</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
@@ -1960,6 +2055,8 @@
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;times must be a list of tuples&quot;</span><span class="p">)</span>
     <span class="n">time_diff_check</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">valid_time_tuples</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">zero_duration_offenders</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">negative_start_offenders</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">times_start_to_end</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">times_start_to_end</span><span class="p">)</span>
     <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">time_window</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">times_start_to_end</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">time_window</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
@@ -1981,19 +2078,9 @@
                 <span class="sa">f</span><span class="s2">&quot;Start time must not exceed end time in element </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">time_window</span><span class="si">}</span><span class="s2">&quot;</span>
             <span class="p">)</span>
         <span class="k">if</span> <span class="n">time_window</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">time_window</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
-            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Zero-duration time window in element </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">time_window</span><span class="si">}</span><span class="s2">. &quot;</span>
-                <span class="s2">&quot;Treating as an empty slice.&quot;</span><span class="p">,</span>
-                <span class="ne">UserWarning</span><span class="p">,</span>
-            <span class="p">)</span>
+            <span class="n">zero_duration_offenders</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">i</span><span class="p">,</span> <span class="n">time_window</span><span class="p">))</span>
         <span class="k">if</span> <span class="n">warn_negative_start</span> <span class="ow">and</span> <span class="n">time_window</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Time window </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2"> has negative start (</span><span class="si">{</span><span class="n">time_window</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">). &quot;</span>
-                <span class="s2">&quot;If these are absolute recording times, negative values are &quot;</span>
-                <span class="s2">&quot;unexpected. For event-centered data constructed via &quot;</span>
-                <span class="s2">&quot;time_peaks + time_bounds, this is normal.&quot;</span><span class="p">,</span>
-                <span class="ne">UserWarning</span><span class="p">,</span>
-            <span class="p">)</span>
+            <span class="n">negative_start_offenders</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">i</span><span class="p">,</span> <span class="n">time_window</span><span class="p">))</span>
         <span class="k">if</span> <span class="n">recording_range</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">rec_start</span><span class="p">,</span> <span class="n">rec_end</span> <span class="o">=</span> <span class="n">recording_range</span>
             <span class="k">if</span> <span class="n">time_window</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">rec_start</span> <span class="ow">or</span> <span class="n">time_window</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">rec_end</span><span class="p">:</span>
@@ -2004,6 +2091,34 @@
                 <span class="p">)</span>
         <span class="n">time_diff_check</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">time_window</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">time_window</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
         <span class="n">valid_time_tuples</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">time_window</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">zero_duration_offenders</span><span class="p">:</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">zero_duration_offenders</span><span class="p">)</span>
+        <span class="n">head</span> <span class="o">=</span> <span class="n">zero_duration_offenders</span><span class="p">[:</span><span class="mi">10</span><span class="p">]</span>
+        <span class="n">head_str</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;element </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">w</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">head</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">n</span> <span class="o">&gt;</span> <span class="mi">10</span><span class="p">:</span>
+            <span class="n">head_str</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;, ... and </span><span class="si">{</span><span class="n">n</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">10</span><span class="si">}</span><span class="s2"> more&quot;</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Zero-duration time window(s) detected (</span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">): </span><span class="si">{</span><span class="n">head_str</span><span class="si">}</span><span class="s2">. &quot;</span>
+            <span class="s2">&quot;Treating as empty slices.&quot;</span><span class="p">,</span>
+            <span class="ne">UserWarning</span><span class="p">,</span>
+            <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">negative_start_offenders</span><span class="p">:</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">negative_start_offenders</span><span class="p">)</span>
+        <span class="n">head</span> <span class="o">=</span> <span class="n">negative_start_offenders</span><span class="p">[:</span><span class="mi">10</span><span class="p">]</span>
+        <span class="n">head_str</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;element </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">w</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">head</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">n</span> <span class="o">&gt;</span> <span class="mi">10</span><span class="p">:</span>
+            <span class="n">head_str</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;, ... and </span><span class="si">{</span><span class="n">n</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">10</span><span class="si">}</span><span class="s2"> more&quot;</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Time window(s) with negative start (</span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">): </span><span class="si">{</span><span class="n">head_str</span><span class="si">}</span><span class="s2">. &quot;</span>
+            <span class="s2">&quot;If these are absolute recording times, negative values are &quot;</span>
+            <span class="s2">&quot;unexpected. For event-centered data constructed via &quot;</span>
+            <span class="s2">&quot;time_peaks + time_bounds, this is normal.&quot;</span><span class="p">,</span>
+            <span class="ne">UserWarning</span><span class="p">,</span>
+            <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+        <span class="p">)</span>
 
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">time_diff_check</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
         <span class="n">diffs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">time_diff_check</span><span class="p">)</span>

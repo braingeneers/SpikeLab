@@ -209,17 +209,6 @@
 <li class="toctree-l3"><a class="reference internal" href="../guides/workspace.html#merging-workspaces">Merging Workspaces</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../guides/mcp_server.html">MCP Server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../guides/mcp_server.html#starting-the-server">Starting the server</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/mcp_server.html#tool-categories">Tool categories</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../guides/mcp_server.html#data-loading-tools">Data loading tools</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../guides/mcp_server.html#analysis-tools">Analysis tools</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../guides/mcp_server.html#export-tools">Export tools</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/mcp_server.html#workspace-addressing">Workspace addressing</a></li>
-</ul>
-</li>
 <li class="toctree-l2"><a class="reference internal" href="../guides/parallel_computing.html">Parallel Computing</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../guides/parallel_computing.html#thread-pool-parallelism">Thread-Pool Parallelism</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/parallel_computing.html#numba-acceleration">Numba Acceleration</a></li>
@@ -305,6 +294,7 @@
 <li class="toctree-l4"><a class="reference internal" href="stat_utils.html#spikelab.spikedata.stat_utils.linear_regression"><code class="docutils literal notranslate"><span class="pre">linear_regression()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="stat_utils.html#spikelab.spikedata.stat_utils.pairwise_tests"><code class="docutils literal notranslate"><span class="pre">pairwise_tests()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="stat_utils.html#spikelab.spikedata.stat_utils.paired_test"><code class="docutils literal notranslate"><span class="pre">paired_test()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="stat_utils.html#spikelab.spikedata.stat_utils.mixed_effects_compare"><code class="docutils literal notranslate"><span class="pre">mixed_effects_compare()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="stat_utils.html#spikelab.spikedata.stat_utils.omnibus_test"><code class="docutils literal notranslate"><span class="pre">omnibus_test()</span></code></a></li>
 </ul>
 </li>
@@ -322,6 +312,8 @@
 <li class="toctree-l4"><a class="reference internal" href="#spikelab.spikedata.plot_utils.plot_recording"><code class="docutils literal notranslate"><span class="pre">plot_recording()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#spikelab.spikedata.plot_utils.plot_spatial_network"><code class="docutils literal notranslate"><span class="pre">plot_spatial_network()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#spikelab.spikedata.plot_utils.plot_unit_footprints"><code class="docutils literal notranslate"><span class="pre">plot_unit_footprints()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#spikelab.spikedata.plot_utils.plot_prediction_probability_heatmap"><code class="docutils literal notranslate"><span class="pre">plot_prediction_probability_heatmap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#spikelab.spikedata.plot_utils.plot_responsive_unit_map"><code class="docutils literal notranslate"><span class="pre">plot_responsive_unit_map()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -409,13 +401,6 @@
 </li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="index.html#server">Server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="mcp_server.html">MCP Server</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
-</ul>
-</li>
-</ul>
-</li>
 </ul>
 </li>
 </ul>
@@ -449,7 +434,7 @@
 <h1>Plotting Utilities<a class="headerlink" href="#plotting-utilities" title="Link to this heading"></a></h1>
 <p>Plotting helper functions for visualizing spike trains, firing rates, rasters,
 and pairwise comparison matrices. Requires the <code class="docutils literal notranslate"><span class="pre">plotting</span></code> extra
-(<code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">spikelab[plotting]</span></code>).</p>
+(<code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">oc-spikelab[plotting]</span></code>).</p>
 <p id="module-spikelab.spikedata.plot_utils">Plotting utilities for SpikeLab.</p>
 <p>Provides <code class="docutils literal notranslate"><span class="pre">plot_recording</span></code> for assembling multi-panel figures from SpikeData
 objects, <code class="docutils literal notranslate"><span class="pre">plot_heatmap</span></code> for standalone 2-D heatmaps, <code class="docutils literal notranslate"><span class="pre">plot_distribution</span></code>
@@ -1266,6 +1251,136 @@ on that channel. This selects the spatial extent of the unit’s
 signal independently of any unit-level SNR threshold.</p></li>
 <li><p>The primary channel is always drawn as the anchor, even if it
 would fall below <code class="docutils literal notranslate"><span class="pre">min_amplitude_uv</span></code>.</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="spikelab.spikedata.plot_utils.plot_prediction_probability_heatmap">
+<span class="sig-prename descclassname"><span class="pre">spikelab.spikedata.plot_utils.</span></span><span class="sig-name descname"><span class="pre">plot_prediction_probability_heatmap</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">probabilities</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">true_labels</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group_labels</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">classes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">baseline_groups</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ax</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cmap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_colorbar</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bar_ax</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bar_groups</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bar_group_labels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bar_colors</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cbar_label</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/plot_utils.html#plot_prediction_probability_heatmap"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.plot_utils.plot_prediction_probability_heatmap" title="Link to this definition"></a></dt>
+<dd><p>Heatmap of mean prediction probability per (true class, cycle).</p>
+<p>For each cycle and each true stimulus class, computes the mean
+probability the classifier assigned to that class for samples whose
+true label matches. Optionally subtracts the mean probability over
+a set of baseline cycles to highlight changes across stim rounds.</p>
+<p>Cell <code class="docutils literal notranslate"><span class="pre">(i,</span> <span class="pre">j)</span></code> of the heatmap = mean <code class="docutils literal notranslate"><span class="pre">proba[i,</span> <span class="pre">samples</span> <span class="pre">in</span> <span class="pre">cycle</span> <span class="pre">j</span>
+<span class="pre">where</span> <span class="pre">true</span> <span class="pre">==</span> <span class="pre">classes[i]]</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>probabilities</strong> (<em>np.ndarray</em>) – Predicted probabilities, shape
+<code class="docutils literal notranslate"><span class="pre">(n_samples,</span> <span class="pre">K)</span></code>. Columns must align with <code class="docutils literal notranslate"><span class="pre">classes</span></code>.</p></li>
+<li><p><strong>true_labels</strong> (<em>array-like</em>) – True labels per sample <code class="docutils literal notranslate"><span class="pre">(n_samples,)</span></code>.</p></li>
+<li><p><strong>group_labels</strong> (<em>array-like</em>) – Cycle index per sample <code class="docutils literal notranslate"><span class="pre">(n_samples,)</span></code>.</p></li>
+<li><p><strong>classes</strong> (<em>array-like</em><em> or </em><em>None</em>) – Class labels in column order of
+<code class="docutils literal notranslate"><span class="pre">probabilities</span></code>. When None, uses sorted unique values from
+<code class="docutils literal notranslate"><span class="pre">true_labels</span></code>.</p></li>
+<li><p><strong>baseline_groups</strong> (<em>array-like</em><em> or </em><em>None</em>) – Optional reference cycles
+whose mean probability per (class, _) is subtracted from
+every cell. When None, raw probabilities are shown.</p></li>
+<li><p><strong>ax</strong> (<em>matplotlib.axes.Axes</em><em> or </em><em>None</em>) – Heatmap axes. Created when None.</p></li>
+<li><p><strong>cmap</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><em>None</em>) – Matplotlib colormap. Defaults to <code class="docutils literal notranslate"><span class="pre">&quot;viridis&quot;</span></code>
+for raw probabilities and <code class="docutils literal notranslate"><span class="pre">&quot;RdBu_r&quot;</span></code> for baseline-relative.</p></li>
+<li><p><strong>show_colorbar</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Add a colorbar to the heatmap.</p></li>
+<li><p><strong>bar_ax</strong> (<em>matplotlib.axes.Axes</em><em> or </em><em>None</em>) – Optional companion bar plot
+axes. When provided alongside <code class="docutils literal notranslate"><span class="pre">bar_groups</span></code>, plots the
+mean ± std prediction probability for each group.</p></li>
+<li><p><strong>bar_groups</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><em>array-like</em><em>] or </em><em>None</em>) – List of cycle index
+groups. Each group is averaged and plotted as a bar with std
+error bars. Required when <code class="docutils literal notranslate"><span class="pre">bar_ax</span></code> is provided.</p></li>
+<li><p><strong>bar_group_labels</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>] or </em><em>None</em>) – Per-group labels for the bar
+plot. Defaults to indices.</p></li>
+<li><p><strong>bar_colors</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em> or </em><em>None</em>) – Per-group bar colors.</p></li>
+<li><p><strong>cbar_label</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><em>None</em>) – Colorbar label override. Defaults to
+“P(correct)” or “ΔP vs baseline”.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt><a href="#id1"><span class="problematic" id="id2">``</span></a>{“heatmap”: (K, n_groups) array, “ax”: ax,</dt><dd><p>”bar_ax”: bar_ax or None, “groups”: (n_groups,) array,
+“classes”: (K,) array}``.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>result (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>)</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>Requires <code class="docutils literal notranslate"><span class="pre">matplotlib</span></code>.</p></li>
+<li><p>When <code class="docutils literal notranslate"><span class="pre">baseline_groups</span></code> is given, the heatmap shows
+<code class="docutils literal notranslate"><span class="pre">cell</span> <span class="pre">-</span> <span class="pre">mean(cell</span> <span class="pre">over</span> <span class="pre">baseline_groups)</span></code> per row. Cells whose
+baseline is undefined (no baseline samples for that class) are
+left as raw values for that row.</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="spikelab.spikedata.plot_utils.plot_responsive_unit_map">
+<span class="sig-prename descclassname"><span class="pre">spikelab.spikedata.plot_utils.</span></span><span class="sig-name descname"><span class="pre">plot_responsive_unit_map</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">unit_locations</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_location</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">responsive_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">color_values</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">other_target_locations</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ax</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cmap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'bwr'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vmin</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vmax</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_colorbar</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cbar_label</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'metric'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nonresponsive_color</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'lightgray'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">responsive_color</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'tab:red'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_marker_color</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'red'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">other_target_marker_color</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'green'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">unit_marker_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">25</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_marker_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">200</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">other_target_marker_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/plot_utils.html#plot_responsive_unit_map"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.plot_utils.plot_responsive_unit_map" title="Link to this definition"></a></dt>
+<dd><p>Spatial map of unit locations highlighting responsive units around a stim.</p>
+<p>Plots all units as scatter points at their (x, y) locations, marks the
+target stimulus electrode with a large coloured X, and optionally marks
+other stimulation electrodes in the same protocol. Either highlights
+a boolean <code class="docutils literal notranslate"><span class="pre">responsive_mask</span></code> or colours units by a continuous
+<code class="docutils literal notranslate"><span class="pre">color_values</span></code> metric.</p>
+<p>Mirrors the spatial map pattern from <code class="docutils literal notranslate"><span class="pre">plot_cut_causal.py:233-249</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>unit_locations</strong> (<em>np.ndarray</em>) – <code class="docutils literal notranslate"><span class="pre">(n_units,</span> <span class="pre">2)</span></code> array of (x, y)
+positions in micrometres (or any consistent unit).</p></li>
+<li><p><strong>target_location</strong> (<em>array-like</em>) – <code class="docutils literal notranslate"><span class="pre">(2,)</span></code> (x, y) position of the
+target stimulus electrode.</p></li>
+<li><p><strong>responsive_mask</strong> (<em>array-like</em><em> or </em><em>None</em>) – <code class="docutils literal notranslate"><span class="pre">(n_units,)</span></code> boolean
+mask of responsive units. When provided (and
+<code class="docutils literal notranslate"><span class="pre">color_values</span></code> is None), responsive units are drawn in
+<code class="docutils literal notranslate"><span class="pre">responsive_color</span></code> and the rest in <code class="docutils literal notranslate"><span class="pre">nonresponsive_color</span></code>.</p></li>
+<li><p><strong>color_values</strong> (<em>array-like</em><em> or </em><em>None</em>) – <code class="docutils literal notranslate"><span class="pre">(n_units,)</span></code> continuous
+metric used to color units (e.g. response amplitude). When
+provided, takes precedence over <code class="docutils literal notranslate"><span class="pre">responsive_mask</span></code> for
+colouring; the mask still controls which units are drawn
+(None = all units shown).</p></li>
+<li><p><strong>other_target_locations</strong> (<em>np.ndarray</em><em> or </em><em>None</em>) – <code class="docutils literal notranslate"><span class="pre">(n_other,</span> <span class="pre">2)</span></code> (x, y)
+positions of other stimulation electrodes to mark with green
+X markers.</p></li>
+<li><p><strong>ax</strong> (<em>matplotlib.axes.Axes</em><em> or </em><em>None</em>) – Plot axes. Created when None.</p></li>
+<li><p><strong>cmap</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Colormap when <code class="docutils literal notranslate"><span class="pre">color_values</span></code> is provided.</p></li>
+<li><p><strong>vmax</strong> (<em>vmin /</em>) – Color scale limits. Defaults to a
+symmetric range around 0 for diverging metrics.</p></li>
+<li><p><strong>show_colorbar</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Add a colorbar when <code class="docutils literal notranslate"><span class="pre">color_values</span></code> is
+provided.</p></li>
+<li><p><strong>cbar_label</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Colorbar label.</p></li>
+<li><p><strong>nonresponsive_color</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Marker color for non-responsive units
+in mask mode.</p></li>
+<li><p><strong>responsive_color</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Marker color for responsive units in mask
+mode.</p></li>
+<li><p><strong>target_marker_color</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Color of the target-stim X marker.</p></li>
+<li><p><strong>other_target_marker_color</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Color of other-stim X markers.</p></li>
+<li><p><strong>unit_marker_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Scatter marker size for units.</p></li>
+<li><p><strong>target_marker_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Marker size for the target stim X.</p></li>
+<li><p><strong>other_target_marker_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Marker size for other-stim X.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt><a href="#id3"><span class="problematic" id="id4">``</span></a>{“ax”: ax, “scatter”: PathCollection,</dt><dd><p>”target_scatter”: PathCollection,
+“other_target_scatter”: PathCollection or None}``.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>result (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>)</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>Requires <code class="docutils literal notranslate"><span class="pre">matplotlib</span></code>.</p></li>
+<li><p>Either <code class="docutils literal notranslate"><span class="pre">responsive_mask</span></code> or <code class="docutils literal notranslate"><span class="pre">color_values</span></code> (or both) is
+required to give the units meaningful colour. Provide neither
+to get a uniform-coloured layout.</p></li>
 </ul>
 </dd></dl>
 

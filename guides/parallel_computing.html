@@ -20,7 +20,7 @@
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Batch Jobs" href="batch_jobs.html" />
-    <link rel="prev" title="MCP Server" href="mcp_server.html" /> 
+    <link rel="prev" title="Workspace Persistence" href="workspace.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -209,17 +209,6 @@
 <li class="toctree-l3"><a class="reference internal" href="workspace.html#merging-workspaces">Merging Workspaces</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="mcp_server.html">MCP Server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="mcp_server.html#starting-the-server">Starting the server</a></li>
-<li class="toctree-l3"><a class="reference internal" href="mcp_server.html#tool-categories">Tool categories</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="mcp_server.html#data-loading-tools">Data loading tools</a></li>
-<li class="toctree-l4"><a class="reference internal" href="mcp_server.html#analysis-tools">Analysis tools</a></li>
-<li class="toctree-l4"><a class="reference internal" href="mcp_server.html#export-tools">Export tools</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="mcp_server.html#workspace-addressing">Workspace addressing</a></li>
-</ul>
-</li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Parallel Computing</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#thread-pool-parallelism">Thread-Pool Parallelism</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#numba-acceleration">Numba Acceleration</a></li>
@@ -305,6 +294,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../api/stat_utils.html#spikelab.spikedata.stat_utils.linear_regression"><code class="docutils literal notranslate"><span class="pre">linear_regression()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/stat_utils.html#spikelab.spikedata.stat_utils.pairwise_tests"><code class="docutils literal notranslate"><span class="pre">pairwise_tests()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/stat_utils.html#spikelab.spikedata.stat_utils.paired_test"><code class="docutils literal notranslate"><span class="pre">paired_test()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/stat_utils.html#spikelab.spikedata.stat_utils.mixed_effects_compare"><code class="docutils literal notranslate"><span class="pre">mixed_effects_compare()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/stat_utils.html#spikelab.spikedata.stat_utils.omnibus_test"><code class="docutils literal notranslate"><span class="pre">omnibus_test()</span></code></a></li>
 </ul>
 </li>
@@ -322,6 +312,8 @@
 <li class="toctree-l4"><a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_recording"><code class="docutils literal notranslate"><span class="pre">plot_recording()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_spatial_network"><code class="docutils literal notranslate"><span class="pre">plot_spatial_network()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_unit_footprints"><code class="docutils literal notranslate"><span class="pre">plot_unit_footprints()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_prediction_probability_heatmap"><code class="docutils literal notranslate"><span class="pre">plot_prediction_probability_heatmap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_responsive_unit_map"><code class="docutils literal notranslate"><span class="pre">plot_responsive_unit_map()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -409,13 +401,6 @@
 </li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../api/index.html#server">Server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../api/mcp_server.html">MCP Server</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
-</ul>
-</li>
-</ul>
-</li>
 </ul>
 </li>
 </ul>
@@ -487,7 +472,7 @@ per-unit computation</p></li>
 </ul>
 <p>No code changes are needed — SpikeLab detects numba at import time and
 switches to the accelerated kernels automatically. Install with:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>spikelab<span class="o">[</span>numba<span class="o">]</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>oc-spikelab<span class="o">[</span>numba<span class="o">]</span>
 </pre></div>
 </div>
 </section>
@@ -497,7 +482,7 @@ switches to the accelerated kernels automatically. Install with:</p>
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="mcp_server.html" class="btn btn-neutral float-left" title="MCP Server" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="workspace.html" class="btn btn-neutral float-left" title="Workspace Persistence" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="batch_jobs.html" class="btn btn-neutral float-right" title="Batch Jobs" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 

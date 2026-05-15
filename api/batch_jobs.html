@@ -19,7 +19,6 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="MCP Server" href="mcp_server.html" />
     <link rel="prev" title="Curation" href="curation.html" /> 
 </head>
 
@@ -209,17 +208,6 @@
 <li class="toctree-l3"><a class="reference internal" href="../guides/workspace.html#merging-workspaces">Merging Workspaces</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../guides/mcp_server.html">MCP Server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../guides/mcp_server.html#starting-the-server">Starting the server</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/mcp_server.html#tool-categories">Tool categories</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../guides/mcp_server.html#data-loading-tools">Data loading tools</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../guides/mcp_server.html#analysis-tools">Analysis tools</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../guides/mcp_server.html#export-tools">Export tools</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/mcp_server.html#workspace-addressing">Workspace addressing</a></li>
-</ul>
-</li>
 <li class="toctree-l2"><a class="reference internal" href="../guides/parallel_computing.html">Parallel Computing</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../guides/parallel_computing.html#thread-pool-parallelism">Thread-Pool Parallelism</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/parallel_computing.html#numba-acceleration">Numba Acceleration</a></li>
@@ -305,6 +293,7 @@
 <li class="toctree-l4"><a class="reference internal" href="stat_utils.html#spikelab.spikedata.stat_utils.linear_regression"><code class="docutils literal notranslate"><span class="pre">linear_regression()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="stat_utils.html#spikelab.spikedata.stat_utils.pairwise_tests"><code class="docutils literal notranslate"><span class="pre">pairwise_tests()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="stat_utils.html#spikelab.spikedata.stat_utils.paired_test"><code class="docutils literal notranslate"><span class="pre">paired_test()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="stat_utils.html#spikelab.spikedata.stat_utils.mixed_effects_compare"><code class="docutils literal notranslate"><span class="pre">mixed_effects_compare()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="stat_utils.html#spikelab.spikedata.stat_utils.omnibus_test"><code class="docutils literal notranslate"><span class="pre">omnibus_test()</span></code></a></li>
 </ul>
 </li>
@@ -322,6 +311,8 @@
 <li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_recording"><code class="docutils literal notranslate"><span class="pre">plot_recording()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_spatial_network"><code class="docutils literal notranslate"><span class="pre">plot_spatial_network()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_unit_footprints"><code class="docutils literal notranslate"><span class="pre">plot_unit_footprints()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_prediction_probability_heatmap"><code class="docutils literal notranslate"><span class="pre">plot_prediction_probability_heatmap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_responsive_unit_map"><code class="docutils literal notranslate"><span class="pre">plot_responsive_unit_map()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -409,13 +400,6 @@
 </li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="index.html#server">Server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="mcp_server.html">MCP Server</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
-</ul>
-</li>
-</ul>
-</li>
 </ul>
 </li>
 </ul>
@@ -450,7 +434,7 @@
 <p>The <code class="docutils literal notranslate"><span class="pre">spikelab.batch_jobs</span></code> sub-package provides Kubernetes batch-job
 launching helpers for submitting SpikeLab analysis workloads to a cluster.
 It requires the <code class="docutils literal notranslate"><span class="pre">batch-jobs</span></code> optional dependency group:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>spikelab<span class="o">[</span>batch-jobs<span class="o">]</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>oc-spikelab<span class="o">[</span>batch-jobs<span class="o">]</span>
 </pre></div>
 </div>
 <p>See the <a class="reference internal" href="../guides/batch_jobs.html"><span class="doc">Batch Jobs</span></a> guide for usage examples.</p>
@@ -1273,7 +1257,6 @@ ensure the job has finished.</p></li>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="curation.html" class="btn btn-neutral float-left" title="Curation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="mcp_server.html" class="btn btn-neutral float-right" title="MCP Server" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

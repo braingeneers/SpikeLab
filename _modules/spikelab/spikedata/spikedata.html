@@ -206,17 +206,6 @@
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/workspace.html#merging-workspaces">Merging Workspaces</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../../../guides/mcp_server.html">MCP Server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../guides/mcp_server.html#starting-the-server">Starting the server</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../guides/mcp_server.html#tool-categories">Tool categories</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../guides/mcp_server.html#data-loading-tools">Data loading tools</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../guides/mcp_server.html#analysis-tools">Analysis tools</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../guides/mcp_server.html#export-tools">Export tools</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../../../guides/mcp_server.html#workspace-addressing">Workspace addressing</a></li>
-</ul>
-</li>
 <li class="toctree-l2"><a class="reference internal" href="../../../guides/parallel_computing.html">Parallel Computing</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/parallel_computing.html#thread-pool-parallelism">Thread-Pool Parallelism</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/parallel_computing.html#numba-acceleration">Numba Acceleration</a></li>
@@ -302,6 +291,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.linear_regression"><code class="docutils literal notranslate"><span class="pre">linear_regression()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.pairwise_tests"><code class="docutils literal notranslate"><span class="pre">pairwise_tests()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.paired_test"><code class="docutils literal notranslate"><span class="pre">paired_test()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.mixed_effects_compare"><code class="docutils literal notranslate"><span class="pre">mixed_effects_compare()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.omnibus_test"><code class="docutils literal notranslate"><span class="pre">omnibus_test()</span></code></a></li>
 </ul>
 </li>
@@ -319,6 +309,8 @@
 <li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_recording"><code class="docutils literal notranslate"><span class="pre">plot_recording()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_spatial_network"><code class="docutils literal notranslate"><span class="pre">plot_spatial_network()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_unit_footprints"><code class="docutils literal notranslate"><span class="pre">plot_unit_footprints()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_prediction_probability_heatmap"><code class="docutils literal notranslate"><span class="pre">plot_prediction_probability_heatmap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_responsive_unit_map"><code class="docutils literal notranslate"><span class="pre">plot_responsive_unit_map()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -402,13 +394,6 @@
 <li class="toctree-l4"><a class="reference internal" href="../../../api/batch_jobs.html#module-spikelab.batch_jobs.artifact_packager">Artifact Packager</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/batch_jobs.html#module-spikelab.batch_jobs.credentials">Credentials</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/batch_jobs.html#module-spikelab.batch_jobs.validation">Validation</a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#server">Server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../api/mcp_server.html">MCP Server</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -1084,7 +1069,9 @@
 
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">event_times</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;No valid events remain after filtering for recording bounds.&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;No valid events remain after filtering for recording bounds. &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;All </span><span class="si">{</span><span class="n">n_dropped</span><span class="si">}</span><span class="s2"> event(s) had windows outside &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="n">rec_start</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">rec_end</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">] ms.&quot;</span>
             <span class="p">)</span>
 
         <span class="n">time_bounds</span> <span class="o">=</span> <span class="p">(</span><span class="n">pre_ms</span><span class="p">,</span> <span class="n">post_ms</span><span class="p">)</span>
@@ -1367,7 +1354,7 @@
 
 <div class="viewcode-block" id="SpikeData.subset">
 <a class="viewcode-back" href="../../../api/spikedata.html#spikelab.spikedata.SpikeData.subset">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">subset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">units</span><span class="p">,</span> <span class="n">by</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">subset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">units</span><span class="p">,</span> <span class="n">by</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">preserve_order</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a new SpikeData with only the selected units.</span>
 
 <span class="sd">        Units are selected either by their indices or by an ID stored under</span>
@@ -1377,14 +1364,19 @@
 <span class="sd">            units (list): List of unit indices to select.</span>
 <span class="sd">            by (str): Key to select units by in the neuron_attributes.</span>
 <span class="sd">                Index-based if None.</span>
+<span class="sd">            preserve_order (bool): When False (default), output is</span>
+<span class="sd">                sorted ascending by index — the documented historical</span>
+<span class="sd">                behavior, consistent across SpikeData / RateData /</span>
+<span class="sd">                RateSliceStack / SpikeSliceStack. When True, output</span>
+<span class="sd">                respects the order of the input ``units`` list, useful</span>
+<span class="sd">                for paired plotting or ordered concatenation</span>
+<span class="sd">                downstream. Duplicates in the input are deduplicated</span>
+<span class="sd">                either way.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            sd (SpikeData): New SpikeData object with the selected units.</span>
 
 <span class="sd">        Notes:</span>
-<span class="sd">            - Units are included in the output according to their order in</span>
-<span class="sd">              self.train, not the order in the unit list (which is treated</span>
-<span class="sd">              as a set).</span>
 <span class="sd">            - raw_data and raw_time are not propagated to the subset -- they</span>
 <span class="sd">              remain on the original SpikeData object.</span>
 <span class="sd">            - If IDs are not unique, every neuron which matches is included</span>
@@ -1397,30 +1389,55 @@
         <span class="c1"># For case where user inputs a single string for units when using by option</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">units</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
             <span class="n">units</span> <span class="o">=</span> <span class="p">[</span><span class="n">units</span><span class="p">]</span>
-        <span class="n">units</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">units</span><span class="p">)</span>
+
         <span class="k">if</span> <span class="n">by</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;can&#39;t use `by` without `neuron_attributes`&quot;</span><span class="p">)</span>
             <span class="n">_missing</span> <span class="o">=</span> <span class="nb">object</span><span class="p">()</span>
-            <span class="n">units</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">wanted</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">units</span><span class="p">)</span>
+            <span class="n">matched</span> <span class="o">=</span> <span class="p">[</span>
                 <span class="n">i</span>
                 <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">)</span>
-                <span class="k">if</span> <span class="n">_get_attr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">by</span><span class="p">,</span> <span class="n">_missing</span><span class="p">)</span> <span class="ow">in</span> <span class="n">units</span>
-            <span class="p">}</span>
+                <span class="k">if</span> <span class="n">_get_attr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">by</span><span class="p">,</span> <span class="n">_missing</span><span class="p">)</span> <span class="ow">in</span> <span class="n">wanted</span>
+            <span class="p">]</span>
+            <span class="c1"># ``by`` resolves to whichever units carry the matching</span>
+            <span class="c1"># attribute, in self.train order — caller-supplied order</span>
+            <span class="c1"># cannot be honoured because there&#39;s no positional</span>
+            <span class="c1"># correspondence between the value list and unit indices.</span>
+            <span class="n">selected</span> <span class="o">=</span> <span class="n">matched</span>
         <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Match historical semantics: only integer-typed entries</span>
+            <span class="c1"># are bounds-checked. Floats / strings / other types pass</span>
+            <span class="c1"># through validation; if they don&#39;t equal any integer</span>
+            <span class="c1"># index (via Python ==, so ``1.0 == 1`` is True), they</span>
+            <span class="c1"># simply produce no match — same silent-empty behavior</span>
+            <span class="c1"># as the previous ``set(units)`` + ``if i in units``.</span>
             <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">units</span><span class="p">:</span>
                 <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="p">(</span><span class="nb">bool</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">bool_</span><span class="p">)):</span>
                     <span class="k">continue</span>
                 <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">))</span> <span class="ow">and</span> <span class="p">(</span><span class="n">u</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">u</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">):</span>
                     <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;unit index out of range: </span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="n">u</span><span class="p">)</span><span class="si">}</span><span class="s2"> (N=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
 
-        <span class="n">train</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">neuron_attributes</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">ts</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">):</span>
-            <span class="k">if</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">units</span><span class="p">:</span>
-                <span class="n">train</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ts</span><span class="p">)</span>
-                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                    <span class="n">neuron_attributes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+            <span class="n">unit_set</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">units</span><span class="p">)</span>
+            <span class="n">matching</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">)</span> <span class="k">if</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">unit_set</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">preserve_order</span><span class="p">:</span>
+                <span class="n">seen</span><span class="p">:</span> <span class="nb">set</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+                <span class="n">ordered</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">units</span><span class="p">:</span>
+                    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">matching</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">u</span> <span class="ow">and</span> <span class="n">i</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">seen</span><span class="p">:</span>
+                            <span class="n">seen</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+                            <span class="n">ordered</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+                            <span class="k">break</span>
+                <span class="n">selected</span> <span class="o">=</span> <span class="n">ordered</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">selected</span> <span class="o">=</span> <span class="n">matching</span>
+
+        <span class="n">train</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">selected</span><span class="p">]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">neuron_attributes</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">selected</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">neuron_attributes</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="c1"># raw_data/raw_time are not propagated to subsets — they remain</span>
         <span class="c1"># on the original SpikeData object and can be accessed there.</span>
@@ -1577,8 +1594,17 @@
         <span class="n">train</span> <span class="o">=</span> <span class="p">[</span><span class="n">t</span><span class="p">[(</span><span class="n">t</span> <span class="o">&gt;=</span> <span class="n">start</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">t</span> <span class="o">&lt;</span> <span class="n">end</span><span class="p">)]</span> <span class="o">-</span> <span class="n">shift_to</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">]</span>
         <span class="n">new_start_time</span> <span class="o">=</span> <span class="n">start</span> <span class="o">-</span> <span class="n">shift_to</span>
 
-        <span class="c1"># Subset and propagate the raw data</span>
-        <span class="n">rawmask</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">raw_time</span> <span class="o">&gt;=</span> <span class="n">start</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">raw_time</span> <span class="o">&lt;</span> <span class="n">end</span><span class="p">)</span>
+        <span class="c1"># Subset and propagate the raw data. Skip mask construction when</span>
+        <span class="c1"># there is no raw data to slice — matches the empty-in/empty-out</span>
+        <span class="c1"># behaviour the masked path would produce and avoids broadcasting</span>
+        <span class="c1"># work on the default empty arrays.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">raw_data</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">rawmask</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">raw_time</span> <span class="o">&gt;=</span> <span class="n">start</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">raw_time</span> <span class="o">&lt;</span> <span class="n">end</span><span class="p">)</span>
+            <span class="n">raw_time_out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">raw_time</span><span class="p">[</span><span class="n">rawmask</span><span class="p">]</span> <span class="o">-</span> <span class="n">shift_to</span>
+            <span class="n">raw_data_out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">raw_data</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">rawmask</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">raw_time_out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">raw_time</span>
+            <span class="n">raw_data_out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">raw_data</span>
 
         <span class="k">return</span> <span class="n">SpikeData</span><span class="p">(</span>
             <span class="n">train</span><span class="p">,</span>
@@ -1587,8 +1613,8 @@
             <span class="n">N</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">,</span>
             <span class="n">neuron_attributes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">,</span>
             <span class="n">metadata</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span>
-            <span class="n">raw_time</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">raw_time</span><span class="p">[</span><span class="n">rawmask</span><span class="p">]</span> <span class="o">-</span> <span class="n">shift_to</span><span class="p">,</span>
-            <span class="n">raw_data</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">raw_data</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">rawmask</span><span class="p">],</span>
+            <span class="n">raw_time</span><span class="o">=</span><span class="n">raw_time_out</span><span class="p">,</span>
+            <span class="n">raw_data</span><span class="o">=</span><span class="n">raw_data_out</span><span class="p">,</span>
         <span class="p">)</span></div>
 
 
@@ -1612,13 +1638,19 @@
 
 <div class="viewcode-block" id="SpikeData.append">
 <a class="viewcode-back" href="../../../api/spikedata.html#spikelab.spikedata.SpikeData.append">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">append</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">spikeData</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">append</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">spikeData</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">drop_neuron_attributes</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Append spike times from another SpikeData object to this one.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            spikeData (SpikeData): SpikeData object to append.</span>
 <span class="sd">            offset (float): Offset in milliseconds to add to the spike times</span>
 <span class="sd">                of the appended data.</span>
+<span class="sd">            drop_neuron_attributes (bool): When True, the result has</span>
+<span class="sd">                ``neuron_attributes=None`` regardless of either operand.</span>
+<span class="sd">                Use this when the two operands describe units with</span>
+<span class="sd">                incompatible attribute schemas and you don&#39;t want</span>
+<span class="sd">                either side&#39;s attributes in the result. Defaults to</span>
+<span class="sd">                False — see the salvage logic in the Notes below.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            sd (SpikeData): New SpikeData object with the appended data.</span>
@@ -1626,6 +1658,13 @@
 <span class="sd">        Notes:</span>
 <span class="sd">            - The two SpikeData objects must have the same number of neurons.</span>
 <span class="sd">            - On metadata key collision, values from ``self`` take precedence.</span>
+<span class="sd">            - ``neuron_attributes`` are salvaged when only one operand</span>
+<span class="sd">              has them: if ``self.neuron_attributes is None`` and the</span>
+<span class="sd">              appended SpikeData has them, a ``RuntimeWarning`` is</span>
+<span class="sd">              emitted and the appended operand&#39;s attributes are used</span>
+<span class="sd">              for the result. When both have attributes, ``self``&#39;s</span>
+<span class="sd">              are used (consistent with the metadata-collision rule).</span>
+<span class="sd">              Pass ``drop_neuron_attributes=True`` to skip salvage.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">N</span> <span class="o">!=</span> <span class="n">spikeData</span><span class="o">.</span><span class="n">N</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot concatenate SpikeData with different N&quot;</span><span class="p">)</span>
@@ -1648,12 +1687,40 @@
             <span class="n">raw_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">raw_data</span>
             <span class="n">raw_time</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">raw_time</span>
         <span class="n">length</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">+</span> <span class="n">spikeData</span><span class="o">.</span><span class="n">length</span> <span class="o">+</span> <span class="n">offset</span>
+
+        <span class="c1"># neuron_attributes salvage: when only one operand has them,</span>
+        <span class="c1"># use the available set (with a warning) rather than silently</span>
+        <span class="c1"># dropping. Opt out with ``drop_neuron_attributes=True``.</span>
+        <span class="k">if</span> <span class="n">drop_neuron_attributes</span><span class="p">:</span>
+            <span class="n">new_neuron_attributes</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">elif</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="n">spikeData</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="p">):</span>
+            <span class="c1"># Both have attrs — keep self&#39;s (the receiving SpikeData</span>
+            <span class="c1"># wins on collision, matching the metadata precedence rule).</span>
+            <span class="n">new_neuron_attributes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">new_neuron_attributes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span>
+        <span class="k">elif</span> <span class="n">spikeData</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="s2">&quot;SpikeData.append: self has no neuron_attributes but &quot;</span>
+                <span class="s2">&quot;the appended SpikeData does. Using the appended &quot;</span>
+                <span class="s2">&quot;data&#39;s attributes for the result. Pass &quot;</span>
+                <span class="s2">&quot;drop_neuron_attributes=True to suppress salvage.&quot;</span><span class="p">,</span>
+                <span class="ne">RuntimeWarning</span><span class="p">,</span>
+                <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">new_neuron_attributes</span> <span class="o">=</span> <span class="n">spikeData</span><span class="o">.</span><span class="n">neuron_attributes</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">new_neuron_attributes</span> <span class="o">=</span> <span class="kc">None</span>
+
         <span class="k">return</span> <span class="n">SpikeData</span><span class="p">(</span>
             <span class="n">train</span><span class="p">,</span>
             <span class="n">length</span><span class="o">=</span><span class="n">length</span><span class="p">,</span>
             <span class="n">start_time</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">start_time</span><span class="p">,</span>
             <span class="n">N</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">,</span>
-            <span class="n">neuron_attributes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">,</span>
+            <span class="n">neuron_attributes</span><span class="o">=</span><span class="n">new_neuron_attributes</span><span class="p">,</span>
             <span class="n">raw_time</span><span class="o">=</span><span class="n">raw_time</span><span class="p">,</span>
             <span class="n">raw_data</span><span class="o">=</span><span class="n">raw_data</span><span class="p">,</span>
             <span class="n">metadata</span><span class="o">=</span><span class="p">{</span>
@@ -1951,6 +2018,69 @@
 <span class="sd">            isis (list): List of arrays of interspike intervals per unit.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">ts</span><span class="p">)</span> <span class="k">for</span> <span class="n">ts</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="SpikeData.cv_isi">
+<a class="viewcode-back" href="../../../api/spikedata.html#spikelab.spikedata.SpikeData.cv_isi">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">cv_isi</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Coefficient of variation of inter-spike intervals per unit.</span>
+
+<span class="sd">        Standard CV = ``std(ISI) / mean(ISI)``. A Poisson process has</span>
+<span class="sd">        CV close to 1.0; a regular (clock-like) train approaches 0.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            cv (np.ndarray): Array of shape ``(N,)`` with the CV per unit.</span>
+<span class="sd">                Units with fewer than 2 ISIs (i.e. fewer than 3 spikes) or</span>
+<span class="sd">                a non-positive mean ISI return NaN.</span>
+
+<span class="sd">        Notes:</span>
+<span class="sd">            - Builds on ``interspike_intervals()``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">isis</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">interspike_intervals</span><span class="p">()</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">u</span><span class="p">,</span> <span class="n">isi</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">isis</span><span class="p">):</span>
+            <span class="n">isi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">isi</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">isi</span><span class="o">.</span><span class="n">size</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">mean</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">isi</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">mean</span> <span class="o">&lt;=</span> <span class="mf">0.0</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">mean</span><span class="p">):</span>
+                <span class="k">continue</span>
+            <span class="n">out</span><span class="p">[</span><span class="n">u</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">isi</span><span class="p">))</span> <span class="o">/</span> <span class="n">mean</span>
+        <span class="k">return</span> <span class="n">out</span></div>
+
+
+<div class="viewcode-block" id="SpikeData.cv2_isi">
+<a class="viewcode-back" href="../../../api/spikedata.html#spikelab.spikedata.SpikeData.cv2_isi">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">cv2_isi</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;CV2 of inter-spike intervals per unit (Holt et al., 1996).</span>
+
+<span class="sd">        For each adjacent ISI pair ``(I_k, I_{k+1})``, computes</span>
+<span class="sd">        ``2 * |I_{k+1} - I_k| / (I_{k+1} + I_k)``. The per-unit CV2 is</span>
+<span class="sd">        the mean of these values. CV2 is robust to slow firing-rate</span>
+<span class="sd">        drift because it only compares consecutive intervals.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            cv2 (np.ndarray): Array of shape ``(N,)`` with the mean CV2</span>
+<span class="sd">                per unit. Units with fewer than 3 spikes (i.e. fewer</span>
+<span class="sd">                than 2 ISIs) return NaN.</span>
+
+<span class="sd">        Notes:</span>
+<span class="sd">            - Builds on ``interspike_intervals()``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">isis</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">interspike_intervals</span><span class="p">()</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">u</span><span class="p">,</span> <span class="n">isi</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">isis</span><span class="p">):</span>
+            <span class="n">isi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">isi</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">isi</span><span class="o">.</span><span class="n">size</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">num</span> <span class="o">=</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">isi</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">-</span> <span class="n">isi</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">den</span> <span class="o">=</span> <span class="n">isi</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">+</span> <span class="n">isi</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">invalid</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">):</span>
+                <span class="n">ratio</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">den</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">num</span> <span class="o">/</span> <span class="n">den</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">ratio</span><span class="p">)):</span>
+                <span class="k">continue</span>
+            <span class="n">out</span><span class="p">[</span><span class="n">u</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">ratio</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">out</span></div>
 
 
 <div class="viewcode-block" id="SpikeData.concatenate_spike_data">

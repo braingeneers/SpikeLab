@@ -209,17 +209,6 @@
 <li class="toctree-l3"><a class="reference internal" href="../guides/workspace.html#merging-workspaces">Merging Workspaces</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../guides/mcp_server.html">MCP Server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../guides/mcp_server.html#starting-the-server">Starting the server</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/mcp_server.html#tool-categories">Tool categories</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../guides/mcp_server.html#data-loading-tools">Data loading tools</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../guides/mcp_server.html#analysis-tools">Analysis tools</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../guides/mcp_server.html#export-tools">Export tools</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/mcp_server.html#workspace-addressing">Workspace addressing</a></li>
-</ul>
-</li>
 <li class="toctree-l2"><a class="reference internal" href="../guides/parallel_computing.html">Parallel Computing</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../guides/parallel_computing.html#thread-pool-parallelism">Thread-Pool Parallelism</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/parallel_computing.html#numba-acceleration">Numba Acceleration</a></li>
@@ -305,6 +294,7 @@
 <li class="toctree-l4"><a class="reference internal" href="#spikelab.spikedata.stat_utils.linear_regression"><code class="docutils literal notranslate"><span class="pre">linear_regression()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#spikelab.spikedata.stat_utils.pairwise_tests"><code class="docutils literal notranslate"><span class="pre">pairwise_tests()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#spikelab.spikedata.stat_utils.paired_test"><code class="docutils literal notranslate"><span class="pre">paired_test()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#spikelab.spikedata.stat_utils.mixed_effects_compare"><code class="docutils literal notranslate"><span class="pre">mixed_effects_compare()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#spikelab.spikedata.stat_utils.omnibus_test"><code class="docutils literal notranslate"><span class="pre">omnibus_test()</span></code></a></li>
 </ul>
 </li>
@@ -322,6 +312,8 @@
 <li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_recording"><code class="docutils literal notranslate"><span class="pre">plot_recording()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_spatial_network"><code class="docutils literal notranslate"><span class="pre">plot_spatial_network()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_unit_footprints"><code class="docutils literal notranslate"><span class="pre">plot_unit_footprints()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_prediction_probability_heatmap"><code class="docutils literal notranslate"><span class="pre">plot_prediction_probability_heatmap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_responsive_unit_map"><code class="docutils literal notranslate"><span class="pre">plot_responsive_unit_map()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -405,13 +397,6 @@
 <li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#module-spikelab.batch_jobs.artifact_packager">Artifact Packager</a></li>
 <li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#module-spikelab.batch_jobs.credentials">Credentials</a></li>
 <li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#module-spikelab.batch_jobs.validation">Validation</a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="index.html#server">Server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="mcp_server.html">MCP Server</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -575,6 +560,75 @@ pairs used.</p></li>
 <li><p>NaN pairs (where either <em>a</em> or <em>b</em> is NaN) are dropped
 automatically.</p></li>
 <li><p>Requires <code class="docutils literal notranslate"><span class="pre">scipy</span></code> (optional dependency).</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="spikelab.spikedata.stat_utils.mixed_effects_compare">
+<span class="sig-prename descclassname"><span class="pre">spikelab.spikedata.stat_utils.</span></span><span class="sig-name descname"><span class="pre">mixed_effects_compare</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">values</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fixed_effects</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">random_effect</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">formula</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">response_label</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'value'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.05</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/stat_utils.html#mixed_effects_compare"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.stat_utils.mixed_effects_compare" title="Link to this definition"></a></dt>
+<dd><p>Fit a linear mixed-effects model with one random intercept.</p>
+<p>Wraps <code class="docutils literal notranslate"><span class="pre">statsmodels.regression.mixed_linear_model.MixedLM</span></code>. Typical use:
+compare a per-observation metric across treatments while accounting for
+repeated measurements within a recording, unit, or subject.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>values</strong> (<em>array-like</em>) – 1-D response variable, one entry per
+observation.</p></li>
+<li><p><strong>fixed_effects</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><em>array-like</em><em>]</em>) – Mapping of fixed-effect
+names to per-observation arrays. All arrays must have the same
+length as <em>values</em>. Categorical effects can be passed as
+string/object arrays — statsmodels will dummy-code them via the
+Patsy formula.</p></li>
+<li><p><strong>random_effect</strong> (<em>array-like</em>) – Categorical group labels (one per
+observation) used as the random intercept group.</p></li>
+<li><p><strong>formula</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><em>None</em>) – Patsy formula for the fixed-effects part.
+When None (default), an additive formula
+<code class="docutils literal notranslate"><span class="pre">&quot;&lt;response_label&gt;</span> <span class="pre">~</span> <span class="pre">k1</span> <span class="pre">+</span> <span class="pre">k2</span> <span class="pre">+</span> <span class="pre">...&quot;</span></code> is built from the
+keys of <em>fixed_effects</em>. Provide an explicit formula for
+interactions (e.g. <code class="docutils literal notranslate"><span class="pre">&quot;value</span> <span class="pre">~</span> <span class="pre">treatment</span> <span class="pre">*</span> <span class="pre">latency&quot;</span></code>).</p></li>
+<li><p><strong>response_label</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Name used for the response column in the
+constructed DataFrame and in the auto-built formula
+(default <code class="docutils literal notranslate"><span class="pre">&quot;value&quot;</span></code>).</p></li>
+<li><p><strong>alpha</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Significance threshold applied to coefficient
+p-values when building the <code class="docutils literal notranslate"><span class="pre">significant</span></code> flags. Default 0.05.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Dictionary with keys:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">params</span></code> (dict[str, float]): Estimated coefficients keyed
+by Patsy term name.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">pvalues</span></code> (dict[str, float]): Two-sided p-values per term.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">conf_int</span></code> (dict[str, tuple[float, float]]): Confidence
+intervals per term (using <em>alpha</em>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">significant</span></code> (dict[str, bool]): True where the term’s
+p-value is below <em>alpha</em>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">random_effect_variance</span></code> (float): Estimated variance of
+the random intercept.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">n_obs</span></code> (int): Number of observations used.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">n_groups</span></code> (int): Number of random-effect levels.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">converged</span></code> (bool): Whether the optimizer converged.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">summary</span></code> (str): Full statsmodels summary text.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">model</span></code>: The fitted <code class="docutils literal notranslate"><span class="pre">MixedLMResults</span></code> object.</p></li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>result (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>)</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>Requires both <code class="docutils literal notranslate"><span class="pre">pandas</span></code> and <code class="docutils literal notranslate"><span class="pre">statsmodels</span></code> (optional
+dependencies). Raises <code class="docutils literal notranslate"><span class="pre">ImportError</span></code> with installation
+instructions when either is missing.</p></li>
+<li><p>NaN observations (in <em>values</em>, any fixed effect, or the random
+effect column) are dropped before fitting.</p></li>
+<li><p>Tries the lbfgs, powell, and bfgs optimizers in turn; near-
+singular designs commonly break lbfgs’ gradient path.</p></li>
 </ul>
 </dd></dl>
 

@@ -209,17 +209,6 @@
 <li class="toctree-l3"><a class="reference internal" href="../guides/workspace.html#merging-workspaces">Merging Workspaces</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../guides/mcp_server.html">MCP Server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../guides/mcp_server.html#starting-the-server">Starting the server</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/mcp_server.html#tool-categories">Tool categories</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../guides/mcp_server.html#data-loading-tools">Data loading tools</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../guides/mcp_server.html#analysis-tools">Analysis tools</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../guides/mcp_server.html#export-tools">Export tools</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/mcp_server.html#workspace-addressing">Workspace addressing</a></li>
-</ul>
-</li>
 <li class="toctree-l2"><a class="reference internal" href="../guides/parallel_computing.html">Parallel Computing</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../guides/parallel_computing.html#thread-pool-parallelism">Thread-Pool Parallelism</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/parallel_computing.html#numba-acceleration">Numba Acceleration</a></li>
@@ -305,6 +294,7 @@
 <li class="toctree-l4"><a class="reference internal" href="stat_utils.html#spikelab.spikedata.stat_utils.linear_regression"><code class="docutils literal notranslate"><span class="pre">linear_regression()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="stat_utils.html#spikelab.spikedata.stat_utils.pairwise_tests"><code class="docutils literal notranslate"><span class="pre">pairwise_tests()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="stat_utils.html#spikelab.spikedata.stat_utils.paired_test"><code class="docutils literal notranslate"><span class="pre">paired_test()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="stat_utils.html#spikelab.spikedata.stat_utils.mixed_effects_compare"><code class="docutils literal notranslate"><span class="pre">mixed_effects_compare()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="stat_utils.html#spikelab.spikedata.stat_utils.omnibus_test"><code class="docutils literal notranslate"><span class="pre">omnibus_test()</span></code></a></li>
 </ul>
 </li>
@@ -322,6 +312,8 @@
 <li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_recording"><code class="docutils literal notranslate"><span class="pre">plot_recording()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_spatial_network"><code class="docutils literal notranslate"><span class="pre">plot_spatial_network()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_unit_footprints"><code class="docutils literal notranslate"><span class="pre">plot_unit_footprints()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_prediction_probability_heatmap"><code class="docutils literal notranslate"><span class="pre">plot_prediction_probability_heatmap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_responsive_unit_map"><code class="docutils literal notranslate"><span class="pre">plot_responsive_unit_map()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -405,13 +397,6 @@
 <li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#module-spikelab.batch_jobs.artifact_packager">Artifact Packager</a></li>
 <li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#module-spikelab.batch_jobs.credentials">Credentials</a></li>
 <li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#module-spikelab.batch_jobs.validation">Validation</a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="index.html#server">Server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="mcp_server.html">MCP Server</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -1081,7 +1066,7 @@ list/array matching neuron_indices length for each neuron.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="spikelab.spikedata.SpikeData.subset">
-<span class="sig-name descname"><span class="pre">subset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">units</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">by</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikedata.html#SpikeData.subset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.SpikeData.subset" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">subset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">units</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">by</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">preserve_order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikedata.html#SpikeData.subset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.SpikeData.subset" title="Link to this definition"></a></dt>
 <dd><p>Return a new SpikeData with only the selected units.</p>
 <p>Units are selected either by their indices or by an ID stored under
 a given key in the neuron_attributes.</p>
@@ -1091,6 +1076,14 @@ a given key in the neuron_attributes.</p>
 <li><p><strong>units</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – List of unit indices to select.</p></li>
 <li><p><strong>by</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Key to select units by in the neuron_attributes.
 Index-based if None.</p></li>
+<li><p><strong>preserve_order</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – When False (default), output is
+sorted ascending by index — the documented historical
+behavior, consistent across SpikeData / RateData /
+RateSliceStack / SpikeSliceStack. When True, output
+respects the order of the input <code class="docutils literal notranslate"><span class="pre">units</span></code> list, useful
+for paired plotting or ordered concatenation
+downstream. Duplicates in the input are deduplicated
+either way.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -1102,9 +1095,6 @@ Index-based if None.</p></li>
 </dl>
 <p class="rubric">Notes</p>
 <ul class="simple">
-<li><p>Units are included in the output according to their order in
-self.train, not the order in the unit list (which is treated
-as a set).</p></li>
 <li><p>raw_data and raw_time are not propagated to the subset – they
 remain on the original SpikeData object.</p></li>
 <li><p>If IDs are not unique, every neuron which matches is included
@@ -1193,7 +1183,7 @@ end of the data is not truncated.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="spikelab.spikedata.SpikeData.append">
-<span class="sig-name descname"><span class="pre">append</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spikeData</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">offset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikedata.html#SpikeData.append"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.SpikeData.append" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">append</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spikeData</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">offset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drop_neuron_attributes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikedata.html#SpikeData.append"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.SpikeData.append" title="Link to this definition"></a></dt>
 <dd><p>Append spike times from another SpikeData object to this one.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -1201,6 +1191,12 @@ end of the data is not truncated.</p></li>
 <li><p><strong>spikeData</strong> (<a class="reference internal" href="#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData"><em>SpikeData</em></a>) – SpikeData object to append.</p></li>
 <li><p><strong>offset</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Offset in milliseconds to add to the spike times
 of the appended data.</p></li>
+<li><p><strong>drop_neuron_attributes</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – When True, the result has
+<code class="docutils literal notranslate"><span class="pre">neuron_attributes=None</span></code> regardless of either operand.
+Use this when the two operands describe units with
+incompatible attribute schemas and you don’t want
+either side’s attributes in the result. Defaults to
+False — see the salvage logic in the Notes below.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -1214,6 +1210,13 @@ of the appended data.</p></li>
 <ul class="simple">
 <li><p>The two SpikeData objects must have the same number of neurons.</p></li>
 <li><p>On metadata key collision, values from <code class="docutils literal notranslate"><span class="pre">self</span></code> take precedence.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">neuron_attributes</span></code> are salvaged when only one operand
+has them: if <code class="docutils literal notranslate"><span class="pre">self.neuron_attributes</span> <span class="pre">is</span> <span class="pre">None</span></code> and the
+appended SpikeData has them, a <code class="docutils literal notranslate"><span class="pre">RuntimeWarning</span></code> is
+emitted and the appended operand’s attributes are used
+for the result. When both have attributes, <code class="docutils literal notranslate"><span class="pre">self</span></code>’s
+are used (consistent with the metadata-collision rule).
+Pass <code class="docutils literal notranslate"><span class="pre">drop_neuron_attributes=True</span></code> to skip salvage.</p></li>
 </ul>
 </dd></dl>
 
@@ -1380,6 +1383,58 @@ channel_waveforms (optional).</p>
 <dd class="field-even"><p>isis (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)">list</a>)</p>
 </dd>
 </dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.SpikeData.cv_isi">
+<span class="sig-name descname"><span class="pre">cv_isi</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikedata.html#SpikeData.cv_isi"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.SpikeData.cv_isi" title="Link to this definition"></a></dt>
+<dd><p>Coefficient of variation of inter-spike intervals per unit.</p>
+<p>Standard CV = <code class="docutils literal notranslate"><span class="pre">std(ISI)</span> <span class="pre">/</span> <span class="pre">mean(ISI)</span></code>. A Poisson process has
+CV close to 1.0; a regular (clock-like) train approaches 0.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><dl class="simple">
+<dt>Array of shape <code class="docutils literal notranslate"><span class="pre">(N,)</span></code> with the CV per unit.</dt><dd><p>Units with fewer than 2 ISIs (i.e. fewer than 3 spikes) or
+a non-positive mean ISI return NaN.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>cv (np.ndarray)</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>Builds on <code class="docutils literal notranslate"><span class="pre">interspike_intervals()</span></code>.</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.SpikeData.cv2_isi">
+<span class="sig-name descname"><span class="pre">cv2_isi</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikedata.html#SpikeData.cv2_isi"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.SpikeData.cv2_isi" title="Link to this definition"></a></dt>
+<dd><p>CV2 of inter-spike intervals per unit (Holt et al., 1996).</p>
+<p>For each adjacent ISI pair <code class="docutils literal notranslate"><span class="pre">(I_k,</span> <span class="pre">I_{k+1})</span></code>, computes
+<code class="docutils literal notranslate"><span class="pre">2</span> <span class="pre">*</span> <span class="pre">|I_{k+1}</span> <span class="pre">-</span> <span class="pre">I_k|</span> <span class="pre">/</span> <span class="pre">(I_{k+1}</span> <span class="pre">+</span> <span class="pre">I_k)</span></code>. The per-unit CV2 is
+the mean of these values. CV2 is robust to slow firing-rate
+drift because it only compares consecutive intervals.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><dl class="simple">
+<dt>Array of shape <code class="docutils literal notranslate"><span class="pre">(N,)</span></code> with the mean CV2</dt><dd><p>per unit. Units with fewer than 3 spikes (i.e. fewer
+than 2 ISIs) return NaN.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>cv2 (np.ndarray)</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>Builds on <code class="docutils literal notranslate"><span class="pre">interspike_intervals()</span></code>.</p></li>
+</ul>
 </dd></dl>
 
 <dl class="py method">

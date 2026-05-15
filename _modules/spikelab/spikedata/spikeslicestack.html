@@ -206,17 +206,6 @@
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/workspace.html#merging-workspaces">Merging Workspaces</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../../../guides/mcp_server.html">MCP Server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../guides/mcp_server.html#starting-the-server">Starting the server</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../guides/mcp_server.html#tool-categories">Tool categories</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../guides/mcp_server.html#data-loading-tools">Data loading tools</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../guides/mcp_server.html#analysis-tools">Analysis tools</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../guides/mcp_server.html#export-tools">Export tools</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../../../guides/mcp_server.html#workspace-addressing">Workspace addressing</a></li>
-</ul>
-</li>
 <li class="toctree-l2"><a class="reference internal" href="../../../guides/parallel_computing.html">Parallel Computing</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/parallel_computing.html#thread-pool-parallelism">Thread-Pool Parallelism</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/parallel_computing.html#numba-acceleration">Numba Acceleration</a></li>
@@ -302,6 +291,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.linear_regression"><code class="docutils literal notranslate"><span class="pre">linear_regression()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.pairwise_tests"><code class="docutils literal notranslate"><span class="pre">pairwise_tests()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.paired_test"><code class="docutils literal notranslate"><span class="pre">paired_test()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.mixed_effects_compare"><code class="docutils literal notranslate"><span class="pre">mixed_effects_compare()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.omnibus_test"><code class="docutils literal notranslate"><span class="pre">omnibus_test()</span></code></a></li>
 </ul>
 </li>
@@ -319,6 +309,8 @@
 <li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_recording"><code class="docutils literal notranslate"><span class="pre">plot_recording()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_spatial_network"><code class="docutils literal notranslate"><span class="pre">plot_spatial_network()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_unit_footprints"><code class="docutils literal notranslate"><span class="pre">plot_unit_footprints()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_prediction_probability_heatmap"><code class="docutils literal notranslate"><span class="pre">plot_prediction_probability_heatmap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_responsive_unit_map"><code class="docutils literal notranslate"><span class="pre">plot_responsive_unit_map()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -406,13 +398,6 @@
 </li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#server">Server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../api/mcp_server.html">MCP Server</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
-</ul>
-</li>
-</ul>
-</li>
 </ul>
 </li>
 </ul>
@@ -458,6 +443,7 @@
     <span class="n">get_sttc</span><span class="p">,</span>
     <span class="n">compute_cross_correlation_with_lag</span><span class="p">,</span>
     <span class="n">_resolve_n_jobs</span><span class="p">,</span>
+    <span class="n">_slice_to_slice_similarity_matrix</span><span class="p">,</span>
 <span class="p">)</span>
 
 
@@ -713,7 +699,7 @@
 
 <div class="viewcode-block" id="SpikeSliceStack.subset">
 <a class="viewcode-back" href="../../../api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack.subset">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">subset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">units</span><span class="p">,</span> <span class="n">by</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">subset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">units</span><span class="p">,</span> <span class="n">by</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">preserve_order</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Extract a subset of units from every slice in the spike stack.</span>
 
 <span class="sd">        Parameters:</span>
@@ -722,6 +708,11 @@
 <span class="sd">                neuron_attributes.</span>
 <span class="sd">            by (str or None): If set, select units by this neuron_attribute</span>
 <span class="sd">                key instead of by index.</span>
+<span class="sd">            preserve_order (bool): When False (default), output is</span>
+<span class="sd">                sorted ascending by index — consistent with the other</span>
+<span class="sd">                SpikeLab data classes. When True, output respects the</span>
+<span class="sd">                order of the input ``units`` list. Duplicates are</span>
+<span class="sd">                deduplicated either way.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            result (SpikeSliceStack): New SpikeSliceStack containing only the</span>
@@ -729,8 +720,6 @@
 <span class="sd">                neuron_attributes are carried over.</span>
 
 <span class="sd">        Notes:</span>
-<span class="sd">            - Units are included in the output in the order they appear in the</span>
-<span class="sd">              train (ascending index order), not the order listed in units.</span>
 <span class="sd">            - If IDs are not unique (when using by), every matching neuron is</span>
 <span class="sd">              included.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -739,6 +728,10 @@
 
         <span class="c1"># Resolve which indices will be kept so we can update neuron_attributes</span>
         <span class="k">if</span> <span class="n">by</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># ``by`` resolves to whichever units carry the matching</span>
+            <span class="c1"># attribute, in self.train order — caller-supplied order</span>
+            <span class="c1"># cannot be honoured because the value list has no</span>
+            <span class="c1"># positional correspondence to unit indices.</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;can&#39;t use `by` without `neuron_attributes`&quot;</span><span class="p">)</span>
             <span class="n">_missing</span> <span class="o">=</span> <span class="nb">object</span><span class="p">()</span>
@@ -748,14 +741,29 @@
                 <span class="k">if</span> <span class="n">_get_attr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">by</span><span class="p">,</span> <span class="n">_missing</span><span class="p">)</span> <span class="ow">in</span> <span class="n">unit_set</span><span class="p">:</span>
                     <span class="n">kept_indices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">kept_indices</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">u</span><span class="p">)</span> <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">units</span><span class="p">))</span>
-            <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">kept_indices</span><span class="p">:</span>
-                <span class="k">if</span> <span class="n">u</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">u</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unit index </span><span class="si">{</span><span class="n">u</span><span class="si">}</span><span class="s2"> out of range for </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="si">}</span><span class="s2"> units.&quot;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">units</span><span class="p">:</span>
+                <span class="n">ui</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">ui</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">ui</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Unit index </span><span class="si">{</span><span class="n">ui</span><span class="si">}</span><span class="s2"> out of range for </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="si">}</span><span class="s2"> units.&quot;</span>
+                    <span class="p">)</span>
+            <span class="k">if</span> <span class="n">preserve_order</span><span class="p">:</span>
+                <span class="n">seen</span><span class="p">:</span> <span class="nb">set</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+                <span class="n">ordered</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">units</span><span class="p">:</span>
+                    <span class="n">ui</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">ui</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">seen</span><span class="p">:</span>
+                        <span class="n">seen</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">ui</span><span class="p">)</span>
+                        <span class="n">ordered</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ui</span><span class="p">)</span>
+                <span class="n">kept_indices</span> <span class="o">=</span> <span class="n">ordered</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">kept_indices</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">({</span><span class="nb">int</span><span class="p">(</span><span class="n">u</span><span class="p">)</span> <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">units</span><span class="p">})</span>
 
         <span class="n">new_spike_stack</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">sd</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">spike_stack</span><span class="p">:</span>
-            <span class="n">new_spike_stack</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">subset</span><span class="p">(</span><span class="n">kept_indices</span><span class="p">))</span>
+            <span class="c1"># Forward preserve_order so per-slice subsets agree with</span>
+            <span class="c1"># the SpikeSliceStack-level ordering decision.</span>
+            <span class="n">new_spike_stack</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">subset</span><span class="p">(</span><span class="n">kept_indices</span><span class="p">,</span> <span class="n">preserve_order</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
 
         <span class="n">new_neuron_attributes</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -905,6 +913,681 @@
         <span class="k">return</span> <span class="n">raster_stack</span></div>
 
 
+<div class="viewcode-block" id="SpikeSliceStack.baseline_normalized_raster">
+<a class="viewcode-back" href="../../../api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack.baseline_normalized_raster">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">baseline_normalized_raster</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">bin_size</span><span class="p">,</span> <span class="n">baseline_window_ms</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;subtract&quot;</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Per-slice raster normalized against a per-slice baseline rate.</span>
+
+<span class="sd">        Wraps ``to_raster_array(bin_size)`` and converts each bin into a</span>
+<span class="sd">        baseline-normalized response value. The baseline rate is computed</span>
+<span class="sd">        from spikes inside ``baseline_window_ms`` (in milliseconds relative</span>
+<span class="sd">        to each slice&#39;s time origin) and projected to each bin via</span>
+<span class="sd">        ``rate * bin_size``. Output shape matches the raster: ``(U, T, S)``.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            bin_size (float): Raster bin size in milliseconds. Passed to</span>
+<span class="sd">                ``to_raster_array``.</span>
+<span class="sd">            baseline_window_ms (tuple[float, float]): ``(start_ms, end_ms)``</span>
+<span class="sd">                window relative to slice origin used to estimate the</span>
+<span class="sd">                per-slice baseline rate.</span>
+<span class="sd">            mode (str): Normalization mode:</span>
+<span class="sd">                - ``&quot;subtract&quot;`` (default) — counts above baseline expectation.</span>
+<span class="sd">                - ``&quot;ratio&quot;`` — counts / expected_counts (NaN where expected</span>
+<span class="sd">                  is 0).</span>
+<span class="sd">                - ``&quot;zscore&quot;`` — (counts - expected) / sqrt(expected), the</span>
+<span class="sd">                  Poisson z-score (NaN where expected is 0).</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            normalized (np.ndarray): Float array of shape ``(U, T, S)``.</span>
+
+<span class="sd">        Notes:</span>
+<span class="sd">            - Baseline window is validated against each slice&#39;s actual time</span>
+<span class="sd">              range. ``ValueError`` if any slice doesn&#39;t contain it.</span>
+<span class="sd">            - For uniform-bin response counts (no normalization), use</span>
+<span class="sd">              ``to_raster_array(bin_size)`` directly; this method adds the</span>
+<span class="sd">              per-slice baseline correction on top.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">mode</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;subtract&quot;</span><span class="p">,</span> <span class="s2">&quot;ratio&quot;</span><span class="p">,</span> <span class="s2">&quot;zscore&quot;</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;mode must be &#39;subtract&#39;, &#39;ratio&#39;, or &#39;zscore&#39;, got </span><span class="si">{</span><span class="n">mode</span><span class="si">!r}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">baseline_window_ms</span><span class="p">,</span> <span class="p">(</span><span class="nb">tuple</span><span class="p">,</span> <span class="nb">list</span><span class="p">))</span>
+            <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">baseline_window_ms</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;baseline_window_ms must be a (start_ms, end_ms) tuple.&quot;</span><span class="p">)</span>
+        <span class="n">b_start</span><span class="p">,</span> <span class="n">b_end</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">baseline_window_ms</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">float</span><span class="p">(</span><span class="n">baseline_window_ms</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">b_end</span> <span class="o">&lt;=</span> <span class="n">b_start</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;baseline_window_ms end must be greater than start.&quot;</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">s_idx</span><span class="p">,</span> <span class="n">sd</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spike_stack</span><span class="p">):</span>
+            <span class="n">slice_start</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">start_time</span>
+            <span class="n">slice_end</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">start_time</span> <span class="o">+</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">times</span><span class="p">[</span><span class="n">s_idx</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">times</span><span class="p">[</span><span class="n">s_idx</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
+            <span class="k">if</span> <span class="n">b_start</span> <span class="o">&lt;</span> <span class="n">slice_start</span> <span class="o">-</span> <span class="mf">1e-9</span> <span class="ow">or</span> <span class="n">b_end</span> <span class="o">&gt;</span> <span class="n">slice_end</span> <span class="o">+</span> <span class="mf">1e-9</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;baseline_window_ms (</span><span class="si">{</span><span class="n">b_start</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">b_end</span><span class="si">}</span><span class="s2">) falls outside &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;slice </span><span class="si">{</span><span class="n">s_idx</span><span class="si">}</span><span class="s2"> time range [</span><span class="si">{</span><span class="n">slice_start</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">slice_end</span><span class="si">}</span><span class="s2">].&quot;</span>
+                <span class="p">)</span>
+
+        <span class="n">counts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_raster_array</span><span class="p">(</span><span class="n">bin_size</span><span class="o">=</span><span class="n">bin_size</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>  <span class="c1"># (U, T, S)</span>
+
+        <span class="n">baseline_width</span> <span class="o">=</span> <span class="n">b_end</span> <span class="o">-</span> <span class="n">b_start</span>
+        <span class="n">baseline_counts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spike_stack</span><span class="p">)),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">s_idx</span><span class="p">,</span> <span class="n">sd</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spike_stack</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">):</span>
+                <span class="n">train</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">train</span><span class="p">[</span><span class="n">u</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">train</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="n">baseline_counts</span><span class="p">[</span><span class="n">u</span><span class="p">,</span> <span class="n">s_idx</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">train</span> <span class="o">&gt;=</span> <span class="n">b_start</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">train</span> <span class="o">&lt;</span> <span class="n">b_end</span><span class="p">))</span>
+                <span class="p">)</span>
+
+        <span class="c1"># Per-slice expected counts per bin = rate * bin_size</span>
+        <span class="n">expected_per_bin</span> <span class="o">=</span> <span class="n">baseline_counts</span> <span class="o">*</span> <span class="p">(</span><span class="n">bin_size</span> <span class="o">/</span> <span class="n">baseline_width</span><span class="p">)</span>  <span class="c1"># (U, S)</span>
+        <span class="n">expected</span> <span class="o">=</span> <span class="n">expected_per_bin</span><span class="p">[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">,</span> <span class="p">:]</span>  <span class="c1"># broadcasts over T</span>
+
+        <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;subtract&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">counts</span> <span class="o">-</span> <span class="n">expected</span>
+        <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;ratio&quot;</span><span class="p">:</span>
+            <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">invalid</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">expected</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">counts</span> <span class="o">/</span> <span class="n">expected</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">invalid</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+                <span class="n">expected</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="p">(</span><span class="n">counts</span> <span class="o">-</span> <span class="n">expected</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">expected</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+            <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpikeSliceStack.responsive_units">
+<a class="viewcode-back" href="../../../api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack.responsive_units">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">responsive_units</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">bin_size</span><span class="p">,</span>
+        <span class="n">baseline_window_ms</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">response_window_ms</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">z_threshold</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span>
+        <span class="n">aggregator</span><span class="o">=</span><span class="s2">&quot;mean&quot;</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Identify units that show a significant evoked response.</span>
+
+<span class="sd">        Builds the Poisson-z-scored baseline-normalized raster, optionally</span>
+<span class="sd">        restricts to a response time window, aggregates across slices</span>
+<span class="sd">        (mean or max), and returns a unit mask where any time bin&#39;s</span>
+<span class="sd">        aggregated z-score exceeds ``z_threshold``.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            bin_size (float): Raster bin size in milliseconds.</span>
+<span class="sd">            baseline_window_ms (tuple[float, float]): Baseline window</span>
+<span class="sd">                ``(start_ms, end_ms)`` relative to slice origin used to</span>
+<span class="sd">                estimate the per-slice baseline rate.</span>
+<span class="sd">            response_window_ms (tuple[float, float] or None): Optional</span>
+<span class="sd">                response window ``(start_ms, end_ms)`` relative to slice</span>
+<span class="sd">                origin. When None (default), the full slice is searched.</span>
+<span class="sd">            z_threshold (float): Z-score threshold (default 2.0).</span>
+<span class="sd">            aggregator (str): How to combine z-scores across slices before</span>
+<span class="sd">                thresholding. ``&quot;mean&quot;`` (default) or ``&quot;max&quot;``.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            mask (np.ndarray): Boolean array of shape ``(U,)``. True for</span>
+<span class="sd">                responsive units.</span>
+
+<span class="sd">        Notes:</span>
+<span class="sd">            - Units with no baseline spikes in any slice are flagged</span>
+<span class="sd">              non-responsive (z-scores are NaN there).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">aggregator</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;mean&quot;</span><span class="p">,</span> <span class="s2">&quot;max&quot;</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;aggregator must be &#39;mean&#39; or &#39;max&#39;, got </span><span class="si">{</span><span class="n">aggregator</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">z</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">baseline_normalized_raster</span><span class="p">(</span>
+            <span class="n">bin_size</span><span class="p">,</span> <span class="n">baseline_window_ms</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;zscore&quot;</span>
+        <span class="p">)</span>  <span class="c1"># (U, T, S)</span>
+
+        <span class="k">if</span> <span class="n">response_window_ms</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">response_window_ms</span><span class="p">,</span> <span class="p">(</span><span class="nb">tuple</span><span class="p">,</span> <span class="nb">list</span><span class="p">))</span>
+                <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">response_window_ms</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span>
+            <span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;response_window_ms must be a (start_ms, end_ms) tuple or None.&quot;</span>
+                <span class="p">)</span>
+            <span class="n">r_start</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">response_window_ms</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">r_end</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">response_window_ms</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="k">if</span> <span class="n">r_end</span> <span class="o">&lt;=</span> <span class="n">r_start</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;response_window_ms end must be greater than start.&quot;</span><span class="p">)</span>
+            <span class="n">sd0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">spike_stack</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">bin_start</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">((</span><span class="n">r_start</span> <span class="o">-</span> <span class="n">sd0</span><span class="o">.</span><span class="n">start_time</span><span class="p">)</span> <span class="o">/</span> <span class="n">bin_size</span><span class="p">))</span>
+            <span class="n">bin_end</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">((</span><span class="n">r_end</span> <span class="o">-</span> <span class="n">sd0</span><span class="o">.</span><span class="n">start_time</span><span class="p">)</span> <span class="o">/</span> <span class="n">bin_size</span><span class="p">))</span>
+            <span class="n">bin_start</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">bin_start</span><span class="p">)</span>
+            <span class="n">bin_end</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">z</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">bin_end</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">bin_end</span> <span class="o">&lt;=</span> <span class="n">bin_start</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;response_window_ms (</span><span class="si">{</span><span class="n">r_start</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">r_end</span><span class="si">}</span><span class="s2">) maps to an empty &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;bin range; check it against the slice duration and bin_size.&quot;</span>
+                <span class="p">)</span>
+            <span class="n">z</span> <span class="o">=</span> <span class="n">z</span><span class="p">[:,</span> <span class="n">bin_start</span><span class="p">:</span><span class="n">bin_end</span><span class="p">,</span> <span class="p">:]</span>
+
+        <span class="k">if</span> <span class="n">aggregator</span> <span class="o">==</span> <span class="s2">&quot;mean&quot;</span><span class="p">:</span>
+            <span class="n">agg</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">agg</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmax</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">invalid</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">agg</span> <span class="o">&gt;</span> <span class="n">z_threshold</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpikeSliceStack.decode_slice_labels">
+<a class="viewcode-back" href="../../../api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack.decode_slice_labels">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">decode_slice_labels</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">labels</span><span class="p">,</span>
+        <span class="n">response_window_ms</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">bin_size</span><span class="p">,</span>
+        <span class="n">baseline_window_ms</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">classifier</span><span class="o">=</span><span class="s2">&quot;ridge&quot;</span><span class="p">,</span>
+        <span class="n">cv</span><span class="o">=</span><span class="s2">&quot;loo&quot;</span><span class="p">,</span>
+        <span class="n">classifier_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">random_state</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Decode per-slice labels (e.g. stim identity) from population responses.</span>
+
+<span class="sd">        Builds an ``(S, U)`` feature matrix by summing per-unit spike counts</span>
+<span class="sd">        in ``response_window_ms`` (optionally with baseline subtraction) and</span>
+<span class="sd">        runs cross-validated classifier decoding via</span>
+<span class="sd">        :func:`spikelab.spikedata.decoding.cross_validated_decode`.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            labels (array-like): Per-slice labels of length ``S``</span>
+<span class="sd">                (e.g. stim electrode index, treatment category).</span>
+<span class="sd">            response_window_ms (tuple[float, float]): Window relative to</span>
+<span class="sd">                slice origin over which response counts are summed.</span>
+<span class="sd">            bin_size (float): Raster bin size in ms.</span>
+<span class="sd">            baseline_window_ms (tuple[float, float] or None): Optional</span>
+<span class="sd">                per-slice baseline window; when provided, counts are</span>
+<span class="sd">                baseline-subtracted via ``baseline_normalized_raster``.</span>
+<span class="sd">            classifier (str): ``&quot;ridge&quot;`` (default), ``&quot;mlp&quot;``, or</span>
+<span class="sd">                ``&quot;random_forest&quot;``.</span>
+<span class="sd">            cv (str or int): ``&quot;loo&quot;`` (default) or int ``&gt;= 2``.</span>
+<span class="sd">            classifier_kwargs (dict or None): Forwarded to the sklearn</span>
+<span class="sd">                classifier constructor.</span>
+<span class="sd">            random_state (int or None): Reproducibility seed.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            result (dict): Same shape as</span>
+<span class="sd">                :func:`spikelab.spikedata.decoding.cross_validated_decode` —</span>
+<span class="sd">                ``accuracy``, ``predictions``, ``true_labels``,</span>
+<span class="sd">                ``confusion_matrix``, ``per_fold_accuracy``, ``classes``,</span>
+<span class="sd">                ``classifier_name``.</span>
+
+<span class="sd">        Notes:</span>
+<span class="sd">            - Requires ``scikit-learn`` (optional dependency).</span>
+<span class="sd">            - For decoding from the full ``(U, T)`` raster (not just summed</span>
+<span class="sd">              counts), call ``decoding.cross_validated_decode`` directly on</span>
+<span class="sd">              ``self.to_raster_array(bin_size).reshape(U * T, S).T``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">.decoding</span><span class="w"> </span><span class="kn">import</span> <span class="n">cross_validated_decode</span>
+
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">response_window_ms</span><span class="p">,</span> <span class="p">(</span><span class="nb">tuple</span><span class="p">,</span> <span class="nb">list</span><span class="p">))</span>
+            <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">response_window_ms</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;response_window_ms must be a (start_ms, end_ms) tuple.&quot;</span><span class="p">)</span>
+        <span class="n">r_start</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">response_window_ms</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">r_end</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">response_window_ms</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">r_end</span> <span class="o">&lt;=</span> <span class="n">r_start</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;response_window_ms end must be greater than start.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">baseline_window_ms</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">counts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_raster_array</span><span class="p">(</span><span class="n">bin_size</span><span class="o">=</span><span class="n">bin_size</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">counts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">baseline_normalized_raster</span><span class="p">(</span>
+                <span class="n">bin_size</span><span class="p">,</span> <span class="n">baseline_window_ms</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;subtract&quot;</span>
+            <span class="p">)</span>
+
+        <span class="n">sd0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">spike_stack</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">bin_start</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">((</span><span class="n">r_start</span> <span class="o">-</span> <span class="n">sd0</span><span class="o">.</span><span class="n">start_time</span><span class="p">)</span> <span class="o">/</span> <span class="n">bin_size</span><span class="p">))</span>
+        <span class="n">bin_end</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">((</span><span class="n">r_end</span> <span class="o">-</span> <span class="n">sd0</span><span class="o">.</span><span class="n">start_time</span><span class="p">)</span> <span class="o">/</span> <span class="n">bin_size</span><span class="p">))</span>
+        <span class="n">bin_start</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">bin_start</span><span class="p">)</span>
+        <span class="n">bin_end</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">counts</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">bin_end</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">bin_end</span> <span class="o">&lt;=</span> <span class="n">bin_start</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;response_window_ms (</span><span class="si">{</span><span class="n">r_start</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">r_end</span><span class="si">}</span><span class="s2">) maps to an empty &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;bin range; check it against the slice duration and bin_size.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># (U, S) per-unit summed response amplitude per slice -&gt; (S, U) features</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="n">counts</span><span class="p">[:,</span> <span class="n">bin_start</span><span class="p">:</span><span class="n">bin_end</span><span class="p">,</span> <span class="p">:]</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+
+        <span class="n">labels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span> <span class="o">!=</span> <span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;labels must have length S=</span><span class="si">{</span><span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">; got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">cross_validated_decode</span><span class="p">(</span>
+            <span class="n">X</span><span class="p">,</span>
+            <span class="n">labels</span><span class="p">,</span>
+            <span class="n">classifier</span><span class="o">=</span><span class="n">classifier</span><span class="p">,</span>
+            <span class="n">cv</span><span class="o">=</span><span class="n">cv</span><span class="p">,</span>
+            <span class="n">classifier_kwargs</span><span class="o">=</span><span class="n">classifier_kwargs</span><span class="p">,</span>
+            <span class="n">random_state</span><span class="o">=</span><span class="n">random_state</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpikeSliceStack.group_pair_similarity">
+<a class="viewcode-back" href="../../../api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack.group_pair_similarity">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">group_pair_similarity</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">stim_labels</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">metric</span><span class="o">=</span><span class="s2">&quot;cosine&quot;</span><span class="p">,</span>
+        <span class="n">bin_size</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+        <span class="n">slice_indices</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Pairwise similarity between mean response vectors for each stim class.</span>
+
+<span class="sd">        For each unique stimulus label, averages the per-slice</span>
+<span class="sd">        ``(U, T)`` raster across all slices that share that label, then</span>
+<span class="sd">        computes a ``(K, K)`` similarity matrix between the resulting</span>
+<span class="sd">        per-stim mean response vectors. Lets you ask: &quot;how distinguishable</span>
+<span class="sd">        are responses to different stims?&quot;.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            stim_labels (array-like): Per-slice stim label of length ``S``.</span>
+<span class="sd">            metric (str): ``&quot;cosine&quot;`` (default), ``&quot;pearson&quot;``,</span>
+<span class="sd">                ``&quot;euclidean&quot;`` (distance), or ``&quot;cross_entropy&quot;``.</span>
+<span class="sd">            bin_size (float): Raster bin size in ms (default 1.0).</span>
+<span class="sd">            slice_indices (array-like or None): Optional subset of slice</span>
+<span class="sd">                indices to use (e.g. an &quot;early-cycle&quot; or &quot;late-cycle&quot;</span>
+<span class="sd">                window). When None (default), uses all slices.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            sim (PairwiseCompMatrix): ``(K, K)`` similarity matrix with</span>
+<span class="sd">                ``labels`` set to the unique stim classes (sorted).</span>
+
+<span class="sd">        Notes:</span>
+<span class="sd">            - Stim classes that have no slices in ``slice_indices`` are</span>
+<span class="sd">              dropped from the output.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">_slice_to_slice_similarity_matrix</span>
+
+        <span class="n">stim_labels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">stim_labels</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">stim_labels</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;stim_labels must have length S=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="si">}</span><span class="s2">; got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">stim_labels</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">slice_indices</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">slice_indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">slice_indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">slice_indices</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">slice_indices</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">()</span> <span class="ow">or</span> <span class="p">(</span><span class="n">slice_indices</span> <span class="o">&gt;=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">))</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+                <span class="k">raise</span> <span class="ne">IndexError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;slice_indices out of range for S=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+
+        <span class="n">unique_labels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">stim_labels</span><span class="p">[</span><span class="n">slice_indices</span><span class="p">])))</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">unique_labels</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Need at least 2 distinct stim classes in the selected slices.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># (U, T, S_subset)</span>
+        <span class="n">raster</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">subslice</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">slice_indices</span><span class="p">))</span><span class="o">.</span><span class="n">to_raster_array</span><span class="p">(</span><span class="n">bin_size</span><span class="o">=</span><span class="n">bin_size</span><span class="p">)</span>
+        <span class="n">sub_labels</span> <span class="o">=</span> <span class="n">stim_labels</span><span class="p">[</span><span class="n">slice_indices</span><span class="p">]</span>
+
+        <span class="c1"># Per-class mean across slices -&gt; (U, T, K)</span>
+        <span class="n">mean_per_class</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">raster</span><span class="p">[:,</span> <span class="p">:,</span> <span class="n">sub_labels</span> <span class="o">==</span> <span class="bp">cls</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span> <span class="k">for</span> <span class="bp">cls</span> <span class="ow">in</span> <span class="n">unique_labels</span><span class="p">],</span>
+            <span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">sim</span> <span class="o">=</span> <span class="n">_slice_to_slice_similarity_matrix</span><span class="p">(</span><span class="n">mean_per_class</span><span class="p">,</span> <span class="n">metric</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">PairwiseCompMatrix</span><span class="p">(</span>
+            <span class="n">matrix</span><span class="o">=</span><span class="n">sim</span><span class="p">,</span>
+            <span class="n">labels</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">unique_labels</span><span class="p">),</span>
+            <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;metric&quot;</span><span class="p">:</span> <span class="n">metric</span><span class="p">,</span> <span class="s2">&quot;n_classes&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">unique_labels</span><span class="p">)},</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpikeSliceStack.responsive_units_per_group">
+<a class="viewcode-back" href="../../../api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack.responsive_units_per_group">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">responsive_units_per_group</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">group_labels</span><span class="p">,</span>
+        <span class="n">bin_size</span><span class="p">,</span>
+        <span class="n">baseline_window_ms</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">response_window_ms</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">z_threshold</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span>
+        <span class="n">aggregator</span><span class="o">=</span><span class="s2">&quot;mean&quot;</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Per-cycle responsive-unit mask for tracking responsiveness over time.</span>
+
+<span class="sd">        For each unique cycle, runs ``responsive_units`` on the slices</span>
+<span class="sd">        belonging to that cycle and returns a ``(U, n_cycles)`` boolean</span>
+<span class="sd">        matrix. Use the per-cycle masks to compute gained / lost /</span>
+<span class="sd">        preserved responsive units across cycle groups, or to correlate</span>
+<span class="sd">        responsiveness changes with intrinsic activity changes per unit.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            group_labels (array-like): Per-slice cycle index of length ``S``.</span>
+<span class="sd">            bin_size (float): Raster bin size in ms.</span>
+<span class="sd">            baseline_window_ms (tuple[float, float]): Baseline window for</span>
+<span class="sd">                Poisson z-score normalization.</span>
+<span class="sd">            response_window_ms (tuple[float, float] or None): Optional</span>
+<span class="sd">                response window (default: full slice).</span>
+<span class="sd">            z_threshold (float): Per-cycle z-threshold (default 2.0).</span>
+<span class="sd">            aggregator (str): ``&quot;mean&quot;`` (default) or ``&quot;max&quot;`` across</span>
+<span class="sd">                slices within each cycle.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            result (dict):</span>
+<span class="sd">                - ``cycles`` (np.ndarray): Sorted unique cycle indices.</span>
+<span class="sd">                - ``mask`` (np.ndarray): ``(U, n_cycles)`` boolean</span>
+<span class="sd">                  responsiveness mask.</span>
+<span class="sd">                - ``responsive_count`` (np.ndarray): Per-cycle responsive</span>
+<span class="sd">                  unit count, shape ``(n_cycles,)``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">group_labels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">group_labels</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">group_labels</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;group_labels must have length S=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="si">}</span><span class="s2">; got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">group_labels</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="n">groups</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">group_labels</span><span class="p">)))</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">groups</span><span class="p">)),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">groups</span><span class="p">):</span>
+            <span class="n">slice_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">group_labels</span> <span class="o">==</span> <span class="n">c</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">slice_idx</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">sub</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">subslice</span><span class="p">(</span><span class="n">slice_idx</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+            <span class="n">mask</span><span class="p">[:,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">sub</span><span class="o">.</span><span class="n">responsive_units</span><span class="p">(</span>
+                <span class="n">bin_size</span><span class="o">=</span><span class="n">bin_size</span><span class="p">,</span>
+                <span class="n">baseline_window_ms</span><span class="o">=</span><span class="n">baseline_window_ms</span><span class="p">,</span>
+                <span class="n">response_window_ms</span><span class="o">=</span><span class="n">response_window_ms</span><span class="p">,</span>
+                <span class="n">z_threshold</span><span class="o">=</span><span class="n">z_threshold</span><span class="p">,</span>
+                <span class="n">aggregator</span><span class="o">=</span><span class="n">aggregator</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;groups&quot;</span><span class="p">:</span> <span class="n">groups</span><span class="p">,</span>
+            <span class="s2">&quot;mask&quot;</span><span class="p">:</span> <span class="n">mask</span><span class="p">,</span>
+            <span class="s2">&quot;responsive_count&quot;</span><span class="p">:</span> <span class="n">mask</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
+        <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="SpikeSliceStack.responsiveness_change">
+<a class="viewcode-back" href="../../../api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack.responsiveness_change">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">responsiveness_change</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">group_labels</span><span class="p">,</span>
+        <span class="n">early_groups</span><span class="p">,</span>
+        <span class="n">late_groups</span><span class="p">,</span>
+        <span class="n">bin_size</span><span class="p">,</span>
+        <span class="n">baseline_window_ms</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">response_window_ms</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">z_threshold</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span>
+        <span class="n">aggregator</span><span class="o">=</span><span class="s2">&quot;mean&quot;</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Gained / lost / preserved responsive units between two cycle groups.</span>
+
+<span class="sd">        Computes responsive-unit masks separately for slices in</span>
+<span class="sd">        ``early_groups`` and ``late_groups`` (any iterables of cycle</span>
+<span class="sd">        indices), and reports which units become responsive (&quot;gained&quot;),</span>
+<span class="sd">        stop being responsive (&quot;lost&quot;), or stay responsive (&quot;preserved&quot;).</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            group_labels (array-like): Per-slice cycle index of length ``S``.</span>
+<span class="sd">            early_groups (array-like): Cycle indices for the early group.</span>
+<span class="sd">            late_groups (array-like): Cycle indices for the late group.</span>
+<span class="sd">            bin_size (float): Raster bin size in ms.</span>
+<span class="sd">            baseline_window_ms (tuple[float, float]): Baseline window.</span>
+<span class="sd">            response_window_ms (tuple[float, float] or None): Response</span>
+<span class="sd">                window (default: full slice).</span>
+<span class="sd">            z_threshold (float): Per-group z-threshold.</span>
+<span class="sd">            aggregator (str): ``&quot;mean&quot;`` (default) or ``&quot;max&quot;``.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            result (dict):</span>
+<span class="sd">                - ``early_mask`` (np.ndarray ``(U,)`` bool): Responsive in</span>
+<span class="sd">                  early.</span>
+<span class="sd">                - ``late_mask`` (np.ndarray ``(U,)`` bool): Responsive in</span>
+<span class="sd">                  late.</span>
+<span class="sd">                - ``gained`` (np.ndarray ``(U,)`` bool): NOT responsive</span>
+<span class="sd">                  in early AND responsive in late.</span>
+<span class="sd">                - ``lost`` (np.ndarray ``(U,)`` bool): Responsive in</span>
+<span class="sd">                  early AND NOT responsive in late.</span>
+<span class="sd">                - ``preserved`` (np.ndarray ``(U,)`` bool): Responsive</span>
+<span class="sd">                  in BOTH.</span>
+<span class="sd">                - ``early_count``, ``late_count``, ``gained_count``,</span>
+<span class="sd">                  ``lost_count``, ``preserved_count`` (int).</span>
+
+<span class="sd">        Notes:</span>
+<span class="sd">            - Pair this with intrinsic-activity changes per unit (e.g.</span>
+<span class="sd">              ``cv_isi`` differences) and correlate via</span>
+<span class="sd">              ``stat_utils.linear_regression`` to ask whether</span>
+<span class="sd">              responsiveness changes track changes in baseline activity.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">group_labels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">group_labels</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">group_labels</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;group_labels must have length S=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="si">}</span><span class="s2">; got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">group_labels</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+        <span class="n">early_groups</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">early_groups</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+        <span class="n">late_groups</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">late_groups</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+
+        <span class="n">early_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">group_labels</span><span class="p">,</span> <span class="n">early_groups</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">late_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">group_labels</span><span class="p">,</span> <span class="n">late_groups</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">early_idx</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No slices match early_groups.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">late_idx</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No slices match late_groups.&quot;</span><span class="p">)</span>
+
+        <span class="n">kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+            <span class="n">bin_size</span><span class="o">=</span><span class="n">bin_size</span><span class="p">,</span>
+            <span class="n">baseline_window_ms</span><span class="o">=</span><span class="n">baseline_window_ms</span><span class="p">,</span>
+            <span class="n">response_window_ms</span><span class="o">=</span><span class="n">response_window_ms</span><span class="p">,</span>
+            <span class="n">z_threshold</span><span class="o">=</span><span class="n">z_threshold</span><span class="p">,</span>
+            <span class="n">aggregator</span><span class="o">=</span><span class="n">aggregator</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">early_mask</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">subslice</span><span class="p">(</span><span class="n">early_idx</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span><span class="o">.</span><span class="n">responsive_units</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="n">late_mask</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">subslice</span><span class="p">(</span><span class="n">late_idx</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span><span class="o">.</span><span class="n">responsive_units</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="n">gained</span> <span class="o">=</span> <span class="p">(</span><span class="o">~</span><span class="n">early_mask</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">late_mask</span>
+        <span class="n">lost</span> <span class="o">=</span> <span class="n">early_mask</span> <span class="o">&amp;</span> <span class="p">(</span><span class="o">~</span><span class="n">late_mask</span><span class="p">)</span>
+        <span class="n">preserved</span> <span class="o">=</span> <span class="n">early_mask</span> <span class="o">&amp;</span> <span class="n">late_mask</span>
+
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;early_mask&quot;</span><span class="p">:</span> <span class="n">early_mask</span><span class="p">,</span>
+            <span class="s2">&quot;late_mask&quot;</span><span class="p">:</span> <span class="n">late_mask</span><span class="p">,</span>
+            <span class="s2">&quot;gained&quot;</span><span class="p">:</span> <span class="n">gained</span><span class="p">,</span>
+            <span class="s2">&quot;lost&quot;</span><span class="p">:</span> <span class="n">lost</span><span class="p">,</span>
+            <span class="s2">&quot;preserved&quot;</span><span class="p">:</span> <span class="n">preserved</span><span class="p">,</span>
+            <span class="s2">&quot;early_count&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">early_mask</span><span class="o">.</span><span class="n">sum</span><span class="p">()),</span>
+            <span class="s2">&quot;late_count&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">late_mask</span><span class="o">.</span><span class="n">sum</span><span class="p">()),</span>
+            <span class="s2">&quot;gained_count&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">gained</span><span class="o">.</span><span class="n">sum</span><span class="p">()),</span>
+            <span class="s2">&quot;lost_count&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">lost</span><span class="o">.</span><span class="n">sum</span><span class="p">()),</span>
+            <span class="s2">&quot;preserved_count&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">preserved</span><span class="o">.</span><span class="n">sum</span><span class="p">()),</span>
+        <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="SpikeSliceStack.slice_to_slice_similarity">
+<a class="viewcode-back" href="../../../api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack.slice_to_slice_similarity">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">slice_to_slice_similarity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">metric</span><span class="o">=</span><span class="s2">&quot;cosine&quot;</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">bin_size</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Pairwise similarity between slice-wise population response vectors.</span>
+
+<span class="sd">        Each slice is converted to a ``(U * T)`` flat vector via</span>
+<span class="sd">        ``to_raster_array(bin_size).reshape(U*T, S).T`` and a square</span>
+<span class="sd">        ``(S, S)`` similarity matrix is computed using the requested metric.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            metric (str): One of ``&quot;cosine&quot;`` (default), ``&quot;pearson&quot;``,</span>
+<span class="sd">                ``&quot;euclidean&quot;`` (distance), or ``&quot;cross_entropy&quot;``</span>
+<span class="sd">                (symmetric KL on normalized bin distributions).</span>
+<span class="sd">            bin_size (float): Raster bin size in ms (default 1.0).</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            sim (PairwiseCompMatrix): ``(S, S)`` similarity matrix. For</span>
+<span class="sd">                cosine and pearson, higher = more similar (diagonal ~1.0);</span>
+<span class="sd">                for euclidean and cross_entropy, lower = more similar</span>
+<span class="sd">                (diagonal 0).</span>
+
+<span class="sd">        Notes:</span>
+<span class="sd">            - ``cosine`` and ``pearson`` return values in ``[-1, 1]``.</span>
+<span class="sd">            - ``euclidean`` returns raw L2 distance.</span>
+<span class="sd">            - ``cross_entropy`` returns symmetric KL divergence (i.e.</span>
+<span class="sd">              ``(KL(p||q) + KL(q||p)) / 2``) between bin distributions</span>
+<span class="sd">              normalized to sum to 1.</span>
+<span class="sd">            - Use ``PairwiseCompMatrix.extract_lower_triangle()`` for</span>
+<span class="sd">              feature extraction.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">stack</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_raster_array</span><span class="p">(</span><span class="n">bin_size</span><span class="o">=</span><span class="n">bin_size</span><span class="p">)</span>  <span class="c1"># (U, T, S)</span>
+        <span class="n">sim</span> <span class="o">=</span> <span class="n">_slice_to_slice_similarity_matrix</span><span class="p">(</span><span class="n">stack</span><span class="p">,</span> <span class="n">metric</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">PairwiseCompMatrix</span><span class="p">(</span><span class="n">matrix</span><span class="o">=</span><span class="n">sim</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;metric&quot;</span><span class="p">:</span> <span class="n">metric</span><span class="p">})</span></div>
+
+
+<div class="viewcode-block" id="SpikeSliceStack.per_unit_response_regression">
+<a class="viewcode-back" href="../../../api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack.per_unit_response_regression">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">per_unit_response_regression</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">bin_size</span><span class="p">,</span>
+        <span class="n">response_window_ms</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">x_values</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">baseline_window_ms</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">min_valid_slices</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Per-unit OLS regression of evoked response amplitude across slices.</span>
+
+<span class="sd">        For each slice and unit, computes response amplitude as the sum of</span>
+<span class="sd">        spike counts in ``response_window_ms`` — optionally with a per-slice</span>
+<span class="sd">        baseline subtraction. Then fits a linear regression of amplitude</span>
+<span class="sd">        against ``x_values`` for every unit. Use this to detect facilitation</span>
+<span class="sd">        / depression of the evoked response across cycles or stimulus</span>
+<span class="sd">        intensities.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            bin_size (float): Raster bin size in milliseconds (passed to</span>
+<span class="sd">                ``to_raster_array``).</span>
+<span class="sd">            response_window_ms (tuple[float, float]): ``(start_ms, end_ms)``</span>
+<span class="sd">                window relative to slice origin over which response counts</span>
+<span class="sd">                are summed.</span>
+<span class="sd">            x_values (array-like or None): Per-slice x values for the</span>
+<span class="sd">                regression (e.g. cycle index, stimulus intensity). Length</span>
+<span class="sd">                must equal the number of slices ``S``. When None (default),</span>
+<span class="sd">                uses ``np.arange(S)``.</span>
+<span class="sd">            baseline_window_ms (tuple[float, float] or None): Optional</span>
+<span class="sd">                baseline window for per-slice subtraction. When None</span>
+<span class="sd">                (default), uses raw response counts; otherwise subtracts the</span>
+<span class="sd">                expected count per bin (``baseline_rate * bin_size``) before</span>
+<span class="sd">                summing.</span>
+<span class="sd">            min_valid_slices (int): Minimum number of valid (non-NaN)</span>
+<span class="sd">                ``(x, y)`` pairs required to fit a regression. Units with</span>
+<span class="sd">                fewer return NaN for all coefficients. Default 3.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            result (dict): Dictionary with keys:</span>
+<span class="sd">                - ``slope`` (np.ndarray ``(U,)``): Slope per unit.</span>
+<span class="sd">                - ``intercept`` (np.ndarray ``(U,)``): Intercept per unit.</span>
+<span class="sd">                - ``r_squared`` (np.ndarray ``(U,)``): R² per unit.</span>
+<span class="sd">                - ``p_value`` (np.ndarray ``(U,)``): Two-sided p-value of</span>
+<span class="sd">                  the slope per unit.</span>
+<span class="sd">                - ``stderr`` (np.ndarray ``(U,)``): Standard error of the</span>
+<span class="sd">                  slope per unit.</span>
+<span class="sd">                - ``amplitudes`` (np.ndarray ``(U, S)``): Per-slice response</span>
+<span class="sd">                  amplitude (raw or baseline-subtracted).</span>
+<span class="sd">                - ``x_values`` (np.ndarray ``(S,)``): The x values used.</span>
+
+<span class="sd">        Notes:</span>
+<span class="sd">            - Requires ``scipy`` (optional dependency); raises</span>
+<span class="sd">              ``ImportError`` with installation instructions if missing.</span>
+<span class="sd">            - Units with constant amplitudes get ``r_squared = 0``,</span>
+<span class="sd">              ``slope = 0`` and ``p_value = 1.0``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">scipy</span><span class="w"> </span><span class="kn">import</span> <span class="n">stats</span> <span class="k">as</span> <span class="n">sp_stats</span>
+        <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
+                <span class="s2">&quot;per_unit_response_regression requires &#39;scipy&#39;. &quot;</span>
+                <span class="s2">&quot;Install with: pip install scipy&quot;</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">response_window_ms</span><span class="p">,</span> <span class="p">(</span><span class="nb">tuple</span><span class="p">,</span> <span class="nb">list</span><span class="p">))</span>
+            <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">response_window_ms</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;response_window_ms must be a (start_ms, end_ms) tuple.&quot;</span><span class="p">)</span>
+        <span class="n">r_start</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">response_window_ms</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">r_end</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">response_window_ms</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">r_end</span> <span class="o">&lt;=</span> <span class="n">r_start</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;response_window_ms end must be greater than start.&quot;</span><span class="p">)</span>
+
+        <span class="n">S</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spike_stack</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">x_values</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">x_values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">S</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">x_values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">x_values</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">x_values</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="n">S</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;x_values must have length S=</span><span class="si">{</span><span class="n">S</span><span class="si">}</span><span class="s2">, got </span><span class="si">{</span><span class="n">x_values</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2">.&quot;</span>
+                <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">baseline_window_ms</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">counts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_raster_array</span><span class="p">(</span><span class="n">bin_size</span><span class="o">=</span><span class="n">bin_size</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>  <span class="c1"># (U, T, S)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">counts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">baseline_normalized_raster</span><span class="p">(</span>
+                <span class="n">bin_size</span><span class="p">,</span> <span class="n">baseline_window_ms</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;subtract&quot;</span>
+            <span class="p">)</span>
+
+        <span class="n">sd0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">spike_stack</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">bin_start</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">((</span><span class="n">r_start</span> <span class="o">-</span> <span class="n">sd0</span><span class="o">.</span><span class="n">start_time</span><span class="p">)</span> <span class="o">/</span> <span class="n">bin_size</span><span class="p">))</span>
+        <span class="n">bin_end</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">((</span><span class="n">r_end</span> <span class="o">-</span> <span class="n">sd0</span><span class="o">.</span><span class="n">start_time</span><span class="p">)</span> <span class="o">/</span> <span class="n">bin_size</span><span class="p">))</span>
+        <span class="n">bin_start</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">bin_start</span><span class="p">)</span>
+        <span class="n">bin_end</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">counts</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">bin_end</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">bin_end</span> <span class="o">&lt;=</span> <span class="n">bin_start</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;response_window_ms (</span><span class="si">{</span><span class="n">r_start</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">r_end</span><span class="si">}</span><span class="s2">) maps to an empty &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;bin range; check it against the slice duration and bin_size.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="n">amplitudes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nansum</span><span class="p">(</span><span class="n">counts</span><span class="p">[:,</span> <span class="n">bin_start</span><span class="p">:</span><span class="n">bin_end</span><span class="p">,</span> <span class="p">:],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># (U, S)</span>
+
+        <span class="n">slope</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
+        <span class="n">intercept</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
+        <span class="n">r_squared</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
+        <span class="n">p_value</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
+        <span class="n">stderr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">):</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="n">amplitudes</span><span class="p">[</span><span class="n">u</span><span class="p">,</span> <span class="p">:]</span>
+            <span class="n">valid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">x_values</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">valid</span><span class="p">))</span> <span class="o">&lt;</span> <span class="n">min_valid_slices</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">xv</span> <span class="o">=</span> <span class="n">x_values</span><span class="p">[</span><span class="n">valid</span><span class="p">]</span>
+            <span class="n">yv</span> <span class="o">=</span> <span class="n">y</span><span class="p">[</span><span class="n">valid</span><span class="p">]</span>
+            <span class="c1"># Constant predictor or response: linregress would emit a warning</span>
+            <span class="c1"># and return NaN; handle explicitly.</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">ptp</span><span class="p">(</span><span class="n">xv</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">res</span> <span class="o">=</span> <span class="n">sp_stats</span><span class="o">.</span><span class="n">linregress</span><span class="p">(</span><span class="n">xv</span><span class="p">,</span> <span class="n">yv</span><span class="p">)</span>
+            <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">FloatingPointError</span><span class="p">):</span>
+                <span class="k">continue</span>
+            <span class="n">slope</span><span class="p">[</span><span class="n">u</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">res</span><span class="o">.</span><span class="n">slope</span><span class="p">)</span>
+            <span class="n">intercept</span><span class="p">[</span><span class="n">u</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">res</span><span class="o">.</span><span class="n">intercept</span><span class="p">)</span>
+            <span class="n">r_squared</span><span class="p">[</span><span class="n">u</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">res</span><span class="o">.</span><span class="n">rvalue</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>
+            <span class="n">p_value</span><span class="p">[</span><span class="n">u</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">res</span><span class="o">.</span><span class="n">pvalue</span><span class="p">)</span>
+            <span class="n">stderr</span><span class="p">[</span><span class="n">u</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">res</span><span class="o">.</span><span class="n">stderr</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;slope&quot;</span><span class="p">:</span> <span class="n">slope</span><span class="p">,</span>
+            <span class="s2">&quot;intercept&quot;</span><span class="p">:</span> <span class="n">intercept</span><span class="p">,</span>
+            <span class="s2">&quot;r_squared&quot;</span><span class="p">:</span> <span class="n">r_squared</span><span class="p">,</span>
+            <span class="s2">&quot;p_value&quot;</span><span class="p">:</span> <span class="n">p_value</span><span class="p">,</span>
+            <span class="s2">&quot;stderr&quot;</span><span class="p">:</span> <span class="n">stderr</span><span class="p">,</span>
+            <span class="s2">&quot;amplitudes&quot;</span><span class="p">:</span> <span class="n">amplitudes</span><span class="p">,</span>
+            <span class="s2">&quot;x_values&quot;</span><span class="p">:</span> <span class="n">x_values</span><span class="p">,</span>
+        <span class="p">}</span></div>
+
+
 <div class="viewcode-block" id="SpikeSliceStack.compute_frac_active">
 <a class="viewcode-back" href="../../../api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack.compute_frac_active">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">compute_frac_active</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">min_spikes</span><span class="o">=</span><span class="mi">2</span><span class="p">):</span>
@@ -939,8 +1622,7 @@
             <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_units</span><span class="p">):</span>
                 <span class="n">spikes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">train</span><span class="p">[</span><span class="n">u</span><span class="p">])</span>
                 <span class="n">n_valid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span>
-                    <span class="p">(</span><span class="n">spikes</span> <span class="o">&gt;=</span> <span class="n">sd</span><span class="o">.</span><span class="n">start_time</span><span class="p">)</span>
-                    <span class="o">&amp;</span> <span class="p">(</span><span class="n">spikes</span> <span class="o">&lt;=</span> <span class="n">sd</span><span class="o">.</span><span class="n">start_time</span> <span class="o">+</span> <span class="p">(</span><span class="n">end</span> <span class="o">-</span> <span class="n">start</span><span class="p">))</span>
+                    <span class="p">(</span><span class="n">spikes</span> <span class="o">&gt;=</span> <span class="n">sd</span><span class="o">.</span><span class="n">start_time</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">spikes</span> <span class="o">&lt;</span> <span class="n">sd</span><span class="o">.</span><span class="n">start_time</span> <span class="o">+</span> <span class="p">(</span><span class="n">end</span> <span class="o">-</span> <span class="n">start</span><span class="p">))</span>
                 <span class="p">)</span>
                 <span class="k">if</span> <span class="n">n_valid</span> <span class="o">&gt;=</span> <span class="n">min_spikes</span><span class="p">:</span>
                     <span class="n">active_count</span><span class="p">[</span><span class="n">u</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
@@ -1486,7 +2168,7 @@
                 <span class="n">spikes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">train</span><span class="p">[</span><span class="n">u</span><span class="p">])</span>
                 <span class="n">duration</span> <span class="o">=</span> <span class="n">end</span> <span class="o">-</span> <span class="n">start</span>
                 <span class="n">spikes</span> <span class="o">=</span> <span class="n">spikes</span><span class="p">[</span>
-                    <span class="p">(</span><span class="n">spikes</span> <span class="o">&gt;=</span> <span class="n">sd</span><span class="o">.</span><span class="n">start_time</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">spikes</span> <span class="o">&lt;=</span> <span class="n">sd</span><span class="o">.</span><span class="n">start_time</span> <span class="o">+</span> <span class="n">duration</span><span class="p">)</span>
+                    <span class="p">(</span><span class="n">spikes</span> <span class="o">&gt;=</span> <span class="n">sd</span><span class="o">.</span><span class="n">start_time</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">spikes</span> <span class="o">&lt;</span> <span class="n">sd</span><span class="o">.</span><span class="n">start_time</span> <span class="o">+</span> <span class="n">duration</span><span class="p">)</span>
                 <span class="p">]</span>
                 <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">spikes</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">min_spikes</span><span class="p">:</span>
                     <span class="k">continue</span>

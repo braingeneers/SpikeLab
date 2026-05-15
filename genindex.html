@@ -206,17 +206,6 @@
 <li class="toctree-l3"><a class="reference internal" href="guides/workspace.html#merging-workspaces">Merging Workspaces</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="guides/mcp_server.html">MCP Server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="guides/mcp_server.html#starting-the-server">Starting the server</a></li>
-<li class="toctree-l3"><a class="reference internal" href="guides/mcp_server.html#tool-categories">Tool categories</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="guides/mcp_server.html#data-loading-tools">Data loading tools</a></li>
-<li class="toctree-l4"><a class="reference internal" href="guides/mcp_server.html#analysis-tools">Analysis tools</a></li>
-<li class="toctree-l4"><a class="reference internal" href="guides/mcp_server.html#export-tools">Export tools</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="guides/mcp_server.html#workspace-addressing">Workspace addressing</a></li>
-</ul>
-</li>
 <li class="toctree-l2"><a class="reference internal" href="guides/parallel_computing.html">Parallel Computing</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="guides/parallel_computing.html#thread-pool-parallelism">Thread-Pool Parallelism</a></li>
 <li class="toctree-l3"><a class="reference internal" href="guides/parallel_computing.html#numba-acceleration">Numba Acceleration</a></li>
@@ -302,6 +291,7 @@
 <li class="toctree-l4"><a class="reference internal" href="api/stat_utils.html#spikelab.spikedata.stat_utils.linear_regression"><code class="docutils literal notranslate"><span class="pre">linear_regression()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="api/stat_utils.html#spikelab.spikedata.stat_utils.pairwise_tests"><code class="docutils literal notranslate"><span class="pre">pairwise_tests()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="api/stat_utils.html#spikelab.spikedata.stat_utils.paired_test"><code class="docutils literal notranslate"><span class="pre">paired_test()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/stat_utils.html#spikelab.spikedata.stat_utils.mixed_effects_compare"><code class="docutils literal notranslate"><span class="pre">mixed_effects_compare()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="api/stat_utils.html#spikelab.spikedata.stat_utils.omnibus_test"><code class="docutils literal notranslate"><span class="pre">omnibus_test()</span></code></a></li>
 </ul>
 </li>
@@ -319,6 +309,8 @@
 <li class="toctree-l4"><a class="reference internal" href="api/plot_utils.html#spikelab.spikedata.plot_utils.plot_recording"><code class="docutils literal notranslate"><span class="pre">plot_recording()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="api/plot_utils.html#spikelab.spikedata.plot_utils.plot_spatial_network"><code class="docutils literal notranslate"><span class="pre">plot_spatial_network()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="api/plot_utils.html#spikelab.spikedata.plot_utils.plot_unit_footprints"><code class="docutils literal notranslate"><span class="pre">plot_unit_footprints()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/plot_utils.html#spikelab.spikedata.plot_utils.plot_prediction_probability_heatmap"><code class="docutils literal notranslate"><span class="pre">plot_prediction_probability_heatmap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/plot_utils.html#spikelab.spikedata.plot_utils.plot_responsive_unit_map"><code class="docutils literal notranslate"><span class="pre">plot_responsive_unit_map()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -402,13 +394,6 @@
 <li class="toctree-l4"><a class="reference internal" href="api/batch_jobs.html#module-spikelab.batch_jobs.artifact_packager">Artifact Packager</a></li>
 <li class="toctree-l4"><a class="reference internal" href="api/batch_jobs.html#module-spikelab.batch_jobs.credentials">Credentials</a></li>
 <li class="toctree-l4"><a class="reference internal" href="api/batch_jobs.html#module-spikelab.batch_jobs.validation">Validation</a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="api/index.html#server">Server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="api/mcp_server.html">MCP Server</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -639,12 +624,14 @@
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.FigureConfig.bar_y_label">bar_y_label (spikelab.spike_sorting.config.FigureConfig attribute)</a>
 </li>
-      <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.best_match_assignment">best_match_assignment() (spikelab.spikedata.SpikeData static method)</a>
+      <li><a href="api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack.baseline_normalized_raster">baseline_normalized_raster() (spikelab.spikedata.spikeslicestack.SpikeSliceStack method)</a>
 </li>
-      <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.binned">binned() (spikelab.spikedata.SpikeData method)</a>
+      <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.best_match_assignment">best_match_assignment() (spikelab.spikedata.SpikeData static method)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.binned">binned() (spikelab.spikedata.SpikeData method)</a>
+</li>
       <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.binned_meanrate">binned_meanrate() (spikelab.spikedata.SpikeData method)</a>
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.BiologicalSortFailure">BiologicalSortFailure</a>
@@ -731,10 +718,10 @@
       </ul></li>
       <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.concatenate_spike_data">concatenate_spike_data() (spikelab.spikedata.SpikeData method)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.ConcurrentSortError">ConcurrentSortError</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.HDF5PluginMissingError.configured_path">configured_path (spikelab.spike_sorting._exceptions.HDF5PluginMissingError attribute)</a>
 </li>
       <li><a href="api/utilities.html#spikelab.spikedata.utils.consecutive_durations">consecutive_durations() (in module spikelab.spikedata.utils)</a>
@@ -805,12 +792,18 @@
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.CurationConfig">CurationConfig (class in spikelab.spike_sorting.config)</a>
 </li>
+      <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.cv2_isi">cv2_isi() (spikelab.spikedata.SpikeData method)</a>
+</li>
+      <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.cv_isi">cv_isi() (spikelab.spikedata.SpikeData method)</a>
+</li>
   </ul></td>
 </tr></table>
 
 <h2 id="D">D</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack.decode_slice_labels">decode_slice_labels() (spikelab.spikedata.spikeslicestack.SpikeSliceStack method)</a>
+</li>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.models.ClusterProfile.default_s3_prefix">default_s3_prefix (spikelab.batch_jobs.models.ClusterProfile attribute)</a>
 </li>
       <li><a href="api/workspace.html#spikelab.workspace.workspace.AnalysisWorkspace.delete">delete() (spikelab.workspace.workspace.AnalysisWorkspace method)</a>
@@ -1043,10 +1036,10 @@
 </li>
       <li><a href="api/rateslicestack.html#spikelab.spikedata.rateslicestack.RateSliceStack.get_slice_to_slice_unit_corr_from_stack">get_slice_to_slice_unit_corr_from_stack() (spikelab.spikedata.rateslicestack.RateSliceStack method)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/utilities.html#spikelab.spikedata.utils.get_sttc">get_sttc() (in module spikelab.spikedata.utils)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/rateslicestack.html#spikelab.spikedata.rateslicestack.RateSliceStack.get_unit_timing_per_slice">get_unit_timing_per_slice() (spikelab.spikedata.rateslicestack.RateSliceStack method)</a>
 
       <ul>
@@ -1088,6 +1081,8 @@
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.GPUOutOfMemoryError">GPUOutOfMemoryError</a>
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.GpuThermalWatchdogError">GpuThermalWatchdogError</a>
+</li>
+      <li><a href="api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack.group_pair_similarity">group_pair_similarity() (spikelab.spikedata.spikeslicestack.SpikeSliceStack method)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -1321,8 +1316,6 @@
 <h2 id="M">M</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="api/mcp_server.html#spikelab.mcp_server.server.main">main() (in module spikelab.mcp_server.server)</a>
-</li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.DiskUsageWatchdog.make_error">make_error() (spikelab.spike_sorting.guards.DiskUsageWatchdog method)</a>
 
       <ul>
@@ -1365,6 +1358,8 @@
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.pipeline.RecordingResult.min_disk_free_gb">min_disk_free_gb (spikelab.spike_sorting.pipeline.RecordingResult attribute)</a>
 </li>
+      <li><a href="api/stat_utils.html#spikelab.spikedata.stat_utils.mixed_effects_compare">mixed_effects_compare() (in module spikelab.spikedata.stat_utils)</a>
+</li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.IOStallWatchdog.mode">mode() (spikelab.spike_sorting.guards.IOStallWatchdog method)</a>
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.ModelLoadingError.model_path">model_path (spikelab.spike_sorting._exceptions.ModelLoadingError attribute)</a>
@@ -1404,8 +1399,6 @@
         <li><a href="api/data_loaders.html#module-spikelab.data_loaders.data_loaders">spikelab.data_loaders.data_loaders</a>
 </li>
         <li><a href="api/s3_utils.html#module-spikelab.data_loaders.s3_utils">spikelab.data_loaders.s3_utils</a>
-</li>
-        <li><a href="api/mcp_server.html#module-spikelab.mcp_server.server">spikelab.mcp_server.server</a>
 </li>
         <li><a href="api/spike_sorting.html#module-spikelab.spike_sorting._exceptions">spikelab.spike_sorting._exceptions</a>
 </li>
@@ -1552,6 +1545,8 @@
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.pipeline.RecordingResult.peak_host_ram_pct">peak_host_ram_pct (spikelab.spike_sorting.pipeline.RecordingResult attribute)</a>
 </li>
+      <li><a href="api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack.per_unit_response_regression">per_unit_response_regression() (spikelab.spikedata.spikeslicestack.SpikeSliceStack method)</a>
+</li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.HostMemoryWatchdogError.percent_at_trip">percent_at_trip (spikelab.spike_sorting._exceptions.HostMemoryWatchdogError attribute)</a>
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.HostMemoryWatchdog.percent_at_trip">percent_at_trip() (spikelab.spike_sorting.guards.HostMemoryWatchdog method)</a>
@@ -1586,11 +1581,15 @@
 </li>
       <li><a href="api/plot_utils.html#spikelab.spikedata.plot_utils.plot_percentile_bands">plot_percentile_bands() (in module spikelab.spikedata.plot_utils)</a>
 </li>
+      <li><a href="api/plot_utils.html#spikelab.spikedata.plot_utils.plot_prediction_probability_heatmap">plot_prediction_probability_heatmap() (in module spikelab.spikedata.plot_utils)</a>
+</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/plot_utils.html#spikelab.spikedata.plot_utils.plot_pvalue_matrix">plot_pvalue_matrix() (in module spikelab.spikedata.plot_utils)</a>
 </li>
       <li><a href="api/plot_utils.html#spikelab.spikedata.plot_utils.plot_recording">plot_recording() (in module spikelab.spikedata.plot_utils)</a>
+</li>
+      <li><a href="api/plot_utils.html#spikelab.spikedata.plot_utils.plot_responsive_unit_map">plot_responsive_unit_map() (in module spikelab.spikedata.plot_utils)</a>
 </li>
       <li><a href="api/plot_utils.html#spikelab.spikedata.plot_utils.plot_scatter">plot_scatter() (in module spikelab.spikedata.plot_utils)</a>
 </li>
@@ -1728,10 +1727,10 @@
         <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.IOStallWatchdog.register_kill_callback">(spikelab.spike_sorting.guards.IOStallWatchdog method)</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.IOStallWatchdog.register_pid">register_pid() (spikelab.spike_sorting.guards.IOStallWatchdog method)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.GpuMemoryWatchdog.register_subprocess">register_subprocess() (spikelab.spike_sorting.guards.GpuMemoryWatchdog method)</a>
 
       <ul>
@@ -1775,6 +1774,12 @@
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.ResourceSortFailure">ResourceSortFailure</a>
 </li>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.models.ResourceSpec">ResourceSpec (class in spikelab.batch_jobs.models)</a>
+</li>
+      <li><a href="api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack.responsive_units">responsive_units() (spikelab.spikedata.spikeslicestack.SpikeSliceStack method)</a>
+</li>
+      <li><a href="api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack.responsive_units_per_group">responsive_units_per_group() (spikelab.spikedata.spikeslicestack.SpikeSliceStack method)</a>
+</li>
+      <li><a href="api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack.responsiveness_change">responsiveness_change() (spikelab.spikedata.spikeslicestack.SpikeSliceStack method)</a>
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.backends.base.SorterBackend.restore_oom_params">restore_oom_params() (spikelab.spike_sorting.backends.base.SorterBackend method)</a>
 </li>
@@ -1862,6 +1867,12 @@
 </li>
       <li><a href="api/utilities.html#spikelab.spikedata.utils.slice_stability">slice_stability() (in module spikelab.spikedata.utils)</a>
 </li>
+      <li><a href="api/rateslicestack.html#spikelab.spikedata.rateslicestack.RateSliceStack.slice_to_slice_similarity">slice_to_slice_similarity() (spikelab.spikedata.rateslicestack.RateSliceStack method)</a>
+
+      <ul>
+        <li><a href="api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack.slice_to_slice_similarity">(spikelab.spikedata.spikeslicestack.SpikeSliceStack method)</a>
+</li>
+      </ul></li>
       <li><a href="api/utilities.html#spikelab.spikedata.utils.slice_trend">slice_trend() (in module spikelab.spikedata.utils)</a>
 </li>
       <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.sliding_rate">sliding_rate() (spikelab.spikedata.SpikeData method)</a>
@@ -1974,6 +1985,8 @@
         <li><a href="api/batch_jobs.html#module-spikelab.batch_jobs.profiles">module</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li>
     spikelab.batch_jobs.session
 
@@ -1981,8 +1994,6 @@
         <li><a href="api/batch_jobs.html#module-spikelab.batch_jobs.session">module</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li>
     spikelab.batch_jobs.storage_s3
 
@@ -2016,13 +2027,6 @@
 
       <ul>
         <li><a href="api/s3_utils.html#module-spikelab.data_loaders.s3_utils">module</a>
-</li>
-      </ul></li>
-      <li>
-    spikelab.mcp_server.server
-
-      <ul>
-        <li><a href="api/mcp_server.html#module-spikelab.mcp_server.server">module</a>
 </li>
       </ul></li>
       <li>

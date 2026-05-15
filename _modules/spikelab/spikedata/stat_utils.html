@@ -206,17 +206,6 @@
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/workspace.html#merging-workspaces">Merging Workspaces</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../../../guides/mcp_server.html">MCP Server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../guides/mcp_server.html#starting-the-server">Starting the server</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../guides/mcp_server.html#tool-categories">Tool categories</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../guides/mcp_server.html#data-loading-tools">Data loading tools</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../guides/mcp_server.html#analysis-tools">Analysis tools</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../guides/mcp_server.html#export-tools">Export tools</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../../../guides/mcp_server.html#workspace-addressing">Workspace addressing</a></li>
-</ul>
-</li>
 <li class="toctree-l2"><a class="reference internal" href="../../../guides/parallel_computing.html">Parallel Computing</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/parallel_computing.html#thread-pool-parallelism">Thread-Pool Parallelism</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/parallel_computing.html#numba-acceleration">Numba Acceleration</a></li>
@@ -302,6 +291,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.linear_regression"><code class="docutils literal notranslate"><span class="pre">linear_regression()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.pairwise_tests"><code class="docutils literal notranslate"><span class="pre">pairwise_tests()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.paired_test"><code class="docutils literal notranslate"><span class="pre">paired_test()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.mixed_effects_compare"><code class="docutils literal notranslate"><span class="pre">mixed_effects_compare()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.omnibus_test"><code class="docutils literal notranslate"><span class="pre">omnibus_test()</span></code></a></li>
 </ul>
 </li>
@@ -319,6 +309,8 @@
 <li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_recording"><code class="docutils literal notranslate"><span class="pre">plot_recording()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_spatial_network"><code class="docutils literal notranslate"><span class="pre">plot_spatial_network()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_unit_footprints"><code class="docutils literal notranslate"><span class="pre">plot_unit_footprints()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_prediction_probability_heatmap"><code class="docutils literal notranslate"><span class="pre">plot_prediction_probability_heatmap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_responsive_unit_map"><code class="docutils literal notranslate"><span class="pre">plot_responsive_unit_map()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -402,13 +394,6 @@
 <li class="toctree-l4"><a class="reference internal" href="../../../api/batch_jobs.html#module-spikelab.batch_jobs.artifact_packager">Artifact Packager</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/batch_jobs.html#module-spikelab.batch_jobs.credentials">Credentials</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/batch_jobs.html#module-spikelab.batch_jobs.validation">Validation</a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#server">Server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../api/mcp_server.html">MCP Server</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -721,6 +706,175 @@
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown test &#39;</span><span class="si">{</span><span class="n">test</span><span class="si">}</span><span class="s2">&#39;. Use &#39;wilcoxon&#39; or &#39;paired_t&#39;.&quot;</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;statistic&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">stat</span><span class="p">),</span> <span class="s2">&quot;p_value&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">p</span><span class="p">),</span> <span class="s2">&quot;n&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)}</span></div>
+
+
+
+<div class="viewcode-block" id="mixed_effects_compare">
+<a class="viewcode-back" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.mixed_effects_compare">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">mixed_effects_compare</span><span class="p">(</span>
+    <span class="n">values</span><span class="p">,</span>
+    <span class="n">fixed_effects</span><span class="p">,</span>
+    <span class="n">random_effect</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">formula</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">response_label</span><span class="o">=</span><span class="s2">&quot;value&quot;</span><span class="p">,</span>
+    <span class="n">alpha</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Fit a linear mixed-effects model with one random intercept.</span>
+
+<span class="sd">    Wraps ``statsmodels.regression.mixed_linear_model.MixedLM``. Typical use:</span>
+<span class="sd">    compare a per-observation metric across treatments while accounting for</span>
+<span class="sd">    repeated measurements within a recording, unit, or subject.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        values (array-like): 1-D response variable, one entry per</span>
+<span class="sd">            observation.</span>
+<span class="sd">        fixed_effects (dict[str, array-like]): Mapping of fixed-effect</span>
+<span class="sd">            names to per-observation arrays. All arrays must have the same</span>
+<span class="sd">            length as *values*. Categorical effects can be passed as</span>
+<span class="sd">            string/object arrays — statsmodels will dummy-code them via the</span>
+<span class="sd">            Patsy formula.</span>
+<span class="sd">        random_effect (array-like): Categorical group labels (one per</span>
+<span class="sd">            observation) used as the random intercept group.</span>
+<span class="sd">        formula (str or None): Patsy formula for the fixed-effects part.</span>
+<span class="sd">            When None (default), an additive formula</span>
+<span class="sd">            ``&quot;&lt;response_label&gt; ~ k1 + k2 + ...&quot;`` is built from the</span>
+<span class="sd">            keys of *fixed_effects*. Provide an explicit formula for</span>
+<span class="sd">            interactions (e.g. ``&quot;value ~ treatment * latency&quot;``).</span>
+<span class="sd">        response_label (str): Name used for the response column in the</span>
+<span class="sd">            constructed DataFrame and in the auto-built formula</span>
+<span class="sd">            (default ``&quot;value&quot;``).</span>
+<span class="sd">        alpha (float): Significance threshold applied to coefficient</span>
+<span class="sd">            p-values when building the ``significant`` flags. Default 0.05.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        result (dict): Dictionary with keys:</span>
+<span class="sd">            - ``params`` (dict[str, float]): Estimated coefficients keyed</span>
+<span class="sd">              by Patsy term name.</span>
+<span class="sd">            - ``pvalues`` (dict[str, float]): Two-sided p-values per term.</span>
+<span class="sd">            - ``conf_int`` (dict[str, tuple[float, float]]): Confidence</span>
+<span class="sd">              intervals per term (using *alpha*).</span>
+<span class="sd">            - ``significant`` (dict[str, bool]): True where the term&#39;s</span>
+<span class="sd">              p-value is below *alpha*.</span>
+<span class="sd">            - ``random_effect_variance`` (float): Estimated variance of</span>
+<span class="sd">              the random intercept.</span>
+<span class="sd">            - ``n_obs`` (int): Number of observations used.</span>
+<span class="sd">            - ``n_groups`` (int): Number of random-effect levels.</span>
+<span class="sd">            - ``converged`` (bool): Whether the optimizer converged.</span>
+<span class="sd">            - ``summary`` (str): Full statsmodels summary text.</span>
+<span class="sd">            - ``model``: The fitted ``MixedLMResults`` object.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        - Requires both ``pandas`` and ``statsmodels`` (optional</span>
+<span class="sd">          dependencies). Raises ``ImportError`` with installation</span>
+<span class="sd">          instructions when either is missing.</span>
+<span class="sd">        - NaN observations (in *values*, any fixed effect, or the random</span>
+<span class="sd">          effect column) are dropped before fitting.</span>
+<span class="sd">        - Tries the lbfgs, powell, and bfgs optimizers in turn; near-</span>
+<span class="sd">          singular designs commonly break lbfgs&#39; gradient path.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+    <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
+            <span class="s2">&quot;mixed_effects_compare requires &#39;pandas&#39;. &quot;</span>
+            <span class="s2">&quot;Install with: pip install pandas&quot;</span>
+        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">statsmodels.formula.api</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">smf</span>
+    <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
+            <span class="s2">&quot;mixed_effects_compare requires &#39;statsmodels&#39;. &quot;</span>
+            <span class="s2">&quot;Install with: pip install statsmodels&quot;</span>
+        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+
+    <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">values</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;values must not be empty.&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fixed_effects</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">fixed_effects</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;fixed_effects must be a non-empty dict mapping name -&gt; array.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="n">columns</span> <span class="o">=</span> <span class="p">{</span><span class="n">response_label</span><span class="p">:</span> <span class="n">values</span><span class="p">}</span>
+    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">arr</span> <span class="ow">in</span> <span class="n">fixed_effects</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span> <span class="o">!=</span> <span class="n">n</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;fixed_effects[</span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2">] has length </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span><span class="si">}</span><span class="s2"> but values has </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+        <span class="n">columns</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">arr</span>
+
+    <span class="n">random_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">random_effect</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">random_arr</span><span class="p">)</span> <span class="o">!=</span> <span class="n">n</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;random_effect has length </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">random_arr</span><span class="p">)</span><span class="si">}</span><span class="s2"> but values has </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">.&quot;</span>
+        <span class="p">)</span>
+    <span class="n">columns</span><span class="p">[</span><span class="s2">&quot;_random_group&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">random_arr</span>
+
+    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">columns</span><span class="p">)</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">dropna</span><span class="p">()</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;Need at least 2 valid (non-NaN) observations after dropping NaNs.&quot;</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;_random_group&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">nunique</span><span class="p">()</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;Need at least 2 distinct random-effect levels to fit a mixed model.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">formula</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">formula</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">response_label</span><span class="si">}</span><span class="s2"> ~ &quot;</span> <span class="o">+</span> <span class="s2">&quot; + &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">fixed_effects</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+
+    <span class="n">model</span> <span class="o">=</span> <span class="n">smf</span><span class="o">.</span><span class="n">mixedlm</span><span class="p">(</span><span class="n">formula</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">df</span><span class="p">,</span> <span class="n">groups</span><span class="o">=</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;_random_group&quot;</span><span class="p">])</span>
+    <span class="n">fit</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">last_err</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">for</span> <span class="n">method</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;lbfgs&quot;</span><span class="p">,</span> <span class="s2">&quot;powell&quot;</span><span class="p">,</span> <span class="s2">&quot;bfgs&quot;</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">fit</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">method</span><span class="o">=</span><span class="n">method</span><span class="p">)</span>
+            <span class="k">break</span>
+        <span class="k">except</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">LinAlgError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">last_err</span> <span class="o">=</span> <span class="n">e</span>
+            <span class="k">continue</span>
+    <span class="k">if</span> <span class="n">fit</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+            <span class="s2">&quot;MixedLM failed to converge with any optimizer &quot;</span>
+            <span class="s2">&quot;(tried lbfgs, powell, bfgs). The design may be near-singular — &quot;</span>
+            <span class="s2">&quot;check that fixed effects are not collinear and that random-effect &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;groups have enough observations. Last error: </span><span class="si">{</span><span class="n">last_err</span><span class="si">!r}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+
+    <span class="n">params</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">fit</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span> <span class="o">!=</span> <span class="s2">&quot;Group Var&quot;</span><span class="p">}</span>
+    <span class="n">pvalues</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">fit</span><span class="o">.</span><span class="n">pvalues</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span> <span class="o">!=</span> <span class="s2">&quot;Group Var&quot;</span><span class="p">}</span>
+    <span class="n">ci_df</span> <span class="o">=</span> <span class="n">fit</span><span class="o">.</span><span class="n">conf_int</span><span class="p">(</span><span class="n">alpha</span><span class="o">=</span><span class="n">alpha</span><span class="p">)</span>
+    <span class="n">conf_int</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">k</span><span class="p">:</span> <span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">float</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">ci_df</span><span class="o">.</span><span class="n">iterrows</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">k</span> <span class="o">!=</span> <span class="s2">&quot;Group Var&quot;</span>
+    <span class="p">}</span>
+    <span class="n">significant</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="nb">bool</span><span class="p">(</span><span class="n">p</span> <span class="o">&lt;</span> <span class="n">alpha</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">pvalues</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+
+    <span class="n">re_variance</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="nb">float</span><span class="p">(</span><span class="n">fit</span><span class="o">.</span><span class="n">cov_re</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">fit</span><span class="o">.</span><span class="n">cov_re</span><span class="p">,</span> <span class="s2">&quot;iloc&quot;</span><span class="p">)</span>
+        <span class="k">else</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">fit</span><span class="o">.</span><span class="n">cov_re</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="n">params</span><span class="p">,</span>
+        <span class="s2">&quot;pvalues&quot;</span><span class="p">:</span> <span class="n">pvalues</span><span class="p">,</span>
+        <span class="s2">&quot;conf_int&quot;</span><span class="p">:</span> <span class="n">conf_int</span><span class="p">,</span>
+        <span class="s2">&quot;significant&quot;</span><span class="p">:</span> <span class="n">significant</span><span class="p">,</span>
+        <span class="s2">&quot;random_effect_variance&quot;</span><span class="p">:</span> <span class="n">re_variance</span><span class="p">,</span>
+        <span class="s2">&quot;n_obs&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)),</span>
+        <span class="s2">&quot;n_groups&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;_random_group&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">nunique</span><span class="p">()),</span>
+        <span class="s2">&quot;converged&quot;</span><span class="p">:</span> <span class="nb">bool</span><span class="p">(</span><span class="n">fit</span><span class="o">.</span><span class="n">converged</span><span class="p">),</span>
+        <span class="s2">&quot;summary&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">fit</span><span class="o">.</span><span class="n">summary</span><span class="p">()),</span>
+        <span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="n">fit</span><span class="p">,</span>
+    <span class="p">}</span></div>
 
 
 

@@ -206,17 +206,6 @@
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/workspace.html#merging-workspaces">Merging Workspaces</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../../../guides/mcp_server.html">MCP Server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../guides/mcp_server.html#starting-the-server">Starting the server</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../guides/mcp_server.html#tool-categories">Tool categories</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../guides/mcp_server.html#data-loading-tools">Data loading tools</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../guides/mcp_server.html#analysis-tools">Analysis tools</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../guides/mcp_server.html#export-tools">Export tools</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../../../guides/mcp_server.html#workspace-addressing">Workspace addressing</a></li>
-</ul>
-</li>
 <li class="toctree-l2"><a class="reference internal" href="../../../guides/parallel_computing.html">Parallel Computing</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/parallel_computing.html#thread-pool-parallelism">Thread-Pool Parallelism</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/parallel_computing.html#numba-acceleration">Numba Acceleration</a></li>
@@ -302,6 +291,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.linear_regression"><code class="docutils literal notranslate"><span class="pre">linear_regression()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.pairwise_tests"><code class="docutils literal notranslate"><span class="pre">pairwise_tests()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.paired_test"><code class="docutils literal notranslate"><span class="pre">paired_test()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.mixed_effects_compare"><code class="docutils literal notranslate"><span class="pre">mixed_effects_compare()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.omnibus_test"><code class="docutils literal notranslate"><span class="pre">omnibus_test()</span></code></a></li>
 </ul>
 </li>
@@ -319,6 +309,8 @@
 <li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_recording"><code class="docutils literal notranslate"><span class="pre">plot_recording()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_spatial_network"><code class="docutils literal notranslate"><span class="pre">plot_spatial_network()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_unit_footprints"><code class="docutils literal notranslate"><span class="pre">plot_unit_footprints()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_prediction_probability_heatmap"><code class="docutils literal notranslate"><span class="pre">plot_prediction_probability_heatmap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_responsive_unit_map"><code class="docutils literal notranslate"><span class="pre">plot_responsive_unit_map()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -402,13 +394,6 @@
 <li class="toctree-l4"><a class="reference internal" href="../../../api/batch_jobs.html#module-spikelab.batch_jobs.artifact_packager">Artifact Packager</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/batch_jobs.html#module-spikelab.batch_jobs.credentials">Credentials</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/batch_jobs.html#module-spikelab.batch_jobs.validation">Validation</a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#server">Server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../api/mcp_server.html">MCP Server</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -1821,6 +1806,9 @@
         <span class="n">burst_counts</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;&quot;</span><span class="p">:</span> <span class="n">burst_counts</span><span class="p">}</span>
     <span class="k">elif</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">burst_counts</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
         <span class="n">burst_counts</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">burst_counts</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()}</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">burst_counts</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;burst_counts dict must not be empty&quot;</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">labels</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">labels</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">burst_counts</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
@@ -3282,6 +3270,390 @@
     <span class="k">elif</span> <span class="n">show</span><span class="p">:</span>
         <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
     <span class="k">return</span> <span class="n">fig</span></div>
+
+
+
+<div class="viewcode-block" id="plot_prediction_probability_heatmap">
+<a class="viewcode-back" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_prediction_probability_heatmap">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">plot_prediction_probability_heatmap</span><span class="p">(</span>
+    <span class="n">probabilities</span><span class="p">,</span>
+    <span class="n">true_labels</span><span class="p">,</span>
+    <span class="n">group_labels</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">classes</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">baseline_groups</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">ax</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">cmap</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">show_colorbar</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">bar_ax</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">bar_groups</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">bar_group_labels</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">bar_colors</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">cbar_label</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Heatmap of mean prediction probability per (true class, cycle).</span>
+
+<span class="sd">    For each cycle and each true stimulus class, computes the mean</span>
+<span class="sd">    probability the classifier assigned to that class for samples whose</span>
+<span class="sd">    true label matches. Optionally subtracts the mean probability over</span>
+<span class="sd">    a set of baseline cycles to highlight changes across stim rounds.</span>
+
+<span class="sd">    Cell ``(i, j)`` of the heatmap = mean ``proba[i, samples in cycle j</span>
+<span class="sd">    where true == classes[i]]``.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        probabilities (np.ndarray): Predicted probabilities, shape</span>
+<span class="sd">            ``(n_samples, K)``. Columns must align with ``classes``.</span>
+<span class="sd">        true_labels (array-like): True labels per sample ``(n_samples,)``.</span>
+<span class="sd">        group_labels (array-like): Cycle index per sample ``(n_samples,)``.</span>
+<span class="sd">        classes (array-like or None): Class labels in column order of</span>
+<span class="sd">            ``probabilities``. When None, uses sorted unique values from</span>
+<span class="sd">            ``true_labels``.</span>
+<span class="sd">        baseline_groups (array-like or None): Optional reference cycles</span>
+<span class="sd">            whose mean probability per (class, _) is subtracted from</span>
+<span class="sd">            every cell. When None, raw probabilities are shown.</span>
+<span class="sd">        ax (matplotlib.axes.Axes or None): Heatmap axes. Created when None.</span>
+<span class="sd">        cmap (str or None): Matplotlib colormap. Defaults to ``&quot;viridis&quot;``</span>
+<span class="sd">            for raw probabilities and ``&quot;RdBu_r&quot;`` for baseline-relative.</span>
+<span class="sd">        show_colorbar (bool): Add a colorbar to the heatmap.</span>
+<span class="sd">        bar_ax (matplotlib.axes.Axes or None): Optional companion bar plot</span>
+<span class="sd">            axes. When provided alongside ``bar_groups``, plots the</span>
+<span class="sd">            mean ± std prediction probability for each group.</span>
+<span class="sd">        bar_groups (list[array-like] or None): List of cycle index</span>
+<span class="sd">            groups. Each group is averaged and plotted as a bar with std</span>
+<span class="sd">            error bars. Required when ``bar_ax`` is provided.</span>
+<span class="sd">        bar_group_labels (list[str] or None): Per-group labels for the bar</span>
+<span class="sd">            plot. Defaults to indices.</span>
+<span class="sd">        bar_colors (list or None): Per-group bar colors.</span>
+<span class="sd">        cbar_label (str or None): Colorbar label override. Defaults to</span>
+<span class="sd">            &quot;P(correct)&quot; or &quot;ΔP vs baseline&quot;.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        result (dict): ``{&quot;heatmap&quot;: (K, n_groups) array, &quot;ax&quot;: ax,</span>
+<span class="sd">            &quot;bar_ax&quot;: bar_ax or None, &quot;groups&quot;: (n_groups,) array,</span>
+<span class="sd">            &quot;classes&quot;: (K,) array}``.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        - Requires ``matplotlib``.</span>
+<span class="sd">        - When ``baseline_groups`` is given, the heatmap shows</span>
+<span class="sd">          ``cell - mean(cell over baseline_groups)`` per row. Cells whose</span>
+<span class="sd">          baseline is undefined (no baseline samples for that class) are</span>
+<span class="sd">          left as raw values for that row.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+    <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
+            <span class="s2">&quot;plot_prediction_probability_heatmap requires &#39;matplotlib&#39;. &quot;</span>
+            <span class="s2">&quot;Install with: pip install matplotlib&quot;</span>
+        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+
+    <span class="n">probabilities</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">probabilities</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">true_labels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">true_labels</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+    <span class="n">group_labels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">group_labels</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">probabilities</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;probabilities must be 2-D (n_samples, K); got shape </span><span class="si">{</span><span class="n">probabilities</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">.&quot;</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">probabilities</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">true_labels</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">group_labels</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;probabilities, true_labels, and group_labels must all have the same length.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">classes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">classes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">true_labels</span><span class="p">)))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">classes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">classes</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">probabilities</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">classes</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;probabilities has </span><span class="si">{</span><span class="n">probabilities</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2"> columns but classes has </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">classes</span><span class="p">)</span><span class="si">}</span><span class="s2"> entries.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="n">groups</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">group_labels</span><span class="p">)))</span>
+    <span class="n">K</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">classes</span><span class="p">)</span>
+
+    <span class="n">heatmap</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">K</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">groups</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">groups</span><span class="p">):</span>
+        <span class="n">grp_mask</span> <span class="o">=</span> <span class="n">group_labels</span> <span class="o">==</span> <span class="n">c</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">grp_mask</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+            <span class="k">continue</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="bp">cls</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">classes</span><span class="p">):</span>
+            <span class="n">cls_mask</span> <span class="o">=</span> <span class="n">grp_mask</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">true_labels</span> <span class="o">==</span> <span class="bp">cls</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">cls_mask</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+                <span class="k">continue</span>
+            <span class="n">heatmap</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">probabilities</span><span class="p">[</span><span class="n">cls_mask</span><span class="p">,</span> <span class="n">i</span><span class="p">]))</span>
+
+    <span class="n">relative</span> <span class="o">=</span> <span class="n">baseline_groups</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">relative</span><span class="p">:</span>
+        <span class="n">baseline_groups</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">baseline_groups</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+        <span class="n">baseline_mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">groups</span><span class="p">,</span> <span class="n">baseline_groups</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">baseline_mask</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;baseline_groups does not overlap any of the groups present &quot;</span>
+                <span class="s2">&quot;in group_labels.&quot;</span>
+            <span class="p">)</span>
+        <span class="n">baseline_means</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">heatmap</span><span class="p">[:,</span> <span class="n">baseline_mask</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="c1"># Subtract row-wise; rows with all-NaN baseline get raw values</span>
+        <span class="n">valid_rows</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">baseline_means</span><span class="p">)</span>
+        <span class="n">heatmap</span> <span class="o">=</span> <span class="n">heatmap</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">heatmap</span><span class="p">[</span><span class="n">valid_rows</span><span class="p">]</span> <span class="o">=</span> <span class="n">heatmap</span><span class="p">[</span><span class="n">valid_rows</span><span class="p">]</span> <span class="o">-</span> <span class="n">baseline_means</span><span class="p">[</span><span class="n">valid_rows</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="n">cmap</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">cmap</span> <span class="o">=</span> <span class="s2">&quot;RdBu_r&quot;</span> <span class="k">if</span> <span class="n">relative</span> <span class="k">else</span> <span class="s2">&quot;viridis&quot;</span>
+    <span class="k">if</span> <span class="n">cbar_label</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">cbar_label</span> <span class="o">=</span> <span class="s2">&quot;ΔP vs baseline&quot;</span> <span class="k">if</span> <span class="n">relative</span> <span class="k">else</span> <span class="s2">&quot;P(correct)&quot;</span>
+
+    <span class="k">if</span> <span class="n">ax</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">groups</span><span class="p">)</span> <span class="o">*</span> <span class="mf">0.4</span> <span class="o">+</span> <span class="mi">2</span><span class="p">),</span> <span class="nb">max</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">K</span> <span class="o">*</span> <span class="mf">0.5</span><span class="p">)))</span>
+    <span class="k">if</span> <span class="n">relative</span><span class="p">:</span>
+        <span class="n">max_abs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmax</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">heatmap</span><span class="p">))</span>
+        <span class="n">vmin</span><span class="p">,</span> <span class="n">vmax</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="n">max_abs</span><span class="p">,</span> <span class="n">max_abs</span><span class="p">)</span> <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">max_abs</span><span class="p">)</span> <span class="k">else</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">vmin</span><span class="p">,</span> <span class="n">vmax</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span>
+    <span class="n">im</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span>
+        <span class="n">heatmap</span><span class="p">,</span> <span class="n">aspect</span><span class="o">=</span><span class="s2">&quot;auto&quot;</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=</span><span class="n">vmin</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="n">vmax</span><span class="p">,</span> <span class="n">interpolation</span><span class="o">=</span><span class="s2">&quot;nearest&quot;</span>
+    <span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xticks</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">groups</span><span class="p">)))</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xticklabels</span><span class="p">([</span><span class="nb">str</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">groups</span><span class="p">])</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_yticks</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">K</span><span class="p">))</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_yticklabels</span><span class="p">([</span><span class="nb">str</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">classes</span><span class="p">])</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;Group&quot;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">&quot;Class&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">show_colorbar</span><span class="p">:</span>
+        <span class="n">cbar</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">figure</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">)</span>
+        <span class="n">cbar</span><span class="o">.</span><span class="n">set_label</span><span class="p">(</span><span class="n">cbar_label</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">bar_ax</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">bar_groups</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;bar_groups must be provided when bar_ax is given.&quot;</span><span class="p">)</span>
+        <span class="n">n_bar_groups</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">bar_groups</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">bar_group_labels</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">bar_group_labels</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;group </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_bar_groups</span><span class="p">)]</span>
+        <span class="k">if</span> <span class="n">bar_colors</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">cmap_obj</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">get_cmap</span><span class="p">(</span><span class="s2">&quot;tab10&quot;</span><span class="p">)</span>
+            <span class="n">bar_colors</span> <span class="o">=</span> <span class="p">[</span><span class="n">cmap_obj</span><span class="p">(</span><span class="n">i</span> <span class="o">%</span> <span class="mi">10</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_bar_groups</span><span class="p">)]</span>
+
+        <span class="c1"># bars: per group, mean across (classes x groups_in_bar_group)</span>
+        <span class="n">means</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">n_bar_groups</span><span class="p">)</span>
+        <span class="n">stds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">n_bar_groups</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">g</span><span class="p">,</span> <span class="n">group</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">bar_groups</span><span class="p">):</span>
+            <span class="n">group</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">group</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+            <span class="n">cols</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">groups</span><span class="p">,</span> <span class="n">group</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">cols</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">means</span><span class="p">[</span><span class="n">g</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+                <span class="n">stds</span><span class="p">[</span><span class="n">g</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+                <span class="k">continue</span>
+            <span class="n">sub</span> <span class="o">=</span> <span class="n">heatmap</span><span class="p">[:,</span> <span class="n">cols</span><span class="p">]</span>
+            <span class="n">means</span><span class="p">[</span><span class="n">g</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">sub</span><span class="p">))</span>
+            <span class="n">stds</span><span class="p">[</span><span class="n">g</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nanstd</span><span class="p">(</span><span class="n">sub</span><span class="p">))</span>
+
+        <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n_bar_groups</span><span class="p">)</span>
+        <span class="n">bar_ax</span><span class="o">.</span><span class="n">bar</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">means</span><span class="p">,</span> <span class="n">yerr</span><span class="o">=</span><span class="n">stds</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">bar_colors</span><span class="p">,</span> <span class="n">edgecolor</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">)</span>
+        <span class="n">bar_ax</span><span class="o">.</span><span class="n">set_xticks</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">bar_ax</span><span class="o">.</span><span class="n">set_xticklabels</span><span class="p">(</span><span class="n">bar_group_labels</span><span class="p">,</span> <span class="n">rotation</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">ha</span><span class="o">=</span><span class="s2">&quot;right&quot;</span><span class="p">)</span>
+        <span class="n">bar_ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="n">cbar_label</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">relative</span><span class="p">:</span>
+            <span class="n">bar_ax</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;gray&quot;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">&quot;heatmap&quot;</span><span class="p">:</span> <span class="n">heatmap</span><span class="p">,</span>
+        <span class="s2">&quot;ax&quot;</span><span class="p">:</span> <span class="n">ax</span><span class="p">,</span>
+        <span class="s2">&quot;bar_ax&quot;</span><span class="p">:</span> <span class="n">bar_ax</span><span class="p">,</span>
+        <span class="s2">&quot;groups&quot;</span><span class="p">:</span> <span class="n">groups</span><span class="p">,</span>
+        <span class="s2">&quot;classes&quot;</span><span class="p">:</span> <span class="n">classes</span><span class="p">,</span>
+    <span class="p">}</span></div>
+
+
+
+<div class="viewcode-block" id="plot_responsive_unit_map">
+<a class="viewcode-back" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_responsive_unit_map">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">plot_responsive_unit_map</span><span class="p">(</span>
+    <span class="n">unit_locations</span><span class="p">,</span>
+    <span class="n">target_location</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">responsive_mask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">color_values</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">other_target_locations</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">ax</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;bwr&quot;</span><span class="p">,</span>
+    <span class="n">vmin</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">vmax</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">show_colorbar</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">cbar_label</span><span class="o">=</span><span class="s2">&quot;metric&quot;</span><span class="p">,</span>
+    <span class="n">nonresponsive_color</span><span class="o">=</span><span class="s2">&quot;lightgray&quot;</span><span class="p">,</span>
+    <span class="n">responsive_color</span><span class="o">=</span><span class="s2">&quot;tab:red&quot;</span><span class="p">,</span>
+    <span class="n">target_marker_color</span><span class="o">=</span><span class="s2">&quot;red&quot;</span><span class="p">,</span>
+    <span class="n">other_target_marker_color</span><span class="o">=</span><span class="s2">&quot;green&quot;</span><span class="p">,</span>
+    <span class="n">unit_marker_size</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span>
+    <span class="n">target_marker_size</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span>
+    <span class="n">other_target_marker_size</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Spatial map of unit locations highlighting responsive units around a stim.</span>
+
+<span class="sd">    Plots all units as scatter points at their (x, y) locations, marks the</span>
+<span class="sd">    target stimulus electrode with a large coloured X, and optionally marks</span>
+<span class="sd">    other stimulation electrodes in the same protocol. Either highlights</span>
+<span class="sd">    a boolean ``responsive_mask`` or colours units by a continuous</span>
+<span class="sd">    ``color_values`` metric.</span>
+
+<span class="sd">    Mirrors the spatial map pattern from ``plot_cut_causal.py:233-249``.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        unit_locations (np.ndarray): ``(n_units, 2)`` array of (x, y)</span>
+<span class="sd">            positions in micrometres (or any consistent unit).</span>
+<span class="sd">        target_location (array-like): ``(2,)`` (x, y) position of the</span>
+<span class="sd">            target stimulus electrode.</span>
+<span class="sd">        responsive_mask (array-like or None): ``(n_units,)`` boolean</span>
+<span class="sd">            mask of responsive units. When provided (and</span>
+<span class="sd">            ``color_values`` is None), responsive units are drawn in</span>
+<span class="sd">            ``responsive_color`` and the rest in ``nonresponsive_color``.</span>
+<span class="sd">        color_values (array-like or None): ``(n_units,)`` continuous</span>
+<span class="sd">            metric used to color units (e.g. response amplitude). When</span>
+<span class="sd">            provided, takes precedence over ``responsive_mask`` for</span>
+<span class="sd">            colouring; the mask still controls which units are drawn</span>
+<span class="sd">            (None = all units shown).</span>
+<span class="sd">        other_target_locations (np.ndarray or None): ``(n_other, 2)`` (x, y)</span>
+<span class="sd">            positions of other stimulation electrodes to mark with green</span>
+<span class="sd">            X markers.</span>
+<span class="sd">        ax (matplotlib.axes.Axes or None): Plot axes. Created when None.</span>
+<span class="sd">        cmap (str): Colormap when ``color_values`` is provided.</span>
+<span class="sd">        vmin / vmax (float or None): Color scale limits. Defaults to a</span>
+<span class="sd">            symmetric range around 0 for diverging metrics.</span>
+<span class="sd">        show_colorbar (bool): Add a colorbar when ``color_values`` is</span>
+<span class="sd">            provided.</span>
+<span class="sd">        cbar_label (str): Colorbar label.</span>
+<span class="sd">        nonresponsive_color (str): Marker color for non-responsive units</span>
+<span class="sd">            in mask mode.</span>
+<span class="sd">        responsive_color (str): Marker color for responsive units in mask</span>
+<span class="sd">            mode.</span>
+<span class="sd">        target_marker_color (str): Color of the target-stim X marker.</span>
+<span class="sd">        other_target_marker_color (str): Color of other-stim X markers.</span>
+<span class="sd">        unit_marker_size (float): Scatter marker size for units.</span>
+<span class="sd">        target_marker_size (float): Marker size for the target stim X.</span>
+<span class="sd">        other_target_marker_size (float): Marker size for other-stim X.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        result (dict): ``{&quot;ax&quot;: ax, &quot;scatter&quot;: PathCollection,</span>
+<span class="sd">            &quot;target_scatter&quot;: PathCollection,</span>
+<span class="sd">            &quot;other_target_scatter&quot;: PathCollection or None}``.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        - Requires ``matplotlib``.</span>
+<span class="sd">        - Either ``responsive_mask`` or ``color_values`` (or both) is</span>
+<span class="sd">          required to give the units meaningful colour. Provide neither</span>
+<span class="sd">          to get a uniform-coloured layout.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+    <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
+            <span class="s2">&quot;plot_responsive_unit_map requires &#39;matplotlib&#39;. &quot;</span>
+            <span class="s2">&quot;Install with: pip install matplotlib&quot;</span>
+        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+
+    <span class="n">unit_locations</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">unit_locations</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">unit_locations</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">2</span> <span class="ow">or</span> <span class="n">unit_locations</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;unit_locations must be (n_units, 2); got shape </span><span class="si">{</span><span class="n">unit_locations</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">.&quot;</span>
+        <span class="p">)</span>
+    <span class="n">target_location</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">target_location</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">target_location</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="p">(</span><span class="mi">2</span><span class="p">,):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;target_location must be a 2-element (x, y) array; got shape </span><span class="si">{</span><span class="n">target_location</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">.&quot;</span>
+        <span class="p">)</span>
+    <span class="n">n_units</span> <span class="o">=</span> <span class="n">unit_locations</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="n">ax</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>
+
+    <span class="n">sc</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">color_values</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">color_values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">color_values</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">color_values</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="n">n_units</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;color_values must have length n_units=</span><span class="si">{</span><span class="n">n_units</span><span class="si">}</span><span class="s2">; got </span><span class="si">{</span><span class="n">color_values</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">vmin</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">vmax</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">max_abs</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nanmax</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">color_values</span><span class="p">)))</span>
+            <span class="n">vmin</span><span class="p">,</span> <span class="n">vmax</span> <span class="o">=</span> <span class="o">-</span><span class="n">max_abs</span><span class="p">,</span> <span class="n">max_abs</span>
+        <span class="n">sc</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span>
+            <span class="n">unit_locations</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span>
+            <span class="n">unit_locations</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span>
+            <span class="n">c</span><span class="o">=</span><span class="n">color_values</span><span class="p">,</span>
+            <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">,</span>
+            <span class="n">vmin</span><span class="o">=</span><span class="n">vmin</span><span class="p">,</span>
+            <span class="n">vmax</span><span class="o">=</span><span class="n">vmax</span><span class="p">,</span>
+            <span class="n">s</span><span class="o">=</span><span class="n">unit_marker_size</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">show_colorbar</span><span class="p">:</span>
+            <span class="n">cbar</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">figure</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">sc</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">)</span>
+            <span class="n">cbar</span><span class="o">.</span><span class="n">set_label</span><span class="p">(</span><span class="n">cbar_label</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">responsive_mask</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">responsive_mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">responsive_mask</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">responsive_mask</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="n">n_units</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;responsive_mask must have length n_units=</span><span class="si">{</span><span class="n">n_units</span><span class="si">}</span><span class="s2">; got </span><span class="si">{</span><span class="n">responsive_mask</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="p">(</span><span class="o">~</span><span class="n">responsive_mask</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span>
+                <span class="n">unit_locations</span><span class="p">[</span><span class="o">~</span><span class="n">responsive_mask</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+                <span class="n">unit_locations</span><span class="p">[</span><span class="o">~</span><span class="n">responsive_mask</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+                <span class="n">c</span><span class="o">=</span><span class="n">nonresponsive_color</span><span class="p">,</span>
+                <span class="n">s</span><span class="o">=</span><span class="n">unit_marker_size</span><span class="p">,</span>
+                <span class="n">edgecolors</span><span class="o">=</span><span class="s2">&quot;none&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">responsive_mask</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+            <span class="n">sc</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span>
+                <span class="n">unit_locations</span><span class="p">[</span><span class="n">responsive_mask</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+                <span class="n">unit_locations</span><span class="p">[</span><span class="n">responsive_mask</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+                <span class="n">c</span><span class="o">=</span><span class="n">responsive_color</span><span class="p">,</span>
+                <span class="n">s</span><span class="o">=</span><span class="n">unit_marker_size</span><span class="p">,</span>
+                <span class="n">edgecolors</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span>
+                <span class="n">linewidths</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+            <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">sc</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span>
+            <span class="n">unit_locations</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span>
+            <span class="n">unit_locations</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span>
+            <span class="n">c</span><span class="o">=</span><span class="n">nonresponsive_color</span><span class="p">,</span>
+            <span class="n">s</span><span class="o">=</span><span class="n">unit_marker_size</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="n">other_sc</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">other_target_locations</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">other_target_locations</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">other_target_locations</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">other_target_locations</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">2</span> <span class="ow">or</span> <span class="n">other_target_locations</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;other_target_locations must be (n_other, 2); got shape </span><span class="si">{</span><span class="n">other_target_locations</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+        <span class="n">other_sc</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span>
+            <span class="n">other_target_locations</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span>
+            <span class="n">other_target_locations</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span>
+            <span class="n">marker</span><span class="o">=</span><span class="s2">&quot;x&quot;</span><span class="p">,</span>
+            <span class="n">c</span><span class="o">=</span><span class="n">other_target_marker_color</span><span class="p">,</span>
+            <span class="n">s</span><span class="o">=</span><span class="n">other_target_marker_size</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="n">stim_sc</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span>
+        <span class="p">[</span><span class="n">target_location</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span>
+        <span class="p">[</span><span class="n">target_location</span><span class="p">[</span><span class="mi">1</span><span class="p">]],</span>
+        <span class="n">marker</span><span class="o">=</span><span class="s2">&quot;x&quot;</span><span class="p">,</span>
+        <span class="n">c</span><span class="o">=</span><span class="n">target_marker_color</span><span class="p">,</span>
+        <span class="n">s</span><span class="o">=</span><span class="n">target_marker_size</span><span class="p">,</span>
+        <span class="n">linewidths</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;x (μm)&quot;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">&quot;y (μm)&quot;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_aspect</span><span class="p">(</span><span class="s2">&quot;equal&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">&quot;ax&quot;</span><span class="p">:</span> <span class="n">ax</span><span class="p">,</span>
+        <span class="s2">&quot;scatter&quot;</span><span class="p">:</span> <span class="n">sc</span><span class="p">,</span>
+        <span class="s2">&quot;target_scatter&quot;</span><span class="p">:</span> <span class="n">stim_sc</span><span class="p">,</span>
+        <span class="s2">&quot;other_target_scatter&quot;</span><span class="p">:</span> <span class="n">other_sc</span><span class="p">,</span>
+    <span class="p">}</span></div>
 
 </pre></div>
 

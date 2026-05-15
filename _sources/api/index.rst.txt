@@ -61,11 +61,3 @@ Batch Jobs
    :maxdepth: 2
 
    batch_jobs
-
-Server
-------
-
-.. toctree::
-   :maxdepth: 2
-
-   mcp_server

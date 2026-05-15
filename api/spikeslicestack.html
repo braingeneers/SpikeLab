@@ -209,17 +209,6 @@
 <li class="toctree-l3"><a class="reference internal" href="../guides/workspace.html#merging-workspaces">Merging Workspaces</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../guides/mcp_server.html">MCP Server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../guides/mcp_server.html#starting-the-server">Starting the server</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/mcp_server.html#tool-categories">Tool categories</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../guides/mcp_server.html#data-loading-tools">Data loading tools</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../guides/mcp_server.html#analysis-tools">Analysis tools</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../guides/mcp_server.html#export-tools">Export tools</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/mcp_server.html#workspace-addressing">Workspace addressing</a></li>
-</ul>
-</li>
 <li class="toctree-l2"><a class="reference internal" href="../guides/parallel_computing.html">Parallel Computing</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../guides/parallel_computing.html#thread-pool-parallelism">Thread-Pool Parallelism</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/parallel_computing.html#numba-acceleration">Numba Acceleration</a></li>
@@ -305,6 +294,7 @@
 <li class="toctree-l4"><a class="reference internal" href="stat_utils.html#spikelab.spikedata.stat_utils.linear_regression"><code class="docutils literal notranslate"><span class="pre">linear_regression()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="stat_utils.html#spikelab.spikedata.stat_utils.pairwise_tests"><code class="docutils literal notranslate"><span class="pre">pairwise_tests()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="stat_utils.html#spikelab.spikedata.stat_utils.paired_test"><code class="docutils literal notranslate"><span class="pre">paired_test()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="stat_utils.html#spikelab.spikedata.stat_utils.mixed_effects_compare"><code class="docutils literal notranslate"><span class="pre">mixed_effects_compare()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="stat_utils.html#spikelab.spikedata.stat_utils.omnibus_test"><code class="docutils literal notranslate"><span class="pre">omnibus_test()</span></code></a></li>
 </ul>
 </li>
@@ -322,6 +312,8 @@
 <li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_recording"><code class="docutils literal notranslate"><span class="pre">plot_recording()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_spatial_network"><code class="docutils literal notranslate"><span class="pre">plot_spatial_network()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_unit_footprints"><code class="docutils literal notranslate"><span class="pre">plot_unit_footprints()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_prediction_probability_heatmap"><code class="docutils literal notranslate"><span class="pre">plot_prediction_probability_heatmap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_responsive_unit_map"><code class="docutils literal notranslate"><span class="pre">plot_responsive_unit_map()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -405,13 +397,6 @@
 <li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#module-spikelab.batch_jobs.artifact_packager">Artifact Packager</a></li>
 <li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#module-spikelab.batch_jobs.credentials">Credentials</a></li>
 <li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#module-spikelab.batch_jobs.validation">Validation</a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="index.html#server">Server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="mcp_server.html">MCP Server</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -571,7 +556,7 @@ units and neuron_attributes are carried over.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="spikelab.spikedata.spikeslicestack.SpikeSliceStack.subset">
-<span class="sig-name descname"><span class="pre">subset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">units</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">by</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikeslicestack.html#SpikeSliceStack.subset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.spikeslicestack.SpikeSliceStack.subset" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">subset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">units</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">by</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">preserve_order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikeslicestack.html#SpikeSliceStack.subset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.spikeslicestack.SpikeSliceStack.subset" title="Link to this definition"></a></dt>
 <dd><p>Extract a subset of units from every slice in the spike stack.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -581,6 +566,11 @@ must be int(s). If by is set, values to match in
 neuron_attributes.</p></li>
 <li><p><strong>by</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><em>None</em>) – If set, select units by this neuron_attribute
 key instead of by index.</p></li>
+<li><p><strong>preserve_order</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – When False (default), output is
+sorted ascending by index — consistent with the other
+SpikeLab data classes. When True, output respects the
+order of the input <code class="docutils literal notranslate"><span class="pre">units</span></code> list. Duplicates are
+deduplicated either way.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -597,8 +587,6 @@ neuron_attributes are carried over.</p>
 </dl>
 <p class="rubric">Notes</p>
 <ul class="simple">
-<li><p>Units are included in the output in the order they appear in the
-train (ascending index order), not the order listed in units.</p></li>
 <li><p>If IDs are not unique (when using by), every matching neuron is
 included.</p></li>
 </ul>
@@ -684,6 +672,378 @@ the same time axis.</p>
 <dd class="field-odd"><p>raster_stack (np.ndarray)</p>
 </dd>
 </dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.spikeslicestack.SpikeSliceStack.baseline_normalized_raster">
+<span class="sig-name descname"><span class="pre">baseline_normalized_raster</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bin_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">baseline_window_ms</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'subtract'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikeslicestack.html#SpikeSliceStack.baseline_normalized_raster"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.spikeslicestack.SpikeSliceStack.baseline_normalized_raster" title="Link to this definition"></a></dt>
+<dd><p>Per-slice raster normalized against a per-slice baseline rate.</p>
+<p>Wraps <code class="docutils literal notranslate"><span class="pre">to_raster_array(bin_size)</span></code> and converts each bin into a
+baseline-normalized response value. The baseline rate is computed
+from spikes inside <code class="docutils literal notranslate"><span class="pre">baseline_window_ms</span></code> (in milliseconds relative
+to each slice’s time origin) and projected to each bin via
+<code class="docutils literal notranslate"><span class="pre">rate</span> <span class="pre">*</span> <span class="pre">bin_size</span></code>. Output shape matches the raster: <code class="docutils literal notranslate"><span class="pre">(U,</span> <span class="pre">T,</span> <span class="pre">S)</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>bin_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Raster bin size in milliseconds. Passed to
+<code class="docutils literal notranslate"><span class="pre">to_raster_array</span></code>.</p></li>
+<li><p><strong>baseline_window_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>]</em>) – <code class="docutils literal notranslate"><span class="pre">(start_ms,</span> <span class="pre">end_ms)</span></code>
+window relative to slice origin used to estimate the
+per-slice baseline rate.</p></li>
+<li><p><strong>mode</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – <p>Normalization mode:
+- <code class="docutils literal notranslate"><span class="pre">&quot;subtract&quot;</span></code> (default) — counts above baseline expectation.
+- <code class="docutils literal notranslate"><span class="pre">&quot;ratio&quot;</span></code> — counts / expected_counts (NaN where expected</p>
+<blockquote>
+<div><p>is 0).</p>
+</div></blockquote>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;zscore&quot;</span></code> — (counts - expected) / sqrt(expected), the
+Poisson z-score (NaN where expected is 0).</p></li>
+</ul>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Float array of shape <code class="docutils literal notranslate"><span class="pre">(U,</span> <span class="pre">T,</span> <span class="pre">S)</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>normalized (np.ndarray)</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>Baseline window is validated against each slice’s actual time
+range. <code class="docutils literal notranslate"><span class="pre">ValueError</span></code> if any slice doesn’t contain it.</p></li>
+<li><p>For uniform-bin response counts (no normalization), use
+<code class="docutils literal notranslate"><span class="pre">to_raster_array(bin_size)</span></code> directly; this method adds the
+per-slice baseline correction on top.</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.spikeslicestack.SpikeSliceStack.responsive_units">
+<span class="sig-name descname"><span class="pre">responsive_units</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bin_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">baseline_window_ms</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">response_window_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">aggregator</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'mean'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikeslicestack.html#SpikeSliceStack.responsive_units"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.spikeslicestack.SpikeSliceStack.responsive_units" title="Link to this definition"></a></dt>
+<dd><p>Identify units that show a significant evoked response.</p>
+<p>Builds the Poisson-z-scored baseline-normalized raster, optionally
+restricts to a response time window, aggregates across slices
+(mean or max), and returns a unit mask where any time bin’s
+aggregated z-score exceeds <code class="docutils literal notranslate"><span class="pre">z_threshold</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>bin_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Raster bin size in milliseconds.</p></li>
+<li><p><strong>baseline_window_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>]</em>) – Baseline window
+<code class="docutils literal notranslate"><span class="pre">(start_ms,</span> <span class="pre">end_ms)</span></code> relative to slice origin used to
+estimate the per-slice baseline rate.</p></li>
+<li><p><strong>response_window_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>] or </em><em>None</em>) – Optional
+response window <code class="docutils literal notranslate"><span class="pre">(start_ms,</span> <span class="pre">end_ms)</span></code> relative to slice
+origin. When None (default), the full slice is searched.</p></li>
+<li><p><strong>z_threshold</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Z-score threshold (default 2.0).</p></li>
+<li><p><strong>aggregator</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – How to combine z-scores across slices before
+thresholding. <code class="docutils literal notranslate"><span class="pre">&quot;mean&quot;</span></code> (default) or <code class="docutils literal notranslate"><span class="pre">&quot;max&quot;</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Boolean array of shape <code class="docutils literal notranslate"><span class="pre">(U,)</span></code>. True for</dt><dd><p>responsive units.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>mask (np.ndarray)</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>Units with no baseline spikes in any slice are flagged
+non-responsive (z-scores are NaN there).</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.spikeslicestack.SpikeSliceStack.decode_slice_labels">
+<span class="sig-name descname"><span class="pre">decode_slice_labels</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">labels</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">response_window_ms</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bin_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">baseline_window_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">classifier</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'ridge'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cv</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'loo'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">classifier_kwargs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">random_state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikeslicestack.html#SpikeSliceStack.decode_slice_labels"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.spikeslicestack.SpikeSliceStack.decode_slice_labels" title="Link to this definition"></a></dt>
+<dd><p>Decode per-slice labels (e.g. stim identity) from population responses.</p>
+<p>Builds an <code class="docutils literal notranslate"><span class="pre">(S,</span> <span class="pre">U)</span></code> feature matrix by summing per-unit spike counts
+in <code class="docutils literal notranslate"><span class="pre">response_window_ms</span></code> (optionally with baseline subtraction) and
+runs cross-validated classifier decoding via
+<code class="xref py py-func docutils literal notranslate"><span class="pre">spikelab.spikedata.decoding.cross_validated_decode()</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>labels</strong> (<em>array-like</em>) – Per-slice labels of length <code class="docutils literal notranslate"><span class="pre">S</span></code>
+(e.g. stim electrode index, treatment category).</p></li>
+<li><p><strong>response_window_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>]</em>) – Window relative to
+slice origin over which response counts are summed.</p></li>
+<li><p><strong>bin_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Raster bin size in ms.</p></li>
+<li><p><strong>baseline_window_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>] or </em><em>None</em>) – Optional
+per-slice baseline window; when provided, counts are
+baseline-subtracted via <code class="docutils literal notranslate"><span class="pre">baseline_normalized_raster</span></code>.</p></li>
+<li><p><strong>classifier</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – <code class="docutils literal notranslate"><span class="pre">&quot;ridge&quot;</span></code> (default), <code class="docutils literal notranslate"><span class="pre">&quot;mlp&quot;</span></code>, or
+<code class="docutils literal notranslate"><span class="pre">&quot;random_forest&quot;</span></code>.</p></li>
+<li><p><strong>cv</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – <code class="docutils literal notranslate"><span class="pre">&quot;loo&quot;</span></code> (default) or int <code class="docutils literal notranslate"><span class="pre">&gt;=</span> <span class="pre">2</span></code>.</p></li>
+<li><p><strong>classifier_kwargs</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em> or </em><em>None</em>) – Forwarded to the sklearn
+classifier constructor.</p></li>
+<li><p><strong>random_state</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><em>None</em>) – Reproducibility seed.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Same shape as</dt><dd><p><code class="xref py py-func docutils literal notranslate"><span class="pre">spikelab.spikedata.decoding.cross_validated_decode()</span></code> —
+<code class="docutils literal notranslate"><span class="pre">accuracy</span></code>, <code class="docutils literal notranslate"><span class="pre">predictions</span></code>, <code class="docutils literal notranslate"><span class="pre">true_labels</span></code>,
+<code class="docutils literal notranslate"><span class="pre">confusion_matrix</span></code>, <code class="docutils literal notranslate"><span class="pre">per_fold_accuracy</span></code>, <code class="docutils literal notranslate"><span class="pre">classes</span></code>,
+<code class="docutils literal notranslate"><span class="pre">classifier_name</span></code>.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>result (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>)</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>Requires <code class="docutils literal notranslate"><span class="pre">scikit-learn</span></code> (optional dependency).</p></li>
+<li><p>For decoding from the full <code class="docutils literal notranslate"><span class="pre">(U,</span> <span class="pre">T)</span></code> raster (not just summed
+counts), call <code class="docutils literal notranslate"><span class="pre">decoding.cross_validated_decode</span></code> directly on
+<code class="docutils literal notranslate"><span class="pre">self.to_raster_array(bin_size).reshape(U</span> <span class="pre">*</span> <span class="pre">T,</span> <span class="pre">S).T</span></code>.</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.spikeslicestack.SpikeSliceStack.group_pair_similarity">
+<span class="sig-name descname"><span class="pre">group_pair_similarity</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">stim_labels</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metric</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'cosine'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bin_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">slice_indices</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikeslicestack.html#SpikeSliceStack.group_pair_similarity"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.spikeslicestack.SpikeSliceStack.group_pair_similarity" title="Link to this definition"></a></dt>
+<dd><p>Pairwise similarity between mean response vectors for each stim class.</p>
+<p>For each unique stimulus label, averages the per-slice
+<code class="docutils literal notranslate"><span class="pre">(U,</span> <span class="pre">T)</span></code> raster across all slices that share that label, then
+computes a <code class="docutils literal notranslate"><span class="pre">(K,</span> <span class="pre">K)</span></code> similarity matrix between the resulting
+per-stim mean response vectors. Lets you ask: “how distinguishable
+are responses to different stims?”.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>stim_labels</strong> (<em>array-like</em>) – Per-slice stim label of length <code class="docutils literal notranslate"><span class="pre">S</span></code>.</p></li>
+<li><p><strong>metric</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – <code class="docutils literal notranslate"><span class="pre">&quot;cosine&quot;</span></code> (default), <code class="docutils literal notranslate"><span class="pre">&quot;pearson&quot;</span></code>,
+<code class="docutils literal notranslate"><span class="pre">&quot;euclidean&quot;</span></code> (distance), or <code class="docutils literal notranslate"><span class="pre">&quot;cross_entropy&quot;</span></code>.</p></li>
+<li><p><strong>bin_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Raster bin size in ms (default 1.0).</p></li>
+<li><p><strong>slice_indices</strong> (<em>array-like</em><em> or </em><em>None</em>) – Optional subset of slice
+indices to use (e.g. an “early-cycle” or “late-cycle”
+window). When None (default), uses all slices.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">(K,</span> <span class="pre">K)</span></code> similarity matrix with</dt><dd><p><code class="docutils literal notranslate"><span class="pre">labels</span></code> set to the unique stim classes (sorted).</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>sim (<a class="reference internal" href="pairwise.html#spikelab.spikedata.pairwise.PairwiseCompMatrix" title="spikelab.spikedata.pairwise.PairwiseCompMatrix">PairwiseCompMatrix</a>)</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>Stim classes that have no slices in <code class="docutils literal notranslate"><span class="pre">slice_indices</span></code> are
+dropped from the output.</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.spikeslicestack.SpikeSliceStack.responsive_units_per_group">
+<span class="sig-name descname"><span class="pre">responsive_units_per_group</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">group_labels</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bin_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">baseline_window_ms</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">response_window_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">aggregator</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'mean'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikeslicestack.html#SpikeSliceStack.responsive_units_per_group"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.spikeslicestack.SpikeSliceStack.responsive_units_per_group" title="Link to this definition"></a></dt>
+<dd><p>Per-cycle responsive-unit mask for tracking responsiveness over time.</p>
+<p>For each unique cycle, runs <code class="docutils literal notranslate"><span class="pre">responsive_units</span></code> on the slices
+belonging to that cycle and returns a <code class="docutils literal notranslate"><span class="pre">(U,</span> <span class="pre">n_cycles)</span></code> boolean
+matrix. Use the per-cycle masks to compute gained / lost /
+preserved responsive units across cycle groups, or to correlate
+responsiveness changes with intrinsic activity changes per unit.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>group_labels</strong> (<em>array-like</em>) – Per-slice cycle index of length <code class="docutils literal notranslate"><span class="pre">S</span></code>.</p></li>
+<li><p><strong>bin_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Raster bin size in ms.</p></li>
+<li><p><strong>baseline_window_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>]</em>) – Baseline window for
+Poisson z-score normalization.</p></li>
+<li><p><strong>response_window_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>] or </em><em>None</em>) – Optional
+response window (default: full slice).</p></li>
+<li><p><strong>z_threshold</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Per-cycle z-threshold (default 2.0).</p></li>
+<li><p><strong>aggregator</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – <code class="docutils literal notranslate"><span class="pre">&quot;mean&quot;</span></code> (default) or <code class="docutils literal notranslate"><span class="pre">&quot;max&quot;</span></code> across
+slices within each cycle.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">cycles</span></code> (np.ndarray): Sorted unique cycle indices.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mask</span></code> (np.ndarray): <code class="docutils literal notranslate"><span class="pre">(U,</span> <span class="pre">n_cycles)</span></code> boolean
+responsiveness mask.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">responsive_count</span></code> (np.ndarray): Per-cycle responsive
+unit count, shape <code class="docutils literal notranslate"><span class="pre">(n_cycles,)</span></code>.</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>result (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.spikeslicestack.SpikeSliceStack.responsiveness_change">
+<span class="sig-name descname"><span class="pre">responsiveness_change</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">group_labels</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">early_groups</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">late_groups</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bin_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">baseline_window_ms</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">response_window_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">aggregator</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'mean'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikeslicestack.html#SpikeSliceStack.responsiveness_change"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.spikeslicestack.SpikeSliceStack.responsiveness_change" title="Link to this definition"></a></dt>
+<dd><p>Gained / lost / preserved responsive units between two cycle groups.</p>
+<p>Computes responsive-unit masks separately for slices in
+<code class="docutils literal notranslate"><span class="pre">early_groups</span></code> and <code class="docutils literal notranslate"><span class="pre">late_groups</span></code> (any iterables of cycle
+indices), and reports which units become responsive (“gained”),
+stop being responsive (“lost”), or stay responsive (“preserved”).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>group_labels</strong> (<em>array-like</em>) – Per-slice cycle index of length <code class="docutils literal notranslate"><span class="pre">S</span></code>.</p></li>
+<li><p><strong>early_groups</strong> (<em>array-like</em>) – Cycle indices for the early group.</p></li>
+<li><p><strong>late_groups</strong> (<em>array-like</em>) – Cycle indices for the late group.</p></li>
+<li><p><strong>bin_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Raster bin size in ms.</p></li>
+<li><p><strong>baseline_window_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>]</em>) – Baseline window.</p></li>
+<li><p><strong>response_window_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>] or </em><em>None</em>) – Response
+window (default: full slice).</p></li>
+<li><p><strong>z_threshold</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Per-group z-threshold.</p></li>
+<li><p><strong>aggregator</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – <code class="docutils literal notranslate"><span class="pre">&quot;mean&quot;</span></code> (default) or <code class="docutils literal notranslate"><span class="pre">&quot;max&quot;</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">early_mask</span></code> (np.ndarray <code class="docutils literal notranslate"><span class="pre">(U,)</span></code> bool): Responsive in
+early.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">late_mask</span></code> (np.ndarray <code class="docutils literal notranslate"><span class="pre">(U,)</span></code> bool): Responsive in
+late.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">gained</span></code> (np.ndarray <code class="docutils literal notranslate"><span class="pre">(U,)</span></code> bool): NOT responsive
+in early AND responsive in late.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">lost</span></code> (np.ndarray <code class="docutils literal notranslate"><span class="pre">(U,)</span></code> bool): Responsive in
+early AND NOT responsive in late.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">preserved</span></code> (np.ndarray <code class="docutils literal notranslate"><span class="pre">(U,)</span></code> bool): Responsive
+in BOTH.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">early_count</span></code>, <code class="docutils literal notranslate"><span class="pre">late_count</span></code>, <code class="docutils literal notranslate"><span class="pre">gained_count</span></code>,
+<code class="docutils literal notranslate"><span class="pre">lost_count</span></code>, <code class="docutils literal notranslate"><span class="pre">preserved_count</span></code> (int).</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>result (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>)</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>Pair this with intrinsic-activity changes per unit (e.g.
+<code class="docutils literal notranslate"><span class="pre">cv_isi</span></code> differences) and correlate via
+<code class="docutils literal notranslate"><span class="pre">stat_utils.linear_regression</span></code> to ask whether
+responsiveness changes track changes in baseline activity.</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.spikeslicestack.SpikeSliceStack.slice_to_slice_similarity">
+<span class="sig-name descname"><span class="pre">slice_to_slice_similarity</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">metric</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'cosine'</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bin_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikeslicestack.html#SpikeSliceStack.slice_to_slice_similarity"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.spikeslicestack.SpikeSliceStack.slice_to_slice_similarity" title="Link to this definition"></a></dt>
+<dd><p>Pairwise similarity between slice-wise population response vectors.</p>
+<p>Each slice is converted to a <code class="docutils literal notranslate"><span class="pre">(U</span> <span class="pre">*</span> <span class="pre">T)</span></code> flat vector via
+<code class="docutils literal notranslate"><span class="pre">to_raster_array(bin_size).reshape(U*T,</span> <span class="pre">S).T</span></code> and a square
+<code class="docutils literal notranslate"><span class="pre">(S,</span> <span class="pre">S)</span></code> similarity matrix is computed using the requested metric.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>metric</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – One of <code class="docutils literal notranslate"><span class="pre">&quot;cosine&quot;</span></code> (default), <code class="docutils literal notranslate"><span class="pre">&quot;pearson&quot;</span></code>,
+<code class="docutils literal notranslate"><span class="pre">&quot;euclidean&quot;</span></code> (distance), or <code class="docutils literal notranslate"><span class="pre">&quot;cross_entropy&quot;</span></code>
+(symmetric KL on normalized bin distributions).</p></li>
+<li><p><strong>bin_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Raster bin size in ms (default 1.0).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">(S,</span> <span class="pre">S)</span></code> similarity matrix. For</dt><dd><p>cosine and pearson, higher = more similar (diagonal ~1.0);
+for euclidean and cross_entropy, lower = more similar
+(diagonal 0).</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>sim (<a class="reference internal" href="pairwise.html#spikelab.spikedata.pairwise.PairwiseCompMatrix" title="spikelab.spikedata.pairwise.PairwiseCompMatrix">PairwiseCompMatrix</a>)</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">cosine</span></code> and <code class="docutils literal notranslate"><span class="pre">pearson</span></code> return values in <code class="docutils literal notranslate"><span class="pre">[-1,</span> <span class="pre">1]</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">euclidean</span></code> returns raw L2 distance.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cross_entropy</span></code> returns symmetric KL divergence (i.e.
+<code class="docutils literal notranslate"><span class="pre">(KL(p||q)</span> <span class="pre">+</span> <span class="pre">KL(q||p))</span> <span class="pre">/</span> <span class="pre">2</span></code>) between bin distributions
+normalized to sum to 1.</p></li>
+<li><p>Use <code class="docutils literal notranslate"><span class="pre">PairwiseCompMatrix.extract_lower_triangle()</span></code> for
+feature extraction.</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.spikeslicestack.SpikeSliceStack.per_unit_response_regression">
+<span class="sig-name descname"><span class="pre">per_unit_response_regression</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bin_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">response_window_ms</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_values</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">baseline_window_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_valid_slices</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikeslicestack.html#SpikeSliceStack.per_unit_response_regression"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.spikeslicestack.SpikeSliceStack.per_unit_response_regression" title="Link to this definition"></a></dt>
+<dd><p>Per-unit OLS regression of evoked response amplitude across slices.</p>
+<p>For each slice and unit, computes response amplitude as the sum of
+spike counts in <code class="docutils literal notranslate"><span class="pre">response_window_ms</span></code> — optionally with a per-slice
+baseline subtraction. Then fits a linear regression of amplitude
+against <code class="docutils literal notranslate"><span class="pre">x_values</span></code> for every unit. Use this to detect facilitation
+/ depression of the evoked response across cycles or stimulus
+intensities.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>bin_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Raster bin size in milliseconds (passed to
+<code class="docutils literal notranslate"><span class="pre">to_raster_array</span></code>).</p></li>
+<li><p><strong>response_window_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>]</em>) – <code class="docutils literal notranslate"><span class="pre">(start_ms,</span> <span class="pre">end_ms)</span></code>
+window relative to slice origin over which response counts
+are summed.</p></li>
+<li><p><strong>x_values</strong> (<em>array-like</em><em> or </em><em>None</em>) – Per-slice x values for the
+regression (e.g. cycle index, stimulus intensity). Length
+must equal the number of slices <code class="docutils literal notranslate"><span class="pre">S</span></code>. When None (default),
+uses <code class="docutils literal notranslate"><span class="pre">np.arange(S)</span></code>.</p></li>
+<li><p><strong>baseline_window_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>] or </em><em>None</em>) – Optional
+baseline window for per-slice subtraction. When None
+(default), uses raw response counts; otherwise subtracts the
+expected count per bin (<code class="docutils literal notranslate"><span class="pre">baseline_rate</span> <span class="pre">*</span> <span class="pre">bin_size</span></code>) before
+summing.</p></li>
+<li><p><strong>min_valid_slices</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Minimum number of valid (non-NaN)
+<code class="docutils literal notranslate"><span class="pre">(x,</span> <span class="pre">y)</span></code> pairs required to fit a regression. Units with
+fewer return NaN for all coefficients. Default 3.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Dictionary with keys:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">slope</span></code> (np.ndarray <code class="docutils literal notranslate"><span class="pre">(U,)</span></code>): Slope per unit.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">intercept</span></code> (np.ndarray <code class="docutils literal notranslate"><span class="pre">(U,)</span></code>): Intercept per unit.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">r_squared</span></code> (np.ndarray <code class="docutils literal notranslate"><span class="pre">(U,)</span></code>): R² per unit.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">p_value</span></code> (np.ndarray <code class="docutils literal notranslate"><span class="pre">(U,)</span></code>): Two-sided p-value of
+the slope per unit.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">stderr</span></code> (np.ndarray <code class="docutils literal notranslate"><span class="pre">(U,)</span></code>): Standard error of the
+slope per unit.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">amplitudes</span></code> (np.ndarray <code class="docutils literal notranslate"><span class="pre">(U,</span> <span class="pre">S)</span></code>): Per-slice response
+amplitude (raw or baseline-subtracted).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">x_values</span></code> (np.ndarray <code class="docutils literal notranslate"><span class="pre">(S,)</span></code>): The x values used.</p></li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>result (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>)</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>Requires <code class="docutils literal notranslate"><span class="pre">scipy</span></code> (optional dependency); raises
+<code class="docutils literal notranslate"><span class="pre">ImportError</span></code> with installation instructions if missing.</p></li>
+<li><p>Units with constant amplitudes get <code class="docutils literal notranslate"><span class="pre">r_squared</span> <span class="pre">=</span> <span class="pre">0</span></code>,
+<code class="docutils literal notranslate"><span class="pre">slope</span> <span class="pre">=</span> <span class="pre">0</span></code> and <code class="docutils literal notranslate"><span class="pre">p_value</span> <span class="pre">=</span> <span class="pre">1.0</span></code>.</p></li>
+</ul>
 </dd></dl>
 
 <dl class="py method">
