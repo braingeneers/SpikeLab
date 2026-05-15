@@ -1701,7 +1701,9 @@ def save_traces_si(
             return_scaled=recording.has_scaleable_traces(),
         )  # (samples, channels)
         actual = traces_chunk.shape[0]
-        out[:, chunk_out_start : chunk_out_start + actual] = traces_chunk.T.astype(dtype, copy=False)
+        out[:, chunk_out_start : chunk_out_start + actual] = traces_chunk.T.astype(
+            dtype, copy=False
+        )
 
     out.flush()
     del out
@@ -2363,7 +2365,9 @@ def form_all_clusters(params):
     tasks = [(root_elec, params) for root_elec in range(elec_locs.shape[0])]
     with Pool(processes=num_processes) as pool:
         for clusters in tqdm(
-            pool.imap_unordered(_form_all_clusters, tasks), total=len(tasks), file=sys.stdout
+            pool.imap_unordered(_form_all_clusters, tasks),
+            total=len(tasks),
+            file=sys.stdout,
         ):
             all_clusters += clusters
 
