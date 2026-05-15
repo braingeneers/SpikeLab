@@ -1572,6 +1572,8 @@ def _validate_time_start_to_end(
         raise TypeError("times must be a list of tuples")
     time_diff_check = []
     valid_time_tuples = []
+    zero_duration_offenders = []
+    negative_start_offenders = []
     times_start_to_end = sorted(times_start_to_end)
     for i, time_window in enumerate(times_start_to_end):
         if not isinstance(time_window, tuple):
@@ -1593,19 +1595,9 @@ def _validate_time_start_to_end(
                 f"Start time must not exceed end time in element {i}: {time_window}"
             )
         if time_window[0] == time_window[1]:
-            warnings.warn(
-                f"Zero-duration time window in element {i}: {time_window}. "
-                "Treating as an empty slice.",
-                UserWarning,
-            )
+            zero_duration_offenders.append((i, time_window))
         if warn_negative_start and time_window[0] < 0:
-            warnings.warn(
-                f"Time window {i} has negative start ({time_window[0]}). "
-                "If these are absolute recording times, negative values are "
-                "unexpected. For event-centered data constructed via "
-                "time_peaks + time_bounds, this is normal.",
-                UserWarning,
-            )
+            negative_start_offenders.append((i, time_window))
         if recording_range is not None:
             rec_start, rec_end = recording_range
             if time_window[0] < rec_start or time_window[1] > rec_end:
@@ -1616,6 +1608,34 @@ def _validate_time_start_to_end(
                 )
         time_diff_check.append(time_window[1] - time_window[0])
         valid_time_tuples.append(time_window)
+
+    if zero_duration_offenders:
+        n = len(zero_duration_offenders)
+        head = zero_duration_offenders[:10]
+        head_str = ", ".join(f"element {i}: {w}" for i, w in head)
+        if n > 10:
+            head_str += f", ... and {n - 10} more"
+        warnings.warn(
+            f"Zero-duration time window(s) detected ({n}): {head_str}. "
+            "Treating as empty slices.",
+            UserWarning,
+            stacklevel=2,
+        )
+
+    if negative_start_offenders:
+        n = len(negative_start_offenders)
+        head = negative_start_offenders[:10]
+        head_str = ", ".join(f"element {i}: {w}" for i, w in head)
+        if n > 10:
+            head_str += f", ... and {n - 10} more"
+        warnings.warn(
+            f"Time window(s) with negative start ({n}): {head_str}. "
+            "If these are absolute recording times, negative values are "
+            "unexpected. For event-centered data constructed via "
+            "time_peaks + time_bounds, this is normal.",
+            UserWarning,
+            stacklevel=2,
+        )
 
     if len(time_diff_check) > 1:
         diffs = np.array(time_diff_check)
