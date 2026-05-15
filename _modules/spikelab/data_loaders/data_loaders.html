@@ -1314,7 +1314,7 @@
             <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
                 <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
                     <span class="s2">&quot;pandas is required to parse cluster info TSV. &quot;</span>
-                    <span class="s2">&quot;Install with: pip install oc-spikelab[io]. &quot;</span>
+                    <span class="s2">&quot;Install with: pip install spikelab[io]. &quot;</span>
                     <span class="s2">&quot;Keeping all clusters.&quot;</span>
                 <span class="p">)</span>
             <span class="k">except</span> <span class="n">pd</span><span class="o">.</span><span class="n">errors</span><span class="o">.</span><span class="n">EmptyDataError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
@@ -1841,7 +1841,7 @@
     <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
             <span class="s2">&quot;pandas is required for query_ibl_probes. &quot;</span>
-            <span class="s2">&quot;Install with: pip install oc-spikelab[io]&quot;</span>
+            <span class="s2">&quot;Install with: pip install spikelab[io]&quot;</span>
         <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
 
     <span class="c1"># Authenticate against the public IBL server.</span>
