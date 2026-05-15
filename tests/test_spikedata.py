@@ -1523,6 +1523,80 @@ class TestSpikeDataSlicing:
         assert combined.neuron_attributes is not None
         assert combined.neuron_attributes[0]["id"] == "a"
 
+    def test_append_salvages_appended_neuron_attributes(self):
+        """
+        When self has no neuron_attributes but the appended SpikeData
+        does, ``append`` salvages the appended operand's attributes and
+        emits a RuntimeWarning. Previously the appended attrs were
+        silently dropped.
+
+        Tests:
+            (Test Case 1) Result carries the appended operand's
+                neuron_attributes.
+            (Test Case 2) A RuntimeWarning naming "append" is emitted.
+        """
+        sd1 = SpikeData([[5.0]], length=20.0)
+        sd2 = SpikeData(
+            [[3.0]],
+            length=10.0,
+            neuron_attributes=[{"id": "b"}],
+        )
+        assert sd1.neuron_attributes is None
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            combined = sd1.append(sd2)
+
+        assert combined.neuron_attributes == [{"id": "b"}]
+        msgs = [str(rec.message) for rec in caught if rec.category is RuntimeWarning]
+        assert any("append" in m for m in msgs), msgs
+
+    def test_append_drop_neuron_attributes(self):
+        """
+        ``drop_neuron_attributes=True`` returns a SpikeData with
+        ``neuron_attributes=None`` regardless of either operand's
+        attributes, and does not emit a salvage warning.
+
+        Tests:
+            (Test Case 1) Both have attrs + drop=True → None,
+                no warning.
+            (Test Case 2) Only appended has attrs + drop=True → None,
+                no salvage warning fires.
+        """
+        sd_a = SpikeData(
+            [[5.0]],
+            length=20.0,
+            neuron_attributes=[{"id": "a"}],
+        )
+        sd_b = SpikeData(
+            [[3.0]],
+            length=10.0,
+            neuron_attributes=[{"id": "b"}],
+        )
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            combined = sd_a.append(sd_b, drop_neuron_attributes=True)
+        assert combined.neuron_attributes is None
+        salvage_warns = [
+            rec
+            for rec in caught
+            if rec.category is RuntimeWarning and "append" in str(rec.message)
+        ]
+        assert salvage_warns == []
+
+        sd_no_attrs = SpikeData([[5.0]], length=20.0)
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            combined = sd_no_attrs.append(sd_b, drop_neuron_attributes=True)
+        assert combined.neuron_attributes is None
+        salvage_warns = [
+            rec
+            for rec in caught
+            if rec.category is RuntimeWarning and "append" in str(rec.message)
+        ]
+        assert salvage_warns == []
+
     def test_concatenate_one_has_neuron_attributes(self):
         """
         concatenate_spike_data when one has neuron_attributes and the other does not.

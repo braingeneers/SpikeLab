@@ -1137,13 +1137,19 @@ class SpikeData:
         else:
             return self.subset(key)
 
-    def append(self, spikeData, offset=0):
+    def append(self, spikeData, offset=0, drop_neuron_attributes=False):
         """Append spike times from another SpikeData object to this one.
 
         Parameters:
             spikeData (SpikeData): SpikeData object to append.
             offset (float): Offset in milliseconds to add to the spike times
                 of the appended data.
+            drop_neuron_attributes (bool): When True, the result has
+                ``neuron_attributes=None`` regardless of either operand.
+                Use this when the two operands describe units with
+                incompatible attribute schemas and you don't want
+                either side's attributes in the result. Defaults to
+                False — see the salvage logic in the Notes below.
 
         Returns:
             sd (SpikeData): New SpikeData object with the appended data.
@@ -1151,6 +1157,13 @@ class SpikeData:
         Notes:
             - The two SpikeData objects must have the same number of neurons.
             - On metadata key collision, values from ``self`` take precedence.
+            - ``neuron_attributes`` are salvaged when only one operand
+              has them: if ``self.neuron_attributes is None`` and the
+              appended SpikeData has them, a ``RuntimeWarning`` is
+              emitted and the appended operand's attributes are used
+              for the result. When both have attributes, ``self``'s
+              are used (consistent with the metadata-collision rule).
+              Pass ``drop_neuron_attributes=True`` to skip salvage.
         """
         if self.N != spikeData.N:
             raise ValueError("Cannot concatenate SpikeData with different N")
@@ -1173,12 +1186,40 @@ class SpikeData:
             raw_data = self.raw_data
             raw_time = self.raw_time
         length = self.length + spikeData.length + offset
+
+        # neuron_attributes salvage: when only one operand has them,
+        # use the available set (with a warning) rather than silently
+        # dropping. Opt out with ``drop_neuron_attributes=True``.
+        if drop_neuron_attributes:
+            new_neuron_attributes = None
+        elif (
+            self.neuron_attributes is not None
+            and spikeData.neuron_attributes is not None
+        ):
+            # Both have attrs — keep self's (the receiving SpikeData
+            # wins on collision, matching the metadata precedence rule).
+            new_neuron_attributes = self.neuron_attributes
+        elif self.neuron_attributes is not None:
+            new_neuron_attributes = self.neuron_attributes
+        elif spikeData.neuron_attributes is not None:
+            warnings.warn(
+                "SpikeData.append: self has no neuron_attributes but "
+                "the appended SpikeData does. Using the appended "
+                "data's attributes for the result. Pass "
+                "drop_neuron_attributes=True to suppress salvage.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+            new_neuron_attributes = spikeData.neuron_attributes
+        else:
+            new_neuron_attributes = None
+
         return SpikeData(
             train,
             length=length,
             start_time=self.start_time,
             N=self.N,
-            neuron_attributes=self.neuron_attributes,
+            neuron_attributes=new_neuron_attributes,
             raw_time=raw_time,
             raw_data=raw_data,
             metadata={
