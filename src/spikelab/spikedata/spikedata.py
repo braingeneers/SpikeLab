@@ -1731,6 +1731,18 @@ class SpikeData:
         raster_length = raster_matrix.shape[1]
         max_lag_bins = int(round(max_lag / bin_size))
 
+        # Warn when a positive max_lag rounds down to zero bins — the
+        # user's lag request is silently discarded otherwise. ``max_lag=0``
+        # by explicit choice is a meaningful fast path and is left alone.
+        if max_lag > 0 and max_lag_bins == 0:
+            warnings.warn(
+                f"max_lag={max_lag} ms is smaller than bin_size={bin_size} ms; "
+                f"max_lag_bins collapsed to 0 (zero-lag only). To resolve "
+                f"sub-bin lags, decrease bin_size.",
+                UserWarning,
+                stacklevel=2,
+            )
+
         # Clamp max_lag_bins to the raster length so the underlying
         # cross-correlation never indexes outside the available signal
         # (which produces silent NaN results from scipy.signal.correlate).

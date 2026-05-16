@@ -4297,6 +4297,78 @@ class TestSliceToSliceUnitComparisonCcgMaxLagZero:
                 if not np.isnan(d):
                     assert d == pytest.approx(1.0, abs=1e-9)
 
+    def test_sub_bin_max_lag_warns_collapse_to_zero(self):
+        """
+        For ``metric="ccg"``, a positive ``max_lag`` smaller than
+        ``bin_size`` rounds to zero bins. The method emits a
+        ``UserWarning`` so the caller can see that their lag request
+        was silently discarded — mirroring the guard in
+        ``SpikeData.get_pairwise_ccg``.
+
+        Tests:
+            (Test Case 1) ``max_lag=0.5, bin_size=1.0, metric="ccg"``
+                emits one UserWarning mentioning "collapsed to 0".
+            (Test Case 2) Computation still completes (returns a result).
+        """
+        import warnings as _warnings
+
+        rng = np.random.default_rng(11)
+        n_units = 2
+        train = [np.sort(rng.uniform(0.0, 200.0, size=200)) for _ in range(n_units)]
+        sd = SpikeData(train, length=200.0)
+        sss = SpikeSliceStack(
+            sd, time_peaks=[40.0, 100.0, 160.0], time_bounds=(20.0, 20.0)
+        )
+
+        with _warnings.catch_warnings(record=True) as caught:
+            _warnings.simplefilter("always")
+            sss.get_slice_to_slice_unit_comparison(
+                metric="ccg",
+                bin_size=1.0,
+                max_lag=0.5,
+                min_spikes=1,
+                min_frac=0.5,
+            )
+        msgs = [
+            str(rec.message) for rec in caught if "collapsed to 0" in str(rec.message)
+        ]
+        assert len(msgs) == 1
+        assert "bin_size=1.0" in msgs[0]
+
+    def test_sttc_metric_does_not_warn(self):
+        """
+        For ``metric="sttc"``, ``max_lag_bins`` is hardcoded to 0
+        regardless of ``max_lag`` — the collapse warning must not fire
+        because lag is not part of the sttc comparison contract.
+
+        Tests:
+            (Test Case 1) ``metric="sttc"`` with ``max_lag=0.5``
+                emits no "collapsed to 0" warning.
+        """
+        import warnings as _warnings
+
+        rng = np.random.default_rng(11)
+        n_units = 2
+        train = [np.sort(rng.uniform(0.0, 200.0, size=200)) for _ in range(n_units)]
+        sd = SpikeData(train, length=200.0)
+        sss = SpikeSliceStack(
+            sd, time_peaks=[40.0, 100.0, 160.0], time_bounds=(20.0, 20.0)
+        )
+
+        with _warnings.catch_warnings(record=True) as caught:
+            _warnings.simplefilter("always")
+            sss.get_slice_to_slice_unit_comparison(
+                metric="sttc",
+                bin_size=1.0,
+                max_lag=0.5,
+                min_spikes=1,
+                min_frac=0.5,
+            )
+        msgs = [
+            str(rec.message) for rec in caught if "collapsed to 0" in str(rec.message)
+        ]
+        assert msgs == []
+
 
 class TestSpikeSliceStackRankOrderNShufflesExactly5:
     """Mirrors ``test_n_shuffles_exactly_5`` in test_rateslicestack.py

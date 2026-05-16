@@ -8258,6 +8258,53 @@ class TestSpikeDataGetPairwiseCcgMaxLagClamp:
         ]
         assert msgs == []
 
+    def test_sub_bin_max_lag_warns_collapse_to_zero(self):
+        """
+        A positive ``max_lag`` smaller than ``bin_size`` rounds to zero
+        bins. The method now emits a ``UserWarning`` so the caller can
+        see that their lag request was silently discarded — and points
+        at ``bin_size`` as the lever for sub-bin resolution.
+
+        Tests:
+            (Test Case 1) ``max_lag=0.5, bin_size=1.0`` emits one
+                UserWarning mentioning "collapsed to 0".
+            (Test Case 2) The call still returns a valid result
+                (zero-lag-only, not an exception).
+        """
+        import warnings as _warnings
+
+        sd = SpikeData([[1.0, 5.0, 9.0], [2.0, 6.0, 10.0]], length=20.0)
+        with _warnings.catch_warnings(record=True) as caught:
+            _warnings.simplefilter("always")
+            corr_pcm, _ = sd.get_pairwise_ccg(bin_size=1.0, max_lag=0.5)
+        msgs = [
+            str(rec.message) for rec in caught if "collapsed to 0" in str(rec.message)
+        ]
+        assert len(msgs) == 1
+        assert "bin_size=1.0" in msgs[0]
+        assert corr_pcm.matrix[0, 0] == pytest.approx(1.0)
+
+    def test_explicit_max_lag_zero_does_not_warn(self):
+        """
+        ``max_lag=0`` passed explicitly is a deliberate fast path for
+        zero-lag-only and must not trigger the underflow warning. The
+        warning only fires when a positive request rounds down to zero.
+
+        Tests:
+            (Test Case 1) ``max_lag=0`` emits no "collapsed to 0"
+                warning.
+        """
+        import warnings as _warnings
+
+        sd = SpikeData([[1.0, 5.0, 9.0], [2.0, 6.0, 10.0]], length=20.0)
+        with _warnings.catch_warnings(record=True) as caught:
+            _warnings.simplefilter("always")
+            sd.get_pairwise_ccg(bin_size=1.0, max_lag=0)
+        msgs = [
+            str(rec.message) for rec in caught if "collapsed to 0" in str(rec.message)
+        ]
+        assert msgs == []
+
 
 class TestSpikeDataCvIsi:
     """Tests for SpikeData.cv_isi and SpikeData.cv2_isi firing regularity metrics."""

@@ -1526,6 +1526,18 @@ class SpikeSliceStack:
 
         max_lag_bins = int(round(max_lag / bin_size)) if metric == "ccg" else 0
 
+        # Warn when a positive max_lag rounds down to zero bins for the
+        # ccg path — the user's lag request is silently discarded
+        # otherwise. Matches the guard in ``SpikeData.get_pairwise_ccg``.
+        if metric == "ccg" and max_lag > 0 and max_lag_bins == 0:
+            warnings.warn(
+                f"max_lag={max_lag} ms is smaller than bin_size={bin_size} ms; "
+                f"max_lag_bins collapsed to 0 (zero-lag only). To resolve "
+                f"sub-bin lags, decrease bin_size.",
+                UserWarning,
+                stacklevel=2,
+            )
+
         # Validate frac_active override if provided
         if frac_active is not None:
             frac_active = np.asarray(frac_active, dtype=float)
