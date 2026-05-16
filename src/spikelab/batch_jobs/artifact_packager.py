@@ -32,6 +32,18 @@ def package_analysis_bundle(
     if output_format not in {"workspace", "sorting", "custom"}:
         raise ValueError("output_format must be one of: workspace, sorting, custom")
 
+    # Path-traversal guard: ``run_id`` flows directly into ``bundle_dir``
+    # and the output zip filename. A run_id like ``"../etc/passwd"`` would
+    # let ``Path(temp_dir) / run_id`` escape the tempdir and let
+    # ``output_base / run_id.zip`` clobber arbitrary files. Restrict to
+    # RFC-1123-style identifiers (the same shape ``_validate_name_prefix``
+    # enforces for K8s job names).
+    if not run_id or "/" in run_id or "\\" in run_id or ".." in run_id.split("/"):
+        raise ValueError(
+            f"run_id={run_id!r} contains path-traversal segments or separators; "
+            "run_id must be a single path component (no '/', '\\\\', or '..')."
+        )
+
     output_base = Path(output_dir).resolve()
     output_base.mkdir(parents=True, exist_ok=True)
 

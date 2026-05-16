@@ -197,10 +197,25 @@ def _parse_wslconfig_memory_gb(text: str) -> Optional[float]:
         memory_gb (float or None): Configured WSL2 memory ceiling in
             GB. Returns ``None`` when not configured.
     """
+    # Strip UTF-8 BOM if present (Notepad-edited .wslconfig files commonly
+    # start with one; Python's default text-mode `open` does NOT remove it
+    # for utf-8, only for utf-8-sig). Without this the regex below fails
+    # to match the "[wsl2]" section header on BOM-prefixed input.
+    if text.startswith("﻿"):
+        text = text[1:]
+
     in_wsl2 = False
     for raw in text.splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#") or line.startswith(";"):
+        # Drop inline comments (``memory=8GB ; comment`` is valid INI but
+        # the regex below is anchored to end-of-line; an inline comment
+        # would otherwise prevent any match).
+        stripped = raw
+        for marker in (";", "#"):
+            idx = stripped.find(marker)
+            if idx != -1:
+                stripped = stripped[:idx]
+        line = stripped.strip()
+        if not line:
             continue
         if line.startswith("["):
             in_wsl2 = line.lower().startswith("[wsl2")

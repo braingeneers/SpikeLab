@@ -400,13 +400,39 @@ class RunSession:
         from ..data_loaders.s3_utils import parse_s3_url
 
         prefix = result.output_prefix
+        # ``parse_s3_url("")`` raises a generic ValueError that masks the
+        # real issue (no S3 prefix configured on the profile or no
+        # ``default_s3_prefix`` set). Pre-empt with a specific error that
+        # tells the user how to fix it.
+        if not prefix:
+            raise ValueError(
+                f"Cannot retrieve sorting outputs for run_id={result.run_id!r}: "
+                "the SubmitResult has no S3 ``output_prefix``. Set "
+                "``default_s3_prefix`` on the cluster profile or pass an "
+                "explicit S3 prefix when submitting the job."
+            )
         bucket, prefix_key = parse_s3_url(prefix)
 
         downloaded = []
+        local_dir_resolved = local_dir.resolve()
         for key in keys:
             # Derive relative path from prefix
             relative = key[len(prefix_key) :] if key.startswith(prefix_key) else key
-            local_path = local_dir / relative
+            # Path-traversal guard: S3 listing keys flow into the local
+            # filesystem destination via ``local_dir / relative``. A
+            # malicious or buggy upstream that uploaded an object with
+            # ``..`` segments could escape ``local_dir`` and clobber
+            # arbitrary files. Reject the key rather than silently
+            # writing outside the run's directory.
+            local_path = (local_dir / relative).resolve()
+            try:
+                local_path.relative_to(local_dir_resolved)
+            except ValueError:
+                raise ValueError(
+                    f"S3 key {key!r} resolves outside local_dir={local_dir!s} "
+                    "after stripping the output prefix; path-traversal "
+                    "segments are not allowed."
+                )
             local_path.parent.mkdir(parents=True, exist_ok=True)
             s3_uri = f"s3://{bucket}/{key}"
             self.storage.download_file(s3_uri=s3_uri, local_path=str(local_path))

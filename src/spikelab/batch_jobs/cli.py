@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Any, Dict
 
@@ -128,6 +129,21 @@ def _cmd_deploy(args: argparse.Namespace) -> int:
             if pods:
                 for line in session.backend.stream_logs(pods[0], follow=False):
                     print(line)
+            else:
+                # The user asked to follow logs but no pods were found.
+                # This is a real condition (job hit a CrashLoopBackOff before
+                # any pod survived, scheduler still placing the pod, etc.) —
+                # the previous silent exit-0 hid it. Surface to stderr so
+                # automation can distinguish "logs followed" from "no logs
+                # were available". Keep exit code 0 because the submission
+                # itself succeeded; --wait surfaced the final status above.
+                print(
+                    f"WARNING: --follow-logs requested but no pods found for "
+                    f"job {result.job_name!r} (final status: {final_state}). "
+                    "Run `spikelab-batch job-logs` once a pod is scheduled, "
+                    "or `spikelab-batch job-status` to investigate.",
+                    file=sys.stderr,
+                )
     return 0
 
 

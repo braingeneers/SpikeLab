@@ -4185,13 +4185,13 @@ class TestProfilesEdgeCases:
 
 
 class TestBuildPodVolumesRejectsAmbiguousSources:
-    """Regression test for BUG-5 item 3: a K8s ``Volume`` may have at
-    most one of ``secret`` / ``persistentVolumeClaim`` — they're
-    mutually exclusive volume sources. Pre-fix, ``_build_pod_volumes``
-    accepted both, the Jinja template at ``job.yaml.j2:83-88`` rendered
-    only the secret via ``{% if secret_name %}{% elif pvc_name %}``,
-    and the pvc was silently dropped. ``_build_pod_volumes`` now raises
-    ``ValueError`` at build time.
+    """A K8s ``Volume`` may have at most one of ``secret`` /
+    ``persistentVolumeClaim`` — they're mutually exclusive volume
+    sources. The Jinja template at ``job.yaml.j2:83-88`` renders only
+    the secret via ``{% if secret_name %}{% elif pvc_name %}``, so a
+    volume with both would silently drop the pvc at render time.
+    ``_build_pod_volumes`` raises ``ValueError`` at build time to
+    surface the misconfiguration loudly.
     """
 
     def test_volume_with_both_secret_and_pvc_raises(self):
@@ -4249,11 +4249,10 @@ class TestBuildPodVolumesRejectsAmbiguousSources:
 
 
 class TestKubectlEmptyStdoutGuard:
-    """Regression test for BUG-7 item 2: ``yaml.safe_load("")`` returns
-    ``None``; pre-fix, ``payload.get("status", {})`` then raised
-    ``AttributeError: 'NoneType' object has no attribute 'get'``,
-    silently breaking job-status monitoring on transient empty
-    kubectl stdout. Fix: ``yaml.safe_load(out) or {}``.
+    """``yaml.safe_load("")`` returns ``None``. The kubectl-path job
+    status / pods queries must guard with ``or {}`` so transient
+    empty kubectl stdout returns the fallthrough status (Pending / [])
+    instead of raising ``AttributeError`` and breaking monitoring loops.
     """
 
     def test_job_status_handles_empty_kubectl_stdout(self):
@@ -4293,3 +4292,180 @@ class TestKubectlEmptyStdoutGuard:
         backend._run_kubectl = lambda _args: ""  # type: ignore[assignment]
 
         assert backend.pods_for_job("any-job") == []
+
+
+class TestRetrieveSortingMissingPrefixGuard:
+    """``_retrieve_sorting`` raises an actionable ``ValueError`` when
+    ``SubmitResult.output_prefix`` is empty (e.g. the cluster profile
+    has no ``default_s3_prefix`` and no override was supplied), rather
+    than letting ``parse_s3_url("")`` raise a generic error that masks
+    the actual configuration issue.
+    """
+
+    def test_empty_output_prefix_raises_actionable_error(self, tmp_path):
+        """
+        Tests:
+            (Test Case 1) Empty ``output_prefix`` raises ``ValueError``
+                naming ``default_s3_prefix``.
+        """
+        from spikelab.batch_jobs.models import SubmitResult
+        from spikelab.batch_jobs.session import RunSession
+
+        class _StubStorage:
+            def list_output_files(self, run_id):
+                return ["spikedata.pkl"]
+
+        session = RunSession.__new__(RunSession)
+        session.storage = _StubStorage()
+
+        result = SubmitResult(
+            run_id="r-123",
+            job_name="j-123",
+            manifest_yaml="",
+            uploaded_input_uri="s3://b/inputs/r-123.zip",
+            output_prefix="",
+            logs_prefix="",
+            job_type="sorting",
+        )
+
+        with pytest.raises(ValueError, match=r"default_s3_prefix"):
+            session._retrieve_sorting(result, tmp_path)
+
+
+class TestDeployZeroPodsFollowLogsWarns:
+    """``_cmd_deploy --wait --follow-logs`` prints a stderr warning
+    when ``pods_for_job`` returns ``[]`` instead of silently exiting 0
+    with no output. The user asked to follow logs and gets nothing
+    visible — surface the condition so automation can detect it
+    without parsing the absence of stdout.
+    """
+
+    def test_zero_pods_emits_stderr_warning(self, monkeypatch, capsys):
+        """
+        Tests:
+            (Test Case 1) ``stderr`` contains "no pods found".
+            (Test Case 2) Exit code remains 0 (the submission itself
+                succeeded; --wait surfaced FINAL_STATUS earlier).
+        """
+        from argparse import Namespace
+
+        from spikelab.batch_jobs import cli as cli_mod
+        from spikelab.batch_jobs.models import SubmitResult
+
+        submit_result = SubmitResult(
+            run_id="r-1",
+            job_name="j-1",
+            manifest_yaml="",
+            uploaded_input_uri="s3://b/inputs/r-1.zip",
+            output_prefix="",
+            logs_prefix="",
+            job_type="prepared",
+        )
+
+        class _StubBackend:
+            def pods_for_job(self, name):
+                return []
+
+        class _StubSession:
+            backend = _StubBackend()
+
+            def submit_prepared_job(self, **_kw):
+                return submit_result
+
+            def wait_for_completion(self, **_kw):
+                return "Complete"
+
+        monkeypatch.setattr(cli_mod, "_load_payload", lambda _: {"name_prefix": "test"})
+        monkeypatch.setattr(cli_mod, "_load_profile", lambda *_: object())
+        monkeypatch.setattr(cli_mod, "_build_session", lambda *_: _StubSession())
+        monkeypatch.setattr(
+            cli_mod,
+            "_apply_image_selection",
+            lambda payload, *_a, **_kw: payload,
+        )
+        # Bypass real Pydantic validation — the test exercises the
+        # zero-pods branch, not the JobSpec schema.
+        monkeypatch.setattr(cli_mod, "validate_job_spec", lambda payload: object())
+
+        rc = cli_mod._cmd_deploy(
+            Namespace(
+                job_config="dummy.yaml",
+                profile="nrp",
+                profile_file=None,
+                kubeconfig=None,
+                image_profile=None,
+                image=None,
+                allow_policy_risk=False,
+                render_only=False,
+                output_manifest=None,
+                wait=True,
+                follow_logs=True,
+                max_wait_seconds=1,
+            )
+        )
+
+        captured = capsys.readouterr()
+        assert "no pods found" in captured.err.lower()
+        assert rc == 0
+
+
+class TestArtifactPackagerPathTraversalGuard:
+    """``package_analysis_bundle`` rejects ``run_id`` values containing
+    path-separator or ``..`` segments — ``run_id`` flows directly into
+    the temp bundle dir and the output zip filename, so a value like
+    ``"../escape"`` could let the function clobber arbitrary files
+    outside ``output_dir``.
+    """
+
+    @pytest.mark.parametrize(
+        "bad_run_id",
+        [
+            "../escape",
+            "..",
+            "subdir/run",
+            "run\\bad",
+            "",
+        ],
+    )
+    def test_traversal_run_id_rejected(self, tmp_path, bad_run_id):
+        """
+        Tests:
+            (Test Case 1) Each adversarial ``run_id`` raises
+                ``ValueError`` mentioning path traversal or separators.
+        """
+        from spikelab.batch_jobs.artifact_packager import package_analysis_bundle
+
+        with pytest.raises(ValueError, match=r"path-traversal|separators"):
+            package_analysis_bundle(
+                input_paths=[],
+                run_id=bad_run_id,
+                output_dir=str(tmp_path),
+                output_format="custom",
+            )
+
+
+class TestS3StorageDownloadOutputPathTraversalGuard:
+    """``S3StorageClient.download_output`` rejects ``filename`` values
+    that resolve outside ``local_dir`` after joining — a malicious or
+    buggy upstream that supplied ``"../etc/passwd"`` could otherwise
+    write to an arbitrary location on the host.
+    """
+
+    def test_traversal_filename_rejected(self, tmp_path):
+        """
+        Tests:
+            (Test Case 1) ``filename="../etc/passwd"`` raises
+                ``ValueError`` mentioning "path-traversal".
+        """
+        from spikelab.batch_jobs.storage_s3 import S3StorageClient
+
+        client = S3StorageClient.__new__(S3StorageClient)
+        client.bucket = "test-bucket"
+        client._client = None  # never touched: validation fires first
+
+        with pytest.raises(ValueError, match=r"path-traversal"):
+            client.download_output(
+                run_id="r-1",
+                filename="../etc/passwd",
+                local_dir=str(tmp_path),
+            )

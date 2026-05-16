@@ -5161,12 +5161,12 @@ class TestLoadSpikelabSortedNpzMissingKeys:
 
 
 class TestNWBLoaderPynwbFallbackBroadException:
-    """Regression test for BUG-1: ``load_spikedata_from_nwb`` pynwb fallback
-    must catch any pynwb-side exception (not just the original four types)
-    and fall through to the h5py loader. The pre-fix except clause was
-    ``(TypeError, ValueError, KeyError, AttributeError)``; ``RuntimeError``
-    (schema mismatch) and ``OSError`` (HDF5 plugin issues) leaked through,
-    making the documented fallback unreachable.
+    """``load_spikedata_from_nwb`` pynwb-first branch must catch any
+    pynwb-side exception and fall through to the h5py loader. Pynwb
+    raises ``RuntimeError`` on schema mismatch and ``OSError`` on
+    HDF5-plugin issues; both must trigger the documented fallback
+    rather than propagating to the caller. The fallback warning names
+    the original exception type for diagnosis.
     """
 
     def _write_valid_nwb_h5py_layout(self, path):
@@ -5240,3 +5240,75 @@ class TestNWBLoaderPynwbFallbackBroadException:
             sd = loaders.load_spikedata_from_nwb(path)
         self._assert_h5py_fallback_warning(recwarn, OSError)
         assert sd.N == 2
+
+
+class TestLoadSpikedataFromHdf5RawThresholdedFsHzValidation:
+    """``load_spikedata_from_hdf5_raw_thresholded`` must validate
+    ``fs_Hz`` at the loader boundary so the user sees a clear,
+    parameter-named error rather than a cryptic ZeroDivisionError or
+    other exception raised deep inside ``SpikeData.from_thresholding``.
+    """
+
+    @pytest.mark.parametrize("bad_fs", [0, -1.0, float("nan"), None])
+    def test_invalid_fs_hz_raises_clear_error(self, tmp_path, bad_fs):
+        """
+        Tests:
+            (Test Case 1) Each invalid ``fs_Hz`` (0, negative, NaN,
+                None) raises ``ValueError`` mentioning ``fs_Hz`` and
+                "positive finite".
+        """
+        # Build a tiny HDF5 file with a raw-traces dataset. fs_Hz
+        # validation fires before we touch the data, so the contents
+        # don't matter for the failure path.
+        path = str(tmp_path / "raw.h5")
+        with h5py.File(path, "w") as f:  # type: ignore
+            f.create_dataset("traces", data=np.zeros((4, 100), dtype=np.float32))
+
+        with pytest.raises(ValueError, match=r"fs_Hz.*positive finite"):
+            loaders.load_spikedata_from_hdf5_raw_thresholded(
+                path, "traces", fs_Hz=bad_fs
+            )
+
+
+class TestLoadSpikedataFromSpikeinterfaceUnitIdsValidation:
+    """``load_spikedata_from_spikeinterface(unit_ids=...)`` must reject
+    IDs not present in ``sorting.get_unit_ids()`` with a clear error
+    at the loader boundary, rather than letting
+    ``sorting.get_unit_spike_train(missing_id)`` raise a backend-
+    specific exception mid-loop.
+    """
+
+    def _stub_sorting(self, available_ids):
+        """Minimal SortingExtractor-shaped stub."""
+        from types import SimpleNamespace
+
+        sd = SimpleNamespace()
+        sd.get_unit_ids = lambda: list(available_ids)
+        sd.get_sampling_frequency = lambda: 30000.0
+        sd.get_unit_spike_train = lambda unit_id, segment_index=0: np.array(
+            [100, 200], dtype=np.int64
+        )
+        return sd
+
+    def test_unknown_unit_id_raises_clear_error(self):
+        """
+        Tests:
+            (Test Case 1) Passing ``unit_ids=[0, 999]`` against a
+                sorting with units [0, 1] raises ``ValueError``
+                naming the missing IDs and the available set.
+        """
+        sd = self._stub_sorting([0, 1])
+        with pytest.raises(ValueError, match=r"unit_ids.*not present"):
+            loaders.load_spikedata_from_spikeinterface(sd, unit_ids=[0, 999])
+
+    def test_subset_of_present_ids_accepted(self):
+        """
+        Sanity check: requesting a valid subset still works after the
+        guard is added.
+
+        Tests:
+            (Test Case 1) ``unit_ids=[1]`` against units [0, 1] succeeds.
+        """
+        sd = self._stub_sorting([0, 1])
+        out = loaders.load_spikedata_from_spikeinterface(sd, unit_ids=[1])
+        assert out.N == 1

@@ -7677,12 +7677,13 @@ class TestComputeWaveformMetricsNoRawData:
 
 
 class TestMcpJsonNanSanitiser:
-    """Regression test for BUG-3: ``_call_tool`` must emit RFC-8259-valid
-    JSON. Pre-fix, ``json.dumps(result, indent=2)`` used the default
-    ``allow_nan=True`` and emitted the JavaScript literals ``NaN`` /
-    ``Infinity`` / ``-Infinity``, which a conformant JSON parser rejects.
-    The fix routes the result through ``_sanitize_for_json`` (NaN → None,
-    ±Inf → None) and then ``json.dumps(..., allow_nan=False)``.
+    """``_call_tool`` must emit RFC-8259-valid JSON. ``json.dumps`` with
+    the default ``allow_nan=True`` emits the JavaScript literals ``NaN``
+    / ``Infinity`` / ``-Infinity``, which a conformant parser rejects.
+    The dispatcher routes the result through ``_sanitize_for_json``
+    (NaN → None, ±Inf → None) and then ``json.dumps(..., allow_nan=False)``
+    so any non-finite float that slips past the sanitiser also raises
+    rather than corrupting the payload.
     """
 
     def test_sanitize_for_json_replaces_nan_and_inf_with_none(self):
@@ -7731,8 +7732,10 @@ class TestMcpJsonNanSanitiser:
         that rejects NaN / Infinity literals).
 
         Tests:
-            (Test Case 1) ``json.loads(text)`` succeeds (rejects with
-                strict-mode would surface BUG-3 regression).
+            (Test Case 1) ``json.loads(text)`` succeeds — strict-mode
+                parsing rejects ``NaN`` / ``Infinity`` literals, so a
+                regression that re-introduced ``allow_nan=True`` would
+                surface here.
             (Test Case 2) The NaN field in the original result is now
                 ``None`` in the parsed payload.
         """
