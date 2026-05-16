@@ -8,7 +8,6 @@ import argparse
 import asyncio
 import json
 import sys
-import traceback
 from typing import Any
 
 try:
@@ -3125,7 +3124,11 @@ async def _list_tools() -> list[types.Tool]:
                     "Retrieve a workspace item inline. Returns full data for "
                     "small types (ndarray, PairwiseCompMatrix, dict) and a "
                     "type-specific summary for large types (SpikeData, "
-                    "RateData, slice stacks)."
+                    "RateData, slice stacks). Arrays larger than "
+                    "max_elements are returned as a compact summary "
+                    "(shape, dtype, min/max/mean/nan_count) with "
+                    "truncated=True instead of full data, to avoid "
+                    "saturating the MCP transport."
                 ),
                 inputSchema={
                     "type": "object",
@@ -3133,6 +3136,17 @@ async def _list_tools() -> list[types.Tool]:
                         "workspace_id": {"type": "string"},
                         "namespace": {"type": "string"},
                         "key": {"type": "string"},
+                        "max_elements": {
+                            "type": ["integer", "null"],
+                            "description": (
+                                "Maximum number of ndarray elements to "
+                                "materialise inline. When exceeded, the "
+                                "response substitutes a summary block "
+                                "for the data field. Default 100000; "
+                                "pass null to disable the guard."
+                            ),
+                            "default": 100000,
+                        },
                     },
                     "required": ["workspace_id", "namespace", "key"],
                 },
@@ -4096,23 +4110,24 @@ _NO_ARGS_TOOLS = {"list_workspaces"}
 
 @server.call_tool()
 async def _call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextContent]:
-    """Handle tool calls."""
-    try:
-        handler = _TOOL_DISPATCH.get(name)
-        if handler is None:
-            raise ValueError(f"Unknown tool: {name}")
+    """Handle tool calls.
 
-        if name in _NO_ARGS_TOOLS:
-            result = await handler()
-        else:
-            result = await handler(**arguments)
+    Exceptions are not caught here. They propagate to the MCP framework's
+    handler wrapper, which converts them into a ``CallToolResult`` with
+    ``isError=True`` — the canonical protocol-level error signal that
+    clients can distinguish from a successful result containing an
+    ``"error"`` key.
+    """
+    handler = _TOOL_DISPATCH.get(name)
+    if handler is None:
+        raise ValueError(f"Unknown tool: {name}")
 
-        return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
+    if name in _NO_ARGS_TOOLS:
+        result = await handler()
+    else:
+        result = await handler(**arguments)
 
-    except Exception as e:
-        print(traceback.format_exc(), file=sys.stderr, flush=True)
-        error_result = {"error": str(e), "type": type(e).__name__}
-        return [types.TextContent(type="text", text=json.dumps(error_result, indent=2))]
+    return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
 
 
 def _parse_args() -> argparse.Namespace:

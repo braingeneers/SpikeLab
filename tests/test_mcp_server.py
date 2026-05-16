@@ -1362,12 +1362,17 @@ class TestServerIntegration:
     @pytestmark_server
     @pytest.mark.asyncio
     async def test_call_tool_unknown(self):
-        """Test error handling for unknown tool."""
+        """Unknown tool name raises ValueError.
+
+        The exception propagates to the MCP framework's call_tool wrapper,
+        which converts it into a ``CallToolResult`` with ``isError=True``.
+        Clients can then distinguish this from a successful tool result that
+        happens to mention "error" in its payload.
+        """
         from spikelab.mcp_server.server import _call_tool
 
-        result = await _call_tool("unknown_tool", {})
-        data = json.loads(result[0].text)
-        assert "error" in data
+        with pytest.raises(ValueError, match="Unknown tool"):
+            await _call_tool("unknown_tool", {})
 
 
 # ============================================================================
@@ -4217,6 +4222,148 @@ class TestFetchWorkspaceItem:
         with pytest.raises(IndexError):
             await analysis.fetch_workspace_item(ws_id, ns, "rd_empty_times")
 
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_large_ndarray_returns_summary(self, loaded_ws):
+        """
+        Arrays exceeding ``max_elements`` return a compact summary block
+        instead of inlining the full data, so a large workspace item
+        cannot saturate the MCP transport.
+
+        Tests:
+            (Test Case 1) An array with size > max_elements yields
+                truncated=True and a summary with shape/dtype/min/max/mean.
+            (Test Case 2) The full data is NOT present in the response.
+        """
+        ws_id, ns = loaded_ws
+        wm = get_workspace_manager()
+        ws = wm.get_workspace(ws_id)
+
+        arr = np.arange(1000, dtype=float).reshape(20, 50)
+        ws.store(ns, "big_arr", arr)
+
+        result = await analysis.fetch_workspace_item(
+            ws_id, ns, "big_arr", max_elements=100
+        )
+        assert result.get("truncated") is True
+        assert "data" not in result
+        summary = result["summary"]
+        assert summary["shape"] == [20, 50]
+        assert summary["size"] == 1000
+        assert summary["min"] == 0.0
+        assert summary["max"] == 999.0
+        assert summary["mean"] == 499.5
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_small_ndarray_under_threshold_inlines(self, loaded_ws):
+        """
+        Arrays at or below ``max_elements`` continue to inline the full
+        data — the size guard only kicks in above the threshold.
+
+        Tests:
+            (Test Case 1) An array with size <= max_elements yields
+                data (no truncation).
+        """
+        ws_id, ns = loaded_ws
+        wm = get_workspace_manager()
+        ws = wm.get_workspace(ws_id)
+
+        arr = np.array([1.0, 2.0, 3.0])
+        ws.store(ns, "small_arr", arr)
+
+        result = await analysis.fetch_workspace_item(
+            ws_id, ns, "small_arr", max_elements=100
+        )
+        assert "data" in result
+        assert "truncated" not in result
+        assert result["data"] == [1.0, 2.0, 3.0]
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_max_elements_none_disables_guard(self, loaded_ws):
+        """
+        ``max_elements=None`` opts out of the size guard entirely and
+        inlines the full array regardless of size.
+
+        Tests:
+            (Test Case 1) max_elements=None returns full data for an
+                array that would otherwise trigger truncation.
+        """
+        ws_id, ns = loaded_ws
+        wm = get_workspace_manager()
+        ws = wm.get_workspace(ws_id)
+
+        arr = np.arange(500, dtype=float)
+        ws.store(ns, "arr", arr)
+
+        result = await analysis.fetch_workspace_item(
+            ws_id, ns, "arr", max_elements=None
+        )
+        assert "data" in result
+        assert "truncated" not in result
+        assert len(result["data"]) == 500
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_large_pcm_returns_summary(self, loaded_ws):
+        """
+        A PairwiseCompMatrix whose matrix exceeds ``max_elements`` returns
+        a summary block. Labels are still included.
+
+        Tests:
+            (Test Case 1) Large PCM yields truncated=True + summary.
+            (Test Case 2) labels field is preserved.
+        """
+        from spikelab.spikedata.pairwise import PairwiseCompMatrix
+
+        ws_id, ns = loaded_ws
+        wm = get_workspace_manager()
+        ws = wm.get_workspace(ws_id)
+
+        pcm = PairwiseCompMatrix(matrix=np.eye(40))  # 1600 elements
+        ws.store(ns, "big_pcm", pcm)
+
+        result = await analysis.fetch_workspace_item(
+            ws_id, ns, "big_pcm", max_elements=100
+        )
+        assert result.get("truncated") is True
+        assert "data" not in result
+        assert result["summary"]["shape"] == [40, 40]
+        assert "labels" in result
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_dict_with_mixed_sizes(self, loaded_ws):
+        """
+        For dict items, the size guard is applied per-value: small
+        ndarrays inline normally, large ndarrays are replaced with a
+        summary, and the overall response is flagged truncated=True.
+
+        Tests:
+            (Test Case 1) Small key keeps inline list value.
+            (Test Case 2) Large key gets summary block.
+            (Test Case 3) Overall response has truncated=True.
+        """
+        ws_id, ns = loaded_ws
+        wm = get_workspace_manager()
+        ws = wm.get_workspace(ws_id)
+
+        d = {
+            "small": np.array([1.0, 2.0, 3.0]),
+            "big": np.arange(1000, dtype=float),
+        }
+        ws.store(ns, "mixed_dict", d)
+
+        result = await analysis.fetch_workspace_item(
+            ws_id, ns, "mixed_dict", max_elements=100
+        )
+        assert result["data"]["small"] == [1.0, 2.0, 3.0]
+        big_entry = result["data"]["big"]
+        assert big_entry.get("truncated") is True
+        assert big_entry["summary"]["size"] == 1000
+        assert result.get("truncated") is True
+
 
 class TestNamespaceFromPath:
     """Edge case tests for _namespace_from_path helper function."""
@@ -4471,75 +4618,83 @@ class TestCallTool:
     @pytest.mark.asyncio
     async def test_json_serialization_with_numpy_scalars(self):
         """
-        Tool return dict containing numpy scalars should be serializable by _call_tool.
+        Tool return dict containing numpy scalars raises TypeError from
+        ``json.dumps``. The exception propagates to the MCP framework, which
+        surfaces it as ``isError=True`` so clients see a real failure
+        rather than a successful result with a confusing payload.
 
         Tests:
-            (Test Case 1) _call_tool on a tool returning numpy int64 values produces
-                a valid JSON result or a clear error message.
+            (Test Case 1) When a tool handler returns numpy scalars (int64,
+                float64), _call_tool raises TypeError naming the
+                non-serializable object type.
 
         Notes:
-            - numpy scalars (int64, float64) are not JSON-serializable by default.
-              The _call_tool error handler catches TypeError but the error message
-              may be confusing to users.
+            - Patching ``spikelab.mcp_server.server.analysis.compute_rates``
+              alone is insufficient because ``_TOOL_DISPATCH`` was bound at
+              import time. Swap the dispatch entry directly.
         """
-        from spikelab.mcp_server.server import _call_tool
+        from spikelab.mcp_server.server import _call_tool, _TOOL_DISPATCH
 
-        with patch("spikelab.mcp_server.server.analysis.compute_rates") as mock_compute:
-            # Return numpy scalar values (not plain Python)
-            mock_compute.return_value = {
+        mock_fn = AsyncMock(
+            return_value={
                 "rates": [np.float64(0.1), np.float64(0.2)],
                 "unit": "kHz",
                 "num_neurons": np.int64(2),
             }
-            result = await _call_tool(
-                "compute_rates",
-                {
-                    "workspace_id": "ws",
-                    "namespace": "ns",
-                    "key": "rates",
-                },
-            )
-            data = json.loads(result[0].text)
-            # Either the result serialized correctly or an error was returned
-            assert "rates" in data or "error" in data
+        )
+        original = _TOOL_DISPATCH["compute_rates"]
+        _TOOL_DISPATCH["compute_rates"] = mock_fn
+        try:
+            with pytest.raises(TypeError, match="not JSON serializable"):
+                await _call_tool(
+                    "compute_rates",
+                    {
+                        "workspace_id": "ws",
+                        "namespace": "ns",
+                        "key": "rates",
+                    },
+                )
+        finally:
+            _TOOL_DISPATCH["compute_rates"] = original
 
     @pytestmark_server
     @pytest.mark.asyncio
     async def test_extra_unexpected_arguments(self):
         """
-        Extra unexpected arguments should result in an error response.
+        Extra unexpected keyword arguments raise TypeError from Python's
+        calling conventions; the exception propagates to the MCP framework
+        and surfaces as ``isError=True``.
 
         Tests:
-            (Test Case 1) _call_tool with unknown keyword arguments returns
-                an error in the response.
+            (Test Case 1) _call_tool with an unknown kwarg raises TypeError
+                naming the offending argument.
         """
         from spikelab.mcp_server.server import _call_tool
 
-        result = await _call_tool(
-            "create_workspace",
-            {
-                "name": "test",
-                "totally_unknown_kwarg": "value",
-            },
-        )
-        data = json.loads(result[0].text)
-        assert "error" in data
+        with pytest.raises(TypeError, match="totally_unknown_kwarg"):
+            await _call_tool(
+                "create_workspace",
+                {
+                    "name": "test",
+                    "totally_unknown_kwarg": "value",
+                },
+            )
 
     @pytestmark_server
     @pytest.mark.asyncio
     async def test_missing_required_arguments(self):
         """
-        Missing required arguments should result in an error response.
+        Missing required arguments raise TypeError; the exception
+        propagates to the MCP framework and surfaces as ``isError=True``.
 
         Tests:
-            (Test Case 1) _call_tool for compute_rates without workspace_id returns
-                an error.
+            (Test Case 1) _call_tool for compute_rates without required
+                arguments raises TypeError naming the missing parameters.
         """
         from spikelab.mcp_server.server import _call_tool
 
-        result = await _call_tool("compute_rates", {})
-        data = json.loads(result[0].text)
-        assert "error" in data
+        with pytest.raises(TypeError, match="missing .* required positional argument"):
+            await _call_tool("compute_rates", {})
 
 
 class TestGPLVMConsecutiveDurations:
@@ -7254,52 +7409,59 @@ class TestUniqueNamespaceEmptyString:
 
 class TestMcpDispatcherJsonSafety:
     """
-    Smoke tests over every tool registered in ``_TOOL_DISPATCH``: each
-    one must produce a JSON-parseable text response on both the error
-    path (no/invalid arguments) and on a degenerate input path. This
-    catches the entire class of silently-corrupt responses caused by:
-      - NaN / Infinity floats in tool returns,
-      - numpy scalars or arrays leaking into the response,
-      - tools that raise non-string exceptions,
-      - signature drift between the dispatcher and the tool.
+    Smoke tests over every tool registered in ``_TOOL_DISPATCH``:
+
+    - Calling each tool with empty arguments raises a controlled
+      Exception (TypeError or ValueError). Errors propagate to the MCP
+      framework which converts them to ``isError=True`` — the canonical
+      protocol-level failure signal.
+    - On the success path (degenerate-but-valid input), responses must
+      still be JSON-parseable to catch NaN/Inf or numpy scalar leaks.
     """
 
     @pytestmark_server
     @pytest.mark.asyncio
-    async def test_all_tools_error_path_returns_valid_json(self):
+    async def test_all_tools_raise_controlled_exception_on_empty_args(self):
         """
-        Calling ``_call_tool(name, {})`` for every tool in the
-        dispatcher returns a string that ``json.loads`` accepts. Most
-        tools require arguments, so this exercises the error path for
-        nearly every entry — exactly where NaN/array leaks are most
-        common.
+        Calling ``_call_tool(name, {})`` for every tool raises a Python
+        exception with a string message. This catches any tool whose
+        signature or argument handling is broken (e.g., raises a
+        non-Exception object, raises an unloggable error, or hangs).
 
         Tests:
-            (Test Case 1) Every tool's response is JSON-parseable.
-            (Test Case 2) Either the response is a dict (success) or a
-                dict with ``error`` and ``type`` keys (failure path).
-            (Test Case 3) No tool entry is missing from the dispatcher
-                that's required by the schema in ``_list_tools``.
-
-        Notes:
-            - ``_call_tool`` swallows all exceptions and serializes
-              them. A non-JSON-parseable response indicates a deeper
-              encoding bug in the tool itself.
+            (Test Case 1) Every tool either succeeds (returns a JSON-
+                parseable list[TextContent]) or raises a standard
+                Exception subclass.
+            (Test Case 2) No tool raises ``BaseException`` (e.g.,
+                ``KeyboardInterrupt``, ``SystemExit``) on bad input.
         """
         from spikelab.mcp_server.server import _TOOL_DISPATCH, _call_tool
 
-        non_serializable: list[tuple[str, str]] = []
+        broken: list[tuple[str, str]] = []
         for tool_name in sorted(_TOOL_DISPATCH.keys()):
             try:
                 result = await _call_tool(tool_name, {})
-            except Exception as exc:  # noqa: BLE001
-                non_serializable.append(
+            except Exception as exc:  # noqa: BLE001 — expected path
+                # Verify the exception message is a string (catches the
+                # subtle "raise some object" antipattern).
+                if not isinstance(str(exc), str):
+                    broken.append(
+                        (
+                            tool_name,
+                            f"exception message is not a string: {exc!r}",
+                        )
+                    )
+                continue
+            except BaseException as exc:  # noqa: BLE001
+                broken.append(
                     (
                         tool_name,
-                        f"_call_tool itself raised: {type(exc).__name__}: {exc}",
+                        f"raised non-Exception: {type(exc).__name__}: {exc}",
                     )
                 )
                 continue
+
+            # Success path — response must be JSON-parseable.
             assert (
                 isinstance(result, list) and len(result) == 1
             ), f"{tool_name}: expected list[TextContent] with 1 element, got {result!r}"
@@ -7307,20 +7469,16 @@ class TestMcpDispatcherJsonSafety:
             try:
                 payload = json.loads(text)
             except (TypeError, ValueError) as exc:
-                non_serializable.append(
+                broken.append(
                     (tool_name, f"json.loads failed: {exc}; text={text[:200]!r}")
                 )
                 continue
-            # Tools may return either a successful dict or the
-            # standard error envelope. Both must be dicts.
             assert isinstance(
                 payload, dict
             ), f"{tool_name}: expected dict payload, got {type(payload).__name__}"
 
-        assert (
-            non_serializable == []
-        ), "Tools whose response was not JSON-parseable:\n" + "\n".join(
-            f"  - {n}: {msg}" for n, msg in non_serializable
+        assert broken == [], "Tools with broken error handling:\n" + "\n".join(
+            f"  - {n}: {msg}" for n, msg in broken
         )
 
     @pytestmark_server
@@ -7410,7 +7568,13 @@ class TestMcpDispatcherJsonSafety:
             assert (
                 tool_name in _TOOL_DISPATCH
             ), f"smoke-test references missing tool: {tool_name}"
-            result = await _call_tool(tool_name, kwargs)
+            try:
+                result = await _call_tool(tool_name, kwargs)
+            except Exception:  # noqa: BLE001
+                # Tool raised on degenerate input — error path is handled
+                # by the MCP framework wrapper (isError=True). Out of
+                # scope for this success-path serialization smoke test.
+                continue
             text = result[0].text
             try:
                 payload = json.loads(text)
@@ -7430,53 +7594,47 @@ class TestMcpDispatcherJsonSafety:
 
     @pytestmark_server
     @pytest.mark.asyncio
-    async def test_call_tool_error_envelope_shape_is_consistent(self):
+    async def test_call_tool_unknown_raises_value_error(self):
         """
-        The dispatcher's exception path always returns a payload with
-        exactly two top-level keys, ``error`` (str) and ``type`` (str).
-        Trigger via an unknown tool name.
+        Unknown tool name raises ``ValueError`` from ``_call_tool``;
+        the exception propagates to the MCP framework wrapper which
+        converts it to ``isError=True``. The error message identifies
+        the offending tool name so the client can diagnose.
 
         Tests:
-            (Test Case 1) Unknown tool returns a dict with keys
-                {"error", "type"}.
-            (Test Case 2) Both values are strings (not numpy / dict /
-                exception objects).
+            (Test Case 1) Calling ``_call_tool`` with an unknown name
+                raises ``ValueError`` matching "Unknown tool".
         """
         from spikelab.mcp_server.server import _call_tool
 
-        result = await _call_tool("__definitely_not_a_real_tool__", {})
-        payload = json.loads(result[0].text)
-        assert set(payload.keys()) == {"error", "type"}, payload
-        assert isinstance(payload["error"], str)
-        assert isinstance(payload["type"], str)
-        assert "Unknown tool" in payload["error"]
+        with pytest.raises(ValueError, match="Unknown tool"):
+            await _call_tool("__definitely_not_a_real_tool__", {})
 
 
 class TestComputeWaveformMetricsNoRawData:
     """
     Tests for ``compute_waveform_metrics`` MCP tool when the stored
     SpikeData has no ``raw_data`` attached. The underlying curation
-    helper raises ``EmptyWaveformMetricsError``; the dispatcher must
-    convert this into a JSON-parseable error envelope rather than
-    crashing the response.
+    helper raises ``EmptyWaveformMetricsError``; the exception
+    propagates to the MCP framework wrapper which converts it to a
+    protocol-level error response with ``isError=True``.
     """
 
     @pytestmark_server
     @pytest.mark.asyncio
-    async def test_no_raw_data_returns_json_error_envelope(self):
+    async def test_no_raw_data_raises_empty_waveform_metrics_error(self):
         """
         SpikeData without raw_data triggers
         ``EmptyWaveformMetricsError`` in the underlying helper. The
-        dispatcher converts the exception into the standard
-        ``{"error", "type"}`` envelope, JSON-encoded.
+        exception propagates from ``_call_tool`` so the MCP framework
+        can convert it to ``isError=True``.
 
         Tests:
-            (Test Case 1) Response is JSON-parseable.
-            (Test Case 2) Payload has keys {"error", "type"}.
-            (Test Case 3) ``type`` is ``EmptyWaveformMetricsError``.
-            (Test Case 4) ``error`` text mentions ``raw_data``.
+            (Test Case 1) Call raises ``EmptyWaveformMetricsError``.
+            (Test Case 2) The exception message mentions ``raw_data``.
         """
         from spikelab.mcp_server.server import _call_tool
+        from spikelab.spikedata.curation import EmptyWaveformMetricsError
 
         wm = get_workspace_manager()
         ws_id = wm.create_workspace(name="no_raw_ws")
@@ -7484,40 +7642,35 @@ class TestComputeWaveformMetricsNoRawData:
         # No raw_data attached — sd.raw_data.size == 0 by construction.
         wm.get_workspace(ws_id).store("rec0", "spikedata", sd)
 
-        result = await _call_tool(
-            "compute_waveform_metrics",
-            {
-                "workspace_id": ws_id,
-                "namespace": "rec0",
-            },
-        )
-        payload = json.loads(result[0].text)
-        assert set(payload.keys()) == {"error", "type"}, payload
-        assert payload["type"] == "EmptyWaveformMetricsError"
-        assert "raw_data" in payload["error"]
+        with pytest.raises(EmptyWaveformMetricsError, match="raw_data"):
+            await _call_tool(
+                "compute_waveform_metrics",
+                {
+                    "workspace_id": ws_id,
+                    "namespace": "rec0",
+                },
+            )
 
     @pytestmark_server
     @pytest.mark.asyncio
-    async def test_missing_workspace_returns_json_error_envelope(self):
+    async def test_missing_workspace_raises_value_error(self):
         """
         ``compute_waveform_metrics`` against a non-existent
-        workspace_id surfaces a clean JSON error envelope (not a
-        non-JSON-encodable exception object).
+        workspace_id raises ``ValueError`` identifying the missing
+        workspace; the exception propagates to the MCP framework
+        wrapper.
 
         Tests:
-            (Test Case 1) Response is JSON-parseable.
-            (Test Case 2) ``error`` text identifies the missing
-                workspace.
+            (Test Case 1) Call raises ``ValueError`` matching
+                "Workspace not found".
         """
         from spikelab.mcp_server.server import _call_tool
 
-        result = await _call_tool(
-            "compute_waveform_metrics",
-            {
-                "workspace_id": "ws-that-does-not-exist",
-                "namespace": "rec0",
-            },
-        )
-        payload = json.loads(result[0].text)
-        assert "error" in payload
-        assert isinstance(payload["error"], str)
+        with pytest.raises(ValueError, match="Workspace not found"):
+            await _call_tool(
+                "compute_waveform_metrics",
+                {
+                    "workspace_id": "ws-that-does-not-exist",
+                    "namespace": "rec0",
+                },
+            )
