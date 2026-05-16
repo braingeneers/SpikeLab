@@ -4642,6 +4642,42 @@ class TestLoadWorkspaceFullValidation:
         ):
             load_workspace_full(base_path)
 
+    def test_unknown_type_tag_raises_value_error(self, tmp_path):
+        """
+        A workspace HDF5 file with an item carrying an unknown
+        ``__type__`` (forward-compatibility check) raises
+        ``ValueError`` mentioning the offending tag and the supported
+        list.
+
+        The dispatch table is the single source of truth for which
+        types can round-trip through workspace I/O; an unknown tag
+        means the file was written by a newer (or corrupted) writer
+        and the current reader cannot reconstruct the object.
+
+        Tests:
+            (Test Case 1) ValueError raised on load when one item has
+                ``__type__ == "FuturePCATensor"`` (not in dispatch).
+            (Test Case 2) Error message names both the unknown tag and
+                "Supported:" listing.
+        """
+        import time
+
+        from spikelab.workspace.hdf5_io import load_workspace_full
+
+        h5_path = str(tmp_path / "ws.h5")
+        with h5py.File(h5_path, "w") as f:
+            f.attrs["__workspace_id__"] = "test-id"
+            f.attrs["__workspace_name__"] = "test"
+            f.attrs["__created_at__"] = float(time.time())
+            ns = f.create_group("results")
+            item = ns.create_group("bogus")
+            item.attrs["__type__"] = "FuturePCATensor"
+            item.attrs["__created_at__"] = float(time.time())
+
+        base_path = str(tmp_path / "ws")
+        with pytest.raises(ValueError, match=r"Unknown __type__.*FuturePCATensor"):
+            load_workspace_full(base_path)
+
 
 # ---------------------------------------------------------------------------
 # Edge case tests from REVIEW.md I/O scan (HIGH and MEDIUM severity)
