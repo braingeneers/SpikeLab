@@ -339,6 +339,14 @@ def load_spikedata_from_hdf5(
     with h5py.File(filepath, "r") as f:  # type: ignore
         # Read start_time if stored (backward compatible default 0.0)
         file_start_time = float(f.attrs.get("start_time", 0.0))
+        # Read the persisted length so recordings with trailing silence
+        # beyond the last spike round-trip accurately. The caller's
+        # explicit ``length_ms`` parameter still takes precedence; the
+        # file attr is the second-best source. The raster style derives
+        # its own length from the matrix shape and is handled separately
+        # below — the file attr is not applied to it.
+        file_length_ms = float(f.attrs["length_ms"]) if "length_ms" in f.attrs else None
+        non_raster_length_ms = length_ms if length_ms is not None else file_length_ms
 
         # Optionally read raw arrays and a time vector
         raw_data, raw_time = _read_raw_arrays(
@@ -392,7 +400,7 @@ def load_spikedata_from_hdf5(
             )
             return _build_spikedata(
                 trains,
-                length_ms=length_ms,
+                length_ms=non_raster_length_ms,
                 start_time=file_start_time,
                 metadata=meta,
                 raw_data=raw_data,
@@ -409,7 +417,7 @@ def load_spikedata_from_hdf5(
             trains = [to_ms(np.asarray(grp[k]), group_time_unit, fs_Hz) for k in keys]
             return _build_spikedata(
                 trains,
-                length_ms=length_ms,
+                length_ms=non_raster_length_ms,
                 start_time=file_start_time,
                 metadata=meta,
                 raw_data=raw_data,
@@ -426,7 +434,11 @@ def load_spikedata_from_hdf5(
             )
         N = int(idces.max()) + 1 if idces.size else 0
         sd = SpikeData.from_idces_times(
-            idces, times, N=N, length=length_ms, start_time=file_start_time
+            idces,
+            times,
+            N=N,
+            length=non_raster_length_ms,
+            start_time=file_start_time,
         )
         sd.metadata.update(meta)
         return _maybe_with_raw(sd, raw_data, raw_time)
@@ -458,6 +470,16 @@ def load_spikedata_from_hdf5_raw_thresholded(
     Returns:
         sd (SpikeData): The detected spike train data.
     """
+    # Validate ``fs_Hz`` at the loader boundary so the user sees a clear
+    # error mentioning the loader parameter, rather than a cryptic
+    # ZeroDivisionError / ValueError raised deep inside
+    # ``SpikeData.from_thresholding``.
+    if not (isinstance(fs_Hz, (int, float)) and fs_Hz > 0):
+        raise ValueError(
+            f"fs_Hz must be a positive finite number, got {fs_Hz!r}. "
+            "Set the sampling frequency in Hz when calling "
+            "load_spikedata_from_hdf5_raw_thresholded(...)."
+        )
     ensure_h5py()
     with h5py.File(filepath, "r") as f:  # type: ignore
         data = np.asarray(f[dataset])
@@ -705,7 +727,22 @@ def load_spikedata_from_spikeinterface(
     if not fs or fs <= 0:
         raise ValueError("A positive sampling_frequency (Hz) is required")
 
-    ids = list(unit_ids) if unit_ids is not None else list(get_unit_ids())
+    available_ids = list(get_unit_ids())
+    if unit_ids is not None:
+        # Pre-validate unit_ids at the loader boundary so the user sees a
+        # clear error mentioning the loader parameter, rather than a
+        # backend-specific exception raised mid-loop by
+        # ``sorting.get_unit_spike_train(missing_id)``.
+        requested = list(unit_ids)
+        missing = [uid for uid in requested if uid not in available_ids]
+        if missing:
+            raise ValueError(
+                f"unit_ids contains IDs not present in the sorting: {missing!r}. "
+                f"Available unit IDs: {available_ids!r}."
+            )
+        ids = requested
+    else:
+        ids = available_ids
     trains: List[np.ndarray] = []
     neuron_attributes: List[dict] = []
 

@@ -122,8 +122,12 @@ def export_spikedata_to_hdf5(
 
     # Create or overwrite the HDF5 file
     with h5py.File(filepath, "w") as f:  # type: ignore
-        # Store start_time for event-centered data round-trips
+        # Store start_time and length_ms so loader-side inference doesn't
+        # silently drop trailing silence beyond the last spike. The loader
+        # prefers these attributes when present and falls back to
+        # inference for older files that don't have them.
         f.attrs["start_time"] = float(sd.start_time)
+        f.attrs["length_ms"] = float(sd.length)
 
         # Optionally write raw arrays if destinations are provided and data exist
         if (
