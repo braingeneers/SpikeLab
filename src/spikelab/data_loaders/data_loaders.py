@@ -596,6 +596,15 @@ def load_spikedata_from_nwb(
     with h5py.File(filepath, "r") as f:  # type: ignore
         if "units" not in f:
             raise ValueError("NWB file missing '/units' group")
+        # ``export_spikedata_to_nwb`` writes ``length_ms`` as a file-
+        # level attribute so the loader can recover the exact recording
+        # duration on reload — NWB's spec has no canonical place for
+        # this, and inferring length from the max spike time silently
+        # drops trailing silence. Honor the attr when the caller did
+        # not supply an explicit override; the caller's argument still
+        # takes precedence for backward-compatibility.
+        if length_ms is None and "length_ms" in f.attrs:
+            length_ms = float(f.attrs["length_ms"])
         unit_grp = f["units"]
         st_key = "spike_times"
         idx_key = "spike_times_index"
@@ -635,9 +644,17 @@ def load_spikedata_from_nwb(
             elec_flat = np.asarray(unit_grp["electrodes"])
             elec_idx = np.asarray(unit_grp["electrodes_index"])
             if len(elec_idx) > 0 and elec_idx[-1] > len(elec_flat):
+                # Quantify the truncation so the user can tell whether
+                # one entry got clipped or half the table is missing.
+                # The previous "may be truncated" wording was too vague
+                # to act on.
+                lost = int(elec_idx[-1] - len(elec_flat))
                 warnings.warn(
-                    "NWB electrodes_index exceeds electrodes array length; "
-                    "electrode data may be truncated.",
+                    "NWB electrodes_index final value "
+                    f"({int(elec_idx[-1])}) exceeds electrodes array length "
+                    f"({len(elec_flat)}); the trailing {lost} index entries "
+                    "will be silently truncated. Inspect the NWB file's "
+                    "/units/electrodes_index and /units/electrodes datasets.",
                     UserWarning,
                 )
             electrode_indices = []
@@ -671,7 +688,24 @@ def load_spikedata_from_nwb(
                     electrode_positions[int(eid)] = pos
 
         for i, uid in enumerate(unit_ids):
-            attr = {"unit_id": int(uid)}
+            # NWB stores unit IDs in the units/id dataset; the spec
+            # permits any numeric dtype and some files in the wild use
+            # string IDs (e.g. UUIDs from automated pipelines). The
+            # pynwb branch above accepts the raw Index value verbatim;
+            # the h5py path used to ``int(uid)`` unconditionally and
+            # crash mid-loop on non-numeric IDs. Fall back to the
+            # original value with a warning to preserve the loader's
+            # forward progress and keep the two paths symmetric.
+            try:
+                attr = {"unit_id": int(uid)}
+            except (TypeError, ValueError):
+                warnings.warn(
+                    f"NWB unit id {uid!r} is not coercible to int; "
+                    "storing the raw value on neuron_attributes['unit_id'].",
+                    UserWarning,
+                    stacklevel=2,
+                )
+                attr = {"unit_id": uid}
             electrode_id = None
             if (
                 electrode_indices
@@ -939,6 +973,20 @@ def load_spikedata_from_kilosort(
         if channel_map is not None and int_clu < len(channel_map):
             channel_idx = int(channel_map[int_clu])
             attr["electrode"] = channel_idx
+        elif channel_map is not None:
+            # Out-of-range cluster ID — channel_map lookup is skipped
+            # and the unit ends up without an electrode/location. The
+            # upstream "non-sequential cluster IDs" warning fires once
+            # per loader call; this per-cluster warning surfaces
+            # *which* clusters lost their metadata so users debugging
+            # missing locations can pinpoint the offending units.
+            warnings.warn(
+                f"Cluster {int_clu} exceeds channel_map length "
+                f"({len(channel_map)}); skipping electrode/location "
+                "assignment for this unit.",
+                UserWarning,
+                stacklevel=2,
+            )
 
         if channel_positions is not None:
             if channel_idx is not None and channel_idx < len(channel_positions):

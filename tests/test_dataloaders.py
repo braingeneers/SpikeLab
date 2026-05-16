@@ -11,6 +11,7 @@ import os
 import pickle
 import sys
 import tempfile
+import warnings
 from unittest.mock import patch, MagicMock
 
 import numpy as np
@@ -5312,3 +5313,113 @@ class TestLoadSpikedataFromSpikeinterfaceUnitIdsValidation:
         sd = self._stub_sorting([0, 1])
         out = loaders.load_spikedata_from_spikeinterface(sd, unit_ids=[1])
         assert out.N == 1
+
+
+class TestLoadSpikedataFromNwbNonIntegerUnitId:
+    """``load_spikedata_from_nwb`` h5py path falls back to storing the
+    raw value on ``neuron_attributes['unit_id']`` when the NWB ``id``
+    dataset contains values that can't be coerced to ``int`` (e.g.
+    UUID strings from automated pipelines). The previous behavior
+    crashed mid-loop with a generic ``ValueError`` from ``int(uid)``.
+    """
+
+    def test_uuid_string_unit_id_warns_and_loads(self, tmp_path):
+        """
+        Tests:
+            (Test Case 1) Load succeeds.
+            (Test Case 2) ``neuron_attributes[i]['unit_id']`` contains
+                the original string value.
+            (Test Case 3) A ``UserWarning`` mentions the unit id.
+        """
+        path = str(tmp_path / "uuid_ids.nwb")
+        with h5py.File(path, "w") as f:  # type: ignore
+            g = f.create_group("units")
+            g.create_dataset("spike_times", data=np.array([0.1, 0.2, 0.5], dtype=float))
+            g.create_dataset("spike_times_index", data=np.array([2, 3], dtype=int))
+            # Use the variable-length string dtype that h5py recommends.
+            string_dt = h5py.string_dtype(encoding="utf-8")
+            g.create_dataset(
+                "id", data=np.array(["abc-1", "def-2"], dtype=object), dtype=string_dt
+            )
+
+        with pytest.warns(UserWarning, match=r"unit id"):
+            sd = loaders.load_spikedata_from_nwb(path, prefer_pynwb=False)
+
+        assert sd.N == 2
+        assert sd.neuron_attributes is not None
+        ids = [a["unit_id"] for a in sd.neuron_attributes]
+        # h5py returns bytes for variable-length string datasets; accept
+        # either bytes or str depending on the local h5py version.
+        assert ids[0] in ("abc-1", b"abc-1")
+        assert ids[1] in ("def-2", b"def-2")
+
+
+class TestLoadSpikedataFromNwbElectrodesIndexTruncationWarning:
+    """``load_spikedata_from_nwb`` h5py path now reports *how many*
+    electrode index entries will be silently truncated when
+    ``electrodes_index[-1]`` exceeds ``len(electrodes)``, instead of
+    the previous vague "may be truncated" wording.
+    """
+
+    def test_truncation_warning_names_the_count(self, tmp_path):
+        """
+        Tests:
+            (Test Case 1) Warning fires.
+            (Test Case 2) Warning message includes both the index value
+                and the truncated count so the user can act on it.
+        """
+        path = str(tmp_path / "trunc.nwb")
+        with h5py.File(path, "w") as f:  # type: ignore
+            g = f.create_group("units")
+            g.create_dataset("spike_times", data=np.array([0.1, 0.2, 0.5], dtype=float))
+            g.create_dataset("spike_times_index", data=np.array([2, 3], dtype=int))
+            g.create_dataset("id", data=np.array([0, 1], dtype=int))
+            # electrodes has 2 entries but electrodes_index says 5 are
+            # expected → trailing 3 entries will be truncated.
+            g.create_dataset("electrodes", data=np.array([10, 11], dtype=int))
+            g.create_dataset("electrodes_index", data=np.array([1, 5], dtype=int))
+
+        with pytest.warns(UserWarning) as recwarn:
+            loaders.load_spikedata_from_nwb(path, prefer_pynwb=False)
+        msgs = [str(w.message) for w in recwarn]
+        # At least one warning names both the offending index final
+        # value (5) and the actual electrodes length (2).
+        joined = " | ".join(msgs)
+        assert "5" in joined
+        assert "2" in joined
+        assert "truncated" in joined.lower()
+
+
+class TestLoadSpikedataFromKilosortClusterIdExceedsChannelMapWarning:
+    """``load_spikedata_from_kilosort`` warns *per skipped cluster*
+    when a cluster ID exceeds ``len(channel_map)``. The previous
+    behavior emitted a single upstream warning about non-sequential
+    IDs and then silently skipped the electrode assignment — users
+    debugging missing locations had to map "which cluster" to
+    "which warning" themselves.
+    """
+
+    def test_per_cluster_warning_fires_on_out_of_range(self, tmp_path):
+        """
+        Tests:
+            (Test Case 1) Per-cluster warning fires and names the
+                offending cluster ID.
+        """
+        spike_times = np.array([1000, 2000, 3000, 4000, 5000])
+        spike_clusters = np.array([0, 1, 100, 0, 100])
+        channel_map = np.array([10, 11, 12])  # length 3 → cluster 100 OOB
+        np.save(str(tmp_path / "spike_times.npy"), spike_times)
+        np.save(str(tmp_path / "spike_clusters.npy"), spike_clusters)
+        np.save(str(tmp_path / "channel_map.npy"), channel_map)
+
+        with warnings.catch_warnings(record=True) as recwarn:
+            warnings.simplefilter("always")
+            loaders.load_spikedata_from_kilosort(
+                str(tmp_path), fs_Hz=30000.0, time_unit="samples"
+            )
+        msgs = [str(w.message) for w in recwarn]
+        joined = " | ".join(msgs)
+        # At least one warning mentions cluster 100 and channel_map
+        # length.
+        assert "100" in joined
+        assert "channel_map" in joined.lower()
