@@ -475,13 +475,21 @@
 <div class="viewcode-block" id="summarize_validation_error">
 <a class="viewcode-back" href="../../../api/batch_jobs.html#spikelab.batch_jobs.validation.summarize_validation_error">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">summarize_validation_error</span><span class="p">(</span><span class="n">exc</span><span class="p">:</span> <span class="n">ValidationError</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return a concise human-readable validation summary.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return a human-readable validation summary.</span>
+
+<span class="sd">    Each pydantic issue lands on its own line under an ``&quot;Invalid job</span>
+<span class="sd">    config:&quot;`` header so multi-issue errors stay scannable. Previously</span>
+<span class="sd">    the issues were semicolon-joined into a single dense line, which</span>
+<span class="sd">    became hard to read once nested locations appeared.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">parts</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">for</span> <span class="n">issue</span> <span class="ow">in</span> <span class="n">exc</span><span class="o">.</span><span class="n">errors</span><span class="p">():</span>
         <span class="n">loc</span> <span class="o">=</span> <span class="s2">&quot;.&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">item</span><span class="p">)</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">issue</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;loc&quot;</span><span class="p">,</span> <span class="p">[]))</span>
         <span class="n">msg</span> <span class="o">=</span> <span class="n">issue</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;msg&quot;</span><span class="p">,</span> <span class="s2">&quot;invalid value&quot;</span><span class="p">)</span>
         <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">loc</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">msg</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">loc</span> <span class="k">else</span> <span class="n">msg</span><span class="p">)</span>
-    <span class="k">return</span> <span class="s2">&quot;; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span></div>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">parts</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;Invalid job config&quot;</span>
+    <span class="k">return</span> <span class="s2">&quot;Invalid job config:</span><span class="se">\n</span><span class="s2">  - &quot;</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">  - &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span></div>
 
 </pre></div>
 

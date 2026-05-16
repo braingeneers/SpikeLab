@@ -579,15 +579,30 @@
 <span class="sd">        Parameters:</span>
 <span class="sd">            run_id (str): Run identifier.</span>
 <span class="sd">            filename (str): Name of the file within the output prefix.</span>
+<span class="sd">                ``..`` segments are rejected to prevent path traversal</span>
+<span class="sd">                outside ``local_dir``.</span>
 <span class="sd">            local_dir (str): Local directory to save the file into.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            local_path (str): Absolute path of the downloaded file.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Path-traversal guard: ``filename`` flows directly into the</span>
+        <span class="c1"># local filesystem destination. A malicious or buggy upstream</span>
+        <span class="c1"># (e.g. an S3 listing entry with ``..`` segments) could escape</span>
+        <span class="c1"># ``local_dir`` and clobber arbitrary files. Resolve both paths</span>
+        <span class="c1"># and assert the destination stays under the dir.</span>
+        <span class="n">local_dir_resolved</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">local_dir</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
+        <span class="n">target</span> <span class="o">=</span> <span class="p">(</span><span class="n">local_dir_resolved</span> <span class="o">/</span> <span class="n">filename</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">target</span><span class="o">.</span><span class="n">relative_to</span><span class="p">(</span><span class="n">local_dir_resolved</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;filename=</span><span class="si">{</span><span class="n">filename</span><span class="si">!r}</span><span class="s2"> resolves outside local_dir=</span><span class="si">{</span><span class="n">local_dir</span><span class="si">!r}</span><span class="s2">; &quot;</span>
+                <span class="s2">&quot;path-traversal segments (e.g. &#39;..&#39;) are not allowed.&quot;</span>
+            <span class="p">)</span>
         <span class="n">prefix</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_prefix_for_run</span><span class="p">(</span><span class="n">run_id</span><span class="p">)</span>
         <span class="n">s3_uri</span> <span class="o">=</span> <span class="n">prefix</span> <span class="o">+</span> <span class="n">filename</span>
-        <span class="n">local_path</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">local_dir</span><span class="p">)</span> <span class="o">/</span> <span class="n">filename</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">download_file</span><span class="p">(</span><span class="n">s3_uri</span><span class="o">=</span><span class="n">s3_uri</span><span class="p">,</span> <span class="n">local_path</span><span class="o">=</span><span class="n">local_path</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">download_file</span><span class="p">(</span><span class="n">s3_uri</span><span class="o">=</span><span class="n">s3_uri</span><span class="p">,</span> <span class="n">local_path</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">target</span><span class="p">))</span></div>
 
 
 <div class="viewcode-block" id="S3StorageClient.list_output_files">

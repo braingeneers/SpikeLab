@@ -647,10 +647,25 @@
 <span class="sd">        memory_gb (float or None): Configured WSL2 memory ceiling in</span>
 <span class="sd">            GB. Returns ``None`` when not configured.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Strip UTF-8 BOM if present (Notepad-edited .wslconfig files commonly</span>
+    <span class="c1"># start with one; Python&#39;s default text-mode `open` does NOT remove it</span>
+    <span class="c1"># for utf-8, only for utf-8-sig). Without this the regex below fails</span>
+    <span class="c1"># to match the &quot;[wsl2]&quot; section header on BOM-prefixed input.</span>
+    <span class="k">if</span> <span class="n">text</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;﻿&quot;</span><span class="p">):</span>
+        <span class="n">text</span> <span class="o">=</span> <span class="n">text</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+
     <span class="n">in_wsl2</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="k">for</span> <span class="n">raw</span> <span class="ow">in</span> <span class="n">text</span><span class="o">.</span><span class="n">splitlines</span><span class="p">():</span>
-        <span class="n">line</span> <span class="o">=</span> <span class="n">raw</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">line</span> <span class="ow">or</span> <span class="n">line</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;#&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">line</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;;&quot;</span><span class="p">):</span>
+        <span class="c1"># Drop inline comments (``memory=8GB ; comment`` is valid INI but</span>
+        <span class="c1"># the regex below is anchored to end-of-line; an inline comment</span>
+        <span class="c1"># would otherwise prevent any match).</span>
+        <span class="n">stripped</span> <span class="o">=</span> <span class="n">raw</span>
+        <span class="k">for</span> <span class="n">marker</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;;&quot;</span><span class="p">,</span> <span class="s2">&quot;#&quot;</span><span class="p">):</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="n">stripped</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">marker</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">idx</span> <span class="o">!=</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+                <span class="n">stripped</span> <span class="o">=</span> <span class="n">stripped</span><span class="p">[:</span><span class="n">idx</span><span class="p">]</span>
+        <span class="n">line</span> <span class="o">=</span> <span class="n">stripped</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">line</span><span class="p">:</span>
             <span class="k">continue</span>
         <span class="k">if</span> <span class="n">line</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;[&quot;</span><span class="p">):</span>
             <span class="n">in_wsl2</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;[wsl2&quot;</span><span class="p">)</span>
@@ -2211,10 +2226,21 @@
         <span class="s2">&quot;preflight_min_free_vram_gb&quot;</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="k">for</span> <span class="n">field_name</span> <span class="ow">in</span> <span class="n">threshold_fields</span><span class="p">:</span>
-        <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">exe</span><span class="p">,</span> <span class="n">field_name</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">exe</span><span class="p">,</span> <span class="n">field_name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;config.execution.</span><span class="si">{</span><span class="n">field_name</span><span class="si">}</span><span class="s2"> must be a float, got None. &quot;</span>
                 <span class="s2">&quot;Set a numeric threshold or rely on the dataclass default.&quot;</span>
+            <span class="p">)</span>
+        <span class="c1"># NaN passes through `is None` but silently disables every downstream</span>
+        <span class="c1"># threshold comparison (`x &gt;= NaN` is False), making the preflight</span>
+        <span class="c1"># finding unreachable. Reject explicitly so misconfigured thresholds</span>
+        <span class="c1"># surface at construction time instead of silently failing open.</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span> <span class="ow">and</span> <span class="n">math</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;config.execution.</span><span class="si">{</span><span class="n">field_name</span><span class="si">}</span><span class="s2"> must be a finite float, got NaN. &quot;</span>
+                <span class="s2">&quot;NaN thresholds silently disable the preflight check; set a &quot;</span>
+                <span class="s2">&quot;numeric value or rely on the dataclass default.&quot;</span>
             <span class="p">)</span>
     <span class="n">min_free_inter</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">exe</span><span class="o">.</span><span class="n">preflight_min_free_inter_gb</span><span class="p">)</span>
     <span class="n">min_free_results</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">exe</span><span class="o">.</span><span class="n">preflight_min_free_results_gb</span><span class="p">)</span>

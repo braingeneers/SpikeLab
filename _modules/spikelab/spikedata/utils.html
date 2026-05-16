@@ -1325,9 +1325,16 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_clamp_umap_n_neighbors</span><span class="p">(</span><span class="n">n_samples</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">n_neighbors</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Clamp n_neighbors so small datasets do not raise at UMAP fit time.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Clamp n_neighbors so small datasets do not raise at UMAP fit time.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ValueError: When ``n_samples &lt; 2``. UMAP needs at least two</span>
+<span class="sd">            samples to define a neighborhood; surfacing this at the</span>
+<span class="sd">            wrapper boundary is far clearer than letting the underlying</span>
+<span class="sd">            ``umap-learn`` call fail with a less informative error.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">n_samples</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
-        <span class="k">return</span> <span class="mi">1</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;UMAP requires at least 2 samples, got n_samples=</span><span class="si">{</span><span class="n">n_samples</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="n">max_nn</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">n_samples</span> <span class="o">/</span> <span class="mi">2</span><span class="p">))</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
     <span class="k">return</span> <span class="nb">min</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">n_neighbors</span><span class="p">),</span> <span class="mi">2</span><span class="p">),</span> <span class="n">max_nn</span><span class="p">)</span>
 
@@ -2235,7 +2242,13 @@
         <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_shuffles</span><span class="p">):</span>
             <span class="n">null_rhos</span><span class="p">[</span><span class="n">k</span><span class="p">],</span> <span class="n">_</span> <span class="o">=</span> <span class="n">spearmanr</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">rng</span><span class="o">.</span><span class="n">permutation</span><span class="p">(</span><span class="n">b</span><span class="p">))</span>
         <span class="n">null_mean</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">null_rhos</span><span class="p">)</span>
-        <span class="n">null_std</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">null_rhos</span><span class="p">)</span>
+        <span class="c1"># Use the Bessel-corrected (unbiased) sample std as the estimate</span>
+        <span class="c1"># of the null distribution&#39;s σ. The default ``np.std`` uses</span>
+        <span class="c1"># denominator N which biases σ̂ downward by √((N-1)/N) — ~11%</span>
+        <span class="c1"># at the documented minimum ``n_shuffles=5``, ~0.5% at 100. With</span>
+        <span class="c1"># ddof=1, reported z-scores are unbiased and comparable across</span>
+        <span class="c1"># different ``n_shuffles`` values.</span>
+        <span class="n">null_std</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">null_rhos</span><span class="p">,</span> <span class="n">ddof</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
         <span class="n">z</span> <span class="o">=</span> <span class="p">(</span><span class="n">rho</span> <span class="o">-</span> <span class="n">null_mean</span><span class="p">)</span> <span class="o">/</span> <span class="n">null_std</span> <span class="k">if</span> <span class="n">null_std</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
         <span class="k">return</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">n_valid</span><span class="p">,</span> <span class="n">z</span>
 
@@ -2293,11 +2306,18 @@
 <span class="sd">    Notes:</span>
 <span class="sd">        - Intended for determining whether an observed metric is significantly</span>
 <span class="sd">          different from what degree-preserving shuffled data produces.</span>
-<span class="sd">        - Elements where the shuffle standard deviation is zero will be NaN.</span>
+<span class="sd">        - The shuffle std is the Bessel-corrected (``ddof=1``) sample</span>
+<span class="sd">          estimator. The default ``np.nanstd`` denominator of ``N``</span>
+<span class="sd">          underestimates σ by ~11% at ``N=5`` and ~0.5% at ``N=100``;</span>
+<span class="sd">          with ``ddof=1`` z-scores are unbiased and comparable across</span>
+<span class="sd">          different shuffle counts.</span>
+<span class="sd">        - Elements where the shuffle standard deviation is zero will be</span>
+<span class="sd">          NaN. For ``N=1`` the sample std is NaN (no degrees of</span>
+<span class="sd">          freedom), which also propagates to NaN.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">shuffle_distribution</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">shuffle_distribution</span><span class="p">)</span>
     <span class="n">mean</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">shuffle_distribution</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-    <span class="n">std</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanstd</span><span class="p">(</span><span class="n">shuffle_distribution</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">std</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanstd</span><span class="p">(</span><span class="n">shuffle_distribution</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">ddof</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
     <span class="n">safe_std</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">std</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">std</span><span class="p">)</span>
     <span class="n">z</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">observed</span><span class="p">)</span> <span class="o">-</span> <span class="n">mean</span><span class="p">)</span> <span class="o">/</span> <span class="n">safe_std</span>
     <span class="n">z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">std</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="n">z</span><span class="p">)</span>
@@ -2492,6 +2512,11 @@
         <span class="k">return</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span>
     <span class="n">n_matches</span> <span class="o">=</span> <span class="n">_count_matching_spikes</span><span class="p">(</span><span class="n">train1</span><span class="p">,</span> <span class="n">train2</span><span class="p">,</span> <span class="n">delta</span><span class="p">)</span>
     <span class="n">denom</span> <span class="o">=</span> <span class="n">n1</span> <span class="o">+</span> <span class="n">n2</span> <span class="o">-</span> <span class="n">n_matches</span>
+    <span class="c1"># ``n_matches &lt;= min(n1, n2)`` so ``denom = n1 + n2 - n_matches &gt;=</span>
+    <span class="c1"># max(n1, n2) &gt;= n_matches``. The ``denom &gt; 0`` guard is therefore</span>
+    <span class="c1"># only false when both trains are empty, which is already handled</span>
+    <span class="c1"># by the early return above. The branch is kept for safety against</span>
+    <span class="c1"># future refactors that might invalidate the invariant.</span>
     <span class="n">agreement</span> <span class="o">=</span> <span class="n">n_matches</span> <span class="o">/</span> <span class="n">denom</span> <span class="k">if</span> <span class="n">denom</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span>
     <span class="n">frac_1</span> <span class="o">=</span> <span class="n">n_matches</span> <span class="o">/</span> <span class="n">n1</span> <span class="k">if</span> <span class="n">n1</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span>
     <span class="n">frac_2</span> <span class="o">=</span> <span class="n">n_matches</span> <span class="o">/</span> <span class="n">n2</span> <span class="k">if</span> <span class="n">n2</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span>

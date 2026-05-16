@@ -962,7 +962,14 @@ same metric computed on N shuffled datasets (e.g. from
 <ul class="simple">
 <li><p>Intended for determining whether an observed metric is significantly
 different from what degree-preserving shuffled data produces.</p></li>
-<li><p>Elements where the shuffle standard deviation is zero will be NaN.</p></li>
+<li><p>The shuffle std is the Bessel-corrected (<code class="docutils literal notranslate"><span class="pre">ddof=1</span></code>) sample
+estimator. The default <code class="docutils literal notranslate"><span class="pre">np.nanstd</span></code> denominator of <code class="docutils literal notranslate"><span class="pre">N</span></code>
+underestimates σ by ~11% at <code class="docutils literal notranslate"><span class="pre">N=5</span></code> and ~0.5% at <code class="docutils literal notranslate"><span class="pre">N=100</span></code>;
+with <code class="docutils literal notranslate"><span class="pre">ddof=1</span></code> z-scores are unbiased and comparable across
+different shuffle counts.</p></li>
+<li><p>Elements where the shuffle standard deviation is zero will be
+NaN. For <code class="docutils literal notranslate"><span class="pre">N=1</span></code> the sample std is NaN (no degrees of
+freedom), which also propagates to NaN.</p></li>
 </ul>
 </dd></dl>
 

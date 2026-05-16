@@ -560,7 +560,10 @@
             <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_kubectl</span><span class="p">(</span>
                 <span class="p">[</span><span class="s2">&quot;get&quot;</span><span class="p">,</span> <span class="s2">&quot;job&quot;</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="s2">&quot;-n&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">namespace</span><span class="p">,</span> <span class="s2">&quot;-o&quot;</span><span class="p">,</span> <span class="s2">&quot;yaml&quot;</span><span class="p">]</span>
             <span class="p">)</span>
-            <span class="n">payload</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">safe_load</span><span class="p">(</span><span class="n">out</span><span class="p">)</span>
+            <span class="c1"># ``yaml.safe_load(&quot;&quot;)`` returns ``None``; guard so transient empty</span>
+            <span class="c1"># stdout (kubectl warming up, race during job restart, etc.) does</span>
+            <span class="c1"># not raise AttributeError and silently break monitoring loops.</span>
+            <span class="n">payload</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">safe_load</span><span class="p">(</span><span class="n">out</span><span class="p">)</span> <span class="ow">or</span> <span class="p">{}</span>
             <span class="n">status</span> <span class="o">=</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;status&quot;</span><span class="p">,</span> <span class="p">{})</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">status_obj</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_batch_api</span><span class="o">.</span><span class="n">read_namespaced_job_status</span><span class="p">(</span>
@@ -588,7 +591,8 @@
             <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_kubectl</span><span class="p">(</span>
                 <span class="p">[</span><span class="s2">&quot;get&quot;</span><span class="p">,</span> <span class="s2">&quot;pods&quot;</span><span class="p">,</span> <span class="s2">&quot;-n&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">namespace</span><span class="p">,</span> <span class="s2">&quot;-l&quot;</span><span class="p">,</span> <span class="n">selector</span><span class="p">,</span> <span class="s2">&quot;-o&quot;</span><span class="p">,</span> <span class="s2">&quot;yaml&quot;</span><span class="p">]</span>
             <span class="p">)</span>
-            <span class="n">payload</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">safe_load</span><span class="p">(</span><span class="n">out</span><span class="p">)</span>
+            <span class="c1"># Guard empty kubectl stdout — see ``job_status`` for rationale.</span>
+            <span class="n">payload</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">safe_load</span><span class="p">(</span><span class="n">out</span><span class="p">)</span> <span class="ow">or</span> <span class="p">{}</span>
             <span class="k">return</span> <span class="p">[</span><span class="n">item</span><span class="p">[</span><span class="s2">&quot;metadata&quot;</span><span class="p">][</span><span class="s2">&quot;name&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;items&quot;</span><span class="p">,</span> <span class="p">[])]</span>
 
         <span class="n">pods</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_core_api</span><span class="o">.</span><span class="n">list_namespaced_pod</span><span class="p">(</span>

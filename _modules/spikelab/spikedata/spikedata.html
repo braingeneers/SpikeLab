@@ -1337,6 +1337,8 @@
 <span class="sd">                list/array matching neuron_indices length for each neuron.</span>
 <span class="sd">            neuron_indices (list): Neurons to update. If None, updates all.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;key must be a string, got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">key</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">key</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="o">=</span> <span class="p">[{}</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">)]</span>
         <span class="n">indices</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">)</span> <span class="k">if</span> <span class="n">neuron_indices</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">neuron_indices</span>
@@ -2271,6 +2273,18 @@
         <span class="n">num_units</span> <span class="o">=</span> <span class="n">raster_matrix</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
         <span class="n">raster_length</span> <span class="o">=</span> <span class="n">raster_matrix</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
         <span class="n">max_lag_bins</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">max_lag</span> <span class="o">/</span> <span class="n">bin_size</span><span class="p">))</span>
+
+        <span class="c1"># Warn when a positive max_lag rounds down to zero bins — the</span>
+        <span class="c1"># user&#39;s lag request is silently discarded otherwise. ``max_lag=0``</span>
+        <span class="c1"># by explicit choice is a meaningful fast path and is left alone.</span>
+        <span class="k">if</span> <span class="n">max_lag</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">max_lag_bins</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;max_lag=</span><span class="si">{</span><span class="n">max_lag</span><span class="si">}</span><span class="s2"> ms is smaller than bin_size=</span><span class="si">{</span><span class="n">bin_size</span><span class="si">}</span><span class="s2"> ms; &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;max_lag_bins collapsed to 0 (zero-lag only). To resolve &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;sub-bin lags, decrease bin_size.&quot;</span><span class="p">,</span>
+                <span class="ne">UserWarning</span><span class="p">,</span>
+                <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+            <span class="p">)</span>
 
         <span class="c1"># Clamp max_lag_bins to the raster length so the underlying</span>
         <span class="c1"># cross-correlation never indexes outside the available signal</span>
@@ -4308,6 +4322,14 @@
                                 <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">.neuron_attributes[</span><span class="si">{</span><span class="n">idx</span><span class="si">}</span><span class="s2">] is missing &quot;</span>
                                 <span class="sa">f</span><span class="s2">&quot;required key &#39;</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">&#39;.&quot;</span>
                             <span class="p">)</span>
+                    <span class="c1"># Surface shape mismatches at the API boundary rather</span>
+                    <span class="c1"># than letting them fail deep inside _compute_footprint.</span>
+                    <span class="n">template_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;template&quot;</span><span class="p">])</span>
+                    <span class="k">if</span> <span class="n">template_arr</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">.neuron_attributes[</span><span class="si">{</span><span class="n">idx</span><span class="si">}</span><span class="s2">][&#39;template&#39;] &quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot;must be 1-D, got shape </span><span class="si">{</span><span class="n">template_arr</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span>
+                        <span class="p">)</span>
 
             <span class="n">all_channels</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
             <span class="n">self_attrs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span>  <span class="c1"># type: ignore[assignment]</span>

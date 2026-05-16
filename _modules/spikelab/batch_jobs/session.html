@@ -867,13 +867,39 @@
         <span class="kn">from</span><span class="w"> </span><span class="nn">..data_loaders.s3_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">parse_s3_url</span>
 
         <span class="n">prefix</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">output_prefix</span>
+        <span class="c1"># ``parse_s3_url(&quot;&quot;)`` raises a generic ValueError that masks the</span>
+        <span class="c1"># real issue (no S3 prefix configured on the profile or no</span>
+        <span class="c1"># ``default_s3_prefix`` set). Pre-empt with a specific error that</span>
+        <span class="c1"># tells the user how to fix it.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">prefix</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Cannot retrieve sorting outputs for run_id=</span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">run_id</span><span class="si">!r}</span><span class="s2">: &quot;</span>
+                <span class="s2">&quot;the SubmitResult has no S3 ``output_prefix``. Set &quot;</span>
+                <span class="s2">&quot;``default_s3_prefix`` on the cluster profile or pass an &quot;</span>
+                <span class="s2">&quot;explicit S3 prefix when submitting the job.&quot;</span>
+            <span class="p">)</span>
         <span class="n">bucket</span><span class="p">,</span> <span class="n">prefix_key</span> <span class="o">=</span> <span class="n">parse_s3_url</span><span class="p">(</span><span class="n">prefix</span><span class="p">)</span>
 
         <span class="n">downloaded</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">local_dir_resolved</span> <span class="o">=</span> <span class="n">local_dir</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
         <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">keys</span><span class="p">:</span>
             <span class="c1"># Derive relative path from prefix</span>
             <span class="n">relative</span> <span class="o">=</span> <span class="n">key</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">prefix_key</span><span class="p">)</span> <span class="p">:]</span> <span class="k">if</span> <span class="n">key</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">prefix_key</span><span class="p">)</span> <span class="k">else</span> <span class="n">key</span>
-            <span class="n">local_path</span> <span class="o">=</span> <span class="n">local_dir</span> <span class="o">/</span> <span class="n">relative</span>
+            <span class="c1"># Path-traversal guard: S3 listing keys flow into the local</span>
+            <span class="c1"># filesystem destination via ``local_dir / relative``. A</span>
+            <span class="c1"># malicious or buggy upstream that uploaded an object with</span>
+            <span class="c1"># ``..`` segments could escape ``local_dir`` and clobber</span>
+            <span class="c1"># arbitrary files. Reject the key rather than silently</span>
+            <span class="c1"># writing outside the run&#39;s directory.</span>
+            <span class="n">local_path</span> <span class="o">=</span> <span class="p">(</span><span class="n">local_dir</span> <span class="o">/</span> <span class="n">relative</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">local_path</span><span class="o">.</span><span class="n">relative_to</span><span class="p">(</span><span class="n">local_dir_resolved</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;S3 key </span><span class="si">{</span><span class="n">key</span><span class="si">!r}</span><span class="s2"> resolves outside local_dir=</span><span class="si">{</span><span class="n">local_dir</span><span class="si">!s}</span><span class="s2"> &quot;</span>
+                    <span class="s2">&quot;after stripping the output prefix; path-traversal &quot;</span>
+                    <span class="s2">&quot;segments are not allowed.&quot;</span>
+                <span class="p">)</span>
             <span class="n">local_path</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
             <span class="n">s3_uri</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;s3://</span><span class="si">{</span><span class="n">bucket</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">&quot;</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">download_file</span><span class="p">(</span><span class="n">s3_uri</span><span class="o">=</span><span class="n">s3_uri</span><span class="p">,</span> <span class="n">local_path</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">local_path</span><span class="p">))</span>

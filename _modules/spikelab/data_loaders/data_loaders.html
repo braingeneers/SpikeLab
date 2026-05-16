@@ -788,6 +788,14 @@
     <span class="k">with</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>  <span class="c1"># type: ignore</span>
         <span class="c1"># Read start_time if stored (backward compatible default 0.0)</span>
         <span class="n">file_start_time</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;start_time&quot;</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span>
+        <span class="c1"># Read the persisted length so recordings with trailing silence</span>
+        <span class="c1"># beyond the last spike round-trip accurately. The caller&#39;s</span>
+        <span class="c1"># explicit ``length_ms`` parameter still takes precedence; the</span>
+        <span class="c1"># file attr is the second-best source. The raster style derives</span>
+        <span class="c1"># its own length from the matrix shape and is handled separately</span>
+        <span class="c1"># below — the file attr is not applied to it.</span>
+        <span class="n">file_length_ms</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;length_ms&quot;</span><span class="p">])</span> <span class="k">if</span> <span class="s2">&quot;length_ms&quot;</span> <span class="ow">in</span> <span class="n">f</span><span class="o">.</span><span class="n">attrs</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="n">non_raster_length_ms</span> <span class="o">=</span> <span class="n">length_ms</span> <span class="k">if</span> <span class="n">length_ms</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">file_length_ms</span>
 
         <span class="c1"># Optionally read raw arrays and a time vector</span>
         <span class="n">raw_data</span><span class="p">,</span> <span class="n">raw_time</span> <span class="o">=</span> <span class="n">_read_raw_arrays</span><span class="p">(</span>
@@ -841,7 +849,7 @@
             <span class="p">)</span>
             <span class="k">return</span> <span class="n">_build_spikedata</span><span class="p">(</span>
                 <span class="n">trains</span><span class="p">,</span>
-                <span class="n">length_ms</span><span class="o">=</span><span class="n">length_ms</span><span class="p">,</span>
+                <span class="n">length_ms</span><span class="o">=</span><span class="n">non_raster_length_ms</span><span class="p">,</span>
                 <span class="n">start_time</span><span class="o">=</span><span class="n">file_start_time</span><span class="p">,</span>
                 <span class="n">metadata</span><span class="o">=</span><span class="n">meta</span><span class="p">,</span>
                 <span class="n">raw_data</span><span class="o">=</span><span class="n">raw_data</span><span class="p">,</span>
@@ -858,7 +866,7 @@
             <span class="n">trains</span> <span class="o">=</span> <span class="p">[</span><span class="n">to_ms</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">grp</span><span class="p">[</span><span class="n">k</span><span class="p">]),</span> <span class="n">group_time_unit</span><span class="p">,</span> <span class="n">fs_Hz</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">keys</span><span class="p">]</span>
             <span class="k">return</span> <span class="n">_build_spikedata</span><span class="p">(</span>
                 <span class="n">trains</span><span class="p">,</span>
-                <span class="n">length_ms</span><span class="o">=</span><span class="n">length_ms</span><span class="p">,</span>
+                <span class="n">length_ms</span><span class="o">=</span><span class="n">non_raster_length_ms</span><span class="p">,</span>
                 <span class="n">start_time</span><span class="o">=</span><span class="n">file_start_time</span><span class="p">,</span>
                 <span class="n">metadata</span><span class="o">=</span><span class="n">meta</span><span class="p">,</span>
                 <span class="n">raw_data</span><span class="o">=</span><span class="n">raw_data</span><span class="p">,</span>
@@ -875,7 +883,11 @@
             <span class="p">)</span>
         <span class="n">N</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">idces</span><span class="o">.</span><span class="n">max</span><span class="p">())</span> <span class="o">+</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">idces</span><span class="o">.</span><span class="n">size</span> <span class="k">else</span> <span class="mi">0</span>
         <span class="n">sd</span> <span class="o">=</span> <span class="n">SpikeData</span><span class="o">.</span><span class="n">from_idces_times</span><span class="p">(</span>
-            <span class="n">idces</span><span class="p">,</span> <span class="n">times</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="n">N</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="n">length_ms</span><span class="p">,</span> <span class="n">start_time</span><span class="o">=</span><span class="n">file_start_time</span>
+            <span class="n">idces</span><span class="p">,</span>
+            <span class="n">times</span><span class="p">,</span>
+            <span class="n">N</span><span class="o">=</span><span class="n">N</span><span class="p">,</span>
+            <span class="n">length</span><span class="o">=</span><span class="n">non_raster_length_ms</span><span class="p">,</span>
+            <span class="n">start_time</span><span class="o">=</span><span class="n">file_start_time</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="n">sd</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">meta</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">_maybe_with_raw</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">raw_data</span><span class="p">,</span> <span class="n">raw_time</span><span class="p">)</span></div>
@@ -910,6 +922,16 @@
 <span class="sd">    Returns:</span>
 <span class="sd">        sd (SpikeData): The detected spike train data.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Validate ``fs_Hz`` at the loader boundary so the user sees a clear</span>
+    <span class="c1"># error mentioning the loader parameter, rather than a cryptic</span>
+    <span class="c1"># ZeroDivisionError / ValueError raised deep inside</span>
+    <span class="c1"># ``SpikeData.from_thresholding``.</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">fs_Hz</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">))</span> <span class="ow">and</span> <span class="n">fs_Hz</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;fs_Hz must be a positive finite number, got </span><span class="si">{</span><span class="n">fs_Hz</span><span class="si">!r}</span><span class="s2">. &quot;</span>
+            <span class="s2">&quot;Set the sampling frequency in Hz when calling &quot;</span>
+            <span class="s2">&quot;load_spikedata_from_hdf5_raw_thresholded(...).&quot;</span>
+        <span class="p">)</span>
     <span class="n">ensure_h5py</span><span class="p">()</span>
     <span class="k">with</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>  <span class="c1"># type: ignore</span>
         <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">f</span><span class="p">[</span><span class="n">dataset</span><span class="p">])</span>
@@ -1010,12 +1032,14 @@
             <span class="p">)</span>
         <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
             <span class="k">pass</span>  <span class="c1"># pynwb not installed — fall back to h5py</span>
-        <span class="k">except</span> <span class="p">(</span>
-            <span class="ne">TypeError</span><span class="p">,</span>
-            <span class="ne">ValueError</span><span class="p">,</span>
-            <span class="ne">KeyError</span><span class="p">,</span>
-            <span class="ne">AttributeError</span><span class="p">,</span>
-        <span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="c1"># Broad catch is intentional: pynwb raises a wide variety of</span>
+            <span class="c1"># exception types depending on schema/runtime issue (TypeError,</span>
+            <span class="c1"># ValueError, KeyError, AttributeError, RuntimeError on schema</span>
+            <span class="c1"># mismatch, OSError on HDF5-plugin issues, etc.). Any pynwb</span>
+            <span class="c1"># failure should fall back to the h5py loader rather than</span>
+            <span class="c1"># propagating to the caller. The warning preserves the original</span>
+            <span class="c1"># exception type+message for diagnosis.</span>
             <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;pynwb failed to load NWB file (</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">); &quot;</span>
                 <span class="sa">f</span><span class="s2">&quot;falling back to h5py. If this is unexpected, check the file &quot;</span>
@@ -1027,6 +1051,15 @@
     <span class="k">with</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>  <span class="c1"># type: ignore</span>
         <span class="k">if</span> <span class="s2">&quot;units&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">f</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;NWB file missing &#39;/units&#39; group&quot;</span><span class="p">)</span>
+        <span class="c1"># ``export_spikedata_to_nwb`` writes ``length_ms`` as a file-</span>
+        <span class="c1"># level attribute so the loader can recover the exact recording</span>
+        <span class="c1"># duration on reload — NWB&#39;s spec has no canonical place for</span>
+        <span class="c1"># this, and inferring length from the max spike time silently</span>
+        <span class="c1"># drops trailing silence. Honor the attr when the caller did</span>
+        <span class="c1"># not supply an explicit override; the caller&#39;s argument still</span>
+        <span class="c1"># takes precedence for backward-compatibility.</span>
+        <span class="k">if</span> <span class="n">length_ms</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="s2">&quot;length_ms&quot;</span> <span class="ow">in</span> <span class="n">f</span><span class="o">.</span><span class="n">attrs</span><span class="p">:</span>
+            <span class="n">length_ms</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;length_ms&quot;</span><span class="p">])</span>
         <span class="n">unit_grp</span> <span class="o">=</span> <span class="n">f</span><span class="p">[</span><span class="s2">&quot;units&quot;</span><span class="p">]</span>
         <span class="n">st_key</span> <span class="o">=</span> <span class="s2">&quot;spike_times&quot;</span>
         <span class="n">idx_key</span> <span class="o">=</span> <span class="s2">&quot;spike_times_index&quot;</span>
@@ -1066,9 +1099,17 @@
             <span class="n">elec_flat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">unit_grp</span><span class="p">[</span><span class="s2">&quot;electrodes&quot;</span><span class="p">])</span>
             <span class="n">elec_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">unit_grp</span><span class="p">[</span><span class="s2">&quot;electrodes_index&quot;</span><span class="p">])</span>
             <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">elec_idx</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">elec_idx</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">elec_flat</span><span class="p">):</span>
+                <span class="c1"># Quantify the truncation so the user can tell whether</span>
+                <span class="c1"># one entry got clipped or half the table is missing.</span>
+                <span class="c1"># The previous &quot;may be truncated&quot; wording was too vague</span>
+                <span class="c1"># to act on.</span>
+                <span class="n">lost</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">elec_idx</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">elec_flat</span><span class="p">))</span>
                 <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-                    <span class="s2">&quot;NWB electrodes_index exceeds electrodes array length; &quot;</span>
-                    <span class="s2">&quot;electrode data may be truncated.&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;NWB electrodes_index final value &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="n">elec_idx</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span><span class="si">}</span><span class="s2">) exceeds electrodes array length &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">elec_flat</span><span class="p">)</span><span class="si">}</span><span class="s2">); the trailing </span><span class="si">{</span><span class="n">lost</span><span class="si">}</span><span class="s2"> index entries &quot;</span>
+                    <span class="s2">&quot;will be silently truncated. Inspect the NWB file&#39;s &quot;</span>
+                    <span class="s2">&quot;/units/electrodes_index and /units/electrodes datasets.&quot;</span><span class="p">,</span>
                     <span class="ne">UserWarning</span><span class="p">,</span>
                 <span class="p">)</span>
             <span class="n">electrode_indices</span> <span class="o">=</span> <span class="p">[]</span>
@@ -1102,7 +1143,24 @@
                     <span class="n">electrode_positions</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">eid</span><span class="p">)]</span> <span class="o">=</span> <span class="n">pos</span>
 
         <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">uid</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">unit_ids</span><span class="p">):</span>
-            <span class="n">attr</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;unit_id&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">uid</span><span class="p">)}</span>
+            <span class="c1"># NWB stores unit IDs in the units/id dataset; the spec</span>
+            <span class="c1"># permits any numeric dtype and some files in the wild use</span>
+            <span class="c1"># string IDs (e.g. UUIDs from automated pipelines). The</span>
+            <span class="c1"># pynwb branch above accepts the raw Index value verbatim;</span>
+            <span class="c1"># the h5py path used to ``int(uid)`` unconditionally and</span>
+            <span class="c1"># crash mid-loop on non-numeric IDs. Fall back to the</span>
+            <span class="c1"># original value with a warning to preserve the loader&#39;s</span>
+            <span class="c1"># forward progress and keep the two paths symmetric.</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">attr</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;unit_id&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">uid</span><span class="p">)}</span>
+            <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;NWB unit id </span><span class="si">{</span><span class="n">uid</span><span class="si">!r}</span><span class="s2"> is not coercible to int; &quot;</span>
+                    <span class="s2">&quot;storing the raw value on neuron_attributes[&#39;unit_id&#39;].&quot;</span><span class="p">,</span>
+                    <span class="ne">UserWarning</span><span class="p">,</span>
+                    <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="n">attr</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;unit_id&quot;</span><span class="p">:</span> <span class="n">uid</span><span class="p">}</span>
             <span class="n">electrode_id</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="k">if</span> <span class="p">(</span>
                 <span class="n">electrode_indices</span>
@@ -1161,7 +1219,22 @@
     <span class="k">if</span> <span class="ow">not</span> <span class="n">fs</span> <span class="ow">or</span> <span class="n">fs</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;A positive sampling_frequency (Hz) is required&quot;</span><span class="p">)</span>
 
-    <span class="n">ids</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">unit_ids</span><span class="p">)</span> <span class="k">if</span> <span class="n">unit_ids</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">list</span><span class="p">(</span><span class="n">get_unit_ids</span><span class="p">())</span>
+    <span class="n">available_ids</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">get_unit_ids</span><span class="p">())</span>
+    <span class="k">if</span> <span class="n">unit_ids</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Pre-validate unit_ids at the loader boundary so the user sees a</span>
+        <span class="c1"># clear error mentioning the loader parameter, rather than a</span>
+        <span class="c1"># backend-specific exception raised mid-loop by</span>
+        <span class="c1"># ``sorting.get_unit_spike_train(missing_id)``.</span>
+        <span class="n">requested</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">unit_ids</span><span class="p">)</span>
+        <span class="n">missing</span> <span class="o">=</span> <span class="p">[</span><span class="n">uid</span> <span class="k">for</span> <span class="n">uid</span> <span class="ow">in</span> <span class="n">requested</span> <span class="k">if</span> <span class="n">uid</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">available_ids</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">missing</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;unit_ids contains IDs not present in the sorting: </span><span class="si">{</span><span class="n">missing</span><span class="si">!r}</span><span class="s2">. &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Available unit IDs: </span><span class="si">{</span><span class="n">available_ids</span><span class="si">!r}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+        <span class="n">ids</span> <span class="o">=</span> <span class="n">requested</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">ids</span> <span class="o">=</span> <span class="n">available_ids</span>
     <span class="n">trains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">neuron_attributes</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
 
@@ -1361,6 +1434,20 @@
         <span class="k">if</span> <span class="n">channel_map</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">int_clu</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">channel_map</span><span class="p">):</span>
             <span class="n">channel_idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">channel_map</span><span class="p">[</span><span class="n">int_clu</span><span class="p">])</span>
             <span class="n">attr</span><span class="p">[</span><span class="s2">&quot;electrode&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">channel_idx</span>
+        <span class="k">elif</span> <span class="n">channel_map</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Out-of-range cluster ID — channel_map lookup is skipped</span>
+            <span class="c1"># and the unit ends up without an electrode/location. The</span>
+            <span class="c1"># upstream &quot;non-sequential cluster IDs&quot; warning fires once</span>
+            <span class="c1"># per loader call; this per-cluster warning surfaces</span>
+            <span class="c1"># *which* clusters lost their metadata so users debugging</span>
+            <span class="c1"># missing locations can pinpoint the offending units.</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Cluster </span><span class="si">{</span><span class="n">int_clu</span><span class="si">}</span><span class="s2"> exceeds channel_map length &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">channel_map</span><span class="p">)</span><span class="si">}</span><span class="s2">); skipping electrode/location &quot;</span>
+                <span class="s2">&quot;assignment for this unit.&quot;</span><span class="p">,</span>
+                <span class="ne">UserWarning</span><span class="p">,</span>
+                <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+            <span class="p">)</span>
 
         <span class="k">if</span> <span class="n">channel_positions</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">channel_idx</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">channel_idx</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">channel_positions</span><span class="p">):</span>

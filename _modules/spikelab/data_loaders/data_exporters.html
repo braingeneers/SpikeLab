@@ -569,10 +569,36 @@
             <span class="sa">f</span><span class="s2">&quot;Unknown style &#39;</span><span class="si">{</span><span class="n">style</span><span class="si">}</span><span class="s2">&#39; (choose one of </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">valid_styles</span><span class="p">)</span><span class="si">}</span><span class="s2">)&quot;</span>
         <span class="p">)</span>
 
+    <span class="c1"># Fail-fast fs_Hz validation per style, BEFORE we open the file.</span>
+    <span class="c1"># ``times_from_ms`` already raises mid-loop when unit=&#39;samples&#39; and</span>
+    <span class="c1"># fs_Hz is missing, but by that point the destination HDF5 file has</span>
+    <span class="c1"># been created and partially populated — the user is left with a</span>
+    <span class="c1"># half-written file on disk. Validate the active style&#39;s time unit</span>
+    <span class="c1"># against the unit→fs_Hz contract upfront.</span>
+    <span class="k">if</span> <span class="n">style</span> <span class="o">==</span> <span class="s2">&quot;ragged&quot;</span> <span class="ow">and</span> <span class="n">spike_times_unit</span> <span class="o">==</span> <span class="s2">&quot;samples&quot;</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">fs_Hz</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;fs_Hz must be provided and &gt; 0 when &quot;</span>
+            <span class="s2">&quot;spike_times_unit=&#39;samples&#39; (style=&#39;ragged&#39;).&quot;</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">style</span> <span class="o">==</span> <span class="s2">&quot;group&quot;</span> <span class="ow">and</span> <span class="n">group_time_unit</span> <span class="o">==</span> <span class="s2">&quot;samples&quot;</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">fs_Hz</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;fs_Hz must be provided and &gt; 0 when &quot;</span>
+            <span class="s2">&quot;group_time_unit=&#39;samples&#39; (style=&#39;group&#39;).&quot;</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">style</span> <span class="o">==</span> <span class="s2">&quot;paired&quot;</span> <span class="ow">and</span> <span class="n">times_unit</span> <span class="o">==</span> <span class="s2">&quot;samples&quot;</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">fs_Hz</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;fs_Hz must be provided and &gt; 0 when &quot;</span>
+            <span class="s2">&quot;times_unit=&#39;samples&#39; (style=&#39;paired&#39;).&quot;</span>
+        <span class="p">)</span>
+
     <span class="c1"># Create or overwrite the HDF5 file</span>
     <span class="k">with</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>  <span class="c1"># type: ignore</span>
-        <span class="c1"># Store start_time for event-centered data round-trips</span>
+        <span class="c1"># Store start_time and length_ms so loader-side inference doesn&#39;t</span>
+        <span class="c1"># silently drop trailing silence beyond the last spike. The loader</span>
+        <span class="c1"># prefers these attributes when present and falls back to</span>
+        <span class="c1"># inference for older files that don&#39;t have them.</span>
         <span class="n">f</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;start_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">start_time</span><span class="p">)</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;length_ms&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">length</span><span class="p">)</span>
 
         <span class="c1"># Optionally write raw arrays if destinations are provided and data exist</span>
         <span class="k">if</span> <span class="p">(</span>
@@ -581,6 +607,20 @@
             <span class="ow">and</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="s2">&quot;raw_data&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
             <span class="ow">and</span> <span class="n">sd</span><span class="o">.</span><span class="n">raw_data</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span>
         <span class="p">):</span>
+            <span class="c1"># Reject the inconsistent ``raw_data`` populated but</span>
+            <span class="c1"># ``raw_time`` is None case explicitly. ``np.asarray(None)``</span>
+            <span class="c1"># returns a 0-D object array and the subsequent</span>
+            <span class="c1"># ``raw_time * (...)`` silently produces garbage written to</span>
+            <span class="c1"># disk — preventing silent corruption is more important</span>
+            <span class="c1"># than the convenience of skipping the time vector.</span>
+            <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="s2">&quot;raw_time&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;raw_dataset / raw_time_dataset were requested and &quot;</span>
+                    <span class="s2">&quot;SpikeData has non-empty raw_data, but sd.raw_time is &quot;</span>
+                    <span class="s2">&quot;None. Provide raw_time (in ms) alongside raw_data, &quot;</span>
+                    <span class="s2">&quot;or omit raw_dataset / raw_time_dataset to skip raw &quot;</span>
+                    <span class="s2">&quot;export.&quot;</span>
+                <span class="p">)</span>
             <span class="n">f</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="n">raw_dataset</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">raw_data</span><span class="p">))</span>
             <span class="c1"># Export raw_time converted to the requested unit</span>
             <span class="n">raw_time</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">raw_time</span><span class="p">)</span>
@@ -694,6 +734,16 @@
     <span class="n">flat_s</span> <span class="o">=</span> <span class="n">times_from_ms</span><span class="p">(</span><span class="n">flat_ms</span><span class="p">,</span> <span class="s2">&quot;s&quot;</span><span class="p">,</span> <span class="n">fs_Hz</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
     <span class="n">index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">counts</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
     <span class="k">with</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>  <span class="c1"># type: ignore</span>
+        <span class="c1"># Persist start_time and length_ms as file-level attributes so</span>
+        <span class="c1"># the loader can recover the exact recording duration on</span>
+        <span class="c1"># reload — NWB&#39;s spec has no canonical place for these so</span>
+        <span class="c1"># without this attribute trailing silence past the last spike</span>
+        <span class="c1"># is silently lost when the loader infers ``length`` from the</span>
+        <span class="c1"># max spike time. Mirrors the ``export_spikedata_to_hdf5``</span>
+        <span class="c1"># convention.</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;start_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">start_time</span><span class="p">)</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;length_ms&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">length</span><span class="p">)</span>
+
         <span class="n">g</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">create_group</span><span class="p">(</span><span class="n">group</span><span class="p">)</span>
         <span class="n">g</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="n">spike_times_dataset</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">flat_s</span><span class="p">)</span>
         <span class="n">g</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="n">spike_times_index_dataset</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">index</span><span class="p">)</span>
