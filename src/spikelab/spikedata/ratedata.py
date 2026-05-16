@@ -76,6 +76,8 @@ class RateData:
 
         if not isinstance(times, np.ndarray):
             times = np.array(times)
+        if times.ndim != 1:
+            raise ValueError(f"times must be 1-D, got shape {times.shape}")
         # Validate times: must be all-finite and monotonically non-decreasing.
         # Non-finite ``times`` causes silent filter-mask failures (NaN compares
         # False) downstream in ``subtime``; unsorted ``times`` produces non-

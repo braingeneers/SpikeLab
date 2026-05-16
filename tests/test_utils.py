@@ -4393,3 +4393,56 @@ class TestSliceToSliceSimilarityMatrix:
 
         with pytest.raises(ValueError, match="3-D"):
             _slice_to_slice_similarity_matrix(np.zeros((3, 3)), metric="cosine")
+
+
+class TestComputeCrossCorrelationWithLagAllNaN:
+    """``compute_cross_correlation_with_lag`` documents two zero-norm
+    branches (both-zero → NaN, one-zero → 0.0) but does not
+    explicitly handle all-NaN inputs. ``np.sum(NaN**2)`` is NaN, so
+    both norm-zero comparisons fail and the function falls through
+    to ``norm_product = NaN * NaN = NaN`` and returns NaN propagated
+    through the dot/sqrt path.
+
+    This class pins the silent-NaN-propagation contract for both
+    ``max_lag=0`` (fast path) and ``max_lag>0`` (general path) so a
+    regression that crashed instead of returning NaN would surface.
+    """
+
+    def test_both_signals_all_nan_returns_nan_at_zero_lag(self):
+        """
+        With both inputs entirely NaN and ``max_lag=0``, the function
+        falls through the zero-norm guards and returns ``(NaN, 0)``
+        via the fast-path dot-product / sqrt(NaN) computation.
+
+        Tests:
+            (Test Case 1) Returned correlation is NaN.
+            (Test Case 2) Returned lag is 0 (the fast-path return value).
+            (Test Case 3) No exception is raised.
+        """
+        from spikelab.spikedata.utils import (
+            compute_cross_correlation_with_lag,
+        )
+
+        a = np.full(50, np.nan, dtype=float)
+        b = np.full(50, np.nan, dtype=float)
+        score, lag = compute_cross_correlation_with_lag(a, b, max_lag=0)
+        assert np.isnan(score)
+        assert lag == 0
+
+    def test_both_signals_all_nan_returns_nan_with_lag(self):
+        """
+        With ``max_lag>0``, the general path normalises by
+        ``sqrt(norm_product)`` (NaN) and returns NaN.
+
+        Tests:
+            (Test Case 1) Returned correlation is NaN.
+            (Test Case 2) No exception is raised.
+        """
+        from spikelab.spikedata.utils import (
+            compute_cross_correlation_with_lag,
+        )
+
+        a = np.full(50, np.nan, dtype=float)
+        b = np.full(50, np.nan, dtype=float)
+        score, _lag = compute_cross_correlation_with_lag(a, b, max_lag=10)
+        assert np.isnan(score)

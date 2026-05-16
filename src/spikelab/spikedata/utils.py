@@ -866,9 +866,16 @@ def PCA_reduction(matrix_2d, n_components=2):
 
 
 def _clamp_umap_n_neighbors(n_samples: int, n_neighbors: int) -> int:
-    """Clamp n_neighbors so small datasets do not raise at UMAP fit time."""
+    """Clamp n_neighbors so small datasets do not raise at UMAP fit time.
+
+    Raises:
+        ValueError: When ``n_samples < 2``. UMAP needs at least two
+            samples to define a neighborhood; surfacing this at the
+            wrapper boundary is far clearer than letting the underlying
+            ``umap-learn`` call fail with a less informative error.
+    """
     if n_samples < 2:
-        return 1
+        raise ValueError(f"UMAP requires at least 2 samples, got n_samples={n_samples}")
     max_nn = max(1, int(math.ceil(n_samples / 2)) - 1)
     return min(max(int(n_neighbors), 2), max_nn)
 
@@ -1734,7 +1741,13 @@ def _rank_order_correlation_from_timing(
         for k in range(n_shuffles):
             null_rhos[k], _ = spearmanr(a, rng.permutation(b))
         null_mean = np.mean(null_rhos)
-        null_std = np.std(null_rhos)
+        # Use the Bessel-corrected (unbiased) sample std as the estimate
+        # of the null distribution's σ. The default ``np.std`` uses
+        # denominator N which biases σ̂ downward by √((N-1)/N) — ~11%
+        # at the documented minimum ``n_shuffles=5``, ~0.5% at 100. With
+        # ddof=1, reported z-scores are unbiased and comparable across
+        # different ``n_shuffles`` values.
+        null_std = np.std(null_rhos, ddof=1)
         z = (rho - null_mean) / null_std if null_std > 0 else np.nan
         return i, j, n_valid, z
 
@@ -1790,11 +1803,18 @@ def shuffle_z_score(observed, shuffle_distribution):
     Notes:
         - Intended for determining whether an observed metric is significantly
           different from what degree-preserving shuffled data produces.
-        - Elements where the shuffle standard deviation is zero will be NaN.
+        - The shuffle std is the Bessel-corrected (``ddof=1``) sample
+          estimator. The default ``np.nanstd`` denominator of ``N``
+          underestimates σ by ~11% at ``N=5`` and ~0.5% at ``N=100``;
+          with ``ddof=1`` z-scores are unbiased and comparable across
+          different shuffle counts.
+        - Elements where the shuffle standard deviation is zero will be
+          NaN. For ``N=1`` the sample std is NaN (no degrees of
+          freedom), which also propagates to NaN.
     """
     shuffle_distribution = np.asarray(shuffle_distribution)
     mean = np.nanmean(shuffle_distribution, axis=0)
-    std = np.nanstd(shuffle_distribution, axis=0)
+    std = np.nanstd(shuffle_distribution, axis=0, ddof=1)
     safe_std = np.where(std == 0, 1.0, std)
     z = (np.asarray(observed) - mean) / safe_std
     z = np.where(std == 0, np.nan, z)
@@ -1979,6 +1999,11 @@ def _compute_agreement_score(train1, train2, delta):
         return 0.0, 0.0, 0.0
     n_matches = _count_matching_spikes(train1, train2, delta)
     denom = n1 + n2 - n_matches
+    # ``n_matches <= min(n1, n2)`` so ``denom = n1 + n2 - n_matches >=
+    # max(n1, n2) >= n_matches``. The ``denom > 0`` guard is therefore
+    # only false when both trains are empty, which is already handled
+    # by the early return above. The branch is kept for safety against
+    # future refactors that might invalidate the invariant.
     agreement = n_matches / denom if denom > 0 else 0.0
     frac_1 = n_matches / n1 if n1 > 0 else 0.0
     frac_2 = n_matches / n2 if n2 > 0 else 0.0

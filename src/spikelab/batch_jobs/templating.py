@@ -125,6 +125,28 @@ def _build_pod_volumes(mounts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             volumes_by_name[name]["secret_name"] = secret_name
         if not volumes_by_name[name].get("pvc_name") and pvc_name:
             volumes_by_name[name]["pvc_name"] = pvc_name
+
+    # Final validation: every volume must have exactly one source. A K8s
+    # `Volume` cannot have both ``secret`` and ``persistentVolumeClaim``
+    # populated (they are mutually exclusive sources), and the template
+    # would silently drop the pvc via ``{% if secret_name %}{% elif
+    # pvc_name %}`` if both were set. Reject the misconfiguration loudly
+    # rather than producing an invalid manifest.
+    for v in volumes_by_name.values():
+        has_secret = bool(v.get("secret_name"))
+        has_pvc = bool(v.get("pvc_name"))
+        if has_secret and has_pvc:
+            raise ValueError(
+                f"Volume {v['name']!r} has both secret_name "
+                f"({v['secret_name']!r}) and pvc_name ({v['pvc_name']!r}) "
+                "after merging. K8s Volume sources are mutually exclusive — "
+                "split into two separate volume mounts with distinct names."
+            )
+        if not has_secret and not has_pvc:
+            raise ValueError(
+                f"Volume {v['name']!r} has neither secret_name nor pvc_name. "
+                "Every K8s Volume must specify exactly one source."
+            )
     return list(volumes_by_name.values())
 
 

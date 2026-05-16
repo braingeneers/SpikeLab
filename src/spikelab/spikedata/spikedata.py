@@ -844,6 +844,8 @@ class SpikeData:
                 list/array matching neuron_indices length for each neuron.
             neuron_indices (list): Neurons to update. If None, updates all.
         """
+        if not isinstance(key, str):
+            raise TypeError(f"key must be a string, got {type(key).__name__}: {key!r}")
         if self.neuron_attributes is None:
             self.neuron_attributes = [{} for _ in range(self.N)]
         indices = range(self.N) if neuron_indices is None else neuron_indices
@@ -1730,6 +1732,18 @@ class SpikeData:
         num_units = raster_matrix.shape[0]
         raster_length = raster_matrix.shape[1]
         max_lag_bins = int(round(max_lag / bin_size))
+
+        # Warn when a positive max_lag rounds down to zero bins — the
+        # user's lag request is silently discarded otherwise. ``max_lag=0``
+        # by explicit choice is a meaningful fast path and is left alone.
+        if max_lag > 0 and max_lag_bins == 0:
+            warnings.warn(
+                f"max_lag={max_lag} ms is smaller than bin_size={bin_size} ms; "
+                f"max_lag_bins collapsed to 0 (zero-lag only). To resolve "
+                f"sub-bin lags, decrease bin_size.",
+                UserWarning,
+                stacklevel=2,
+            )
 
         # Clamp max_lag_bins to the raster length so the underlying
         # cross-correlation never indexes outside the available signal
@@ -3674,6 +3688,14 @@ class SpikeData:
                                 f"{label}.neuron_attributes[{idx}] is missing "
                                 f"required key '{key}'."
                             )
+                    # Surface shape mismatches at the API boundary rather
+                    # than letting them fail deep inside _compute_footprint.
+                    template_arr = np.asarray(attrs["template"])
+                    if template_arr.ndim != 1:
+                        raise ValueError(
+                            f"{label}.neuron_attributes[{idx}]['template'] "
+                            f"must be 1-D, got shape {template_arr.shape}"
+                        )
 
             all_channels: List[int] = []
             self_attrs: List[Dict[str, Any]] = self.neuron_attributes  # type: ignore[assignment]

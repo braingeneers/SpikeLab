@@ -430,16 +430,6 @@ end"""
             run_time = None
             caught_exception = err
 
-        # Kilosort has a log file dir to shellscript launcher
-        runtime_trace_path = output_folder / "kilosort2.log"
-        runtime_trace = []
-        if runtime_trace_path.is_file():
-            with open(runtime_trace_path, "r") as fp:
-                line = fp.readline()
-                while line:
-                    runtime_trace.append(line.strip())
-                    line = fp.readline()
-
         if verbose:
             if has_error:
                 print("Error running kilosort2")

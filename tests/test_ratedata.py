@@ -1825,3 +1825,37 @@ class TestRateDataConstructorTimeSequenceEdges:
         data = np.array([[0.1, 0.2, 0.3, 0.4]])
         rd = RateData(data, np.array([0.0, 1.0, 1.0, 2.0]))
         np.testing.assert_array_equal(rd.times, np.array([0.0, 1.0, 1.0, 2.0]))
+
+
+class TestRateDataFramesEmptyTimes:
+    """``RateData.frames`` requires at least 2 time points to infer the
+    bin step size. An empty- or single-point ``times`` array (which
+    constructs successfully because ``len(times) == data.shape[1]`` is
+    satisfied) must raise a clear ValueError mentioning "fewer than 2
+    time points" rather than producing an opaque downstream failure.
+    """
+
+    def test_empty_times_raises_clear_error(self):
+        """
+        ``RateData(np.zeros((1, 0)), [])`` constructs but ``.frames(...)``
+        raises a clear ValueError naming the missing prerequisite.
+
+        Tests:
+            (Test Case 1) Construction succeeds (zero times, zero bins).
+            (Test Case 2) ``.frames(10.0)`` raises ValueError mentioning
+                "fewer than 2 time points".
+        """
+        rd = RateData(np.zeros((1, 0)), np.asarray([], dtype=float))
+        with pytest.raises(ValueError, match="fewer than 2 time points"):
+            rd.frames(10.0)
+
+    def test_single_time_point_also_raises(self):
+        """
+        A length-1 ``times`` array also triggers the same guard.
+
+        Tests:
+            (Test Case 1) ValueError mentions "fewer than 2 time points".
+        """
+        rd = RateData(np.zeros((1, 1)), np.asarray([0.0]))
+        with pytest.raises(ValueError, match="fewer than 2 time points"):
+            rd.frames(10.0)

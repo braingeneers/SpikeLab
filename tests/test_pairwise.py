@@ -2546,3 +2546,32 @@ class TestPairwiseCompMatrixExtractPairsByGroupBoundary:
         pcm = PairwiseCompMatrix(matrix=np.array([[1.0]]))
         result = pcm.extract_pairs_by_group([0])
         assert result == {}
+
+
+class TestPairwiseCompMatrixStackTimesShapeMismatch:
+    """``PairwiseCompMatrixStack.__post_init__`` rejects a ``times``
+    list whose length does not match ``stack.shape[2]``. Pin the
+    error so a regression that loosened the check would surface (a
+    silent length mismatch lets downstream ``__getitem__(int)`` index
+    out of range or return wrong-time metadata).
+    """
+
+    def test_times_length_must_match_stack_size(self):
+        """
+        A 3-slice stack must reject a 2-element ``times`` list.
+
+        Tests:
+            (Test Case 1) ValueError raised when ``len(times) == 2``
+                but ``stack.shape[2] == 3``.
+            (Test Case 2) Error message names both numbers.
+            (Test Case 3) Matching lengths construct successfully.
+        """
+        stack = np.zeros((4, 4, 3))
+        with pytest.raises(ValueError, match="times"):
+            PairwiseCompMatrixStack(stack=stack, times=[(0.0, 1.0), (1.0, 2.0)])
+
+        # Matching lengths work.
+        ok = PairwiseCompMatrixStack(
+            stack=stack, times=[(0.0, 1.0), (1.0, 2.0), (2.0, 3.0)]
+        )
+        assert ok.stack.shape == (4, 4, 3)

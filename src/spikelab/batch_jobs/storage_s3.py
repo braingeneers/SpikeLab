@@ -107,15 +107,30 @@ class S3StorageClient:
         Parameters:
             run_id (str): Run identifier.
             filename (str): Name of the file within the output prefix.
+                ``..`` segments are rejected to prevent path traversal
+                outside ``local_dir``.
             local_dir (str): Local directory to save the file into.
 
         Returns:
             local_path (str): Absolute path of the downloaded file.
         """
+        # Path-traversal guard: ``filename`` flows directly into the
+        # local filesystem destination. A malicious or buggy upstream
+        # (e.g. an S3 listing entry with ``..`` segments) could escape
+        # ``local_dir`` and clobber arbitrary files. Resolve both paths
+        # and assert the destination stays under the dir.
+        local_dir_resolved = Path(local_dir).resolve()
+        target = (local_dir_resolved / filename).resolve()
+        try:
+            target.relative_to(local_dir_resolved)
+        except ValueError:
+            raise ValueError(
+                f"filename={filename!r} resolves outside local_dir={local_dir!r}; "
+                "path-traversal segments (e.g. '..') are not allowed."
+            )
         prefix = self.output_prefix_for_run(run_id)
         s3_uri = prefix + filename
-        local_path = str(Path(local_dir) / filename)
-        return self.download_file(s3_uri=s3_uri, local_path=local_path)
+        return self.download_file(s3_uri=s3_uri, local_path=str(target))
 
     def list_output_files(self, run_id: str) -> list:
         """List object keys under the output prefix of a run.

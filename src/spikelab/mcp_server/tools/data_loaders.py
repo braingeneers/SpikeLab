@@ -21,6 +21,7 @@ from ...data_loaders.data_loaders import (
 
 from ...data_loaders.s3_utils import ensure_local_file, is_s3_url
 from ...workspace.workspace import get_workspace_manager
+from ._helpers import SPIKEDATA_KEY
 
 # ---------------------------------------------------------------------------
 # Workspace helpers
@@ -132,12 +133,12 @@ async def load_from_hdf5_raster(
         ns_derived = _namespace_from_path(file_path, namespace)
         ws, resolved_wid = _resolve_workspace(workspace_id, name=ns_derived)
         ns_final = _unique_namespace(ws, ns_derived)
-        ws.store(ns_final, "spikedata", spikedata)
+        ws.store(ns_final, SPIKEDATA_KEY, spikedata)
 
         return {
             "workspace_id": resolved_wid,
             "namespace": ns_final,
-            "workspace_key": "spikedata",
+            "workspace_key": SPIKEDATA_KEY,
             "info": {
                 "num_neurons": spikedata.N,
                 "length_ms": spikedata.length,
@@ -219,12 +220,12 @@ async def load_from_hdf5_ragged(
         ns_derived = _namespace_from_path(file_path, namespace)
         ws, resolved_wid = _resolve_workspace(workspace_id, name=ns_derived)
         ns_final = _unique_namespace(ws, ns_derived)
-        ws.store(ns_final, "spikedata", spikedata)
+        ws.store(ns_final, SPIKEDATA_KEY, spikedata)
 
         return {
             "workspace_id": resolved_wid,
             "namespace": ns_final,
-            "workspace_key": "spikedata",
+            "workspace_key": SPIKEDATA_KEY,
             "info": {
                 "num_neurons": spikedata.N,
                 "length_ms": spikedata.length,
@@ -303,12 +304,12 @@ async def load_from_hdf5_group(
         ns_derived = _namespace_from_path(file_path, namespace)
         ws, resolved_wid = _resolve_workspace(workspace_id, name=ns_derived)
         ns_final = _unique_namespace(ws, ns_derived)
-        ws.store(ns_final, "spikedata", spikedata)
+        ws.store(ns_final, SPIKEDATA_KEY, spikedata)
 
         return {
             "workspace_id": resolved_wid,
             "namespace": ns_final,
-            "workspace_key": "spikedata",
+            "workspace_key": SPIKEDATA_KEY,
             "info": {
                 "num_neurons": spikedata.N,
                 "length_ms": spikedata.length,
@@ -390,12 +391,12 @@ async def load_from_hdf5_paired(
         ns_derived = _namespace_from_path(file_path, namespace)
         ws, resolved_wid = _resolve_workspace(workspace_id, name=ns_derived)
         ns_final = _unique_namespace(ws, ns_derived)
-        ws.store(ns_final, "spikedata", spikedata)
+        ws.store(ns_final, SPIKEDATA_KEY, spikedata)
 
         return {
             "workspace_id": resolved_wid,
             "namespace": ns_final,
-            "workspace_key": "spikedata",
+            "workspace_key": SPIKEDATA_KEY,
             "info": {
                 "num_neurons": spikedata.N,
                 "length_ms": spikedata.length,
@@ -455,12 +456,12 @@ async def load_from_nwb(
         ns_derived = _namespace_from_path(file_path, namespace)
         ws, resolved_wid = _resolve_workspace(workspace_id, name=ns_derived)
         ns_final = _unique_namespace(ws, ns_derived)
-        ws.store(ns_final, "spikedata", spikedata)
+        ws.store(ns_final, SPIKEDATA_KEY, spikedata)
 
         return {
             "workspace_id": resolved_wid,
             "namespace": ns_final,
-            "workspace_key": "spikedata",
+            "workspace_key": SPIKEDATA_KEY,
             "info": {
                 "num_neurons": spikedata.N,
                 "length_ms": spikedata.length,
@@ -542,12 +543,12 @@ async def load_from_kilosort(
     ns_derived = _namespace_from_path(folder_path, namespace)
     ws, resolved_wid = _resolve_workspace(workspace_id, name=ns_derived)
     ns_final = _unique_namespace(ws, ns_derived)
-    ws.store(ns_final, "spikedata", spikedata)
+    ws.store(ns_final, SPIKEDATA_KEY, spikedata)
 
     return {
         "workspace_id": resolved_wid,
         "namespace": ns_final,
-        "workspace_key": "spikedata",
+        "workspace_key": SPIKEDATA_KEY,
         "info": {
             "num_neurons": spikedata.N,
             "length_ms": spikedata.length,
@@ -595,12 +596,12 @@ async def load_from_pickle(
     ns_derived = _namespace_from_path(file_path, namespace)
     ws, resolved_wid = _resolve_workspace(workspace_id, name=ns_derived)
     ns_final = _unique_namespace(ws, ns_derived)
-    ws.store(ns_final, "spikedata", spikedata)
+    ws.store(ns_final, SPIKEDATA_KEY, spikedata)
 
     return {
         "workspace_id": resolved_wid,
         "namespace": ns_final,
-        "workspace_key": "spikedata",
+        "workspace_key": SPIKEDATA_KEY,
         "info": {
             "num_neurons": spikedata.N,
             "length_ms": spikedata.length,
@@ -668,12 +669,12 @@ async def load_from_hdf5_thresholded(
         ns_derived = _namespace_from_path(file_path, namespace)
         ws, resolved_wid = _resolve_workspace(workspace_id, name=ns_derived)
         ns_final = _unique_namespace(ws, ns_derived)
-        ws.store(ns_final, "spikedata", spikedata)
+        ws.store(ns_final, SPIKEDATA_KEY, spikedata)
 
         return {
             "workspace_id": resolved_wid,
             "namespace": ns_final,
-            "workspace_key": "spikedata",
+            "workspace_key": SPIKEDATA_KEY,
             "info": {
                 "num_neurons": spikedata.N,
                 "length_ms": spikedata.length,
@@ -726,12 +727,12 @@ async def load_from_ibl(
     ns_derived = namespace or eid[:8]
     ws, resolved_wid = _resolve_workspace(workspace_id, name=ns_derived)
     ns_final = _unique_namespace(ws, ns_derived)
-    ws.store(ns_final, "spikedata", spikedata)
+    ws.store(ns_final, SPIKEDATA_KEY, spikedata)
 
     return {
         "workspace_id": resolved_wid,
         "namespace": ns_final,
-        "workspace_key": "spikedata",
+        "workspace_key": SPIKEDATA_KEY,
         "info": {
             "num_neurons": spikedata.N,
             "length_ms": spikedata.length,
@@ -806,12 +807,12 @@ async def load_from_spikelab_sorted_npz(
     ns_derived = _namespace_from_path(file_path, namespace)
     ws, resolved_wid = _resolve_workspace(workspace_id, name=ns_derived)
     ns_final = _unique_namespace(ws, ns_derived)
-    ws.store(ns_final, "spikedata", spikedata)
+    ws.store(ns_final, SPIKEDATA_KEY, spikedata)
 
     return {
         "workspace_id": resolved_wid,
         "namespace": ns_final,
-        "workspace_key": "spikedata",
+        "workspace_key": SPIKEDATA_KEY,
         "info": {
             "num_neurons": spikedata.N,
             "length_ms": spikedata.length,

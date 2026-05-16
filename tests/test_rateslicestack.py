@@ -2537,3 +2537,46 @@ class TestRateSliceStackSliceSimilarity:
         rss = self._build()
         with pytest.raises(ValueError, match="metric"):
             rss.slice_to_slice_similarity(metric="bogus")
+
+
+class TestRateSliceStackUnitCorrConstantRate:
+    """``RateSliceStack.get_slice_to_slice_unit_corr_from_stack``
+    fast-path uses ``normed.T @ normed`` after L2-normalising each
+    slice. For a unit with constant non-zero rate across all time
+    bins (zero variance, non-zero norm), every slice's normalised
+    vector points in the same direction, so the resulting (S, S)
+    correlation matrix is identically 1.0 across all valid pairs.
+    Pin this contract so a regression that switched to a Pearson-
+    style demeaning step would surface (it would yield 0/0 = NaN
+    instead of 1.0).
+    """
+
+    def test_constant_rate_yields_unit_correlation_matrix(self):
+        """
+        All-equal rates (zero variance, non-zero L2 norm) produce a
+        correlation matrix of ones across the off-diagonal valid
+        slice pairs.
+
+        Tests:
+            (Test Case 1) Output stack shape is ``(S, S, U)``.
+            (Test Case 2) Off-diagonal entries equal ``1.0`` for the
+                constant unit (non-zero norm × identical direction).
+            (Test Case 3) Diagonal entries equal ``1.0`` (self-corr).
+        """
+        # Constant rate of 5.0 across all U=2, T=20, S=4 — non-zero norm,
+        # zero variance.
+        mat = np.full((2, 20, 4), 5.0, dtype=float)
+        rss = RateSliceStack(event_matrix=mat)
+
+        # Method returns (PairwiseCompMatrixStack, av_per_unit). Internal
+        # axes (U, S, S) are transposed at return to (S, S, U).
+        all_corr, av_corr = rss.get_slice_to_slice_unit_corr_from_stack(max_lag=0)
+
+        assert all_corr.stack.shape == (4, 4, 2)
+        # Per-unit (4, 4) sub-matrix is all 1.0 because every slice's
+        # normalised vector points the same direction.
+        for u in range(2):
+            sub = all_corr.stack[:, :, u]
+            np.testing.assert_allclose(sub, np.ones_like(sub), atol=1e-9)
+        # Average per-unit correlation across the lower triangle is 1.0.
+        np.testing.assert_allclose(av_corr, np.ones(2), atol=1e-9)

@@ -8,7 +8,6 @@ import argparse
 import asyncio
 import json
 import sys
-import traceback
 from typing import Any
 
 try:
@@ -3125,7 +3124,11 @@ async def _list_tools() -> list[types.Tool]:
                     "Retrieve a workspace item inline. Returns full data for "
                     "small types (ndarray, PairwiseCompMatrix, dict) and a "
                     "type-specific summary for large types (SpikeData, "
-                    "RateData, slice stacks)."
+                    "RateData, slice stacks). Arrays larger than "
+                    "max_elements are returned as a compact summary "
+                    "(shape, dtype, min/max/mean/nan_count) with "
+                    "truncated=True instead of full data, to avoid "
+                    "saturating the MCP transport."
                 ),
                 inputSchema={
                     "type": "object",
@@ -3133,6 +3136,17 @@ async def _list_tools() -> list[types.Tool]:
                         "workspace_id": {"type": "string"},
                         "namespace": {"type": "string"},
                         "key": {"type": "string"},
+                        "max_elements": {
+                            "type": ["integer", "null"],
+                            "description": (
+                                "Maximum number of ndarray elements to "
+                                "materialise inline. When exceeded, the "
+                                "response substitutes a summary block "
+                                "for the data field. Default 100000; "
+                                "pass null to disable the guard."
+                            ),
+                            "default": 100000,
+                        },
                     },
                     "required": ["workspace_id", "namespace", "key"],
                 },
@@ -4090,29 +4104,63 @@ _TOOL_DISPATCH: dict[str, Any] = {
     "export_to_pickle": exporters.export_to_pickle,
 }
 
-# Tools that take no arguments (called without **arguments)
-_NO_ARGS_TOOLS = {"list_workspaces"}
-
 
 @server.call_tool()
 async def _call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextContent]:
-    """Handle tool calls."""
-    try:
-        handler = _TOOL_DISPATCH.get(name)
-        if handler is None:
-            raise ValueError(f"Unknown tool: {name}")
+    """Handle tool calls.
 
-        if name in _NO_ARGS_TOOLS:
-            result = await handler()
-        else:
-            result = await handler(**arguments)
+    Exceptions are not caught here. They propagate to the MCP framework's
+    handler wrapper, which converts them into a ``CallToolResult`` with
+    ``isError=True`` — the canonical protocol-level error signal that
+    clients can distinguish from a successful result containing an
+    ``"error"`` key.
 
-        return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
+    Normalises ``arguments`` to ``{}`` so handlers that accept no
+    parameters can be called uniformly with ``**arguments`` without
+    maintaining a hand-curated allow-list.
+    """
+    handler = _TOOL_DISPATCH.get(name)
+    if handler is None:
+        raise ValueError(f"Unknown tool: {name}")
 
-    except Exception as e:
-        print(traceback.format_exc(), file=sys.stderr, flush=True)
-        error_result = {"error": str(e), "type": type(e).__name__}
-        return [types.TextContent(type="text", text=json.dumps(error_result, indent=2))]
+    arguments = arguments or {}
+    result = await handler(**arguments)
+
+    # ``allow_nan=False`` rejects NaN / Infinity / -Infinity floats per RFC 8259.
+    # Without this guard, ``json.dumps`` defaults emit the JavaScript literals
+    # ``NaN``/``Infinity``/``-Infinity`` which most MCP clients reject. Tools
+    # that compute summary statistics (waveform metrics, slice stability,
+    # shuffle z-scores, etc.) can legitimately produce non-finite floats on
+    # degenerate input; the recursive sanitiser replaces them with ``None`` at
+    # the serialisation boundary so clients can parse the result.
+    return [
+        types.TextContent(
+            type="text",
+            text=json.dumps(_sanitize_for_json(result), indent=2, allow_nan=False),
+        )
+    ]
+
+
+def _sanitize_for_json(obj: Any) -> Any:
+    """Recursively replace NaN / Inf floats with None for RFC-8259 JSON.
+
+    ``json.dumps(..., allow_nan=False)`` rejects non-finite floats — but those
+    floats arise legitimately from many statistical tools on degenerate input
+    (empty arrays, zero-variance signals, all-NaN slices). Replacing them with
+    ``None`` at the serialisation boundary lets clients distinguish "no value"
+    from a parse error.
+    """
+    import math as _math
+
+    if isinstance(obj, float):
+        if _math.isnan(obj) or _math.isinf(obj):
+            return None
+        return obj
+    if isinstance(obj, dict):
+        return {k: _sanitize_for_json(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_sanitize_for_json(v) for v in obj]
+    return obj
 
 
 def _parse_args() -> argparse.Namespace:

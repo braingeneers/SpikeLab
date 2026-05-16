@@ -1342,12 +1342,20 @@ class TestValidationModule:
             assert isinstance(summary, str)
 
     def test_summarize_validation_error_multiple_errors(self):
-        """summarize_validation_error joins multiple errors with semicolons."""
+        """summarize_validation_error puts each error on its own line.
+
+        Pinning the new multiline format: header + one bullet per
+        issue. Nested-location validation messages stay scannable when
+        a pydantic error has several issues at once.
+        """
         try:
             validate_job_spec({"container": {}})  # missing image + other issues
         except PydanticValidationError as exc:
             summary = summarize_validation_error(exc)
-            assert ";" in summary  # multiple errors joined
+            assert summary.startswith("Invalid job config:")
+            assert "\n  - " in summary
+            # At least two distinct bullet lines for the multi-error case.
+            assert summary.count("\n  - ") >= 2
 
 
 # ---------------------------------------------------------------------------
@@ -3818,16 +3826,20 @@ class TestValidation:
     """Edge cases for the validation module."""
 
     def test_summarize_validation_error_empty_loc(self):
-        """summarize_validation_error handles error with empty loc tuple."""
+        """summarize_validation_error handles error with empty loc tuple.
+
+        With the new multiline format, the message appears as a bullet
+        under the ``Invalid job config:`` header. The location prefix is
+        absent because the loc tuple is empty.
+        """
         from spikelab.batch_jobs.validation import summarize_validation_error
 
-        # Create a mock ValidationError with an empty loc
         mock_exc = MagicMock()
         mock_exc.errors.return_value = [
             {"loc": (), "msg": "custom error message"},
         ]
         result = summarize_validation_error(mock_exc)
-        assert result == "custom error message"
+        assert result == "Invalid job config:\n  - custom error message"
 
 
 class TestInitLazyImport:
@@ -4170,3 +4182,290 @@ class TestProfilesEdgeCases:
 
         prof = load_profile_from_name("  NRP  ")
         assert prof.name == "nrp"
+
+
+class TestBuildPodVolumesRejectsAmbiguousSources:
+    """A K8s ``Volume`` may have at most one of ``secret`` /
+    ``persistentVolumeClaim`` — they're mutually exclusive volume
+    sources. The Jinja template at ``job.yaml.j2:83-88`` renders only
+    the secret via ``{% if secret_name %}{% elif pvc_name %}``, so a
+    volume with both would silently drop the pvc at render time.
+    ``_build_pod_volumes`` raises ``ValueError`` at build time to
+    surface the misconfiguration loudly.
+    """
+
+    def test_volume_with_both_secret_and_pvc_raises(self):
+        """
+        Tests:
+            (Test Case 1) Building a mount dict with both
+                ``secret_name`` and ``pvc_name`` raises ``ValueError``.
+            (Test Case 2) The error message names "mutually exclusive"
+                and the offending volume name.
+        """
+        from spikelab.batch_jobs.templating import _build_pod_volumes
+
+        mounts = [
+            {
+                "name": "creds",
+                "secret_name": "my-secret",
+                "pvc_name": "my-pvc",
+            }
+        ]
+        with pytest.raises(ValueError, match=r"mutually exclusive") as excinfo:
+            _build_pod_volumes(mounts)
+        assert "'creds'" in str(excinfo.value)
+
+    def test_volume_with_neither_source_raises(self):
+        """
+        Tests:
+            (Test Case 1) A mount with ``name`` but neither source set
+                raises ``ValueError`` mentioning "exactly one source".
+        """
+        from spikelab.batch_jobs.templating import _build_pod_volumes
+
+        mounts = [{"name": "empty-vol", "secret_name": None, "pvc_name": None}]
+        with pytest.raises(ValueError, match=r"exactly one source"):
+            _build_pod_volumes(mounts)
+
+    def test_secret_then_pvc_merge_raises(self):
+        """
+        Two mounts with the same ``name``, one carrying a secret and
+        the other carrying a pvc, merge into a single volume with
+        BOTH sources — which is exactly the conflict the validator
+        must catch.
+
+        Tests:
+            (Test Case 1) Merge of secret-only + pvc-only mounts with
+                the same name raises ``ValueError``.
+        """
+        from spikelab.batch_jobs.templating import _build_pod_volumes
+
+        mounts = [
+            {"name": "shared", "secret_name": "s", "pvc_name": None},
+            {"name": "shared", "secret_name": None, "pvc_name": "p"},
+        ]
+        with pytest.raises(ValueError, match=r"mutually exclusive"):
+            _build_pod_volumes(mounts)
+
+
+class TestKubectlEmptyStdoutGuard:
+    """``yaml.safe_load("")`` returns ``None``. The kubectl-path job
+    status / pods queries must guard with ``or {}`` so transient
+    empty kubectl stdout returns the fallthrough status (Pending / [])
+    instead of raising ``AttributeError`` and breaking monitoring loops.
+    """
+
+    def test_job_status_handles_empty_kubectl_stdout(self):
+        """
+        Tests:
+            (Test Case 1) ``job_status`` returns ``"Pending"`` (the
+                fallthrough status) instead of raising AttributeError
+                when ``_run_kubectl`` returns empty stdout.
+        """
+        from spikelab.batch_jobs.backend_k8s import KubernetesBatchJobBackend
+
+        backend = KubernetesBatchJobBackend.__new__(KubernetesBatchJobBackend)
+        backend.namespace = "default"
+        backend._batch_api = None  # forces the kubectl path
+        backend._core_api = None
+
+        def _stub_run_kubectl(_args):
+            return ""
+
+        backend._run_kubectl = _stub_run_kubectl  # type: ignore[assignment]
+
+        assert backend.job_status("any-job") == "Pending"
+
+    def test_pods_for_job_handles_empty_kubectl_stdout(self):
+        """
+        Tests:
+            (Test Case 1) ``pods_for_job`` returns ``[]`` instead of
+                raising AttributeError when ``_run_kubectl`` returns
+                empty stdout.
+        """
+        from spikelab.batch_jobs.backend_k8s import KubernetesBatchJobBackend
+
+        backend = KubernetesBatchJobBackend.__new__(KubernetesBatchJobBackend)
+        backend.namespace = "default"
+        backend._batch_api = None
+        backend._core_api = None
+        backend._run_kubectl = lambda _args: ""  # type: ignore[assignment]
+
+        assert backend.pods_for_job("any-job") == []
+
+
+class TestRetrieveSortingMissingPrefixGuard:
+    """``_retrieve_sorting`` raises an actionable ``ValueError`` when
+    ``SubmitResult.output_prefix`` is empty (e.g. the cluster profile
+    has no ``default_s3_prefix`` and no override was supplied), rather
+    than letting ``parse_s3_url("")`` raise a generic error that masks
+    the actual configuration issue.
+    """
+
+    def test_empty_output_prefix_raises_actionable_error(self, tmp_path):
+        """
+        Tests:
+            (Test Case 1) Empty ``output_prefix`` raises ``ValueError``
+                naming ``default_s3_prefix``.
+        """
+        from spikelab.batch_jobs.models import SubmitResult
+        from spikelab.batch_jobs.session import RunSession
+
+        class _StubStorage:
+            def list_output_files(self, run_id):
+                return ["spikedata.pkl"]
+
+        session = RunSession.__new__(RunSession)
+        session.storage = _StubStorage()
+
+        result = SubmitResult(
+            run_id="r-123",
+            job_name="j-123",
+            manifest_yaml="",
+            uploaded_input_uri="s3://b/inputs/r-123.zip",
+            output_prefix="",
+            logs_prefix="",
+            job_type="sorting",
+        )
+
+        with pytest.raises(ValueError, match=r"default_s3_prefix"):
+            session._retrieve_sorting(result, tmp_path)
+
+
+class TestDeployZeroPodsFollowLogsWarns:
+    """``_cmd_deploy --wait --follow-logs`` prints a stderr warning
+    when ``pods_for_job`` returns ``[]`` instead of silently exiting 0
+    with no output. The user asked to follow logs and gets nothing
+    visible — surface the condition so automation can detect it
+    without parsing the absence of stdout.
+    """
+
+    def test_zero_pods_emits_stderr_warning(self, monkeypatch, capsys):
+        """
+        Tests:
+            (Test Case 1) ``stderr`` contains "no pods found".
+            (Test Case 2) Exit code remains 0 (the submission itself
+                succeeded; --wait surfaced FINAL_STATUS earlier).
+        """
+        from argparse import Namespace
+
+        from spikelab.batch_jobs import cli as cli_mod
+        from spikelab.batch_jobs.models import SubmitResult
+
+        submit_result = SubmitResult(
+            run_id="r-1",
+            job_name="j-1",
+            manifest_yaml="",
+            uploaded_input_uri="s3://b/inputs/r-1.zip",
+            output_prefix="",
+            logs_prefix="",
+            job_type="prepared",
+        )
+
+        class _StubBackend:
+            def pods_for_job(self, name):
+                return []
+
+        class _StubSession:
+            backend = _StubBackend()
+
+            def submit_prepared_job(self, **_kw):
+                return submit_result
+
+            def wait_for_completion(self, **_kw):
+                return "Complete"
+
+        monkeypatch.setattr(cli_mod, "_load_payload", lambda _: {"name_prefix": "test"})
+        monkeypatch.setattr(cli_mod, "_load_profile", lambda *_: object())
+        monkeypatch.setattr(cli_mod, "_build_session", lambda *_: _StubSession())
+        monkeypatch.setattr(
+            cli_mod,
+            "_apply_image_selection",
+            lambda payload, *_a, **_kw: payload,
+        )
+        # Bypass real Pydantic validation — the test exercises the
+        # zero-pods branch, not the JobSpec schema.
+        monkeypatch.setattr(cli_mod, "validate_job_spec", lambda payload: object())
+
+        rc = cli_mod._cmd_deploy(
+            Namespace(
+                job_config="dummy.yaml",
+                profile="nrp",
+                profile_file=None,
+                kubeconfig=None,
+                image_profile=None,
+                image=None,
+                allow_policy_risk=False,
+                render_only=False,
+                output_manifest=None,
+                wait=True,
+                follow_logs=True,
+                max_wait_seconds=1,
+            )
+        )
+
+        captured = capsys.readouterr()
+        assert "no pods found" in captured.err.lower()
+        assert rc == 0
+
+
+class TestArtifactPackagerPathTraversalGuard:
+    """``package_analysis_bundle`` rejects ``run_id`` values containing
+    path-separator or ``..`` segments — ``run_id`` flows directly into
+    the temp bundle dir and the output zip filename, so a value like
+    ``"../escape"`` could let the function clobber arbitrary files
+    outside ``output_dir``.
+    """
+
+    @pytest.mark.parametrize(
+        "bad_run_id",
+        [
+            "../escape",
+            "..",
+            "subdir/run",
+            "run\\bad",
+            "",
+        ],
+    )
+    def test_traversal_run_id_rejected(self, tmp_path, bad_run_id):
+        """
+        Tests:
+            (Test Case 1) Each adversarial ``run_id`` raises
+                ``ValueError`` mentioning path traversal or separators.
+        """
+        from spikelab.batch_jobs.artifact_packager import package_analysis_bundle
+
+        with pytest.raises(ValueError, match=r"path-traversal|separators"):
+            package_analysis_bundle(
+                input_paths=[],
+                run_id=bad_run_id,
+                output_dir=str(tmp_path),
+                output_format="custom",
+            )
+
+
+class TestS3StorageDownloadOutputPathTraversalGuard:
+    """``S3StorageClient.download_output`` rejects ``filename`` values
+    that resolve outside ``local_dir`` after joining — a malicious or
+    buggy upstream that supplied ``"../etc/passwd"`` could otherwise
+    write to an arbitrary location on the host.
+    """
+
+    def test_traversal_filename_rejected(self, tmp_path):
+        """
+        Tests:
+            (Test Case 1) ``filename="../etc/passwd"`` raises
+                ``ValueError`` mentioning "path-traversal".
+        """
+        from spikelab.batch_jobs.storage_s3 import S3StorageClient
+
+        client = S3StorageClient.__new__(S3StorageClient)
+        client.bucket = "test-bucket"
+        client._client = None  # never touched: validation fires first
+
+        with pytest.raises(ValueError, match=r"path-traversal"):
+            client.download_output(
+                run_id="r-1",
+                filename="../etc/passwd",
+                local_dir=str(tmp_path),
+            )

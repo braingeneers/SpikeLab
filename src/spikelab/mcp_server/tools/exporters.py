@@ -17,7 +17,11 @@ from ...data_loaders.data_exporters import (
 )
 
 from ...data_loaders.s3_utils import is_s3_url, upload_to_s3
-from ._helpers import get_workspace as _get_workspace, get_spikedata as _get_spikedata
+from ._helpers import (
+    SPIKEDATA_KEY,
+    get_workspace as _get_workspace,
+    get_spikedata as _get_spikedata,
+)
 
 
 def _hdf5_export_helper(
@@ -401,12 +405,12 @@ async def export_to_pickle(
         Dictionary with 'file_path' (output path) and 'type' (exported object type)
     """
     ws = _get_workspace(workspace_id)
-    resolved_key = key if key else "spikedata"
+    resolved_key = key if key else SPIKEDATA_KEY
     obj = ws.get(namespace, resolved_key)
     if obj is None:
-        if resolved_key == "spikedata":
+        if resolved_key == SPIKEDATA_KEY:
             raise ValueError(
-                f"No SpikeData found at ({namespace!r}, 'spikedata'). "
+                f"No SpikeData found at ({namespace!r}, {SPIKEDATA_KEY!r}). "
                 "Load data first using one of: load_from_hdf5_raster, "
                 "load_from_hdf5_ragged, load_from_hdf5_group, load_from_hdf5_paired, "
                 "load_from_nwb, load_from_kilosort, load_from_pickle, "

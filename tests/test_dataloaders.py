@@ -11,6 +11,7 @@ import os
 import pickle
 import sys
 import tempfile
+import warnings
 from unittest.mock import patch, MagicMock
 
 import numpy as np
@@ -5152,3 +5153,273 @@ class TestLoadSpikelabSortedNpzMissingKeys:
 # in TestS3UrlEdgeCases (see test_is_s3_url_with_whitespace_returns_true
 # and test_is_s3_url_uppercase_scheme_returns_true), which assert the
 # corrected case-insensitive + whitespace-stripping contract.
+
+
+# ===========================================================================
+# Regression tests for bugs fixed during test_scanner triage
+# (see iat/BUG_REPORT.md). Each test pins the fix's contract.
+# ===========================================================================
+
+
+class TestNWBLoaderPynwbFallbackBroadException:
+    """``load_spikedata_from_nwb`` pynwb-first branch must catch any
+    pynwb-side exception and fall through to the h5py loader. Pynwb
+    raises ``RuntimeError`` on schema mismatch and ``OSError`` on
+    HDF5-plugin issues; both must trigger the documented fallback
+    rather than propagating to the caller. The fallback warning names
+    the original exception type for diagnosis.
+    """
+
+    def _write_valid_nwb_h5py_layout(self, path):
+        """Write a minimal h5py-loadable NWB file the fallback can consume."""
+        with h5py.File(path, "w") as f:  # type: ignore
+            g = f.create_group("units")
+            g.create_dataset("spike_times", data=np.array([0.1, 0.2, 0.5]))
+            g.create_dataset("spike_times_index", data=np.array([2, 3]))
+
+    def _assert_h5py_fallback_warning(self, recwarn, exc_type: type) -> None:
+        msgs = [str(w.message) for w in recwarn]
+        joined = " | ".join(msgs)
+        assert "falling back to h5py" in joined, f"no fallback warning in {msgs!r}"
+        assert exc_type.__name__ in joined, (
+            f"warning does not name the original exception type "
+            f"{exc_type.__name__}: {msgs!r}"
+        )
+
+    def test_pynwb_runtime_error_falls_back_to_h5py(self, tmp_path, monkeypatch):
+        """
+        ``pynwb`` raising ``RuntimeError`` (schema mismatch case) must trigger
+        the h5py fallback rather than propagating.
+
+        Tests:
+            (Test Case 1) Loader returns a SpikeData with the h5py-derived
+                spike trains.
+            (Test Case 2) A ``UserWarning`` mentioning the original
+                ``RuntimeError`` and "falling back to h5py" is emitted.
+        """
+        pynwb = pytest.importorskip("pynwb")
+
+        class _RaisingNWBHDF5IO:
+            def __init__(self, *args, **kwargs):
+                raise RuntimeError("simulated schema mismatch")
+
+        monkeypatch.setattr(pynwb, "NWBHDF5IO", _RaisingNWBHDF5IO)
+
+        path = str(tmp_path / "test.nwb")
+        self._write_valid_nwb_h5py_layout(path)
+
+        with pytest.warns(UserWarning) as recwarn:
+            sd = loaders.load_spikedata_from_nwb(path)
+        self._assert_h5py_fallback_warning(recwarn, RuntimeError)
+
+        # h5py path read the data correctly.
+        assert sd.N == 2
+        np.testing.assert_array_equal(sd.train[0], np.array([100.0, 200.0]))
+        np.testing.assert_array_equal(sd.train[1], np.array([500.0]))
+
+    def test_pynwb_os_error_falls_back_to_h5py(self, tmp_path, monkeypatch):
+        """
+        ``pynwb`` raising ``OSError`` (HDF5 plugin case) must trigger the
+        h5py fallback.
+
+        Tests:
+            (Test Case 1) Loader returns a SpikeData.
+            (Test Case 2) Warning names ``OSError``.
+        """
+        pynwb = pytest.importorskip("pynwb")
+
+        class _RaisingNWBHDF5IO:
+            def __init__(self, *args, **kwargs):
+                raise OSError("simulated HDF5 plugin missing")
+
+        monkeypatch.setattr(pynwb, "NWBHDF5IO", _RaisingNWBHDF5IO)
+
+        path = str(tmp_path / "test.nwb")
+        self._write_valid_nwb_h5py_layout(path)
+
+        with pytest.warns(UserWarning) as recwarn:
+            sd = loaders.load_spikedata_from_nwb(path)
+        self._assert_h5py_fallback_warning(recwarn, OSError)
+        assert sd.N == 2
+
+
+class TestLoadSpikedataFromHdf5RawThresholdedFsHzValidation:
+    """``load_spikedata_from_hdf5_raw_thresholded`` must validate
+    ``fs_Hz`` at the loader boundary so the user sees a clear,
+    parameter-named error rather than a cryptic ZeroDivisionError or
+    other exception raised deep inside ``SpikeData.from_thresholding``.
+    """
+
+    @pytest.mark.parametrize("bad_fs", [0, -1.0, float("nan"), None])
+    def test_invalid_fs_hz_raises_clear_error(self, tmp_path, bad_fs):
+        """
+        Tests:
+            (Test Case 1) Each invalid ``fs_Hz`` (0, negative, NaN,
+                None) raises ``ValueError`` mentioning ``fs_Hz`` and
+                "positive finite".
+        """
+        # Build a tiny HDF5 file with a raw-traces dataset. fs_Hz
+        # validation fires before we touch the data, so the contents
+        # don't matter for the failure path.
+        path = str(tmp_path / "raw.h5")
+        with h5py.File(path, "w") as f:  # type: ignore
+            f.create_dataset("traces", data=np.zeros((4, 100), dtype=np.float32))
+
+        with pytest.raises(ValueError, match=r"fs_Hz.*positive finite"):
+            loaders.load_spikedata_from_hdf5_raw_thresholded(
+                path, "traces", fs_Hz=bad_fs
+            )
+
+
+class TestLoadSpikedataFromSpikeinterfaceUnitIdsValidation:
+    """``load_spikedata_from_spikeinterface(unit_ids=...)`` must reject
+    IDs not present in ``sorting.get_unit_ids()`` with a clear error
+    at the loader boundary, rather than letting
+    ``sorting.get_unit_spike_train(missing_id)`` raise a backend-
+    specific exception mid-loop.
+    """
+
+    def _stub_sorting(self, available_ids):
+        """Minimal SortingExtractor-shaped stub."""
+        from types import SimpleNamespace
+
+        sd = SimpleNamespace()
+        sd.get_unit_ids = lambda: list(available_ids)
+        sd.get_sampling_frequency = lambda: 30000.0
+        sd.get_unit_spike_train = lambda unit_id, segment_index=0: np.array(
+            [100, 200], dtype=np.int64
+        )
+        return sd
+
+    def test_unknown_unit_id_raises_clear_error(self):
+        """
+        Tests:
+            (Test Case 1) Passing ``unit_ids=[0, 999]`` against a
+                sorting with units [0, 1] raises ``ValueError``
+                naming the missing IDs and the available set.
+        """
+        sd = self._stub_sorting([0, 1])
+        with pytest.raises(ValueError, match=r"unit_ids.*not present"):
+            loaders.load_spikedata_from_spikeinterface(sd, unit_ids=[0, 999])
+
+    def test_subset_of_present_ids_accepted(self):
+        """
+        Sanity check: requesting a valid subset still works after the
+        guard is added.
+
+        Tests:
+            (Test Case 1) ``unit_ids=[1]`` against units [0, 1] succeeds.
+        """
+        sd = self._stub_sorting([0, 1])
+        out = loaders.load_spikedata_from_spikeinterface(sd, unit_ids=[1])
+        assert out.N == 1
+
+
+class TestLoadSpikedataFromNwbNonIntegerUnitId:
+    """``load_spikedata_from_nwb`` h5py path falls back to storing the
+    raw value on ``neuron_attributes['unit_id']`` when the NWB ``id``
+    dataset contains values that can't be coerced to ``int`` (e.g.
+    UUID strings from automated pipelines). The previous behavior
+    crashed mid-loop with a generic ``ValueError`` from ``int(uid)``.
+    """
+
+    def test_uuid_string_unit_id_warns_and_loads(self, tmp_path):
+        """
+        Tests:
+            (Test Case 1) Load succeeds.
+            (Test Case 2) ``neuron_attributes[i]['unit_id']`` contains
+                the original string value.
+            (Test Case 3) A ``UserWarning`` mentions the unit id.
+        """
+        path = str(tmp_path / "uuid_ids.nwb")
+        with h5py.File(path, "w") as f:  # type: ignore
+            g = f.create_group("units")
+            g.create_dataset("spike_times", data=np.array([0.1, 0.2, 0.5], dtype=float))
+            g.create_dataset("spike_times_index", data=np.array([2, 3], dtype=int))
+            # Use the variable-length string dtype that h5py recommends.
+            string_dt = h5py.string_dtype(encoding="utf-8")
+            g.create_dataset(
+                "id", data=np.array(["abc-1", "def-2"], dtype=object), dtype=string_dt
+            )
+
+        with pytest.warns(UserWarning, match=r"unit id"):
+            sd = loaders.load_spikedata_from_nwb(path, prefer_pynwb=False)
+
+        assert sd.N == 2
+        assert sd.neuron_attributes is not None
+        ids = [a["unit_id"] for a in sd.neuron_attributes]
+        # h5py returns bytes for variable-length string datasets; accept
+        # either bytes or str depending on the local h5py version.
+        assert ids[0] in ("abc-1", b"abc-1")
+        assert ids[1] in ("def-2", b"def-2")
+
+
+class TestLoadSpikedataFromNwbElectrodesIndexTruncationWarning:
+    """``load_spikedata_from_nwb`` h5py path now reports *how many*
+    electrode index entries will be silently truncated when
+    ``electrodes_index[-1]`` exceeds ``len(electrodes)``, instead of
+    the previous vague "may be truncated" wording.
+    """
+
+    def test_truncation_warning_names_the_count(self, tmp_path):
+        """
+        Tests:
+            (Test Case 1) Warning fires.
+            (Test Case 2) Warning message includes both the index value
+                and the truncated count so the user can act on it.
+        """
+        path = str(tmp_path / "trunc.nwb")
+        with h5py.File(path, "w") as f:  # type: ignore
+            g = f.create_group("units")
+            g.create_dataset("spike_times", data=np.array([0.1, 0.2, 0.5], dtype=float))
+            g.create_dataset("spike_times_index", data=np.array([2, 3], dtype=int))
+            g.create_dataset("id", data=np.array([0, 1], dtype=int))
+            # electrodes has 2 entries but electrodes_index says 5 are
+            # expected → trailing 3 entries will be truncated.
+            g.create_dataset("electrodes", data=np.array([10, 11], dtype=int))
+            g.create_dataset("electrodes_index", data=np.array([1, 5], dtype=int))
+
+        with pytest.warns(UserWarning) as recwarn:
+            loaders.load_spikedata_from_nwb(path, prefer_pynwb=False)
+        msgs = [str(w.message) for w in recwarn]
+        # At least one warning names both the offending index final
+        # value (5) and the actual electrodes length (2).
+        joined = " | ".join(msgs)
+        assert "5" in joined
+        assert "2" in joined
+        assert "truncated" in joined.lower()
+
+
+class TestLoadSpikedataFromKilosortClusterIdExceedsChannelMapWarning:
+    """``load_spikedata_from_kilosort`` warns *per skipped cluster*
+    when a cluster ID exceeds ``len(channel_map)``. The previous
+    behavior emitted a single upstream warning about non-sequential
+    IDs and then silently skipped the electrode assignment — users
+    debugging missing locations had to map "which cluster" to
+    "which warning" themselves.
+    """
+
+    def test_per_cluster_warning_fires_on_out_of_range(self, tmp_path):
+        """
+        Tests:
+            (Test Case 1) Per-cluster warning fires and names the
+                offending cluster ID.
+        """
+        spike_times = np.array([1000, 2000, 3000, 4000, 5000])
+        spike_clusters = np.array([0, 1, 100, 0, 100])
+        channel_map = np.array([10, 11, 12])  # length 3 → cluster 100 OOB
+        np.save(str(tmp_path / "spike_times.npy"), spike_times)
+        np.save(str(tmp_path / "spike_clusters.npy"), spike_clusters)
+        np.save(str(tmp_path / "channel_map.npy"), channel_map)
+
+        with warnings.catch_warnings(record=True) as recwarn:
+            warnings.simplefilter("always")
+            loaders.load_spikedata_from_kilosort(
+                str(tmp_path), fs_Hz=30000.0, time_unit="samples"
+            )
+        msgs = [str(w.message) for w in recwarn]
+        joined = " | ".join(msgs)
+        # At least one warning mentions cluster 100 and channel_map
+        # length.
+        assert "100" in joined
+        assert "channel_map" in joined.lower()

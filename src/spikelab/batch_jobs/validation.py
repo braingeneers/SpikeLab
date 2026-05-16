@@ -20,10 +20,18 @@ def validate_run_config(payload: Dict[str, Any]) -> RunConfig:
 
 
 def summarize_validation_error(exc: ValidationError) -> str:
-    """Return a concise human-readable validation summary."""
+    """Return a human-readable validation summary.
+
+    Each pydantic issue lands on its own line under an ``"Invalid job
+    config:"`` header so multi-issue errors stay scannable. Previously
+    the issues were semicolon-joined into a single dense line, which
+    became hard to read once nested locations appeared.
+    """
     parts = []
     for issue in exc.errors():
         loc = ".".join(str(item) for item in issue.get("loc", []))
         msg = issue.get("msg", "invalid value")
         parts.append(f"{loc}: {msg}" if loc else msg)
-    return "; ".join(parts)
+    if not parts:
+        return "Invalid job config"
+    return "Invalid job config:\n  - " + "\n  - ".join(parts)

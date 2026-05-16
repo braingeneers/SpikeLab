@@ -120,10 +120,36 @@ def export_spikedata_to_hdf5(
             f"Unknown style '{style}' (choose one of {sorted(valid_styles)})"
         )
 
+    # Fail-fast fs_Hz validation per style, BEFORE we open the file.
+    # ``times_from_ms`` already raises mid-loop when unit='samples' and
+    # fs_Hz is missing, but by that point the destination HDF5 file has
+    # been created and partially populated — the user is left with a
+    # half-written file on disk. Validate the active style's time unit
+    # against the unit→fs_Hz contract upfront.
+    if style == "ragged" and spike_times_unit == "samples" and not fs_Hz:
+        raise ValueError(
+            "fs_Hz must be provided and > 0 when "
+            "spike_times_unit='samples' (style='ragged')."
+        )
+    if style == "group" and group_time_unit == "samples" and not fs_Hz:
+        raise ValueError(
+            "fs_Hz must be provided and > 0 when "
+            "group_time_unit='samples' (style='group')."
+        )
+    if style == "paired" and times_unit == "samples" and not fs_Hz:
+        raise ValueError(
+            "fs_Hz must be provided and > 0 when "
+            "times_unit='samples' (style='paired')."
+        )
+
     # Create or overwrite the HDF5 file
     with h5py.File(filepath, "w") as f:  # type: ignore
-        # Store start_time for event-centered data round-trips
+        # Store start_time and length_ms so loader-side inference doesn't
+        # silently drop trailing silence beyond the last spike. The loader
+        # prefers these attributes when present and falls back to
+        # inference for older files that don't have them.
         f.attrs["start_time"] = float(sd.start_time)
+        f.attrs["length_ms"] = float(sd.length)
 
         # Optionally write raw arrays if destinations are provided and data exist
         if (
@@ -132,6 +158,20 @@ def export_spikedata_to_hdf5(
             and getattr(sd, "raw_data", None) is not None
             and sd.raw_data.size > 0
         ):
+            # Reject the inconsistent ``raw_data`` populated but
+            # ``raw_time`` is None case explicitly. ``np.asarray(None)``
+            # returns a 0-D object array and the subsequent
+            # ``raw_time * (...)`` silently produces garbage written to
+            # disk — preventing silent corruption is more important
+            # than the convenience of skipping the time vector.
+            if getattr(sd, "raw_time", None) is None:
+                raise ValueError(
+                    "raw_dataset / raw_time_dataset were requested and "
+                    "SpikeData has non-empty raw_data, but sd.raw_time is "
+                    "None. Provide raw_time (in ms) alongside raw_data, "
+                    "or omit raw_dataset / raw_time_dataset to skip raw "
+                    "export."
+                )
             f.create_dataset(raw_dataset, data=np.asarray(sd.raw_data))
             # Export raw_time converted to the requested unit
             raw_time = np.asarray(sd.raw_time)
@@ -242,6 +282,16 @@ def export_spikedata_to_nwb(
     flat_s = times_from_ms(flat_ms, "s", fs_Hz=None)
     index = np.cumsum(counts, dtype=int)
     with h5py.File(filepath, "w") as f:  # type: ignore
+        # Persist start_time and length_ms as file-level attributes so
+        # the loader can recover the exact recording duration on
+        # reload — NWB's spec has no canonical place for these so
+        # without this attribute trailing silence past the last spike
+        # is silently lost when the loader infers ``length`` from the
+        # max spike time. Mirrors the ``export_spikedata_to_hdf5``
+        # convention.
+        f.attrs["start_time"] = float(sd.start_time)
+        f.attrs["length_ms"] = float(sd.length)
+
         g = f.create_group(group)
         g.create_dataset(spike_times_dataset, data=flat_s)
         g.create_dataset(spike_times_index_dataset, data=index)

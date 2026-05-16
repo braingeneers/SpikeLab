@@ -339,6 +339,14 @@ def load_spikedata_from_hdf5(
     with h5py.File(filepath, "r") as f:  # type: ignore
         # Read start_time if stored (backward compatible default 0.0)
         file_start_time = float(f.attrs.get("start_time", 0.0))
+        # Read the persisted length so recordings with trailing silence
+        # beyond the last spike round-trip accurately. The caller's
+        # explicit ``length_ms`` parameter still takes precedence; the
+        # file attr is the second-best source. The raster style derives
+        # its own length from the matrix shape and is handled separately
+        # below — the file attr is not applied to it.
+        file_length_ms = float(f.attrs["length_ms"]) if "length_ms" in f.attrs else None
+        non_raster_length_ms = length_ms if length_ms is not None else file_length_ms
 
         # Optionally read raw arrays and a time vector
         raw_data, raw_time = _read_raw_arrays(
@@ -392,7 +400,7 @@ def load_spikedata_from_hdf5(
             )
             return _build_spikedata(
                 trains,
-                length_ms=length_ms,
+                length_ms=non_raster_length_ms,
                 start_time=file_start_time,
                 metadata=meta,
                 raw_data=raw_data,
@@ -409,7 +417,7 @@ def load_spikedata_from_hdf5(
             trains = [to_ms(np.asarray(grp[k]), group_time_unit, fs_Hz) for k in keys]
             return _build_spikedata(
                 trains,
-                length_ms=length_ms,
+                length_ms=non_raster_length_ms,
                 start_time=file_start_time,
                 metadata=meta,
                 raw_data=raw_data,
@@ -426,7 +434,11 @@ def load_spikedata_from_hdf5(
             )
         N = int(idces.max()) + 1 if idces.size else 0
         sd = SpikeData.from_idces_times(
-            idces, times, N=N, length=length_ms, start_time=file_start_time
+            idces,
+            times,
+            N=N,
+            length=non_raster_length_ms,
+            start_time=file_start_time,
         )
         sd.metadata.update(meta)
         return _maybe_with_raw(sd, raw_data, raw_time)
@@ -458,6 +470,16 @@ def load_spikedata_from_hdf5_raw_thresholded(
     Returns:
         sd (SpikeData): The detected spike train data.
     """
+    # Validate ``fs_Hz`` at the loader boundary so the user sees a clear
+    # error mentioning the loader parameter, rather than a cryptic
+    # ZeroDivisionError / ValueError raised deep inside
+    # ``SpikeData.from_thresholding``.
+    if not (isinstance(fs_Hz, (int, float)) and fs_Hz > 0):
+        raise ValueError(
+            f"fs_Hz must be a positive finite number, got {fs_Hz!r}. "
+            "Set the sampling frequency in Hz when calling "
+            "load_spikedata_from_hdf5_raw_thresholded(...)."
+        )
     ensure_h5py()
     with h5py.File(filepath, "r") as f:  # type: ignore
         data = np.asarray(f[dataset])
@@ -555,12 +577,14 @@ def load_spikedata_from_nwb(
             )
         except ImportError:  # pragma: no cover
             pass  # pynwb not installed — fall back to h5py
-        except (
-            TypeError,
-            ValueError,
-            KeyError,
-            AttributeError,
-        ) as e:  # pragma: no cover
+        except Exception as e:
+            # Broad catch is intentional: pynwb raises a wide variety of
+            # exception types depending on schema/runtime issue (TypeError,
+            # ValueError, KeyError, AttributeError, RuntimeError on schema
+            # mismatch, OSError on HDF5-plugin issues, etc.). Any pynwb
+            # failure should fall back to the h5py loader rather than
+            # propagating to the caller. The warning preserves the original
+            # exception type+message for diagnosis.
             warnings.warn(
                 f"pynwb failed to load NWB file ({type(e).__name__}: {e}); "
                 f"falling back to h5py. If this is unexpected, check the file "
@@ -572,6 +596,15 @@ def load_spikedata_from_nwb(
     with h5py.File(filepath, "r") as f:  # type: ignore
         if "units" not in f:
             raise ValueError("NWB file missing '/units' group")
+        # ``export_spikedata_to_nwb`` writes ``length_ms`` as a file-
+        # level attribute so the loader can recover the exact recording
+        # duration on reload — NWB's spec has no canonical place for
+        # this, and inferring length from the max spike time silently
+        # drops trailing silence. Honor the attr when the caller did
+        # not supply an explicit override; the caller's argument still
+        # takes precedence for backward-compatibility.
+        if length_ms is None and "length_ms" in f.attrs:
+            length_ms = float(f.attrs["length_ms"])
         unit_grp = f["units"]
         st_key = "spike_times"
         idx_key = "spike_times_index"
@@ -611,9 +644,17 @@ def load_spikedata_from_nwb(
             elec_flat = np.asarray(unit_grp["electrodes"])
             elec_idx = np.asarray(unit_grp["electrodes_index"])
             if len(elec_idx) > 0 and elec_idx[-1] > len(elec_flat):
+                # Quantify the truncation so the user can tell whether
+                # one entry got clipped or half the table is missing.
+                # The previous "may be truncated" wording was too vague
+                # to act on.
+                lost = int(elec_idx[-1] - len(elec_flat))
                 warnings.warn(
-                    "NWB electrodes_index exceeds electrodes array length; "
-                    "electrode data may be truncated.",
+                    "NWB electrodes_index final value "
+                    f"({int(elec_idx[-1])}) exceeds electrodes array length "
+                    f"({len(elec_flat)}); the trailing {lost} index entries "
+                    "will be silently truncated. Inspect the NWB file's "
+                    "/units/electrodes_index and /units/electrodes datasets.",
                     UserWarning,
                 )
             electrode_indices = []
@@ -647,7 +688,24 @@ def load_spikedata_from_nwb(
                     electrode_positions[int(eid)] = pos
 
         for i, uid in enumerate(unit_ids):
-            attr = {"unit_id": int(uid)}
+            # NWB stores unit IDs in the units/id dataset; the spec
+            # permits any numeric dtype and some files in the wild use
+            # string IDs (e.g. UUIDs from automated pipelines). The
+            # pynwb branch above accepts the raw Index value verbatim;
+            # the h5py path used to ``int(uid)`` unconditionally and
+            # crash mid-loop on non-numeric IDs. Fall back to the
+            # original value with a warning to preserve the loader's
+            # forward progress and keep the two paths symmetric.
+            try:
+                attr = {"unit_id": int(uid)}
+            except (TypeError, ValueError):
+                warnings.warn(
+                    f"NWB unit id {uid!r} is not coercible to int; "
+                    "storing the raw value on neuron_attributes['unit_id'].",
+                    UserWarning,
+                    stacklevel=2,
+                )
+                attr = {"unit_id": uid}
             electrode_id = None
             if (
                 electrode_indices
@@ -703,7 +761,22 @@ def load_spikedata_from_spikeinterface(
     if not fs or fs <= 0:
         raise ValueError("A positive sampling_frequency (Hz) is required")
 
-    ids = list(unit_ids) if unit_ids is not None else list(get_unit_ids())
+    available_ids = list(get_unit_ids())
+    if unit_ids is not None:
+        # Pre-validate unit_ids at the loader boundary so the user sees a
+        # clear error mentioning the loader parameter, rather than a
+        # backend-specific exception raised mid-loop by
+        # ``sorting.get_unit_spike_train(missing_id)``.
+        requested = list(unit_ids)
+        missing = [uid for uid in requested if uid not in available_ids]
+        if missing:
+            raise ValueError(
+                f"unit_ids contains IDs not present in the sorting: {missing!r}. "
+                f"Available unit IDs: {available_ids!r}."
+            )
+        ids = requested
+    else:
+        ids = available_ids
     trains: List[np.ndarray] = []
     neuron_attributes: List[dict] = []
 
@@ -900,6 +973,20 @@ def load_spikedata_from_kilosort(
         if channel_map is not None and int_clu < len(channel_map):
             channel_idx = int(channel_map[int_clu])
             attr["electrode"] = channel_idx
+        elif channel_map is not None:
+            # Out-of-range cluster ID — channel_map lookup is skipped
+            # and the unit ends up without an electrode/location. The
+            # upstream "non-sequential cluster IDs" warning fires once
+            # per loader call; this per-cluster warning surfaces
+            # *which* clusters lost their metadata so users debugging
+            # missing locations can pinpoint the offending units.
+            warnings.warn(
+                f"Cluster {int_clu} exceeds channel_map length "
+                f"({len(channel_map)}); skipping electrode/location "
+                "assignment for this unit.",
+                UserWarning,
+                stacklevel=2,
+            )
 
         if channel_positions is not None:
             if channel_idx is not None and channel_idx < len(channel_positions):

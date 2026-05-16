@@ -360,10 +360,15 @@ class TestHDF5Exporters:
 
     def test_nonzero_start_time_roundtrip_ragged(self, tmp_path):
         """
-        Non-zero start_time is preserved through a ragged-style export/load round-trip.
+        Non-zero start_time AND length_ms are preserved through a
+        ragged-style export/load round-trip.
 
         Tests:
-            (Test Case 1) start_time=-100 survives export and reimport.
+            (Test Case 1) start_time=-100 survives the round-trip.
+            (Test Case 2) length=200 survives the round-trip (persisted
+                as a file-level ``length_ms`` attribute). Earlier the
+                loader inferred length from the max spike time, which
+                silently dropped trailing silence past the last spike.
         """
         trains = [np.array([-90.0, -50.0, 0.0, 10.0])]
         sd = SpikeData(trains, length=200.0, start_time=-100.0)
@@ -376,9 +381,10 @@ class TestHDF5Exporters:
             spike_times_index_dataset="spike_times_index",
         )
         assert loaded.start_time == pytest.approx(-100.0)
-        # Length is inferred from max spike time - start_time
-        # max(10.0) - (-100.0) = 110.0
-        assert loaded.length == pytest.approx(110.0)
+        # Length is read from the persisted ``length_ms`` file attribute
+        # — the original 200.0, not the 110.0 the loader would have
+        # inferred from ``max(spike) - start_time``.
+        assert loaded.length == pytest.approx(200.0)
 
     def test_nonzero_start_time_roundtrip_paired(self, tmp_path):
         """
@@ -1722,3 +1728,100 @@ class TestPickleIO:
             assert orig.N == loaded.N
             for a, b in zip(orig.train, loaded.train):
                 np.testing.assert_array_equal(a, b)
+
+
+class TestExportHdf5RawDatasetWithoutRawTimeRaises:
+    """``export_spikedata_to_hdf5`` rejects the inconsistent case where
+    ``raw_dataset`` / ``raw_time_dataset`` are requested and SpikeData
+    has non-empty ``raw_data`` but ``raw_time`` is ``None``. Without
+    the guard, ``np.asarray(None)`` produced a 0-D object array and
+    the subsequent multiply silently wrote garbage to disk.
+    """
+
+    def test_raw_data_without_raw_time_raises_value_error(self, tmp_path):
+        """
+        Tests:
+            (Test Case 1) Building a SpikeData with non-empty raw_data
+                but raw_time=None and trying to export with raw_dataset
+                / raw_time_dataset set raises ``ValueError`` mentioning
+                "raw_time" and "None".
+        """
+        from spikelab.data_loaders import data_exporters as exporters
+
+        trains = [np.array([10.0, 20.0, 30.0])]
+        # Build a SpikeData with raw_data populated but raw_time missing.
+        sd = SpikeData(trains, length=100.0)
+        sd.raw_data = np.array([[1.0, 2.0, 3.0]])
+        sd.raw_time = None
+
+        path = str(tmp_path / "raw_no_time.h5")
+        with pytest.raises(ValueError, match=r"raw_time.*None|None.*raw_time"):
+            exporters.export_spikedata_to_hdf5(
+                sd, path, style="ragged", raw_dataset="raw", raw_time_dataset="t"
+            )
+
+
+class TestExportNwbPersistsLengthMs:
+    """``export_spikedata_to_nwb`` now writes ``start_time`` and
+    ``length_ms`` as file-level HDF5 attributes so the loader can
+    recover the exact recording duration on reload. Previously the
+    loader inferred ``length`` from the max spike time, silently
+    losing trailing silence past the last spike.
+    """
+
+    def test_length_ms_round_trips_through_nwb_export(self, tmp_path):
+        """
+        Tests:
+            (Test Case 1) length=500 with last spike at 10 ms (490 ms
+                of trailing silence) survives the export/load round
+                trip rather than being clipped to ~10 ms.
+        """
+        from spikelab.data_loaders import data_exporters as exporters
+        from spikelab.data_loaders import data_loaders as loaders
+
+        trains = [np.array([1.0, 5.0, 10.0])]
+        sd = SpikeData(trains, length=500.0)  # 490 ms trailing silence
+        path = str(tmp_path / "nwb_length.nwb")
+
+        exporters.export_spikedata_to_nwb(sd, path)
+        loaded = loaders.load_spikedata_from_nwb(path, prefer_pynwb=False)
+
+        # Trailing silence is preserved (loader reads length_ms attr).
+        assert loaded.length == pytest.approx(500.0)
+
+
+class TestExportHdf5FailFastFsHzValidation:
+    """``export_spikedata_to_hdf5(unit='samples', fs_Hz=None)`` raises
+    *before* opening the file, for every style (ragged / paired /
+    group). Previously the validation fired mid-loop inside
+    ``times_from_ms``, leaving a partially-written HDF5 file on disk.
+    """
+
+    @pytest.mark.parametrize(
+        "kwargs",
+        [
+            {"style": "ragged", "spike_times_unit": "samples"},
+            {"style": "group", "group_time_unit": "samples"},
+            {"style": "paired", "times_unit": "samples"},
+        ],
+    )
+    def test_samples_without_fs_hz_raises_before_file_open(self, tmp_path, kwargs):
+        """
+        Tests:
+            (Test Case 1) Each style raises ``ValueError`` mentioning
+                ``fs_Hz``.
+            (Test Case 2) The destination file is NOT created (fail-fast
+                contract).
+        """
+        from spikelab.data_loaders import data_exporters as exporters
+
+        sd = SpikeData([np.array([10.0, 20.0])], length=100.0)
+        path = tmp_path / f"never_written_{kwargs['style']}.h5"
+
+        with pytest.raises(ValueError, match=r"fs_Hz"):
+            exporters.export_spikedata_to_hdf5(sd, str(path), fs_Hz=None, **kwargs)
+
+        assert not path.exists(), (
+            f"{path.name} was created despite fail-fast contract; "
+            "user is left with a half-written file."
+        )

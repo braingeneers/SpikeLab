@@ -8258,6 +8258,53 @@ class TestSpikeDataGetPairwiseCcgMaxLagClamp:
         ]
         assert msgs == []
 
+    def test_sub_bin_max_lag_warns_collapse_to_zero(self):
+        """
+        A positive ``max_lag`` smaller than ``bin_size`` rounds to zero
+        bins. The method now emits a ``UserWarning`` so the caller can
+        see that their lag request was silently discarded — and points
+        at ``bin_size`` as the lever for sub-bin resolution.
+
+        Tests:
+            (Test Case 1) ``max_lag=0.5, bin_size=1.0`` emits one
+                UserWarning mentioning "collapsed to 0".
+            (Test Case 2) The call still returns a valid result
+                (zero-lag-only, not an exception).
+        """
+        import warnings as _warnings
+
+        sd = SpikeData([[1.0, 5.0, 9.0], [2.0, 6.0, 10.0]], length=20.0)
+        with _warnings.catch_warnings(record=True) as caught:
+            _warnings.simplefilter("always")
+            corr_pcm, _ = sd.get_pairwise_ccg(bin_size=1.0, max_lag=0.5)
+        msgs = [
+            str(rec.message) for rec in caught if "collapsed to 0" in str(rec.message)
+        ]
+        assert len(msgs) == 1
+        assert "bin_size=1.0" in msgs[0]
+        assert corr_pcm.matrix[0, 0] == pytest.approx(1.0)
+
+    def test_explicit_max_lag_zero_does_not_warn(self):
+        """
+        ``max_lag=0`` passed explicitly is a deliberate fast path for
+        zero-lag-only and must not trigger the underflow warning. The
+        warning only fires when a positive request rounds down to zero.
+
+        Tests:
+            (Test Case 1) ``max_lag=0`` emits no "collapsed to 0"
+                warning.
+        """
+        import warnings as _warnings
+
+        sd = SpikeData([[1.0, 5.0, 9.0], [2.0, 6.0, 10.0]], length=20.0)
+        with _warnings.catch_warnings(record=True) as caught:
+            _warnings.simplefilter("always")
+            sd.get_pairwise_ccg(bin_size=1.0, max_lag=0)
+        msgs = [
+            str(rec.message) for rec in caught if "collapsed to 0" in str(rec.message)
+        ]
+        assert msgs == []
+
 
 class TestSpikeDataCvIsi:
     """Tests for SpikeData.cv_isi and SpikeData.cv2_isi firing regularity metrics."""
@@ -8333,3 +8380,251 @@ class TestSpikeDataCvIsi:
         sd = SpikeData([times])
         expected = 2.0 * 8.0 / 12.0
         assert abs(sd.cv2_isi()[0] - expected) < 1e-6
+
+
+class TestSpikeDataFramesNonAlignedBoundary:
+    """``SpikeData.frames`` builds frame boundaries via
+    ``np.arange(start, end - length + 1e-9, step)``; non-aligned
+    ``frame_length`` values near the recording end can produce one
+    more or one fewer frame depending on floating-point accumulation.
+    Pin the count for a representative non-aligned configuration as
+    a regression guard.
+    """
+
+    def test_three_frames_for_length_99_99999_and_frame_33_33333(self):
+        """
+        Configuration: ``length=99.99999``, ``frame_length=33.33333``,
+        ``overlap=0``. The ``+1e-9`` epsilon in the arange upper bound
+        admits the third frame at start ≈ 66.66666. A regression that
+        dropped the epsilon would yield two frames instead of three.
+
+        Tests:
+            (Test Case 1) Exactly 3 frames are produced.
+            (Test Case 2) Frame starts are ``0, 33.33333, 66.66666``
+                (within float tolerance).
+            (Test Case 3) Each frame's reported duration equals
+                ``frame_length`` (within float tolerance).
+        """
+        sd = SpikeData([[5.0, 50.0, 95.0]], length=99.99999)
+        stack = sd.frames(33.33333)
+        assert len(stack.times) == 3
+        expected_starts = [0.0, 33.33333, 66.66666]
+        for (start, end), exp_start in zip(stack.times, expected_starts):
+            assert start == pytest.approx(exp_start, abs=1e-5)
+            assert (end - start) == pytest.approx(33.33333, abs=1e-9)
+
+    def test_exactly_aligned_length_produces_integer_frame_count(self):
+        """
+        With ``length`` an exact integer multiple of ``frame_length``
+        (no floating-point ambiguity), the frame count is the simple
+        quotient.
+
+        Tests:
+            (Test Case 1) ``length=100, frame_length=25`` → 4 frames.
+        """
+        sd = SpikeData([[5.0, 50.0, 95.0]], length=100.0)
+        stack = sd.frames(25.0)
+        assert len(stack.times) == 4
+
+
+class TestSpikeDataSpikeTimeTilingsNumbaParity:
+    """``SpikeData.spike_time_tilings`` uses a numba kernel only when
+    ``self.N > 2`` (source guard at the dispatch site). The N≤2 path
+    runs in pure numpy. Verify the two paths agree on shared pairs so
+    a regression in either path is caught.
+    """
+
+    def test_n_equals_2_numpy_path_matches_n_equals_3_numba_pair(self):
+        """
+        The (0,1) entry of the (2,2) matrix (numpy path, N==2) equals
+        the (0,1) entry of the (3,3) matrix computed on the same two
+        trains plus an additional unit (numba path, N==3).
+
+        Tests:
+            (Test Case 1) ``spike_time_tilings`` returns shape (2,2)
+                for N=2 and (3,3) for N=3.
+            (Test Case 2) Diagonal is 1.0 in both matrices.
+            (Test Case 3) Off-diagonal pair (0,1) value is identical
+                across the two paths (within numerical tolerance).
+        """
+        rng = np.random.default_rng(0)
+        train_a = np.sort(rng.uniform(0, 1000, 50))
+        train_b = np.sort(rng.uniform(0, 1000, 50))
+        train_c = np.sort(rng.uniform(0, 1000, 50))
+
+        # N == 3: numba path (gate `self.N > 2`) when numba is installed.
+        sd3 = SpikeData([train_a, train_b, train_c], length=1000.0)
+        pcm3 = sd3.spike_time_tilings(delt=10.0)
+
+        # N == 2: pure-numpy path always.
+        sd2 = SpikeData([train_a, train_b], length=1000.0)
+        pcm2 = sd2.spike_time_tilings(delt=10.0)
+
+        assert pcm2.matrix.shape == (2, 2)
+        assert pcm3.matrix.shape == (3, 3)
+        # Diagonal is identity in both.
+        assert pcm2.matrix[0, 0] == pytest.approx(1.0)
+        assert pcm3.matrix[1, 1] == pytest.approx(1.0)
+        # Shared (0,1) entry must match across paths.
+        assert pcm2.matrix[0, 1] == pytest.approx(pcm3.matrix[0, 1], abs=1e-9)
+
+    def test_n_equals_1_returns_singleton_identity_matrix(self):
+        """
+        Single-unit ``SpikeData`` produces a (1,1) matrix with the
+        diagonal entry equal to 1.0.
+
+        Tests:
+            (Test Case 1) Shape is (1,1).
+            (Test Case 2) Single entry is 1.0.
+        """
+        sd1 = SpikeData([[1.0, 5.0, 9.0]], length=20.0)
+        pcm1 = sd1.spike_time_tilings(delt=10.0)
+        assert pcm1.matrix.shape == (1, 1)
+        assert pcm1.matrix[0, 0] == pytest.approx(1.0)
+
+
+class TestSpikeDataGetPairwiseCCGNegativeMaxLag:
+    """``SpikeData.get_pairwise_ccg`` forwards ``max_lag`` to
+    ``compute_cross_correlation_with_lag``, which internally takes
+    the absolute value. A negative ``max_lag`` therefore produces the
+    same matrices as the equivalent positive value — documented but
+    not previously pinned.
+    """
+
+    def test_negative_max_lag_matches_positive(self):
+        """
+        ``max_lag=-5`` produces the same correlation matrix as
+        ``max_lag=5`` because the underlying compare function does
+        ``max_lag = abs(max_lag)``.
+
+        Tests:
+            (Test Case 1) Both correlation matrices agree elementwise.
+            (Test Case 2) Lag matrix shapes match (the sign-flip
+                applied by ``get_pairwise_ccg`` for the lower triangle
+                is independent of the input ``max_lag`` sign).
+        """
+        sd = SpikeData([[1.0, 5.0, 9.0], [2.0, 6.0, 10.0]], length=20.0)
+        corr_pos, lag_pos = sd.get_pairwise_ccg(bin_size=1.0, max_lag=5.0)
+        corr_neg, lag_neg = sd.get_pairwise_ccg(bin_size=1.0, max_lag=-5.0)
+
+        np.testing.assert_allclose(corr_pos.matrix, corr_neg.matrix, equal_nan=True)
+        assert lag_pos.matrix.shape == lag_neg.matrix.shape
+
+
+class TestSpikeDataGetBurstsMismatchedPopRateLengths:
+    """``SpikeData.get_bursts`` refines burst peak times using
+    ``pop_rate_acc`` only when ``len(pop_rate_acc) == len(pop_rate)``.
+    Mismatched lengths fall through to a deliberate fallback that
+    keeps the coarse ``peaks[burst]`` index for ``tburst``. Pin the
+    fallback so a future refactor that silently changed precedence
+    would surface.
+    """
+
+    def test_mismatched_lengths_fall_back_to_coarse_peaks(self):
+        """
+        When ``pop_rate_acc`` has a different length than ``pop_rate``,
+        the inner per-burst block keeps ``tburst[burst] = peaks[burst]``
+        (no refinement) without raising.
+
+        Tests:
+            (Test Case 1) Bursts are still detected when lengths differ.
+            (Test Case 2) ``tburst`` indices match the coarse peaks
+                returned by the same ``pop_rate`` (i.e. no acc-driven
+                refinement was applied).
+            (Test Case 3) No exception is raised — the fallback path
+                is reachable from the public API.
+        """
+        # Build a SpikeData whose population firing has clear, separated
+        # bursts so find_peaks returns multiple peaks.
+        rng = np.random.default_rng(0)
+        n_units = 5
+        bursts_at = [200.0, 600.0, 1000.0]
+        train = []
+        for _ in range(n_units):
+            spikes = []
+            for t0 in bursts_at:
+                spikes.extend(t0 + rng.uniform(-3.0, 3.0, size=20))
+            spikes.extend(rng.uniform(0.0, 1200.0, size=10))
+            train.append(np.sort(np.asarray(spikes)))
+        sd = SpikeData(train, length=1300.0)
+
+        # Real pop_rate; deliberately wrong-length pop_rate_acc.
+        pop_rate = sd.get_pop_rate(square_width=20, gauss_sigma=50)
+        pop_rate_acc_wrong = np.zeros(len(pop_rate) // 2)
+
+        tburst, edges, peak_amp = sd.get_bursts(
+            thr_burst=2.0,
+            min_burst_diff=50,
+            burst_edge_mult_thresh=0.3,
+            pop_rate=pop_rate,
+            pop_rate_acc=pop_rate_acc_wrong,
+        )
+
+        # At least one burst was detected (the fallback executed for it).
+        assert len(tburst) > 0
+        # Without acc-refinement, tburst values must match indices that
+        # come directly from pop_rate's peaks — verify by recomputing.
+        from scipy.signal import find_peaks
+
+        pop_rms = np.sqrt(np.mean(np.square(pop_rate)))
+        peaks_expected, _ = find_peaks(pop_rate, height=pop_rms * 2.0, distance=50)
+        # Every retained tburst value should equal one of the find_peaks
+        # outputs (the fallback preserved peaks[burst] verbatim, modulo
+        # bursts dropped because no edges were found).
+        for t in tburst:
+            assert int(t) in set(int(x) for x in peaks_expected)
+
+
+class TestCompareSorterNeighborChannelsValidation:
+    """``compare_sorter("waveforms")`` builds per-unit footprints via
+    ``_compute_footprint``, which requires ``neighbor_channels[0]`` to
+    equal the unit's primary channel (the helper uses index 0 as the
+    canonical primary slot). The error message references both the
+    primary channel and the offending zeroth neighbor — pin that the
+    error reaches the public API rather than crashing internally with
+    a less actionable message.
+    """
+
+    def test_waveforms_neighbor_channels_zeroth_must_match_primary(self):
+        """
+        A unit whose ``neighbor_channels[0]`` differs from ``channel``
+        triggers the validation in ``_compute_footprint`` from the
+        public ``compare_sorter("waveforms")`` API.
+
+        Tests:
+            (Test Case 1) ``ValueError`` is raised with a message
+                naming "neighbor_channels" and the primary channel.
+            (Test Case 2) The error fires when the bad attrs live on
+                the *first* unit visited (failing fast).
+        """
+        template = np.array([0.0, -1.0, -2.0, -1.0, 0.0], dtype=float)
+        good_attrs = {
+            "template": template,
+            "neighbor_templates": np.vstack([np.zeros_like(template), 0.5 * template]),
+            "channel": 0,
+            "neighbor_channels": np.array([0, 1], dtype=int),
+        }
+        bad_attrs = {
+            "template": template,
+            "neighbor_templates": np.vstack([np.zeros_like(template), 0.5 * template]),
+            # Primary channel is 0 but neighbor_channels[0] is 7 — the
+            # validator must reject this before any similarity is
+            # computed.
+            "channel": 0,
+            "neighbor_channels": np.array([7, 1], dtype=int),
+        }
+
+        sd1 = SpikeData(
+            [[], []], length=30.0, neuron_attributes=[bad_attrs, good_attrs]
+        )
+        sd2 = SpikeData(
+            [[], []], length=30.0, neuron_attributes=[good_attrs, good_attrs]
+        )
+
+        with pytest.raises(ValueError, match="neighbor_channels"):
+            sd1.compare_sorter(
+                sd2,
+                comparison_type="waveforms",
+                f_rel_to_trough=(2, 2),
+                max_lag=0,
+            )

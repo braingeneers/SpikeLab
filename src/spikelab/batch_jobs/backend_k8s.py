@@ -100,7 +100,10 @@ class KubernetesBatchJobBackend:
             out = self._run_kubectl(
                 ["get", "job", name, "-n", self.namespace, "-o", "yaml"]
             )
-            payload = yaml.safe_load(out)
+            # ``yaml.safe_load("")`` returns ``None``; guard so transient empty
+            # stdout (kubectl warming up, race during job restart, etc.) does
+            # not raise AttributeError and silently break monitoring loops.
+            payload = yaml.safe_load(out) or {}
             status = payload.get("status", {})
         else:
             status_obj = self._batch_api.read_namespaced_job_status(
@@ -125,7 +128,8 @@ class KubernetesBatchJobBackend:
             out = self._run_kubectl(
                 ["get", "pods", "-n", self.namespace, "-l", selector, "-o", "yaml"]
             )
-            payload = yaml.safe_load(out)
+            # Guard empty kubectl stdout — see ``job_status`` for rationale.
+            payload = yaml.safe_load(out) or {}
             return [item["metadata"]["name"] for item in payload.get("items", [])]
 
         pods = self._core_api.list_namespaced_pod(

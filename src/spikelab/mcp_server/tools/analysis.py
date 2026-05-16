@@ -1653,16 +1653,66 @@ async def merge_workspace(
     }
 
 
+_DEFAULT_MAX_ELEMENTS = 100_000
+
+
+def _array_summary(arr: np.ndarray) -> Dict[str, Any]:
+    """Build a compact summary of a large ndarray (no full materialisation)."""
+    summary: Dict[str, Any] = {
+        "shape": list(arr.shape),
+        "dtype": str(arr.dtype),
+        "size": int(arr.size),
+    }
+    if arr.size > 0 and np.issubdtype(arr.dtype, np.number):
+        summary["min"] = float(np.nanmin(arr))
+        summary["max"] = float(np.nanmax(arr))
+        summary["mean"] = float(np.nanmean(arr))
+        summary["nan_count"] = (
+            int(np.isnan(arr).sum()) if np.issubdtype(arr.dtype, np.floating) else 0
+        )
+    return summary
+
+
+def _inline_or_summarize(
+    arr: np.ndarray, max_elements: Optional[int]
+) -> Dict[str, Any]:
+    """Return either ``{"data": arr.tolist(), ...}`` for small arrays or
+    ``{"summary": {...}, "truncated": True}`` for arrays exceeding
+    ``max_elements``. ``max_elements=None`` disables the guard.
+    """
+    if max_elements is not None and arr.size > max_elements:
+        return {
+            "summary": _array_summary(arr),
+            "truncated": True,
+            "max_elements": max_elements,
+        }
+    return {
+        "data": arr.tolist(),
+        "shape": list(arr.shape),
+        "dtype": str(arr.dtype),
+    }
+
+
 async def fetch_workspace_item(
     workspace_id: str,
     namespace: str,
     key: str,
+    max_elements: Optional[int] = _DEFAULT_MAX_ELEMENTS,
 ) -> Dict[str, Any]:
     """Fetch a workspace item and return it inline.
 
     For small types (ndarray, PairwiseCompMatrix), returns the full data as
     nested lists. For large or complex types (SpikeData, slice stacks),
     returns a type-specific summary instead.
+
+    Parameters:
+        workspace_id, namespace, key: Locate the item.
+        max_elements: When the materialised array would exceed this many
+            elements (``ndarray.size``), the response substitutes a compact
+            summary (shape, dtype, min/max/mean/nan_count) for the
+            ``data`` field and sets ``truncated=True``. Default
+            ``100_000``. Pass ``None`` to disable the guard and always
+            inline.
     """
     ws = _get_workspace(workspace_id)
     obj = ws.get(namespace, key)
@@ -1678,36 +1728,43 @@ async def fetch_workspace_item(
         "info": info,
     }
 
-    # --- Data types: return full data inline ---
+    # --- Data types: return full data inline (or summary if too large) ---
 
     if isinstance(obj, np.ndarray):
-        base["data"] = obj.tolist()
-        base["shape"] = list(obj.shape)
-        base["dtype"] = str(obj.dtype)
+        base.update(_inline_or_summarize(obj, max_elements))
         return base
 
     if isinstance(obj, PairwiseCompMatrix):
-        base["data"] = obj.matrix.tolist()
-        base["shape"] = list(obj.matrix.shape)
+        base.update(_inline_or_summarize(obj.matrix, max_elements))
         base["labels"] = obj.labels
         return base
 
     if isinstance(obj, PairwiseCompMatrixStack):
-        base["data"] = obj.stack.tolist()
-        base["shape"] = list(obj.stack.shape)
+        base.update(_inline_or_summarize(obj.stack, max_elements))
         return base
 
     if isinstance(obj, dict):
-        safe = {}
+        safe: Dict[str, Any] = {}
+        any_truncated = False
         for k, v in obj.items():
             if isinstance(v, np.ndarray):
-                safe[k] = v.tolist()
+                if max_elements is not None and v.size > max_elements:
+                    safe[k] = {
+                        "summary": _array_summary(v),
+                        "truncated": True,
+                    }
+                    any_truncated = True
+                else:
+                    safe[k] = v.tolist()
             elif isinstance(v, (np.integer, np.floating, np.bool_)):
                 safe[k] = v.item()
             else:
                 safe[k] = v
         base["data"] = safe
         base["keys"] = list(obj.keys())
+        if any_truncated:
+            base["truncated"] = True
+            base["max_elements"] = max_elements
         return base
 
     # --- Summary types: return metadata, not full data ---

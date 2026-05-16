@@ -1699,6 +1699,40 @@ class TestWslconfigPreflight:
         assert _parse_wslconfig_memory_gb("[wsl2]\nmemory=12\n") == 12.0
         assert _parse_wslconfig_memory_gb("[wsl2]\n# no key\n") is None
 
+    def test_parse_strips_utf8_bom(self):
+        """
+        Notepad-edited ``.wslconfig`` files commonly start with a UTF-8
+        BOM. Python's default ``open(..., encoding="utf-8")`` does NOT
+        strip the BOM (only ``utf-8-sig`` does), so the parser must
+        handle it itself.
+
+        Tests:
+            (Test Case 1) BOM-prefixed input parses correctly.
+        """
+        from spikelab.spike_sorting.guards._preflight import (
+            _parse_wslconfig_memory_gb,
+        )
+
+        bom = "﻿"
+        assert _parse_wslconfig_memory_gb(f"{bom}[wsl2]\nmemory=4GB\n") == 4.0
+
+    def test_parse_strips_inline_comments(self):
+        """
+        Inline comments after the value (``memory=8GB ; comment``)
+        must not prevent the regex match. INI accepts ``;`` and ``#``
+        as comment markers anywhere on a line.
+
+        Tests:
+            (Test Case 1) ``memory=8GB ; comment`` → 8.0.
+            (Test Case 2) ``memory=8GB # trailing`` → 8.0.
+        """
+        from spikelab.spike_sorting.guards._preflight import (
+            _parse_wslconfig_memory_gb,
+        )
+
+        assert _parse_wslconfig_memory_gb("[wsl2]\nmemory=8GB ; note\n") == 8.0
+        assert _parse_wslconfig_memory_gb("[wsl2]\nmemory=8GB # note\n") == 8.0
+
     def test_parse_skips_other_sections(self):
         """
         Keys outside [wsl2] are ignored.
@@ -13610,3 +13644,38 @@ class TestDiskUsageWatchdogNanGuard:
                 poll_interval_s=0.05,
                 popen=mock.Mock(spec=subprocess.Popen),
             )
+
+
+class TestRunPreflightNanThresholdGuard:
+    """``run_preflight`` must reject NaN threshold values explicitly.
+    ``is None`` is not enough on its own: a NaN float passes that check
+    and silently disables every downstream ``x >= threshold`` comparison
+    (``>= NaN`` is always False), making the preflight finding
+    unreachable. Pin the strict ``math.isnan`` guard.
+    """
+
+    @pytest.mark.parametrize(
+        "field",
+        [
+            "preflight_min_free_inter_gb",
+            "preflight_min_free_results_gb",
+            "preflight_min_available_ram_gb",
+            "preflight_min_free_vram_gb",
+        ],
+    )
+    def test_nan_threshold_raises_value_error(self, field):
+        """
+        Setting any of the four preflight threshold fields to NaN
+        triggers a ``ValueError`` at the start of ``run_preflight``
+        — before any check runs against the NaN value.
+
+        Tests:
+            (Test Case 1) ValueError raised, message names the field
+                and "finite float".
+        """
+        cfg = _make_config(**{field: float("nan")})
+        with pytest.raises(ValueError, match="finite float"):
+            run_preflight(cfg, [mock.Mock()], ["/inter"], ["/results"])
+        # The message also references the field name for actionability.
+        with pytest.raises(ValueError, match=field):
+            run_preflight(cfg, [mock.Mock()], ["/inter"], ["/results"])

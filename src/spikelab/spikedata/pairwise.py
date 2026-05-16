@@ -1,3 +1,4 @@
+import warnings
 from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Any, Union, Iterator
 import numpy as np
@@ -545,10 +546,18 @@ class PairwiseCompMatrixStack:
             >>> stack[::2]    # Get every other matrix
         """
         if isinstance(index, (slice, np.ndarray, list)):
+            # When ``self.times`` is a Python list (the documented type),
+            # NumPy fancy/boolean indexing (``list[bool_array]``) raises
+            # TypeError. Convert to ndarray for indexing then back to a
+            # list to preserve the public type contract.
+            if self.times:
+                times_sub = list(np.asarray(self.times, dtype=object)[index])
+            else:
+                times_sub = None
             return PairwiseCompMatrixStack(
                 stack=self.stack[:, :, index],
                 labels=self.labels,
-                times=self.times[index] if self.times else None,
+                times=times_sub,
                 metadata=self.metadata.copy(),
             )
 
@@ -940,16 +949,26 @@ def _min_max_normalize(mat: np.ndarray, axis: Optional[str] = None) -> np.ndarra
 
     Returns:
         normalized (np.ndarray): ``(N, N)`` normalized matrix.
+
+    Notes:
+        - ``np.nanmin`` / ``np.nanmax`` emit a ``RuntimeWarning: All-NaN
+          slice encountered`` for fully-NaN rows / cols. The reduction is
+          correct (returns NaN) and the downstream ``np.where(rng != 0,
+          ...)`` branch propagates NaN safely; the warning is pure log
+          noise. Scoped suppression around the two reduction calls keeps
+          downstream callers' logs clean.
     """
-    if axis == "row":
-        lo = np.nanmin(mat, axis=1, keepdims=True)
-        hi = np.nanmax(mat, axis=1, keepdims=True)
-    elif axis == "col":
-        lo = np.nanmin(mat, axis=0, keepdims=True)
-        hi = np.nanmax(mat, axis=0, keepdims=True)
-    else:
-        lo = np.nanmin(mat)
-        hi = np.nanmax(mat)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        if axis == "row":
+            lo = np.nanmin(mat, axis=1, keepdims=True)
+            hi = np.nanmax(mat, axis=1, keepdims=True)
+        elif axis == "col":
+            lo = np.nanmin(mat, axis=0, keepdims=True)
+            hi = np.nanmax(mat, axis=0, keepdims=True)
+        else:
+            lo = np.nanmin(mat)
+            hi = np.nanmax(mat)
 
     rng = hi - lo
     with np.errstate(divide="ignore", invalid="ignore"):
@@ -968,16 +987,27 @@ def _z_score_normalize(mat: np.ndarray, axis: Optional[str] = None) -> np.ndarra
 
     Returns:
         normalized (np.ndarray): ``(N, N)`` normalized matrix.
+
+    Notes:
+        - ``np.nanmean`` / ``np.nanstd`` emit a ``RuntimeWarning`` (``Mean
+          of empty slice`` / ``Degrees of freedom <= 0 for slice``) for
+          fully-NaN rows / cols. The reductions return NaN and the
+          downstream ``np.where(sd != 0, ...)`` branch propagates that
+          safely; the warning is pure log noise. Scoped suppression
+          around the two reduction calls keeps downstream callers' logs
+          clean.
     """
-    if axis == "row":
-        mu = np.nanmean(mat, axis=1, keepdims=True)
-        sd = np.nanstd(mat, axis=1, keepdims=True)
-    elif axis == "col":
-        mu = np.nanmean(mat, axis=0, keepdims=True)
-        sd = np.nanstd(mat, axis=0, keepdims=True)
-    else:
-        mu = np.nanmean(mat)
-        sd = np.nanstd(mat)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        if axis == "row":
+            mu = np.nanmean(mat, axis=1, keepdims=True)
+            sd = np.nanstd(mat, axis=1, keepdims=True)
+        elif axis == "col":
+            mu = np.nanmean(mat, axis=0, keepdims=True)
+            sd = np.nanstd(mat, axis=0, keepdims=True)
+        else:
+            mu = np.nanmean(mat)
+            sd = np.nanstd(mat)
 
     with np.errstate(divide="ignore", invalid="ignore"):
         result = np.where(sd != 0, (mat - mu) / sd, 0.0)
