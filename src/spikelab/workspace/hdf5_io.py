@@ -13,8 +13,17 @@ Each workspace is stored in a single .h5 file with the following structure:
 
 Supported types
 ---------------
+Top-level values stored in a namespace:
 ndarray, SpikeData, RateData, RateSliceStack, SpikeSliceStack,
-PairwiseCompMatrix, PairwiseCompMatrixStack, dict (with serializable leaf values).
+PairwiseCompMatrix, PairwiseCompMatrixStack, dict.
+
+Inside a dict (recursive), the supported leaf types additionally
+include: int, float, bool, str, None, list (lossy — round-trips
+as ndarray), tuple, set, frozenset, plus any of the top-level
+types above. See ``_dump_dict`` for the full per-type schema
+and round-trip semantics (e.g. tuple/set/frozenset preserve
+their Python type via ``__type__`` tags; ndarray of unicode
+strings is supported via h5py's variable-length string dtype).
 """
 
 import json
@@ -286,7 +295,10 @@ def _dump_item(grp, obj: Any, created_at: float, note: Optional[str]) -> None:
         raise TypeError(
             f"Cannot serialise object of type '{type(obj).__name__}' to HDF5. "
             "Supported types: ndarray, SpikeData, RateData, RateSliceStack, "
-            "SpikeSliceStack, PairwiseCompMatrix, PairwiseCompMatrixStack, dict."
+            "SpikeSliceStack, PairwiseCompMatrix, PairwiseCompMatrixStack, "
+            "dict. Inside a dict, additional types are supported: int, "
+            "float, bool, str, None, list (lossy → ndarray), tuple, set, "
+            "frozenset. See ``_dump_dict`` for the full schema."
         )
 
 
@@ -340,11 +352,42 @@ def _load_item(grp) -> Tuple[Any, dict]:
 
 
 def _dump_ndarray(grp, arr: np.ndarray) -> None:
-    grp.create_dataset("data", data=arr)
+    """Write an ndarray to the group's ``data`` dataset.
+
+    Fixed-width unicode/byte-string arrays (dtype kinds ``U`` / ``S``)
+    are stored via h5py's variable-length string dtype because h5py
+    cannot persist ``dtype('<Un')`` directly. The on-disk dataset is
+    tagged with ``__string_array__ = True`` so the load side knows to
+    decode bytes back into Python strings.
+    """
+    if arr.dtype.kind in ("U", "S"):
+        import h5py  # type: ignore
+
+        str_dtype = h5py.string_dtype(encoding="utf-8")
+        ds = grp.create_dataset("data", data=arr.astype(object), dtype=str_dtype)
+        ds.attrs["__string_array__"] = True
+    else:
+        grp.create_dataset("data", data=arr)
 
 
 def _load_ndarray(grp) -> np.ndarray:
-    return np.array(grp["data"])
+    """Reconstruct an ndarray from the group's ``data`` dataset.
+
+    String arrays come back from h5py as ``object`` arrays of bytes
+    (older h5py) or Python strings (newer h5py). Coerce to a numpy
+    unicode array so callers see consistent semantics regardless of
+    h5py version.
+    """
+    ds = grp["data"]
+    arr = np.array(ds)
+    if ds.attrs.get("__string_array__", False):
+        # Coerce to Python str array; bytes decode to utf-8.
+        decoded = [
+            x.decode("utf-8") if isinstance(x, (bytes, bytearray)) else str(x)
+            for x in arr.ravel().tolist()
+        ]
+        arr = np.array(decoded).reshape(arr.shape)
+    return arr
 
 
 # ===========================================================================
@@ -355,17 +398,44 @@ def _load_ndarray(grp) -> np.ndarray:
 def _dump_dict(grp, d: dict, created_at: float) -> None:
     """Recursively serialise a plain dict to an HDF5 group.
 
-    Each dict key becomes a child group whose value is serialised via
-    ``_dump_item``.  Scalar values (int, float, bool, str) that cannot be
-    wrapped in a group are stored as scalar datasets with
-    ``__type__ = "scalar"``.  Lists are converted to numpy arrays before
-    serialisation.
+    Each dict key becomes a child group whose value is serialised
+    according to its type.
+
+    Supported value types (and how they round-trip):
+
+      - ``int``, ``float``, ``bool`` (incl. numpy scalar variants):
+        stored as ``__type__ = "scalar"`` attrs. Round-trip preserves
+        scalar kind (int / float / bool) via ``__scalar_kind__``.
+      - ``str``: stored as ``__type__ = "scalar_str"`` attrs.
+      - ``None``: stored as ``__type__ = "none"`` (no payload).
+        Round-trips back to ``None``.
+      - ``list``: converted to ``ndarray`` and stored as
+        ``__type__ = "ndarray"``. **Lossy**: round-trips as ndarray,
+        not list. Heterogeneous / ragged lists raise ``TypeError``.
+      - ``tuple``: converted to ``ndarray`` and stored as
+        ``__type__ = "tuple"`` with the same heterogeneity check as
+        lists. Round-trips as ``tuple`` (type preserved).
+      - ``set`` / ``frozenset``: sorted into a canonical order, then
+        stored as ``ndarray`` with ``__type__ = "set"`` /
+        ``"frozenset"``. Round-trips as ``set`` / ``frozenset`` (type
+        preserved, order not). Elements must be orderable and
+        homogeneous.
+      - ``dict``: recursively serialised via this function.
+      - ``ndarray``, ``SpikeData``, ``RateData``, slice stacks,
+        pairwise matrices, and pairwise stacks: routed through
+        ``_dump_item``'s dedicated serialisers.
+
+    Anything else triggers a ``TypeError`` from ``_dump_item`` listing
+    the supported types.
 
     Raises:
         ValueError: If any dict key is not a non-empty string, or
             contains a forward slash (h5py interprets ``/`` as a
             group-path separator and would silently corrupt the
             round-trip).
+        TypeError: If any value is a ragged / mixed-type list or
+            tuple, a mixed-type set, or a type not in the supported
+            list above.
     """
     for k, v in d.items():
         # Reject keys that h5py would either reject cryptically
@@ -391,7 +461,39 @@ def _dump_dict(grp, d: dict, created_at: float) -> None:
                     f"Cannot serialize ragged or mixed-type list for key {k!r}. "
                     "All elements must have the same shape and type."
                 )
-        if isinstance(v, (int, float, bool, np.integer, np.floating, np.bool_)):
+        if v is None:
+            child = grp.create_group(k)
+            child.attrs["__type__"] = "none"
+        elif isinstance(v, tuple):
+            arr = np.asarray(v)
+            if arr.dtype == object:
+                raise TypeError(
+                    f"Cannot serialize ragged or mixed-type tuple for key {k!r}. "
+                    "All elements must have the same shape and type."
+                )
+            child = grp.create_group(k)
+            child.attrs["__type__"] = "tuple"
+            _dump_ndarray(child, arr)
+        elif isinstance(v, (set, frozenset)):
+            try:
+                ordered = sorted(v)
+            except TypeError as exc:
+                raise TypeError(
+                    f"Cannot serialize set/frozenset for key {k!r} with "
+                    f"unorderable elements ({exc}). All elements must be "
+                    "mutually orderable so the on-disk representation is "
+                    "deterministic."
+                ) from exc
+            arr = np.asarray(ordered)
+            if arr.dtype == object:
+                raise TypeError(
+                    f"Cannot serialize mixed-type set/frozenset for key "
+                    f"{k!r}. All elements must have the same shape and type."
+                )
+            child = grp.create_group(k)
+            child.attrs["__type__"] = "frozenset" if isinstance(v, frozenset) else "set"
+            _dump_ndarray(child, arr)
+        elif isinstance(v, (int, float, bool, np.integer, np.floating, np.bool_)):
             child = grp.create_group(k)
             child.attrs["__type__"] = "scalar"
             if isinstance(v, (bool, np.bool_)):
@@ -411,7 +513,13 @@ def _dump_dict(grp, d: dict, created_at: float) -> None:
 
 
 def _load_dict(grp) -> dict:
-    """Reconstruct a dict from an HDF5 group written by ``_dump_dict``."""
+    """Reconstruct a dict from an HDF5 group written by ``_dump_dict``.
+
+    Recognises the type tags written by :func:`_dump_dict`:
+    ``scalar``, ``scalar_str``, ``none``, ``tuple``, ``set``,
+    ``frozenset``, and everything else (``ndarray``, ``dict``,
+    ``SpikeData``, etc.) routes through :func:`_load_item`.
+    """
     result = {}
     for k in grp.keys():
         child = grp[k]
@@ -428,6 +536,14 @@ def _load_dict(grp) -> dict:
             result[k] = val
         elif type_tag == "scalar_str":
             result[k] = str(child.attrs["__scalar_value__"])
+        elif type_tag == "none":
+            result[k] = None
+        elif type_tag == "tuple":
+            result[k] = tuple(_load_ndarray(child).tolist())
+        elif type_tag == "set":
+            result[k] = set(_load_ndarray(child).tolist())
+        elif type_tag == "frozenset":
+            result[k] = frozenset(_load_ndarray(child).tolist())
         else:
             obj, _ = _load_item(child)
             result[k] = obj

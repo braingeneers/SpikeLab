@@ -2628,39 +2628,51 @@ class TestHDF5IO:
 
     def test_roundtrip_dict_with_list_of_strings(self):
         """
-        A dict with a list of strings fails during HDF5 save because h5py
-        cannot store numpy unicode string arrays (dtype '<U...') directly.
+        A dict with a list of strings round-trips through HDF5.
+        ``_dump_ndarray`` now stores unicode/byte string arrays via
+        h5py's variable-length string dtype (``__string_array__``
+        marker); ``_load_ndarray`` decodes back to a unicode numpy
+        array so callers see consistent semantics.
 
         Tests:
-            (Test Case 1) TypeError is raised during save due to h5py's
-                inability to handle numpy unicode string dtype.
+            (Test Case 1) Saving a dict with a list of strings succeeds.
+            (Test Case 2) Loaded value contains the same strings in
+                the same order.
 
         Notes:
-            - np.asarray(["alpha", ...]) creates a dtype('<U5') array. h5py
-              does not have a conversion path for this dtype, causing a
-              TypeError in create_dataset.
+            - Lists are still lossy on reload (round-trip as ndarray,
+              not list), but the string CONTENT is preserved.
         """
         ws = AnalysisWorkspace(name="test")
         ws.store("ns", "item", {"names": ["alpha", "beta", "gamma"]})
         with tempfile.TemporaryDirectory() as tmp:
             base = str(pathlib.Path(tmp) / "ws")
-            with pytest.raises(TypeError, match="No conversion path"):
-                ws.save(base)
+            ws.save(base)
+            ws2 = AnalysisWorkspace.load(base)
+            loaded = ws2.get("ns", "item")
+            assert list(loaded["names"]) == ["alpha", "beta", "gamma"]
 
-    def test_roundtrip_dict_with_none_value_raises(self):
+    def test_roundtrip_dict_with_none_value(self):
         """
-        A dict containing None as a value raises TypeError on save, because
-        None goes through _dump_item which does not support NoneType.
+        A dict containing ``None`` as a value round-trips through HDF5.
+        ``_dump_dict`` stores ``None`` as ``__type__ = "none"`` and
+        ``_load_dict`` reconstructs it back to Python ``None``.
 
         Tests:
-            (Test Case 1) Saving a dict with None value raises TypeError.
+            (Test Case 1) Saving a dict with None value succeeds.
+            (Test Case 2) Loaded dict has None at the original key.
+            (Test Case 3) ``None`` round-trips alongside other types.
         """
         ws = AnalysisWorkspace(name="test")
-        ws.store("ns", "d", {"key": None})
+        ws.store("ns", "d", {"key": None, "n": 42, "name": "alpha"})
         with tempfile.TemporaryDirectory() as tmp:
             base = str(pathlib.Path(tmp) / "ws")
-            with pytest.raises(TypeError):
-                ws.save(base)
+            ws.save(base)
+            ws2 = AnalysisWorkspace.load(base)
+            loaded = ws2.get("ns", "d")
+            assert loaded["key"] is None
+            assert loaded["n"] == 42
+            assert loaded["name"] == "alpha"
 
     def test_roundtrip_dict_with_numpy_scalars(self):
         """
