@@ -99,16 +99,24 @@ class PairwiseCompMatrix:
 
         return G
 
-    def threshold(self, threshold: float) -> "PairwiseCompMatrix":
+    def threshold(
+        self, threshold: float, preserve_nan: bool = False
+    ) -> "PairwiseCompMatrix":
         """Create a binary matrix based on a threshold.
 
         Parameters:
             threshold (float): Values with absolute value > threshold become
                 1, otherwise 0.
+            preserve_nan (bool): When ``False`` (default), NaN values in the
+                input are treated as below threshold and become 0 in the
+                output — matches the historical behaviour. When ``True``,
+                NaN values propagate to NaN in the output, keeping "missing"
+                distinguishable from "below threshold" in the binary result.
 
         Returns:
             result (PairwiseCompMatrix): A new PairwiseCompMatrix with binary
-                (0/1) values.
+                (0/1) values, or NaN where input was NaN if
+                ``preserve_nan=True``.
 
         Examples:
             >>> matrix = np.array([[1.0, 0.8, 0.2], [0.8, 1.0, 0.5], [0.2, 0.5, 1.0]])
@@ -120,6 +128,8 @@ class PairwiseCompMatrix:
              [0. 1. 1.]]
         """
         binary_matrix = (np.abs(self.matrix) > threshold).astype(float)
+        if preserve_nan:
+            binary_matrix[np.isnan(self.matrix)] = np.nan
         return PairwiseCompMatrix(
             matrix=binary_matrix,
             labels=self.labels,
@@ -603,22 +613,31 @@ class PairwiseCompMatrixStack:
             metadata=self.metadata.copy(),
         )
 
-    def threshold(self, threshold: float) -> "PairwiseCompMatrixStack":
+    def threshold(
+        self, threshold: float, preserve_nan: bool = False
+    ) -> "PairwiseCompMatrixStack":
         """Create a binary stack based on a threshold.
 
         Parameters:
             threshold (float): Values with absolute value > threshold become
                 1, otherwise 0.
+            preserve_nan (bool): When ``False`` (default), NaN values in the
+                input are treated as below threshold and become 0 in the
+                output — matches the historical behaviour. When ``True``,
+                NaN values propagate to NaN in the output, keeping "missing"
+                distinguishable from "below threshold" in the binary result.
 
         Returns:
             result (PairwiseCompMatrixStack): A new stack with binary (0/1)
-                values.
+                values, or NaN where input was NaN if ``preserve_nan=True``.
 
         Examples:
             >>> stack = PairwiseCompMatrixStack(stack=np.random.rand(5, 5, 10))
             >>> binary_stack = stack.threshold(0.5)
         """
         binary_stack = (np.abs(self.stack) > threshold).astype(float)
+        if preserve_nan:
+            binary_stack[np.isnan(self.stack)] = np.nan
         return PairwiseCompMatrixStack(
             stack=binary_stack,
             labels=self.labels,

@@ -270,13 +270,6 @@ def export_spikedata_to_nwb(
           when prefer_pynwb=False.
     """
     ensure_h5py()
-    if sd.start_time != 0:
-        warnings.warn(
-            f"Exporting event-centered SpikeData (start_time={sd.start_time}) "
-            "to NWB. The NWB format does not store start_time, so spike times "
-            "are written as-is. On reload, start_time will default to 0.",
-            UserWarning,
-        )
     counts = [len(t) for t in sd.train]
     flat_ms = np.concatenate(sd.train) if sum(counts) else np.array([], float)
     flat_s = times_from_ms(flat_ms, "s", fs_Hz=None)

@@ -156,6 +156,15 @@ class CompilationConfig:
     save_raw_pkl: bool = False
     save_dl_data: bool = False
 
+    # When True, the compiler operates on the **pre-curation** SpikeData
+    # and uses ``curation_history`` to mark each unit's ``is_curated``
+    # flag. Failed units appear in the compiled output (``sorted.npz``/
+    # ``sorted.mat``) alongside curated units, and the per-unit
+    # templates figure styles them differently (``color_failed`` vs
+    # ``color_curated``). Default ``False`` preserves the historical
+    # behaviour where only curated units reach the compiled output.
+    include_failed_units: bool = False
+
 
 @dataclass
 class FigureConfig:
@@ -533,6 +542,7 @@ class SortingPipelineConfig:
             "save_spike_times": ("compilation", "save_spike_times"),
             "save_raw_pkl": ("compilation", "save_raw_pkl"),
             "save_dl_data": ("compilation", "save_dl_data"),
+            "include_failed_units": ("compilation", "include_failed_units"),
             # FigureConfig
             "create_figures": ("figures", "create_figures"),
             "create_unit_figures": ("figures", "create_unit_figures"),

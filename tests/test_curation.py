@@ -1207,6 +1207,41 @@ class TestFilterPairsByIsiViolations:
             )
             assert (0, 1) not in filtered
 
+    def test_max_violation_rate_zero_filters_any_violations(self):
+        """
+        ``max_violation_rate=0`` requires both units to have zero ISI
+        violations. Any unit with a single violation excludes its pair.
+
+        Pins the inclusive ``<=`` boundary: a unit with rate exactly 0
+        passes (``0 <= 0`` is True); any positive rate fails.
+
+        Tests:
+            (Test Case 1) A pair where both units are perfectly clean
+                (zero violations) is retained at threshold 0.
+            (Test Case 2) A pair where one unit has even a single
+                violation is excluded at threshold 0.
+        """
+        # Unit 0: 10 ms ISI -- zero violations of the 1.5 ms threshold.
+        # Unit 1: 10 ms ISI -- zero violations.
+        # Unit 2: one tight pair (1 ms ISI) plus mostly 10 ms ISIs --
+        # nonzero violation rate.
+        clean_a = np.arange(10.0, 500.0, 10.0)
+        clean_b = np.arange(15.0, 500.0, 10.0)
+        dirty = np.concatenate([[10.0, 11.0], np.arange(50.0, 500.0, 10.0)])
+        sd = SpikeData([clean_a, clean_b, dirty], length=500.0)
+
+        filtered, rates = _filter_pairs_by_isi_violations(
+            sd, {(0, 1), (0, 2)}, max_violation_rate=0.0, threshold_ms=1.5
+        )
+
+        # Both clean units pass at threshold 0.
+        assert (0, 1) in filtered
+        # Unit 2 has a positive violation rate → pair excluded.
+        assert (0, 2) not in filtered
+        assert rates[0] == pytest.approx(0.0)
+        assert rates[1] == pytest.approx(0.0)
+        assert rates[2] > 0.0
+
 
 # ---------------------------------------------------------------------------
 # _compute_pairwise_similarity

@@ -243,9 +243,21 @@ def compute_inactivity_timeout_s(
     # leaves NaN intact. ``max(0.0, NaN)`` returns NaN on CPython.
     # Coerce NaN/None to 0 before arithmetic so a malfunctioning
     # upstream never produces a NaN timeout (NaN comparisons would
-    # silently disable the watchdog).
+    # silently disable the watchdog). The previous ``isinstance(raw,
+    # float)`` check missed numpy scalars (``np.float64``,
+    # ``np.float32``) which are not Python ``float`` instances — NaN
+    # values coming from numpy-typed metadata could slip through.
+    # ``math.isnan`` accepts any real-valued scalar, so guard
+    # ``isinstance`` widely against types ``math.isnan`` rejects
+    # (str, list, etc.).
     raw = recording_duration_min
-    if raw is None or (isinstance(raw, float) and math.isnan(raw)):
+    is_nan = False
+    if raw is not None:
+        try:
+            is_nan = math.isnan(raw)
+        except TypeError:
+            is_nan = False
+    if raw is None or is_nan:
         duration = 0.0
     else:
         duration = max(0.0, float(raw))

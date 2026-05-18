@@ -13679,3 +13679,668 @@ class TestRunPreflightNanThresholdGuard:
         # The message also references the field name for actionability.
         with pytest.raises(ValueError, match=field):
             run_preflight(cfg, [mock.Mock()], ["/inter"], ["/results"])
+
+
+class TestHostMemoryWatchdogNaNThresholds:
+    """``HostMemoryWatchdog.__init__`` rejects NaN threshold values.
+
+    The other four watchdogs (Disk, GPU, IOStall, Inactivity) explicitly
+    guard against NaN thresholds — the symmetric check for the host
+    memory watchdog falls out of the existing
+    ``0.0 < warn_pct < abort_pct <= 100.0`` chain comparison: any NaN
+    operand makes the chain False, so construction raises. Pin this
+    behaviour so a future refactor that decomposes the chain (e.g.
+    into separate ``warn_pct > 0`` / ``abort_pct <= 100`` checks)
+    cannot accidentally drop the implicit NaN rejection.
+    """
+
+    def test_nan_warn_pct_raises(self):
+        """
+        ``warn_pct=NaN`` makes the threshold chain comparison False,
+        triggering the construction ``ValueError``.
+
+        Tests:
+            (Test Case 1) ValueError raised.
+            (Test Case 2) Message references both threshold names so
+                callers can identify the misconfigured field.
+        """
+        with pytest.raises(ValueError, match="warn_pct"):
+            HostMemoryWatchdog(warn_pct=float("nan"))
+
+    def test_nan_abort_pct_raises(self):
+        """
+        ``abort_pct=NaN`` is rejected for the same reason as
+        ``warn_pct=NaN`` — the chain comparison short-circuits to
+        False.
+
+        Tests:
+            (Test Case 1) ValueError raised.
+            (Test Case 2) Message references ``abort_pct``.
+        """
+        with pytest.raises(ValueError, match="abort_pct"):
+            HostMemoryWatchdog(abort_pct=float("nan"))
+
+    def test_nan_both_thresholds_raises(self):
+        """
+        Both ``warn_pct`` and ``abort_pct`` set to NaN still raises;
+        the chain comparison is False regardless of which operand is
+        NaN.
+
+        Tests:
+            (Test Case 1) ValueError raised.
+        """
+        with pytest.raises(ValueError):
+            HostMemoryWatchdog(warn_pct=float("nan"), abort_pct=float("nan"))
+
+
+class TestRunPreflightDuckTypedIterables:
+    """``run_preflight`` documents its inputs as ``Sequence[Any]`` and
+    only iterates them. Pin two duck-typed cases that the type hint
+    alone does not pin down: tuples are accepted as drop-in
+    replacements for lists, and unequal-length intermediate/results
+    sequences do NOT trigger a length validation — each is iterated
+    independently. A future refactor that introduces a ``zip(...)``
+    over the two folder sequences would silently change semantics for
+    callers that rely on the current independent iteration; these
+    tests lock that contract in place.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _silence_v2_helpers(self, monkeypatch):
+        """Mute the FEAT-001..003 dispatchers and writable check so the
+        run completes without OS-side side effects on placeholder paths.
+        Mirrors the ``TestRunPreflight`` fixture so the new tests stay
+        hermetic on developer workstations.
+        """
+        monkeypatch.setattr(preflight_mod, "_check_sorter_dependencies", lambda c: [])
+        monkeypatch.setattr(preflight_mod, "_check_gpu_device_present", lambda c: None)
+        monkeypatch.setattr(
+            preflight_mod, "_check_recording_sample_rate", lambda c, recs: []
+        )
+        monkeypatch.setattr(
+            preflight_mod,
+            "_check_filesystem_writable",
+            lambda folders, *, label, code_prefix: [],
+        )
+
+    def test_tuple_recording_files_iterates_like_list(self, monkeypatch):
+        """
+        Passing ``recording_files`` as a tuple behaves identically to
+        passing it as a list. A non-empty tuple should not raise the
+        empty-sequence fail finding.
+
+        Tests:
+            (Test Case 1) Tuple of one mock is accepted (no
+                ``no_recordings`` finding).
+            (Test Case 2) Final findings list type is ``list``.
+        """
+        cfg = _make_config(sorter_name="kilosort2")
+        monkeypatch.setattr(preflight_mod, "_disk_free_gb", lambda p: 500.0)
+        monkeypatch.setattr(preflight_mod, "_available_ram_gb", lambda: 64.0)
+        monkeypatch.delenv("HDF5_PLUGIN_PATH", raising=False)
+        findings = run_preflight(
+            cfg,
+            (mock.Mock(),),  # tuple, not list
+            ["/inter"],
+            ["/results"],
+        )
+        codes = [f.code for f in findings]
+        assert "no_recordings" not in codes
+        assert isinstance(findings, list)
+
+    def test_unequal_intermediate_and_results_iterate_independently(self, monkeypatch):
+        """
+        ``intermediate_folders`` and ``results_folders`` are iterated
+        independently — there is no length-equality validation and no
+        ``zip`` truncation. Each folder produces its own per-folder
+        finding without any cross-sequence pairing.
+
+        Tests:
+            (Test Case 1) Two intermediate folders both produce
+                ``low_disk_inter`` findings.
+            (Test Case 2) One results folder produces a single
+                ``low_disk_results`` finding (not truncated by the
+                shorter cross-list).
+            (Test Case 3) No ValueError is raised for the length
+                mismatch.
+        """
+        cfg = _make_config(sorter_name="kilosort2")
+        monkeypatch.setattr(preflight_mod, "_disk_free_gb", lambda p: 1.0)
+        monkeypatch.setattr(preflight_mod, "_available_ram_gb", lambda: 64.0)
+        monkeypatch.delenv("HDF5_PLUGIN_PATH", raising=False)
+        findings = run_preflight(
+            cfg,
+            [mock.Mock()],
+            ["/inter_a", "/inter_b"],  # length 2
+            ["/results_a"],  # length 1
+        )
+        inter_findings = [f for f in findings if f.code == "low_disk_inter"]
+        results_findings = [f for f in findings if f.code == "low_disk_results"]
+        assert len(inter_findings) == 2
+        assert len(results_findings) == 1
+
+
+class TestComputeInactivityTimeoutSNaNBaseAndMax:
+    """``compute_inactivity_timeout_s`` NaN handling for ``base_s`` and
+    ``max_s``.
+
+    The source explicitly guards ``recording_duration_min=NaN``
+    (coerces to zero), but the symmetric NaN cases on ``base_s`` and
+    ``max_s`` are NOT guarded. Pin the existing behaviour as
+    documented gaps:
+
+    * ``base_s=NaN`` propagates NaN through ``float(base_s) + ...`` and
+      returns NaN, which silently disables every downstream comparison
+      (``inactivity >= NaN`` is always False). Watchdog becomes a
+      no-op.
+    * ``max_s=NaN`` does NOT propagate the same way on CPython because
+      ``min(x, nan)`` returns ``x`` (the first operand) — the timeout
+      survives intact. This is platform-dependent in principle, but
+      CPython's stable ``min`` semantics make it deterministic.
+
+    Both are gaps the source's docstring promises to handle. Pin
+    behaviour so a later strict-NaN-guard fix has a regression target.
+    """
+
+    def test_base_s_nan_returns_nan(self):
+        """
+        ``base_s=NaN`` propagates NaN through the formula. The result
+        is a NaN float, which silently disables the watchdog.
+
+        Tests:
+            (Test Case 1) Result is NaN (``math.isnan`` returns True).
+            (Test Case 2) Source oddity: this is an unguarded NaN
+                input — pinned, not fixed.
+        """
+        from spikelab.spike_sorting.guards._inactivity import (
+            compute_inactivity_timeout_s,
+        )
+
+        result = compute_inactivity_timeout_s(
+            recording_duration_min=10.0,
+            base_s=float("nan"),
+            per_min_s=30.0,
+            max_s=7200.0,
+        )
+        assert math.isnan(result)
+
+    def test_max_s_nan_returns_finite(self):
+        """
+        ``max_s=NaN`` does NOT propagate to the result because the
+        ``min(timeout, NaN)`` call returns ``timeout`` (CPython
+        deterministic). The watchdog timeout stays finite.
+
+        Tests:
+            (Test Case 1) Result is the un-capped timeout
+                (``base_s + per_min_s * duration``).
+            (Test Case 2) Result is not NaN.
+        """
+        from spikelab.spike_sorting.guards._inactivity import (
+            compute_inactivity_timeout_s,
+        )
+
+        result = compute_inactivity_timeout_s(
+            recording_duration_min=10.0,
+            base_s=600.0,
+            per_min_s=30.0,
+            max_s=float("nan"),
+        )
+        # base + per_min * 10 = 600 + 300 = 900
+        assert result == 900.0
+        assert not math.isnan(result)
+
+
+class TestHostMemoryWatchdogDoubleEnter:
+    """Constructing a single ``HostMemoryWatchdog`` and calling
+    ``__enter__`` twice without an intervening ``__exit__`` leaks the
+    first ContextVar token.
+
+    The instance stores ``self._token`` as a single attribute, so the
+    second ``__enter__`` overwrites the first token reference. A
+    subsequent ``__exit__`` only resets the second token — the first
+    one is no longer reachable, and the ContextVar still has the
+    watchdog set as the active publication after a single ``__exit__``.
+
+    This is a source oddity: nested context-manager use is not
+    supported on the same instance, but there is no construction-time
+    or enter-time guard against it. Pin the current behaviour
+    explicitly so a later "raise on re-enter" fix has a regression
+    target.
+    """
+
+    def test_double_enter_overwrites_token_and_leaks_active_publication(self):
+        """
+        Entering the same watchdog twice replaces ``_token`` with the
+        second token, so a single exit only undoes the second enter
+        and the watchdog remains the active ContextVar publication
+        afterward.
+
+        Tests:
+            (Test Case 1) Both ``__enter__`` calls succeed (no raise).
+            (Test Case 2) The second ``_token`` differs from the
+                first — i.e. the first is overwritten.
+            (Test Case 3) After a single ``__exit__``,
+                ``get_active_watchdog()`` still returns the watchdog
+                (leak).
+            (Test Case 4) A second ``__exit__`` is needed before
+                ``get_active_watchdog()`` returns ``None``. The second
+                exit may suppress a token-reset error silently.
+        """
+        wd = HostMemoryWatchdog()
+        assert get_active_watchdog() is None
+        # First enter publishes the watchdog.
+        wd.__enter__()
+        first_token = wd._token
+        assert first_token is not None
+        assert get_active_watchdog() is wd
+        try:
+            # Second enter without exiting first — overwrites _token.
+            wd.__enter__()
+            second_token = wd._token
+            assert second_token is not None
+            assert second_token is not first_token
+            # First exit only resets the second token; the first token's
+            # publication remains live.
+            wd.__exit__(None, None, None)
+            assert get_active_watchdog() is wd
+        finally:
+            # Clean teardown: second exit should clear the remaining
+            # publication. The watchdog's exit guard swallows
+            # LookupError/RuntimeError on a stale token, so this is
+            # safe to call even when the inner branch above ran.
+            try:
+                wd.__exit__(None, None, None)
+            except Exception:
+                pass
+            # Ensure we leave the ContextVar clean for other tests in
+            # this module — if the leak persists, reset directly.
+            if get_active_watchdog() is wd:
+                watchdog_mod._active_watchdog.set(None)
+
+
+class TestIOStallWatchdogBlindReadTrip:
+    """``IOStallWatchdog`` blind-read trip contract (commit 6a74e16).
+
+    When ``_read_bytes`` returns ``None`` ("blind" — counters
+    unreadable), the poll loop must:
+
+    * Preserve ``last_change_t`` across the blind cycle so a real
+      stall that coincides with a transient psutil hiccup still
+      trips.
+    * Treat sustained blindness as a trip condition: warn once at
+      ``stall_s``, trip via :meth:`_on_trip_blind` at ``2 * stall_s``.
+    * Emit ``event="abort_blind"`` with ``blind_for_s`` and
+      ``tolerance_s = 2 * stall_s`` on the blind trip.
+    * Clear blind tracking state on a successful read so a later
+      blind episode is reported afresh.
+    * Respect the ``_stop_event``-set gate to skip
+      ``_thread.interrupt_main`` on tear-down — mirroring the
+      observed-stall ``_on_trip`` path.
+    """
+
+    def test_transient_blindness_preserves_timer(self, tmp_path, monkeypatch):
+        """
+        A transient ``None`` read between two equal byte values must
+        NOT reset ``last_change_t``. We drive the device-mode poll
+        loop with a sequence in which the counter is flat for the
+        whole window except for one ``None`` in the middle; the
+        watchdog must still trip on accumulated stall.
+
+        Sequence per poll: ``100, 100, 100, None, 100, 100, ...``
+        With ``stall_s=0.5`` and ``poll_interval_s=0.05`` the trip
+        window is short relative to the wallclock test budget; if
+        the blind read had reset ``last_change_t``, the post-blind
+        flat reads would only have accumulated a fraction of
+        stall_s by trip evaluation and the watchdog would not fire
+        within the test window.
+
+        Tests:
+            (Test Case 1) Flat counters interrupted by a single None
+                still trip the (non-blind) stall path within 3s.
+            (Test Case 2) ``tripped()`` is True and ``_stall_at_trip``
+                is at least ``stall_s`` (i.e. measured from the
+                original ``last_change_t``, not from the post-blind
+                recovery).
+        """
+        from spikelab.spike_sorting.guards import _io_stall as iom
+
+        # One transient None embedded in an otherwise-flat counter.
+        # The leading 100 satisfies ``__enter__``'s baseline probe.
+        seq = iter([100, 100, 100, 100, None, 100, 100])
+
+        def _read(_dev):
+            try:
+                return next(seq)
+            except StopIteration:
+                return 100  # Stay flat after the seeded sequence.
+
+        kill_event = threading.Event()
+        with (
+            mock.patch.object(iom, "_resolve_device_for_path", return_value="sda1"),
+            mock.patch.object(iom, "_read_io_bytes", side_effect=_read),
+        ):
+            wd = IOStallWatchdog(
+                tmp_path,
+                stall_s=0.5,
+                poll_interval_s=0.05,
+                kill_grace_s=0.0,
+            )
+            wd.register_kill_callback(kill_event.set)
+            # ``_thread.interrupt_main`` from the daemon can land in
+            # the test thread as a KeyboardInterrupt; catch it.
+            try:
+                with wd:
+                    fired = kill_event.wait(timeout=3.0)
+            except KeyboardInterrupt:
+                fired = kill_event.is_set()
+
+        assert fired, (
+            "Watchdog should trip on flat counters even with a "
+            "transient blind read — last_change_t must be preserved."
+        )
+        assert wd.tripped() is True
+        # Tripped via the observed-stall path (not blind), so
+        # _stall_at_trip reflects accumulated stall_s.
+        assert wd._stall_at_trip is not None
+        assert wd._stall_at_trip >= wd.stall_s
+
+    def test_sustained_blindness_trips_after_two_stall_s(self, tmp_path, monkeypatch):
+        """
+        When ``_read_bytes`` returns ``None`` for ≥ ``2 * stall_s``
+        of poll cycles, the watchdog must invoke ``_on_trip_blind``,
+        mark ``_tripped = True``, and run registered kill callbacks.
+
+        Tests:
+            (Test Case 1) Patched ``_read_io_bytes`` returns 100 on
+                the ``__enter__`` probe (so the watchdog enables)
+                then ``None`` for every subsequent poll.
+            (Test Case 2) Kill callback fires within ``3 * stall_s``.
+            (Test Case 3) ``tripped()`` is True after the trip.
+        """
+        from spikelab.spike_sorting.guards import _io_stall as iom
+
+        call_count = {"n": 0}
+
+        def _read(_dev):
+            call_count["n"] += 1
+            # First call is ``__enter__``'s probe — must succeed.
+            if call_count["n"] == 1:
+                return 100
+            return None
+
+        kill_event = threading.Event()
+        with (
+            mock.patch.object(iom, "_resolve_device_for_path", return_value="sda1"),
+            mock.patch.object(iom, "_read_io_bytes", side_effect=_read),
+        ):
+            wd = IOStallWatchdog(
+                tmp_path,
+                stall_s=0.3,
+                poll_interval_s=0.05,
+                kill_grace_s=0.0,
+            )
+            wd.register_kill_callback(kill_event.set)
+            try:
+                with wd:
+                    # 3 * stall_s gives plenty of margin past
+                    # ``2 * stall_s`` for the blind trip to fire.
+                    fired = kill_event.wait(timeout=3.0)
+            except KeyboardInterrupt:
+                fired = kill_event.is_set()
+
+        assert fired, (
+            "Sustained blindness (None for >= 2 * stall_s) should "
+            "fire the blind trip path."
+        )
+        assert wd.tripped() is True
+
+    def test_abort_blind_audit_event_shape(self, tmp_path, monkeypatch):
+        """
+        ``_on_trip_blind`` writes an audit event with
+        ``event="abort_blind"`` carrying ``blind_for_s`` (NOT
+        ``stalled_for_s``) and ``tolerance_s = 2 * stall_s``, plus
+        ``mode``, ``device`` and (None-for-device-mode) ``pids``.
+
+        Tests:
+            (Test Case 1) Patched ``append_audit_event`` records the
+                event shape after a direct ``_on_trip_blind`` call.
+            (Test Case 2) ``_thread.interrupt_main`` is suppressed
+                via the documented ``_stop_event.set()`` gate so the
+                test thread does not receive a phantom interrupt.
+        """
+        from spikelab.spike_sorting.guards import _io_stall as iom
+
+        wd = IOStallWatchdog(tmp_path, stall_s=10.0, poll_interval_s=1.0)
+        wd._device = "sda1"
+        wd._stop_event.set()  # Suppress interrupt_main.
+
+        captured = []
+
+        def _fake_audit(**kwargs):
+            captured.append(kwargs)
+
+        monkeypatch.setattr(iom, "append_audit_event", _fake_audit)
+
+        wd._on_trip_blind(blind_for=25.0)
+
+        assert wd.tripped() is True
+        assert len(captured) == 1
+        evt = captured[0]
+        assert evt["watchdog"] == "io_stall"
+        assert evt["event"] == "abort_blind"
+        assert evt["mode"] == "device"
+        assert evt["device"] == "sda1"
+        assert evt["pids"] is None
+        assert evt["blind_for_s"] == 25.0
+        assert evt["tolerance_s"] == 2 * wd.stall_s
+        # The blind-trip path uses ``blind_for_s`` — not
+        # ``stalled_for_s`` — so consumers can distinguish abort
+        # causes.
+        assert "stalled_for_s" not in evt
+
+    def test_warn_blind_fires_once_before_trip(self, tmp_path, monkeypatch, caplog):
+        """
+        During sustained blindness, ``_warn_blind`` must emit
+        exactly one WARNING log record between ``stall_s`` and
+        ``2 * stall_s`` — NOT one per poll cycle.
+
+        Tests:
+            (Test Case 1) Patched ``_read_io_bytes`` returns 100 on
+                the probe then ``None`` indefinitely. With short
+                ``stall_s`` and tight ``poll_interval_s``, multiple
+                poll cycles fall inside the warn window.
+            (Test Case 2) Across the lifetime of the watchdog (which
+                will eventually trip via ``_on_trip_blind``), the
+                ``_warn_blind`` log message appears exactly once.
+        """
+        from spikelab.spike_sorting.guards import _io_stall as iom
+
+        call_count = {"n": 0}
+
+        def _read(_dev):
+            call_count["n"] += 1
+            if call_count["n"] == 1:
+                return 100
+            return None
+
+        # Silence audit-event side channel so caplog only sees
+        # the relevant log records.
+        monkeypatch.setattr(iom, "append_audit_event", lambda **_: None)
+
+        kill_event = threading.Event()
+        with (
+            mock.patch.object(iom, "_resolve_device_for_path", return_value="sda1"),
+            mock.patch.object(iom, "_read_io_bytes", side_effect=_read),
+        ):
+            wd = IOStallWatchdog(
+                tmp_path,
+                stall_s=0.3,
+                poll_interval_s=0.05,
+                kill_grace_s=0.0,
+            )
+            wd.register_kill_callback(kill_event.set)
+            with caplog.at_level(
+                logging.WARNING,
+                logger="spikelab.spike_sorting.guards._io_stall",
+            ):
+                try:
+                    with wd:
+                        # Wait past 2 * stall_s for the trip.
+                        kill_event.wait(timeout=3.0)
+                except KeyboardInterrupt:
+                    pass
+
+        blind_warn_records = [
+            r
+            for r in caplog.records
+            if "unreadable for" in r.getMessage() and "watchdog is" in r.getMessage()
+        ]
+        assert len(blind_warn_records) == 1, (
+            f"_warn_blind must fire exactly once between stall_s and "
+            f"2*stall_s, got {len(blind_warn_records)}: "
+            f"{[r.getMessage() for r in blind_warn_records]}"
+        )
+
+    def test_blind_trip_suppresses_interrupt_main_when_stopping(
+        self, tmp_path, monkeypatch
+    ):
+        """
+        When ``_stop_event`` is already set at the moment
+        ``_on_trip_blind`` reaches its interrupt step, the watchdog
+        must log and return without calling
+        ``_thread.interrupt_main`` — mirroring the observed-stall
+        ``_on_trip`` suppression gate.
+
+        Tests:
+            (Test Case 1) Patched ``_thread.interrupt_main`` is
+                never called.
+            (Test Case 2) Kill callbacks still ran (the suppression
+                gate applies only to the interrupt delivery, not to
+                the full abort cascade).
+            (Test Case 3) ``_interrupt_main_failed`` remains False —
+                the suppression is intentional, not a delivery
+                failure.
+        """
+        from spikelab.spike_sorting.guards import _io_stall as iom
+
+        wd = IOStallWatchdog(tmp_path, stall_s=5.0, poll_interval_s=1.0)
+        wd._device = "sda1"
+        # Pre-set the stop event so the suppression gate fires.
+        wd._stop_event.set()
+
+        cb_called = {"n": 0}
+
+        def _cb():
+            cb_called["n"] += 1
+
+        wd.register_kill_callback(_cb)
+        monkeypatch.setattr(iom, "append_audit_event", lambda **_: None)
+
+        import _thread as _t
+
+        with mock.patch.object(_t, "interrupt_main") as mock_interrupt:
+            wd._on_trip_blind(blind_for=12.0)
+            mock_interrupt.assert_not_called()
+
+        assert cb_called["n"] == 1
+        assert wd.tripped() is True
+        assert wd.interrupt_delivery_failed() is False
+
+    def test_blind_recovery_clears_state(self, tmp_path, monkeypatch):
+        """
+        A successful read after a blind cycle must clear blind
+        tracking so a subsequent blind episode is reported afresh
+        (one new ``_warn_blind`` per fresh episode, no carry-over).
+
+        We exercise this by driving the loop through two blind
+        episodes separated by recoveries, each blind episode lasting
+        ~``stall_s`` (long enough that, if state carried over, the
+        second episode would trip immediately). Assert (a) the
+        watchdog does NOT trip while no episode individually exceeds
+        ``2 * stall_s``, and (b) the warn-blind log fires once per
+        episode (proving ``blind_warned`` was cleared on recovery).
+
+        Tests:
+            (Test Case 1) Sequence drives one blind-then-recover,
+                then a second blind-then-recover, never accumulating
+                ``2 * stall_s`` in any single blind run.
+            (Test Case 2) Watchdog does not trip within the test
+                window.
+            (Test Case 3) ``_warn_blind`` fires twice — once per
+                episode — confirming ``blind_warned`` was cleared on
+                recovery.
+        """
+        from spikelab.spike_sorting.guards import _io_stall as iom
+
+        # stall_s and poll_interval_s chosen so each blind run lasts
+        # ~1.2 * stall_s (long enough to fire warn, short enough not
+        # to trip), then recovers, then repeats.
+        stall_s = 0.3
+        poll_interval_s = 0.05
+
+        # Build a stub that returns None for ~stall_s + a few polls,
+        # then a fresh byte value, then None again for another
+        # stall_s + a few polls, then climbs forever.
+        # Approx polls per blind run: (stall_s * 1.2) / poll_interval_s = 7.
+        blind_polls_per_run = int((stall_s * 1.2) / poll_interval_s) + 1
+        sequence = (
+            [100]  # __enter__ probe
+            + [None] * blind_polls_per_run  # blind episode 1
+            + [200]  # recovery 1
+            + [None] * blind_polls_per_run  # blind episode 2
+            + [300]  # recovery 2
+        )
+        # After this, climb forever so the loop does not trip.
+        seq_iter = iter(sequence)
+        counter = {"v": 300}
+
+        def _read(_dev):
+            try:
+                return next(seq_iter)
+            except StopIteration:
+                counter["v"] += 1024
+                return counter["v"]
+
+        monkeypatch.setattr(iom, "append_audit_event", lambda **_: None)
+
+        warn_count = {"n": 0}
+        real_warn = IOStallWatchdog._warn_blind
+
+        def _counting_warn(self, blind_for):
+            warn_count["n"] += 1
+            return real_warn(self, blind_for)
+
+        monkeypatch.setattr(IOStallWatchdog, "_warn_blind", _counting_warn)
+
+        with (
+            mock.patch.object(iom, "_resolve_device_for_path", return_value="sda1"),
+            mock.patch.object(iom, "_read_io_bytes", side_effect=_read),
+        ):
+            wd = IOStallWatchdog(
+                tmp_path,
+                stall_s=stall_s,
+                poll_interval_s=poll_interval_s,
+                kill_grace_s=0.0,
+            )
+            # Total budget: 2 blind episodes (~1.2 * stall_s each)
+            # + recoveries + a small tail. With sleep precision
+            # being what it is on Windows, give it generous time.
+            try:
+                with wd:
+                    time.sleep((blind_polls_per_run * poll_interval_s) * 2 + 0.5)
+                    early_trip = wd.tripped()
+            except KeyboardInterrupt:
+                early_trip = wd.tripped()
+
+        assert not early_trip, (
+            "Watchdog must not trip while each blind episode "
+            "stays under 2 * stall_s — recovery should clear "
+            "blind_started_t."
+        )
+        # Two distinct blind episodes, each long enough to warn → two warns.
+        # If recovery did not clear blind_warned, the second episode would
+        # not re-warn.
+        assert warn_count["n"] == 2, (
+            "_warn_blind should fire once per blind episode (2 total); "
+            f"got {warn_count['n']} — blind_warned not cleared on recovery."
+        )

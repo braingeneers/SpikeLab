@@ -235,15 +235,35 @@ class WaveformExtractor:
 
                 selected_spike_times[unit_id].append(spike_times_sel)
 
-        # Prepare memmap for waveforms
+        # Prepare memmap for waveforms.
+        # Use ``np.lib.format.open_memmap`` instead of
+        # ``np.zeros + np.save`` so the file is created via ``ftruncate``
+        # without materialising a ``(n_spikes, n_samples, n_channels)``
+        # zero array in RAM. For a typical Maxwell sort
+        # (200 units × ~1000 spikes × 370 KB/spike) the old pattern
+        # transiently allocated ~74 GB per recording — large enough
+        # to trip the host-memory watchdog on constrained boxes
+        # before any sort work began. The data section is sparse
+        # (zeros on read) so the worker-side semantics are
+        # unchanged: positions never written by any worker still
+        # return zero, just as with the explicit ``np.zeros`` fill.
         print("Preparing memory maps for waveforms")
         wfs_memmap = {}
         for unit_id in self.sorting.unit_ids:
             file_path = self.root_folder / "waveforms" / f"waveforms_{unit_id}.npy"
-            n_spikes = np.sum([e.size for e in selected_spike_times[unit_id]])
+            n_spikes = int(np.sum([e.size for e in selected_spike_times[unit_id]]))
             shape = (n_spikes, self.nsamples, num_chans)
-            wfs = np.zeros(shape, self.dtype)
-            np.save(str(file_path), wfs)
+            mm = np.lib.format.open_memmap(
+                str(file_path),
+                mode="w+",
+                dtype=self.dtype,
+                shape=shape,
+            )
+            # Release the parent's mmap immediately so we don't hold
+            # 200+ open file handles concurrently while still
+            # populating ``wfs_memmap``. Workers reopen the file via
+            # ``np.load(..., mmap_mode="r+")`` when they need it.
+            del mm
             wfs_memmap[unit_id] = file_path
 
         # Run extract waveforms
@@ -650,6 +670,20 @@ class WaveformExtractor:
                         st_trace - nbefore : st_trace + nafter, :
                     ]  # Python slices with [start, end), so waveform is in format (nbefore + spike_location + nafter-1, n_channels)
                     wfs[pos, :, :] = wf
+                # Force this unit's mmap writes to disk before moving
+                # on to the next unit. Two reasons:
+                #   1. Durability — without an explicit flush the OS
+                #      may hold dirty pages indefinitely; if the worker
+                #      exits abnormally (watchdog kill, OOM, etc.) those
+                #      writes are lost even though the file looks the
+                #      right size on disk.
+                #   2. IOStallWatchdog visibility — its byte-counter
+                #      delta detection only credits flushed writes, so
+                #      without this call the watchdog can decide the
+                #      worker is stalled when it's actually batching
+                #      writes in the OS page cache. The 2*stall_s blind
+                #      trip added in commit 6a74e16 would compound this.
+                wfs.flush()
         return spike_times_centered
 
     @staticmethod

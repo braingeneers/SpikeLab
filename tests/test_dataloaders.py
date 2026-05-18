@@ -173,6 +173,32 @@ class TestHDF5Loaders:
         assert len(sd.train[0]) == 0
         assert len(sd.train[1]) == 0
 
+    def test_hdf5_group_per_unit_no_datasets_zero_units(self, tmp_path):
+        """
+        An HDF5 group-per-unit file with an empty units group (zero
+        datasets) loads as a zero-unit SpikeData with length 0.
+
+        Distinct from ``test_hdf5_group_per_unit_empty_units`` (which
+        creates two empty-train units) — here the group itself contains
+        no datasets at all. Pins the contract that the loader does not
+        error and yields the zero-unit shape invariant.
+
+        Tests:
+            (Test Case 1) ``SpikeData.N == 0``.
+            (Test Case 2) ``SpikeData.length == 0.0``.
+            (Test Case 3) ``SpikeData.train`` is an empty sequence.
+        """
+        path = str(tmp_path / "empty_group.h5")
+        with h5py.File(path, "w") as f:  # type: ignore
+            f.create_group("units")
+
+        sd = loaders.load_spikedata_from_hdf5(
+            path, group_per_unit="units", group_time_unit="ms"
+        )
+        assert sd.N == 0
+        assert sd.length == 0.0
+        assert len(sd.train) == 0
+
     def test_hdf5_ragged_spike_times(self, tmp_path):
         """
         Test loading flat (ragged) spike_times with cumulative index in seconds.
@@ -1129,6 +1155,42 @@ class TestPickleLoaders:
 
         with pytest.raises(Exception):
             loaders.load_spikedata_from_pickle(path)
+
+    @patch("spikelab.data_loaders.s3_utils.ensure_local_file")
+    def test_pickle_temp_file_cleanup_on_load_failure(self, mock_ensure, tmp_path):
+        """
+        When ``pickle.load`` itself raises (not just an EOFError on an
+        empty file), the loader's ``finally`` block still removes the
+        downloaded temp file so the caller does not leak disk.
+
+        Pins the contract of the ``try / finally`` around ``pickle.load``
+        in ``load_spikedata_from_pickle``: cleanup must fire on *any*
+        exception from ``pickle.load``, not just clean returns.
+
+        Tests:
+            (Test Case 1) An UnpicklingError raised by ``pickle.load``
+                on garbage bytes still triggers ``os.remove`` of the
+                temp file.
+            (Test Case 2) The original exception propagates to the
+                caller.
+        """
+        # Write garbage bytes that will trip pickle.UnpicklingError or
+        # similar inside pickle.load (not at file-open time).
+        fd, path = tempfile.mkstemp(suffix=".pkl")
+        os.close(fd)
+        with open(path, "wb") as f:
+            f.write(b"\x80\x04\x95not-a-valid-pickle-stream")
+
+        # Pretend this file came from S3 so the loader treats it as a
+        # temp file and routes through the cleanup path.
+        mock_ensure.return_value = (path, True)
+
+        with pytest.raises(Exception):
+            loaders.load_spikedata_from_pickle("s3://bucket/garbage.pkl")
+
+        # finally block ran → temp file removed even though pickle.load
+        # raised.
+        assert not os.path.exists(path)
 
 
 @skip_no_pandas
@@ -5423,3 +5485,381 @@ class TestLoadSpikedataFromKilosortClusterIdExceedsChannelMapWarning:
         # length.
         assert "100" in joined
         assert "channel_map" in joined.lower()
+
+
+class TestLoadKilosortInvalidTimeUnit:
+    """``load_spikedata_from_kilosort`` with an unrecognised ``time_unit``
+    propagates the ``ValueError`` raised by the shared ``to_ms`` helper.
+    The error message names the offending unit so the user can attribute
+    the failure to the loader argument rather than guessing where it came
+    from in the call chain.
+    """
+
+    def test_unknown_time_unit_raises_value_error_naming_unit(self, tmp_path):
+        """
+        Tests:
+            (Test Case 1) ``time_unit='hz'`` raises ``ValueError``.
+            (Test Case 2) The message mentions the offending unit name
+                ``'hz'`` so the failure is attributable.
+        """
+        d = str(tmp_path / "ks")
+        os.makedirs(d)
+        np.save(os.path.join(d, "spike_times.npy"), np.array([10, 20, 30]))
+        np.save(os.path.join(d, "spike_clusters.npy"), np.array([0, 0, 0]))
+
+        with pytest.raises(ValueError, match=r"hz"):
+            loaders.load_spikedata_from_kilosort(d, fs_Hz=1000.0, time_unit="hz")
+
+
+@skip_no_h5py
+class TestRawArraysShapeMismatch:
+    """``_read_raw_arrays`` does NOT validate that ``raw_data.shape[-1]``
+    matches ``raw_time.shape[0]``. A mismatched HDF5 file returns both
+    arrays at their stored sizes with no warning and no error, leaving
+    the caller to detect the inconsistency. Pinning this so any future
+    addition of a shape-mismatch guard surfaces as a test failure.
+    """
+
+    def test_mismatched_shapes_returned_silently(self, tmp_path):
+        """
+        Tests:
+            (Test Case 1) ``_read_raw_arrays`` returns the raw_data and
+                raw_time arrays at their stored shapes, even though
+                ``raw_data.shape[-1] != raw_time.shape[0]``.
+            (Test Case 2) No warning is emitted.
+            (Test Case 3) No exception is raised.
+        """
+        path = str(tmp_path / "mismatch.h5")
+        raw_data = np.random.randn(3, 100)
+        raw_time = np.arange(50, dtype=float)  # length 50 != 100
+        with h5py.File(path, "w") as f:  # type: ignore
+            f.create_dataset("raw", data=raw_data)
+            f.create_dataset("raw_time", data=raw_time)
+
+        with h5py.File(path, "r") as f:  # type: ignore
+            with warnings.catch_warnings(record=True) as recwarn:
+                warnings.simplefilter("always")
+                rd, rt = loaders._read_raw_arrays(f, "raw", "raw_time", "ms", None)
+
+        # Both arrays come back at their stored sizes — no validation.
+        assert rd is not None and rt is not None
+        assert rd.shape == (3, 100)
+        assert rt.shape == (50,)
+        # Loader does not warn about the shape mismatch.
+        assert len(recwarn) == 0
+
+
+# ---------------------------------------------------------------------------
+# Batch B — load_spikedata_from_kilosort: Phy channel_map resolution chain
+#
+# Pins the three-tier cluster→channel resolution introduced by
+# commit a57e74f:
+#   1. ``cluster_info.tsv["ch"]`` — canonical Phy post-curation answer.
+#   2. ``spike_templates.npy + templates.npy`` — phylib-style fallback,
+#      built per-cluster from the dominant template's peak channel.
+#   3. Legacy ``channel_map[cluster_id]`` — only correct for fresh
+#      uncurated kilosort output (sequential cluster IDs).
+# ---------------------------------------------------------------------------
+
+
+@skip_no_pandas
+class TestKilosortPhyChannelMapResolution:
+    """Three-tier cluster→channel resolution + non-sequential warning gating."""
+
+    def _write_ks_folder(
+        self,
+        folder,
+        *,
+        spike_times,
+        spike_clusters,
+        channel_map=None,
+        cluster_info_rows=None,
+        spike_templates=None,
+        templates=None,
+    ):
+        """Build a minimal kilosort/Phy output folder for the loader.
+
+        Parameters mirror the .npy files the loader reads. ``None``
+        for an argument skips writing that file (so we can drive the
+        loader through each tier of the resolution chain).
+        """
+        import os as _os
+
+        if not _os.path.isdir(folder):
+            _os.makedirs(folder)
+        np.save(_os.path.join(folder, "spike_times.npy"), spike_times)
+        np.save(_os.path.join(folder, "spike_clusters.npy"), spike_clusters)
+        if channel_map is not None:
+            np.save(_os.path.join(folder, "channel_map.npy"), channel_map)
+        if cluster_info_rows is not None:
+            import pandas as pd
+
+            df = pd.DataFrame(cluster_info_rows)
+            df.to_csv(_os.path.join(folder, "cluster_info.tsv"), sep="\t", index=False)
+        if spike_templates is not None:
+            np.save(_os.path.join(folder, "spike_templates.npy"), spike_templates)
+        if templates is not None:
+            np.save(_os.path.join(folder, "templates.npy"), templates)
+
+    def test_tsv_ch_column_drives_electrode_assignment(self, tmp_path):
+        """``cluster_info.tsv["ch"]`` is the canonical Phy answer and
+        wins over both the templates fallback and the legacy
+        ``channel_map[cluster_id]`` lookup. Non-sequential cluster IDs
+        — i.e. post-merge/split — map to their TSV-recorded channels.
+        """
+        d = str(tmp_path / "ks")
+        spike_times = np.array([10, 20, 30, 40, 50, 60], dtype=np.int64)
+        spike_clusters = np.array([5, 5, 12, 12, 7, 7], dtype=np.int64)
+        # Channel map deliberately wrong-length / unrelated; ``ch``
+        # column should override anything channel_map would have said.
+        channel_map = np.arange(20)
+        self._write_ks_folder(
+            d,
+            spike_times=spike_times,
+            spike_clusters=spike_clusters,
+            channel_map=channel_map,
+            cluster_info_rows=[
+                {"cluster_id": 5, "ch": 3, "group": "good"},
+                {"cluster_id": 12, "ch": 7, "group": "good"},
+                {"cluster_id": 7, "ch": 0, "group": "good"},
+            ],
+        )
+
+        sd = loaders.load_spikedata_from_kilosort(
+            d,
+            fs_Hz=1000.0,
+            cluster_info_tsv="cluster_info.tsv",
+        )
+        cluster_ids = sd.metadata["cluster_ids"]
+        # The loader iterates np.unique(spike_clusters) — sorted ascending.
+        expected = {5: 3, 12: 7, 7: 0}
+        for i, clu in enumerate(cluster_ids):
+            assert sd.neuron_attributes[i]["electrode"] == expected[int(clu)], (
+                f"Cluster {clu}: TSV says ch={expected[int(clu)]}, "
+                f"got electrode={sd.neuron_attributes[i].get('electrode')}"
+            )
+
+    def test_templates_fallback_when_tsv_absent(self, tmp_path):
+        """Without ``cluster_info.tsv``, the loader uses
+        ``spike_templates.npy + templates.npy`` to resolve each cluster
+        to its dominant template's peak channel, then translates that
+        position through ``channel_map``. Pins the phylib-style
+        fallback added in commit a57e74f.
+        """
+        d = str(tmp_path / "ks")
+        # Three non-sequential clusters; each gets a unique dominant
+        # template whose peak is on a known channel position.
+        # spike order: c5(2 spikes), c12(2), c7(2)
+        spike_times = np.array([10, 20, 30, 40, 50, 60], dtype=np.int64)
+        spike_clusters = np.array([5, 5, 12, 12, 7, 7], dtype=np.int64)
+        # template_id 0 → peak position 3, template_id 1 → 7, template_id 2 → 0
+        spike_templates = np.array([0, 0, 1, 1, 2, 2], dtype=np.int64)
+
+        n_templates = 3
+        nsamples = 9
+        n_pos = 8
+        templates = np.zeros((n_templates, nsamples, n_pos), dtype=np.float32)
+        templates[0, nsamples // 2, 3] = -10.0
+        templates[1, nsamples // 2, 7] = -10.0
+        templates[2, nsamples // 2, 0] = -10.0
+
+        # channel_map: position → physical channel. Use a non-identity
+        # mapping so we can verify the loader routes through it.
+        channel_map = np.array([100, 101, 102, 103, 104, 105, 106, 107])
+
+        self._write_ks_folder(
+            d,
+            spike_times=spike_times,
+            spike_clusters=spike_clusters,
+            channel_map=channel_map,
+            spike_templates=spike_templates,
+            templates=templates,
+        )
+
+        sd = loaders.load_spikedata_from_kilosort(d, fs_Hz=1000.0)
+
+        cluster_ids = sd.metadata["cluster_ids"]
+        expected = {
+            5: int(channel_map[3]),
+            12: int(channel_map[7]),
+            7: int(channel_map[0]),
+        }
+        for i, clu in enumerate(cluster_ids):
+            assert sd.neuron_attributes[i]["electrode"] == expected[int(clu)], (
+                f"Cluster {clu}: expected templates fallback electrode "
+                f"{expected[int(clu)]}, got "
+                f"{sd.neuron_attributes[i].get('electrode')}"
+            )
+
+    def test_tsv_beats_templates_when_both_present(self, tmp_path):
+        """TSV ``ch`` column wins over the templates fallback when both
+        files are present. Templates fallback only runs when
+        ``cluster_id_to_channel`` is still ``None`` after the TSV pass.
+        """
+        d = str(tmp_path / "ks")
+        spike_times = np.array([10, 20, 30, 40], dtype=np.int64)
+        spike_clusters = np.array([5, 5, 12, 12], dtype=np.int64)
+        # Templates: would map cluster 5 → channel_map[7]=107,
+        # cluster 12 → channel_map[3]=103.
+        spike_templates = np.array([0, 0, 1, 1], dtype=np.int64)
+        templates = np.zeros((2, 9, 8), dtype=np.float32)
+        templates[0, 4, 7] = -10.0
+        templates[1, 4, 3] = -10.0
+        channel_map = np.array([100, 101, 102, 103, 104, 105, 106, 107])
+        # TSV: maps 5→2, 12→5. Should win over the templates path.
+        self._write_ks_folder(
+            d,
+            spike_times=spike_times,
+            spike_clusters=spike_clusters,
+            channel_map=channel_map,
+            spike_templates=spike_templates,
+            templates=templates,
+            cluster_info_rows=[
+                {"cluster_id": 5, "ch": 2, "group": "good"},
+                {"cluster_id": 12, "ch": 5, "group": "good"},
+            ],
+        )
+
+        sd = loaders.load_spikedata_from_kilosort(
+            d,
+            fs_Hz=1000.0,
+            cluster_info_tsv="cluster_info.tsv",
+        )
+        cluster_ids = sd.metadata["cluster_ids"]
+        expected = {5: 2, 12: 5}
+        for i, clu in enumerate(cluster_ids):
+            assert sd.neuron_attributes[i]["electrode"] == expected[int(clu)], (
+                f"Cluster {clu}: TSV should have won — expected "
+                f"electrode {expected[int(clu)]}, got "
+                f"{sd.neuron_attributes[i].get('electrode')}"
+            )
+
+    def test_legacy_path_still_works_for_fresh_kilosort(self, tmp_path):
+        """Sequential cluster IDs (0..N-1), no TSV, no templates →
+        legacy ``channel_map[cluster_id]`` resolution still works.
+        Pins backward compatibility for users who haven't run Phy.
+        """
+        d = str(tmp_path / "ks")
+        spike_times = np.array([10, 20, 30, 40], dtype=np.int64)
+        spike_clusters = np.array([0, 0, 1, 1], dtype=np.int64)
+        channel_map = np.array([100, 101, 102, 103])
+        self._write_ks_folder(
+            d,
+            spike_times=spike_times,
+            spike_clusters=spike_clusters,
+            channel_map=channel_map,
+        )
+
+        sd = loaders.load_spikedata_from_kilosort(d, fs_Hz=1000.0)
+        cluster_ids = sd.metadata["cluster_ids"]
+        for i, clu in enumerate(cluster_ids):
+            assert sd.neuron_attributes[i]["electrode"] == int(channel_map[int(clu)]), (
+                f"Cluster {clu}: legacy channel_map lookup broke — "
+                f"expected {int(channel_map[int(clu)])}, got "
+                f"{sd.neuron_attributes[i].get('electrode')}"
+            )
+
+    def test_non_sequential_warning_suppressed_when_fix_applies(self, tmp_path):
+        """Non-sequential cluster IDs + TSV ``ch`` map → the legacy
+        ``channel_map[cluster_id]`` path is bypassed, so the
+        "not sequential" warning should NOT fire (it warned about the
+        misalignment bug, which the fix sidesteps).
+        """
+        d = str(tmp_path / "ks")
+        spike_times = np.array([10, 20, 30, 40], dtype=np.int64)
+        spike_clusters = np.array([5, 5, 12, 12], dtype=np.int64)
+        channel_map = np.arange(20)
+        self._write_ks_folder(
+            d,
+            spike_times=spike_times,
+            spike_clusters=spike_clusters,
+            channel_map=channel_map,
+            cluster_info_rows=[
+                {"cluster_id": 5, "ch": 3, "group": "good"},
+                {"cluster_id": 12, "ch": 7, "group": "good"},
+            ],
+        )
+
+        with warnings.catch_warnings(record=True) as recwarn:
+            warnings.simplefilter("always")
+            loaders.load_spikedata_from_kilosort(
+                d, fs_Hz=1000.0, cluster_info_tsv="cluster_info.tsv"
+            )
+
+        sequential_warns = [w for w in recwarn if "not sequential" in str(w.message)]
+        assert sequential_warns == [], (
+            "Non-sequential warning fired even though TSV ``ch`` map "
+            f"resolved every cluster: {[str(w.message) for w in sequential_warns]}"
+        )
+
+    def test_non_sequential_warning_fires_on_legacy_fallback(self, tmp_path):
+        """Non-sequential cluster IDs, no TSV, no templates → the
+        legacy ``channel_map[cluster_id]`` path is the only thing
+        left, and the "not sequential" warning fires to flag the
+        misalignment risk. Pins the existing safety signal.
+        """
+        d = str(tmp_path / "ks")
+        spike_times = np.array([10, 20, 30, 40], dtype=np.int64)
+        spike_clusters = np.array([5, 5, 12, 12], dtype=np.int64)
+        channel_map = np.arange(20)
+        self._write_ks_folder(
+            d,
+            spike_times=spike_times,
+            spike_clusters=spike_clusters,
+            channel_map=channel_map,
+        )
+
+        with warnings.catch_warnings(record=True) as recwarn:
+            warnings.simplefilter("always")
+            loaders.load_spikedata_from_kilosort(d, fs_Hz=1000.0)
+
+        sequential_warns = [w for w in recwarn if "not sequential" in str(w.message)]
+        assert sequential_warns, (
+            "Expected 'not sequential' warning on legacy fallback — "
+            f"saw warnings: {[str(w.message) for w in recwarn]}"
+        )
+
+    def test_templates_fallback_skipped_on_shape_mismatch(self, tmp_path):
+        """A 2-D ``templates.npy`` triggers the
+        ``"Templates fallback skipped"`` warning and the loader falls
+        through to the legacy ``channel_map[cluster_id]`` path. The
+        warning includes the offending shape so users can debug.
+        """
+        d = str(tmp_path / "ks")
+        # Sequential cluster IDs so the legacy fallback gives a
+        # well-defined answer to assert on.
+        spike_times = np.array([10, 20, 30, 40], dtype=np.int64)
+        spike_clusters = np.array([0, 0, 1, 1], dtype=np.int64)
+        # Matching length so the shape mismatch is purely the
+        # ``ndim != 3`` check.
+        spike_templates = np.array([0, 0, 1, 1], dtype=np.int64)
+        channel_map = np.array([100, 101, 102, 103])
+        # 2-D templates.npy — wrong rank.
+        templates_2d = np.zeros((2, 9), dtype=np.float32)
+        self._write_ks_folder(
+            d,
+            spike_times=spike_times,
+            spike_clusters=spike_clusters,
+            channel_map=channel_map,
+            spike_templates=spike_templates,
+            templates=templates_2d,
+        )
+
+        with warnings.catch_warnings(record=True) as recwarn:
+            warnings.simplefilter("always")
+            sd = loaders.load_spikedata_from_kilosort(d, fs_Hz=1000.0)
+
+        skip_warns = [
+            w for w in recwarn if "Templates fallback skipped" in str(w.message)
+        ]
+        assert skip_warns, (
+            "Expected 'Templates fallback skipped' warning for 2-D "
+            f"templates.npy. Got: {[str(w.message) for w in recwarn]}"
+        )
+        # Legacy fallback path produced electrodes via channel_map.
+        for i, clu in enumerate(sd.metadata["cluster_ids"]):
+            assert sd.neuron_attributes[i]["electrode"] == int(channel_map[int(clu)]), (
+                f"Cluster {clu}: legacy fallback after templates-skip "
+                f"gave electrode {sd.neuron_attributes[i].get('electrode')}, "
+                f"expected {int(channel_map[int(clu)])}"
+            )

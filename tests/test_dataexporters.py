@@ -386,6 +386,38 @@ class TestHDF5Exporters:
         # inferred from ``max(spike) - start_time``.
         assert loaded.length == pytest.approx(200.0)
 
+    def test_explicit_length_ms_beats_file_attribute_ragged(self, tmp_path):
+        """
+        Caller-supplied ``length_ms`` to ``load_spikedata_from_hdf5``
+        takes precedence over the persisted ``length_ms`` file
+        attribute written by the exporter (PR #139 contract).
+
+        Distinct from the inferred-vs-file precedence: this pins that
+        when the file *has* a ``length_ms`` attr (200), an explicit
+        caller override (100) still wins. Catches a regression that
+        would let the file attribute silently override user intent.
+
+        Tests:
+            (Test Case 1) Exported length is 200 ms; reloading with
+                explicit ``length_ms=100.0`` yields ``loaded.length ==
+                100.0`` (caller wins over file attr).
+            (Test Case 2) Spike times are unchanged by the override.
+        """
+        trains = [np.array([50.0])]
+        sd = SpikeData(trains, length=200.0, start_time=0.0)
+        path = str(tmp_path / "length_caller_override.h5")
+
+        exporters.export_spikedata_to_hdf5(sd, path, style="ragged")
+
+        loaded = loaders.load_spikedata_from_hdf5(
+            path,
+            spike_times_dataset="spike_times",
+            spike_times_index_dataset="spike_times_index",
+            length_ms=100.0,
+        )
+        assert loaded.length == pytest.approx(100.0)
+        assert np.allclose(loaded.train[0], [50.0])
+
     def test_nonzero_start_time_roundtrip_paired(self, tmp_path):
         """
         Non-zero start_time is preserved through a paired-style export/load round-trip.

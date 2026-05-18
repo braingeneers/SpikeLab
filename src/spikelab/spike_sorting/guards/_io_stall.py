@@ -672,15 +672,36 @@ class IOStallWatchdog:
             current = self._read_bytes()
             now = time.time()
             if current is None:
-                # Counters unreadable this poll. Reset last_change_t so
-                # we don't accumulate stall time we can't observe; track
-                # how long we have been blind so we can warn once.
-                last_change_t = now
+                # Counters unreadable this poll. Two semantics to preserve:
+                #
+                # 1. ``last_change_t`` is NOT reset. Resetting it (the
+                #    original behaviour) silently masked any true stall
+                #    that happened to coincide with even a brief psutil
+                #    hiccup — the watchdog went blind precisely when
+                #    something was wrong. The rare false-positive case
+                #    (counters coincidentally landing on the same value
+                #    at the start and end of a blind interval) is far
+                #    less common and far less harmful than missing a
+                #    real stall.
+                #
+                # 2. Sustained blindness is itself a trip condition.
+                #    After ``stall_s`` of unreadable counters we emit a
+                #    one-shot warning (existing behaviour); after
+                #    ``2 * stall_s`` we trip via ``_on_trip_blind`` so
+                #    the sort is killed rather than running forever
+                #    with a silently disabled watchdog. The 2× factor
+                #    gives one warn cycle of grace where an operator
+                #    monitoring logs can investigate before the kill.
                 if blind_started_t is None:
                     blind_started_t = now
-                elif not blind_warned and now - blind_started_t >= self.stall_s:
-                    self._warn_blind(now - blind_started_t)
-                    blind_warned = True
+                else:
+                    blind_for = now - blind_started_t
+                    if not blind_warned and blind_for >= self.stall_s:
+                        self._warn_blind(blind_for)
+                        blind_warned = True
+                    if blind_warned and blind_for >= 2 * self.stall_s:
+                        self._on_trip_blind(blind_for)
+                        return
                 self._stop_event.wait(self.poll_interval_s)
                 continue
             # Successful read clears the blindness tracker so a later
@@ -763,6 +784,70 @@ class IOStallWatchdog:
             pids=list(self._pids) if self._mode == "process" else None,
             stalled_for_s=stalled_for,
             tolerance_s=self.stall_s,
+        )
+        with self._lock:
+            callbacks = list(self._kill_callbacks)
+        for cb in callbacks:
+            try:
+                cb()
+            except (SystemExit, KeyboardInterrupt):
+                # An in-process kill callback delivers KeyboardInterrupt
+                # via _thread.interrupt_main(); SystemExit signals
+                # operator-requested abort. Both must propagate.
+                raise
+            except Exception as exc:
+                _logger.error("kill_callback raised: %r; continuing.", exc)
+        # If __exit__ ran while we were mid-cascade (callbacks can
+        # take several seconds), the with-block has already torn
+        # down. Sending interrupt_main() now would land a phantom
+        # KeyboardInterrupt in whatever code is running next — the
+        # next sort, an exception handler, or the interactive
+        # prompt. Skip it.
+        if self._stop_event.is_set():
+            _logger.info("suppressing interrupt_main: watchdog is already exiting.")
+            return
+        try:
+            import _thread as _t
+
+            _t.interrupt_main()
+        except Exception as exc:
+            self._interrupt_main_failed = True
+            _logger.error("failed to interrupt main: %s", exc)
+            append_audit_event(
+                watchdog="io_stall",
+                event="interrupt_delivery_failed",
+                device=self._device,
+                error=repr(exc),
+            )
+
+    def _on_trip_blind(self, blind_for: float) -> None:
+        """Trip when sustained blindness prevents verifying I/O is moving.
+
+        Mirrors :meth:`_on_trip` but with a distinct log and audit-event
+        semantic: we have not observed a stall, we have observed that
+        we are unable to determine whether one is occurring. The abort
+        cascade (kill callbacks + ``interrupt_main``) is identical so a
+        blind trip cleans up the same way as an observed trip. Downstream
+        post-mortems can grep ``event="abort_blind"`` to attribute
+        incidents to a watchdog-blind cause rather than a real stall.
+        """
+        self._tripped = True
+        self._stall_at_trip = blind_for
+        _logger.error(
+            "TRIP: %s I/O counter unreadable for %.1fs (>= %.1fs). "
+            "Aborting sort because watchdog cannot verify progress.",
+            self._scope_label(),
+            blind_for,
+            2 * self.stall_s,
+        )
+        append_audit_event(
+            watchdog="io_stall",
+            event="abort_blind",
+            mode=self._mode,
+            device=self._device,
+            pids=list(self._pids) if self._mode == "process" else None,
+            blind_for_s=blind_for,
+            tolerance_s=2 * self.stall_s,
         )
         with self._lock:
             callbacks = list(self._kill_callbacks)

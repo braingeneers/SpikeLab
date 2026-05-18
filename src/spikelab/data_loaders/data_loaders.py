@@ -15,7 +15,7 @@ These helpers avoid hard dependencies: optional libraries are imported lazily.
 
 from __future__ import annotations
 
-from typing import List, Mapping, Optional, Sequence, Union
+from typing import Dict, List, Mapping, Optional, Sequence, Union
 
 import os
 import re
@@ -236,7 +236,20 @@ def _build_spikedata(
     """Internal helper to construct a SpikeData with sensible defaults. Infers `length_ms` from the last spike if not provided."""
     if length_ms is None:
         last = [t[-1] for t in trains_ms if len(t) > 0]
-        length_ms = float(max(last)) - start_time if last else 0.0
+        if last:
+            # Add one ULP at the magnitude of the latest spike so the
+            # constructor's strict ``t[-1] > start_time + length`` check
+            # passes even when unit-conversion round-trips (samples → s
+            # → ms in the loaders) drift the loaded spike value by a
+            # ULP above the inferred end. ``np.spacing(x)`` returns the
+            # gap between ``x`` and the next float; at typical recording
+            # scales (~1e5 ms) that's ~1.5e-11 ms — far below any
+            # measurable precision but enough to keep the inequality
+            # strict.
+            max_last = float(max(last))
+            length_ms = max_last - start_time + np.spacing(max_last)
+        else:
+            length_ms = 0.0
     return SpikeData(
         trains_ms,
         length=length_ms,
@@ -503,6 +516,7 @@ def load_spikedata_from_nwb(
     *,
     prefer_pynwb: bool = True,
     length_ms: Optional[float] = None,
+    start_time_ms: Optional[float] = None,
 ) -> SpikeData:
     """Load spike trains from an NWB file's Units table.
 
@@ -510,6 +524,15 @@ def load_spikedata_from_nwb(
         filepath (str): Path to the NWB file.
         prefer_pynwb (bool): If True, try pynwb first; if False, try h5py.
         length_ms (float | None): Recording duration in milliseconds.
+            When ``None``, reads from the file-level ``length_ms``
+            attribute (written by ``export_spikedata_to_nwb``); falls
+            back to inferring from the latest spike time if the
+            attribute is absent.
+        start_time_ms (float | None): Recording start time in
+            milliseconds. When ``None``, reads from the file-level
+            ``start_time`` attribute (written by
+            ``export_spikedata_to_nwb``); falls back to 0.0 if the
+            attribute is absent. Mirrors the ``length_ms`` ladder.
 
     Returns:
         sd (SpikeData): The loaded spike train data.
@@ -517,6 +540,30 @@ def load_spikedata_from_nwb(
     trains: List[np.ndarray] = []
     neuron_attributes: List[dict] = []
     meta = {"source_file": os.path.abspath(filepath), "format": "NWB"}
+
+    # Read file-level attributes via h5py up-front so both the pynwb
+    # and h5py paths benefit. Caller overrides take precedence; missing
+    # attrs fall back to None/0 (the SpikeData defaults).
+    file_length_ms: Optional[float] = None
+    file_start_time_ms: float = 0.0
+    if length_ms is None or start_time_ms is None:
+        try:
+            import h5py as _h5  # type: ignore
+
+            with _h5.File(filepath, "r") as _attrs_f:
+                if "length_ms" in _attrs_f.attrs:
+                    file_length_ms = float(_attrs_f.attrs["length_ms"])
+                if "start_time" in _attrs_f.attrs:
+                    file_start_time_ms = float(_attrs_f.attrs["start_time"])
+        except Exception:
+            # Attribute read is best-effort; if h5py can't open the file
+            # (corrupt, unsupported plugin, etc.) the loader proper will
+            # raise the real error below.
+            pass
+    if length_ms is None:
+        length_ms = file_length_ms
+    if start_time_ms is None:
+        start_time_ms = file_start_time_ms
 
     if prefer_pynwb:
         try:
@@ -572,6 +619,7 @@ def load_spikedata_from_nwb(
             return _build_spikedata(
                 trains,
                 length_ms=length_ms,
+                start_time=start_time_ms or 0.0,
                 metadata=meta,
                 neuron_attributes=neuron_attributes,
             )
@@ -719,7 +767,11 @@ def load_spikedata_from_nwb(
             neuron_attributes.append(attr)
 
     return _build_spikedata(
-        trains, length_ms=length_ms, metadata=meta, neuron_attributes=neuron_attributes
+        trains,
+        length_ms=length_ms,
+        start_time=start_time_ms or 0.0,
+        metadata=meta,
+        neuron_attributes=neuron_attributes,
     )
 
 
@@ -882,6 +934,24 @@ def load_spikedata_from_kilosort(
         except (IOError, ValueError) as e:
             warnings.warn(f"Failed loading channel_positions: {e}")
 
+    # Per-cluster physical-channel mapping. Built by one of:
+    #   (1) cluster_info.tsv ``ch`` column — canonical Phy answer, set
+    #       below if the TSV provides it.
+    #   (2) spike_templates.npy + templates.npy — Phy/phylib's
+    #       template-amplitude fallback, set further below if the
+    #       intermediate kilosort files are present.
+    #   (3) channel_map[cluster_id] — legacy fallback used per-cluster
+    #       inside the main loop when neither (1) nor (2) yields an
+    #       entry for the cluster.
+    #
+    # Phy's merge/split renumbers ``spike_clusters`` non-sequentially
+    # but leaves ``spike_templates`` invariant, so the templates-based
+    # path survives curation. The legacy fallback only happens to give
+    # correct results when cluster IDs are sequential 0..N-1 AND each
+    # cluster's dominant template lives at the matching ordinal
+    # channel position — i.e. fresh, uncurated kilosort output.
+    cluster_id_to_channel: Optional[Dict[int, int]] = None
+
     keep_clusters: Optional[set] = None
     if cluster_info_tsv is not None:
         tsv_path = os.path.join(folder, cluster_info_tsv)
@@ -923,6 +993,28 @@ def load_spikedata_from_kilosort(
                             .isin(["good", "mua", "mua good"])
                         )  # permissive
                         keep_clusters = set(df.loc[mask, id_col].astype(int).tolist())
+                # Extract Phy's canonical post-curation channel mapping
+                # from the ``ch`` column when present. ``cluster_info.tsv``
+                # is written by ``phy save`` and survives merge/split
+                # because Phy recomputes the dominant channel per
+                # cluster from current waveforms. This bypasses the
+                # buggy ``channel_map[cluster_id]`` lookup entirely.
+                if id_col is not None and "ch" in df.columns:
+                    try:
+                        cluster_id_to_channel = dict(
+                            zip(
+                                df[id_col].astype(int).tolist(),
+                                df["ch"].astype(int).tolist(),
+                            )
+                        )
+                    except (ValueError, TypeError) as exc:
+                        warnings.warn(
+                            f"Failed parsing 'ch' column from cluster TSV "
+                            f"({exc!r}); falling back to templates / "
+                            "channel_map for cluster→channel mapping.",
+                            UserWarning,
+                            stacklevel=2,
+                        )
             except ImportError:
                 warnings.warn(
                     "pandas is required to parse cluster info TSV. "
@@ -940,18 +1032,98 @@ def load_spikedata_from_kilosort(
                     f"Failed parsing cluster info TSV: {e}; keeping all clusters"
                 )
 
+    # Templates-based fallback for cluster→channel when TSV is absent
+    # or lacks the ``ch`` column. Loads ``spike_templates.npy`` (per-spike
+    # template ID — invariant under Phy curation) and ``templates.npy``
+    # (per-template waveform). For each unique cluster:
+    #   1. find its dominant template via mode of ``spike_templates``
+    #      over the cluster's spikes;
+    #   2. find that template's peak channel via argmax of the
+    #      max-absolute-amplitude per channel position;
+    #   3. translate channel position → physical channel ID via
+    #      ``channel_map``.
+    # When either intermediate file is missing or channel_map is
+    # unavailable, the fallback is skipped silently — the per-cluster
+    # loop below then falls through to the legacy
+    # ``channel_map[cluster_id]`` path.
+    if cluster_id_to_channel is None:
+        st_tpl_path = os.path.join(folder, "spike_templates.npy")
+        tpl_path = os.path.join(folder, "templates.npy")
+        if (
+            os.path.exists(st_tpl_path)
+            and os.path.exists(tpl_path)
+            and channel_map is not None
+        ):
+            try:
+                spike_templates_arr = np.load(st_tpl_path).flatten()
+                templates_arr = np.load(tpl_path)
+                if (
+                    templates_arr.ndim == 3
+                    and spike_templates_arr.shape[0] == spike_clusters.shape[0]
+                ):
+                    # Per-template peak channel position (argmax of
+                    # max |amp| across time). Shape: (n_templates,).
+                    amplitudes = np.abs(templates_arr).max(axis=1)
+                    template_peak_pos = amplitudes.argmax(axis=1)
+                    cluster_id_to_channel = {}
+                    for clu in np.unique(spike_clusters):
+                        mask = spike_clusters == clu
+                        if not mask.any():
+                            continue
+                        tpls = spike_templates_arr[mask]
+                        unique_tpl, counts = np.unique(tpls, return_counts=True)
+                        dominant_template = int(unique_tpl[counts.argmax()])
+                        if 0 <= dominant_template < len(template_peak_pos):
+                            pos = int(template_peak_pos[dominant_template])
+                            if 0 <= pos < len(channel_map):
+                                cluster_id_to_channel[int(clu)] = int(channel_map[pos])
+                    if not cluster_id_to_channel:
+                        # No cluster resolved successfully — discard
+                        # the empty dict so the per-cluster loop below
+                        # falls through to the legacy path.
+                        cluster_id_to_channel = None
+                else:
+                    warnings.warn(
+                        f"Templates fallback skipped: templates.npy shape "
+                        f"{templates_arr.shape} is not 3-D, or "
+                        f"spike_templates length {spike_templates_arr.shape[0]} "
+                        f"doesn't match spike_clusters length "
+                        f"{spike_clusters.shape[0]}.",
+                        UserWarning,
+                        stacklevel=2,
+                    )
+            except (IOError, ValueError) as exc:
+                warnings.warn(
+                    f"Failed loading spike_templates.npy / templates.npy "
+                    f"for cluster→channel fallback: {exc!r}. Falling back "
+                    "to channel_map[cluster_id] lookup.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+
     trains: List[np.ndarray] = []
     metadata_units: List[int] = []
     neuron_attributes: List[dict] = []
     unique_clusters = np.unique(spike_clusters)
-    if channel_map is not None and len(unique_clusters) > 0:
+    # Only warn about non-sequential cluster IDs when neither the TSV
+    # ``ch`` map nor the templates fallback resolved a cluster→channel
+    # mapping. With either of those in place the legacy
+    # ``channel_map[cluster_id]`` path is bypassed and the misalignment
+    # bug no longer applies.
+    if (
+        cluster_id_to_channel is None
+        and channel_map is not None
+        and len(unique_clusters) > 0
+    ):
         expected_sequential = np.arange(len(unique_clusters))
         if not np.array_equal(unique_clusters, expected_sequential):
             warnings.warn(
                 f"Cluster IDs are not sequential (0..{len(unique_clusters)-1}): "
                 f"channel_map lookup uses cluster ID as array index, which "
                 f"may assign incorrect electrode/location metadata after "
-                f"Phy curation. Verify spatial analysis results.",
+                f"Phy curation. Provide cluster_info_tsv with a 'ch' column "
+                f"or ensure spike_templates.npy + templates.npy are in the "
+                f"folder so the loader can use the correct mapping.",
                 UserWarning,
             )
     unit_idx = 0
@@ -966,11 +1138,19 @@ def load_spikedata_from_kilosort(
         attr: dict = {"unit_id": int(clu)}
         channel_idx = None
         int_clu = int(clu)
-        # channel_map is indexed by template/cluster ID — only correct
-        # when cluster IDs are sequential integers starting from 0.
-        # After Phy curation (merge/split), IDs become non-sequential
-        # and this lookup silently maps to the wrong channel.
-        if channel_map is not None and int_clu < len(channel_map):
+        # Resolve cluster → physical channel by priority:
+        #   1. ``cluster_id_to_channel`` from TSV ``ch`` or templates
+        #      fallback — both produce physical channel IDs and both
+        #      survive Phy curation.
+        #   2. Legacy ``channel_map[cluster_id]`` lookup — only correct
+        #      for fresh uncurated kilosort output. Kept as last
+        #      resort because removing it would break loaders for
+        #      users who don't provide cluster_info.tsv and whose
+        #      kilosort folders lack spike_templates.npy / templates.npy.
+        if cluster_id_to_channel is not None and int_clu in cluster_id_to_channel:
+            channel_idx = cluster_id_to_channel[int_clu]
+            attr["electrode"] = channel_idx
+        elif channel_map is not None and int_clu < len(channel_map):
             channel_idx = int(channel_map[int_clu])
             attr["electrode"] = channel_idx
         elif channel_map is not None:

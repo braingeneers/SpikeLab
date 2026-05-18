@@ -746,18 +746,36 @@ async def concatenate_units(
     workspace_id: str,
     namespace_a: str,
     namespace_b: str,
+    out_namespace: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Concatenate units from two SpikeData objects and store to workspace."""
+    """Concatenate units from two SpikeData objects and store to workspace.
+
+    By default (``out_namespace=None``) the combined SpikeData overwrites
+    the SpikeData slot at ``namespace_a`` — historical behaviour, kept
+    for backwards compatibility. Pass an explicit ``out_namespace`` to
+    write the result to a separate slot, preserving both inputs. This
+    matches the explicit-destination pattern used by other MCP tools
+    in this file (``compute_pairwise_fr_corr``, ``curate_spikedata``,
+    etc.).
+
+    The combined SpikeData inherits ``namespace_a``'s time range,
+    ``raw_data`` / ``raw_time``, and (on metadata key conflicts)
+    metadata — so the choice of ``namespace_a`` vs ``namespace_b``
+    is structurally significant, not just a destination selector.
+    Swapping the two arguments produces a different combined
+    SpikeData (units in reversed order, different inherited fields).
+    """
     ws = _get_workspace(workspace_id)
     sd_a = _get_spikedata(ws, namespace_a)
     sd_b = _get_spikedata(ws, namespace_b)
     sd_combined = sd_a.concatenate_spike_data(sd_b)
-    ws.store(namespace_a, _SPIKEDATA_KEY, sd_combined)
+    target = out_namespace if out_namespace is not None else namespace_a
+    ws.store(target, _SPIKEDATA_KEY, sd_combined)
     return {
         "workspace_id": workspace_id,
-        "namespace": namespace_a,
+        "namespace": target,
         "workspace_key": _SPIKEDATA_KEY,
-        "info": ws.get_info(namespace_a, _SPIKEDATA_KEY),
+        "info": ws.get_info(target, _SPIKEDATA_KEY),
     }
 
 
@@ -2744,12 +2762,32 @@ async def pcm_stack_threshold(
     namespace: str,
     key: str,
     threshold: float,
-    out_key: str = "",
+    out_key: Optional[str] = None,
+    preserve_nan: bool = False,
 ) -> Dict[str, Any]:
-    """Apply a binary threshold to a PairwiseCompMatrixStack and store to workspace."""
+    """Apply a binary threshold to a PairwiseCompMatrixStack and store to workspace.
+
+    By default (``out_key=None`` or omitted) the binary {0, 1}
+    thresholded stack **overwrites** the original float-valued stack
+    at ``(namespace, key)``. The original float values are
+    unrecoverable from the workspace after this call — any subsequent
+    analysis that expects the source stack to be float-valued will
+    silently fail or produce wrong results. Pass an explicit
+    ``out_key`` to write the result to a separate slot and keep the
+    source intact.
+
+    The empty string ``""`` is also accepted in place of ``None`` for
+    backwards compatibility with callers using the previous default,
+    and is treated identically (use input ``key``).
+
+    By default NaN values in the source stack are treated as below
+    threshold and become 0 in the binary output. Pass
+    ``preserve_nan=True`` to keep NaN in the output (useful when
+    "missing" must remain distinguishable from "below threshold").
+    """
     ws = _get_workspace(workspace_id)
     stack = _get_pcm_stack(ws, namespace, key)
-    new_stack = stack.threshold(threshold)
+    new_stack = stack.threshold(threshold, preserve_nan=preserve_nan)
     target_key = out_key if out_key else key
     ws.store(namespace, target_key, new_stack)
     return {

@@ -1234,8 +1234,10 @@ async def _list_tools() -> list[types.Tool]:
                 name="concatenate_units",
                 description=(
                     "Add all units from a second SpikeData into the first (both must "
-                    "have the same length). Modifies and re-stores (namespace_a, 'spikedata') "
-                    "in place."
+                    "have the same length). By default re-stores the combined result "
+                    "at (namespace_a, 'spikedata'), overwriting that slot. Pass "
+                    "``out_namespace`` to write the result to a separate namespace "
+                    "and preserve both inputs."
                 ),
                 inputSchema={
                     "type": "object",
@@ -1243,11 +1245,24 @@ async def _list_tools() -> list[types.Tool]:
                         "workspace_id": {"type": "string"},
                         "namespace_a": {
                             "type": "string",
-                            "description": "Namespace to add units into (modified in place)",
+                            "description": (
+                                "Namespace of the first SpikeData. The combined "
+                                "result inherits its time range, raw_data, and "
+                                "(on metadata-key conflicts) metadata."
+                            ),
                         },
                         "namespace_b": {
                             "type": "string",
                             "description": "Namespace whose units are added",
+                        },
+                        "out_namespace": {
+                            "type": "string",
+                            "description": (
+                                "Namespace to write the combined SpikeData into. "
+                                "Default (omitted or null) overwrites namespace_a, "
+                                "matching legacy behaviour. Pass an explicit value "
+                                "to preserve both inputs."
+                            ),
                         },
                     },
                     "required": ["workspace_id", "namespace_a", "namespace_b"],
@@ -3552,7 +3567,11 @@ async def _list_tools() -> list[types.Tool]:
                 name="pcm_stack_threshold",
                 description=(
                     "Apply a binary threshold to a PairwiseCompMatrixStack. "
-                    "Values become 1 where |v| > threshold, else 0."
+                    "Values become 1 where |v| > threshold, else 0. By "
+                    "default (no out_key) the binary result OVERWRITES the "
+                    "original float-valued stack at (namespace, key); the "
+                    "original float values are unrecoverable. Pass an "
+                    "explicit out_key to preserve the source."
                 ),
                 inputSchema={
                     "type": "object",
@@ -3568,7 +3587,23 @@ async def _list_tools() -> list[types.Tool]:
                         },
                         "out_key": {
                             "type": "string",
-                            "description": "Output key. Defaults to input key.",
+                            "description": (
+                                "Output key. Default (omitted or null) "
+                                "OVERWRITES the source stack with the "
+                                "binary thresholded result, destroying "
+                                "the float values. Pass an explicit value "
+                                "to preserve the source."
+                            ),
+                        },
+                        "preserve_nan": {
+                            "type": "boolean",
+                            "description": (
+                                "When false (default), NaN values become "
+                                "0 in the binary output. When true, NaN "
+                                "propagates so 'missing' stays "
+                                "distinguishable from 'below threshold'."
+                            ),
+                            "default": False,
                         },
                     },
                     "required": ["workspace_id", "namespace", "key", "threshold"],

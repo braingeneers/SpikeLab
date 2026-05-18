@@ -76,7 +76,11 @@ def plot_curation_bar(
     ax.bar(x - width / 2, n_total, width, label=total_label)
     ax.bar(x + width / 2, n_selected, width, label=selected_label)
     ax.set_xticks(x)
-    ax.set_xticklabels(rec_names, rotation=label_rotation)
+    # Set labels and rotation separately to avoid the matplotlib 3.5+
+    # deprecation warning when ``set_xticklabels`` is passed both
+    # ``rotation`` and FixedLocator-driven ticks.
+    ax.set_xticklabels(rec_names)
+    ax.tick_params(axis="x", labelrotation=label_rotation)
     ax.set_xlabel(x_label)
     ax.set_ylabel(y_label)
     ax.legend(loc="upper right")

@@ -173,7 +173,10 @@ def _resolve_device_index(device: Optional[str]) -> int:
     Accepts ``"cuda"``, ``"cuda:0"``, ``"cuda:1"``, integer-like
     strings, and ``None`` (interpreted as device 0). Falls back to 0
     on parse failure rather than raising — the watchdog is
-    best-effort.
+    best-effort — but emits a warning so the silent fallback is
+    visible in logs. A user who meant ``cuda:1`` and typo'd
+    ``cuda;1`` would otherwise have their GPU watchdog quietly
+    watching the wrong device.
 
     Parameters:
         device (str or None): Torch-style device identifier.
@@ -190,9 +193,18 @@ def _resolve_device_index(device: Optional[str]) -> int:
         try:
             return max(0, int(s.split(":", 1)[1]))
         except ValueError:
+            _logger.warning(
+                "GPU watchdog: could not parse device index from %r; "
+                "falling back to device 0.",
+                device,
+            )
             return 0
     if s.isdigit():
         return int(s)
+    _logger.warning(
+        "GPU watchdog: unrecognised device string %r; " "falling back to device 0.",
+        device,
+    )
     return 0
 
 

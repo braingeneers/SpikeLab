@@ -1753,7 +1753,7 @@ def save_traces_mea(
     save_path,
     start_ms=0,
     end_ms=None,
-    samp_freq=20,  # kHz
+    samp_freq=None,
     default_gain=1,
     chunk_size=100000,
     num_processes=2,
@@ -1762,10 +1762,19 @@ def save_traces_mea(
 ):
     """
     Can't save traces with spikeinterface get_traces() because it is really slow on MaxWell MEA recordings
+
+    ``samp_freq`` defaults to ``None`` and is read from the recording
+    file. Pass an explicit value (in kHz) only when overriding the
+    file's reported sampling frequency. The previous hardcoded 20 kHz
+    default silently produced wrong-time-base output for MaxOne
+    recordings sampled at other rates.
     """
 
     rec_h5 = h5py.File(rec_path)
     rec_si = MaxwellRecordingExtractor(rec_path)
+
+    if samp_freq is None:
+        samp_freq = rec_si.get_sampling_frequency() / 1000.0  # Hz → kHz
 
     start_frame = round(start_ms * samp_freq)
 
@@ -1775,28 +1784,23 @@ def save_traces_mea(
         end_frame = round(end_ms * samp_freq)
 
     if "sig" in rec_h5:  # Old file format
-        # chan_ind = []
-        # for mapping in recording['mapping']:  # (chan_idx, elec_id, x_cord, y_cord)
-        #     if mapping[1] != -1:
-        #         chan_ind.append(mapping[0])
-        # if 'lsb' in recording['settings']:
-        #     gain = recording['settings']['lsb'][0] * 1e6
-        # else:
-        #     gain = default_gain
-        #     if verbose:
-        #         print(f"'lsb' not found in 'settings'. Setting gain to uV to {gain}")
         chan_ind = [
             int(chan_id) for chan_id in rec_si.get_channel_ids()
         ]  # This gives same result as recording['mapping] for-loop
         get_traces = _get_traces_mea_old
     else:
-        # Check that h5py matches rec_si
-        assert rec_h5["recordings"]["rec0000"]["well000"]["groups"]["routed"][
+        # Check that h5py matches rec_si. Raise rather than assert so
+        # the check survives ``python -O`` and surfaces the actual
+        # shapes for diagnosis.
+        raw_shape = rec_h5["recordings"]["rec0000"]["well000"]["groups"]["routed"][
             "raw"
-        ].shape == (
-            rec_si.get_num_channels(),
-            rec_si.get_total_samples(),
-        ), "h5py file doesn't match what spikeinterface loads"
+        ].shape
+        expected_shape = (rec_si.get_num_channels(), rec_si.get_total_samples())
+        if raw_shape != expected_shape:
+            raise ValueError(
+                f"HDF5 raw data shape {raw_shape} does not match "
+                f"SpikeInterface shape {expected_shape}."
+            )
         chan_ind = list(range(rec_si.get_num_channels()))
         get_traces = _get_traces_mea_new
     if rec_si.has_scaleable_traces():

@@ -3582,6 +3582,24 @@ class SpikeData:
                 - For ``spike_times``: ``agreement``, ``frac_1``, ``frac_2``
                 - For ``waveforms``: ``similarity``
 
+        Notes:
+            **Channel numbering (``waveforms`` comparison only).** Both
+            ``self`` and ``other`` must use the same channel-ID scheme
+            for ``neuron_attributes["channel"]`` and
+            ``neuron_attributes["neighbor_channels"]`` (e.g. both
+            positional indices into the recording's channel list, OR
+            both physical electrode IDs — mixing the two silently
+            produces meaningless similarity values because footprints
+            are aligned by channel-row).
+
+            The footprint grid is auto-sized to
+            ``max(referenced_channels) + 1`` across both inputs. For
+            sparse high-index layouts (e.g. Maxwell recordings where
+            channel IDs are positions in a 26 400-electrode array)
+            this can produce mostly-zero footprints with a large row
+            count and corresponding memory cost. For dense probes
+            (0..N-1 channel IDs) the grid is compact.
+
         References:
             Buccino et al., "SpikeInterface, a unified framework for spike
             sorting", eLife (2020). https://doi.org/10.7554/eLife.61834

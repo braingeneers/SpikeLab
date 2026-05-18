@@ -1345,25 +1345,18 @@ class TestResampledIsi:
 
     def test_non_uniform_time_grid(self):
         """
-        _resampled_isi uses times[1] - times[0] as a uniform step size.
-        Non-uniform time grids produce wrong results because the bin assignment
-        assumes constant dt_ms.
+        _resampled_isi assumes uniform ``dt_ms = times[1] - times[0]``.
+        Non-uniform grids are now rejected at the boundary with a
+        clear ``ValueError`` (previously: silently wrong output).
 
         Tests:
-            (Test Case 1) Non-uniform time grid [0, 1, 5, 10, 20]. The function
-                uses dt_ms = 1.0 (from times[1] - times[0]) regardless of the
-                actual spacing. It does not raise an error. Output shape matches
-                the times array.
-
-        Notes:
-            - This is a known limitation: the function assumes a uniform grid
-              but does not validate this assumption. Results for non-uniform
-              grids are unreliable.
+            (Test Case 1) Non-uniform time grid [0, 1, 5, 10, 20]
+                raises ``ValueError`` naming the gap range.
         """
         spikes = np.array([2.0, 8.0, 15.0])
         times = np.array([0.0, 1.0, 5.0, 10.0, 20.0])
-        result = _resampled_isi(spikes, times, sigma_ms=2.0)
-        assert result.shape == times.shape
+        with pytest.raises(ValueError, match="uniformly spaced"):
+            _resampled_isi(spikes, times, sigma_ms=2.0)
 
     def test_spikes_outside_times_range(self):
         """
@@ -2713,6 +2706,31 @@ class TestShuffleZScore:
         with pytest.warns(RuntimeWarning):
             z = shuffle_z_score(5.0, dist)
         assert np.isnan(z)
+
+    def test_uses_bessel_corrected_sample_std(self):
+        """
+        ``shuffle_z_score`` uses the Bessel-corrected (``ddof=1``)
+        sample standard deviation, not the population (``ddof=0``)
+        estimator. This is the PR #139 contract.
+
+        For ``dist = [8, 10, 12]`` (mean=10):
+            ``ddof=0`` σ ≈ 1.6330 → z(12) ≈ 1.2247
+            ``ddof=1`` σ = 2.0000 → z(12) = 1.0
+
+        The currently-shipped implementation must return the ``ddof=1``
+        value within tight tolerance. A regression to ``ddof=0`` would
+        flip this assertion by ~22%.
+
+        Tests:
+            (Test Case 1) z-score equals 1.0 (the ``ddof=1`` value).
+            (Test Case 2) z-score does NOT equal the ``ddof=0`` value
+                of ~1.2247.
+        """
+        dist = np.array([8.0, 10.0, 12.0])
+        z = shuffle_z_score(12.0, dist)
+        np.testing.assert_allclose(z, 1.0, atol=1e-10)
+        # The ddof=0 result would be ~1.2247; ensure we are not seeing it.
+        assert not np.isclose(z, 1.2247, atol=1e-3)
 
 
 # ---------------------------------------------------------------------------
@@ -4446,3 +4464,82 @@ class TestComputeCrossCorrelationWithLagAllNaN:
         b = np.full(50, np.nan, dtype=float)
         score, _lag = compute_cross_correlation_with_lag(a, b, max_lag=10)
         assert np.isnan(score)
+
+
+class TestUtilsResampledIsiEmptyTimes:
+    """``_resampled_isi(spikes, times=np.array([]), ...)`` with two
+    or more spikes falls through the early-return guards into the
+    single-time branch (``len(times) < 2``) which accesses
+    ``times[0]`` on an empty array, raising ``IndexError``.
+
+    This pins existing behavior — see REVIEW.md for the gap on the
+    lack of an explicit empty-times guard.
+    """
+
+    def test_empty_times_raises_index_error(self):
+        """
+        Empty ``times`` array with a non-trivial spike train raises
+        ``IndexError`` from the ``times[0]`` access.
+
+        Tests:
+            (Test Case 1) ``IndexError`` is raised when ``times`` has
+                length zero and the train has 3 spikes.
+        """
+        from spikelab.spikedata.utils import _resampled_isi
+
+        spikes = np.array([1.0, 2.0, 3.0])
+        times = np.array([], dtype=float)
+        with pytest.raises(IndexError):
+            _resampled_isi(spikes, times, sigma_ms=10.0)
+
+
+class TestUtilsButterFilterShortInput:
+    """``butter_filter`` ultimately calls ``scipy.signal.sosfiltfilt``
+    which requires the input length to exceed ``padlen`` (which scales
+    with filter order — for ``order=5`` the SOS form has padlen=18).
+    A length-2 input therefore raises ``ValueError`` from SciPy.
+    """
+
+    def test_input_shorter_than_padlen_raises(self):
+        """
+        A length-2 input with ``order=5`` is shorter than the
+        ``sosfiltfilt`` padlen and raises ``ValueError`` mentioning
+        padlen.
+
+        Tests:
+            (Test Case 1) ``ValueError`` is raised.
+            (Test Case 2) Error message mentions ``padlen``.
+        """
+        data = np.array([1.0, 2.0])
+        with pytest.raises(ValueError, match="padlen"):
+            butter_filter(data, highcut=100.0, fs=1000.0, order=5)
+
+
+class TestUtilsShuffleZScoreAllNaNStd:
+    """``shuffle_z_score(observed, shuffle=full-NaN)``: ``np.nanmean``
+    of all-NaN returns NaN and emits a ``RuntimeWarning`` ("Mean of
+    empty slice"); ``np.nanstd`` with ``ddof=1`` likewise returns NaN
+    and emits "Degrees of freedom <= 0 for slice." The downstream
+    ``safe_std`` guard checks ``std == 0`` (False for NaN), so the
+    division proceeds and the final z is NaN. Pin both the NaN result
+    and the upstream warnings so a regression that silenced them
+    (e.g. by adding ``np.errstate(invalid='ignore')``) would surface.
+    """
+
+    def test_all_nan_shuffle_returns_nan_with_runtime_warnings(self):
+        """
+        An all-NaN shuffle distribution yields a NaN z-score and emits
+        the two upstream NumPy RuntimeWarnings ("Mean of empty slice"
+        and "Degrees of freedom <= 0 for slice.").
+
+        Tests:
+            (Test Case 1) The returned z is NaN.
+            (Test Case 2) At least one ``RuntimeWarning`` is emitted
+                during the call.
+        """
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            z = shuffle_z_score(5.0, np.full(10, np.nan))
+        assert np.isnan(z)
+        runtime_warns = [w for w in caught if issubclass(w.category, RuntimeWarning)]
+        assert len(runtime_warns) >= 1

@@ -39,16 +39,22 @@ from ._exceptions import (
 def _walk_exception_chain(exc: Optional[BaseException]) -> str:
     """Concatenate all messages in an exception's cause/context chain.
 
-    Uses identity checks to break cycles. Handy for matching signatures
-    produced by wrappers (SpikeInterface re-raises sklearn errors) where
-    the interesting message is on an inner link.
+    Uses identity checks to break cycles AND text dedup to avoid
+    appending the same string twice when two distinct exceptions in
+    the chain share a message (common when SpikeInterface re-raises
+    sklearn errors verbatim — the inner and outer exceptions are
+    different objects but carry identical text).
     """
     messages: list[str] = []
-    seen: set[int] = set()
+    seen_ids: set[int] = set()
+    seen_msgs: set[str] = set()
     current: Optional[BaseException] = exc
-    while current is not None and id(current) not in seen:
-        seen.add(id(current))
-        messages.append(str(current))
+    while current is not None and id(current) not in seen_ids:
+        seen_ids.add(id(current))
+        msg = str(current)
+        if msg not in seen_msgs:
+            seen_msgs.add(msg)
+            messages.append(msg)
         current = current.__cause__ or current.__context__
     return "\n".join(messages)
 

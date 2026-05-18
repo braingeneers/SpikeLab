@@ -236,9 +236,9 @@ def load_recording(
     """Load a recording, apply optional truncation and coordinate transforms.
 
     Public entry point. Returns just the loaded recording so existing
-    callers (``trace_io.save_traces``, downstream tooling) remain
-    unaffected. Backends that need the effective chunk list and the
-    per-file recording names should call
+    callers (the rt_sort ``save_traces`` chain, downstream tooling)
+    remain unaffected. Backends that need the effective chunk list
+    and the per-file recording names should call
     :func:`_load_recording_with_state` directly to receive the full
     :class:`LoadRecordingResult`.
 

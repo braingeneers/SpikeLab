@@ -174,6 +174,28 @@ class TestRunCanary:
         assert result is None
         assert not (tmp_path / "_canary").exists()
 
+    def test_negative_window_returns_none(self, tmp_path):
+        """
+        canary_first_n_s < 0 → run_canary short-circuits to None (same
+        as the disabled-at-zero path).
+
+        Tests:
+            (Test Case 1) A negative window is treated as "disabled" by
+                the ``canary_window_s <= 0`` guard; the function returns
+                None without raising or creating any folder.
+            (Test Case 2) No ``_canary_*`` subfolder is created under
+                inter_path (the guard fires before the per-pid folder is
+                computed).
+        """
+        from spikelab.spike_sorting.canary import run_canary
+
+        cfg = SortingPipelineConfig()
+        cfg.execution.canary_first_n_s = -1.0
+        result = run_canary(cfg, recording=None, rec_path="rec", inter_path=tmp_path)
+        assert result is None
+        # No per-pid canary folder should exist either.
+        assert not any(tmp_path.glob("_canary*"))
+
     def test_classified_failure_returned(self, tmp_path, monkeypatch):
         """
         process_recording returning a classified failure → run_canary

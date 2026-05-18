@@ -82,6 +82,21 @@ class KilosortSortingExtractor:
             cluster_info["cluster_id"] = cluster_info["id"]
             del cluster_info["id"]
 
+        # Coerce cluster_id to int explicitly. ``pd.read_csv`` infers
+        # dtypes per column, so a TSV that writes IDs as ``1.0`` (float
+        # literal) or ``"001"`` (string-padded) ends up as float or
+        # object dtype — the ``int(unit_id)`` casts later break with
+        # confusing errors. Coerce up-front and surface the actual
+        # offending value cleanly when coercion fails.
+        try:
+            cluster_info["cluster_id"] = cluster_info["cluster_id"].astype(int)
+        except (ValueError, TypeError) as exc:
+            raise ValueError(
+                f"cluster_id column has non-integer values "
+                f"(dtype={cluster_info['cluster_id'].dtype}): {exc}. "
+                "Expected integer cluster IDs from Phy/kilosort output."
+            ) from exc
+
         if exclude_cluster_groups is not None:
             if isinstance(exclude_cluster_groups, str):
                 cluster_info = cluster_info.query(
@@ -120,7 +135,14 @@ class KilosortSortingExtractor:
         if end_frame is not None:
             spike_times = spike_times[spike_times < end_frame]
 
-        return np.atleast_1d(spike_times.copy().squeeze())
+        # ``ravel`` always returns a 1-D view regardless of input shape.
+        # The previous ``np.atleast_1d(spike_times.copy().squeeze())``
+        # idiom worked for the current 1-D ``spike_times`` storage but
+        # was fragile: if ``self.spike_times`` ever became 2-D with
+        # one column, ``squeeze`` would collapse it to 1-D but a
+        # multi-column 2-D shape would be returned as-is and break
+        # callers expecting 1-D. ``ravel`` is robust to either case.
+        return np.asarray(spike_times.copy()).ravel()
 
     def get_templates_all(self):
         # Returns Kilosort2's outputted templates as mmap np.array

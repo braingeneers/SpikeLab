@@ -63,6 +63,19 @@ def get_system_ram_bytes() -> Optional[int]:
     return None
 
 
+#: Width of the banner produced by :func:`print_stage`, in characters.
+#: The Tee-log parser in ``report.py`` keys its banner-line regex
+#: (``_BANNER_LINE_RE = re.compile(r"^=+$")``) and centered-text regex
+#: (``_BANNER_TEXT_RE``) off this value, so the two must agree. Both
+#: live in the same package; keep them in sync via this constant.
+BANNER_WIDTH = 70
+
+#: Character used to frame the banner. ``report.py``'s parser regex
+#: (``_BANNER_LINE_RE``) hard-codes ``=`` to match, so changing this
+#: requires updating the parser regex too.
+BANNER_CHAR = "="
+
+
 def print_stage(text: Any) -> None:
     """Print a centered banner message framed by ``=`` lines.
 
@@ -71,15 +84,12 @@ def print_stage(text: Any) -> None:
     """
     text = str(text)
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    indent = int((BANNER_WIDTH - len(text)) / 2)
 
-    num_chars = 70
-    char = "="
-    indent = int((num_chars - len(text)) / 2)
-
-    print("\n" + num_chars * char)
+    print("\n" + BANNER_WIDTH * BANNER_CHAR)
     print(indent * " " + text)
-    print(f"  [{timestamp}]".center(num_chars))
-    print(num_chars * char)
+    print(f"  [{timestamp}]".center(BANNER_WIDTH))
+    print(BANNER_WIDTH * BANNER_CHAR)
 
 
 class Stopwatch:

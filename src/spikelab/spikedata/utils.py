@@ -234,6 +234,21 @@ def _resampled_isi(spikes, times, sigma_ms):
             "Provide an evenly-spaced grid with unique time points."
         )
 
+    # Reject non-uniform time grids. The bin math below
+    # (``dt_ms = times[1] - times[0]``, ``n_bins = (t_end - t_start) /
+    # dt_ms + 1``) assumes uniform spacing — on a non-uniform grid the
+    # firing-rate output is silently wrong because all gaps are
+    # treated as if they equalled the first gap. Reject at the
+    # boundary rather than producing garbage.
+    diffs = np.diff(times)
+    if not np.allclose(diffs, diffs[0]):
+        raise ValueError(
+            "times array is not uniformly spaced. "
+            f"First gap is {diffs[0]:.6g}; got "
+            f"min={diffs.min():.6g}, max={diffs.max():.6g}. "
+            "Provide an evenly-spaced grid."
+        )
+
     # Compute inter spike intervals (piece 1 logic)
     isi = np.diff(spikes)
     isi = np.insert(isi, 0, 0)  # Add spacer for first spike
