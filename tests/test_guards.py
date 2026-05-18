@@ -13679,3 +13679,280 @@ class TestRunPreflightNanThresholdGuard:
         # The message also references the field name for actionability.
         with pytest.raises(ValueError, match=field):
             run_preflight(cfg, [mock.Mock()], ["/inter"], ["/results"])
+
+
+class TestHostMemoryWatchdogNaNThresholds:
+    """``HostMemoryWatchdog.__init__`` rejects NaN threshold values.
+
+    The other four watchdogs (Disk, GPU, IOStall, Inactivity) explicitly
+    guard against NaN thresholds — the symmetric check for the host
+    memory watchdog falls out of the existing
+    ``0.0 < warn_pct < abort_pct <= 100.0`` chain comparison: any NaN
+    operand makes the chain False, so construction raises. Pin this
+    behaviour so a future refactor that decomposes the chain (e.g.
+    into separate ``warn_pct > 0`` / ``abort_pct <= 100`` checks)
+    cannot accidentally drop the implicit NaN rejection.
+    """
+
+    def test_nan_warn_pct_raises(self):
+        """
+        ``warn_pct=NaN`` makes the threshold chain comparison False,
+        triggering the construction ``ValueError``.
+
+        Tests:
+            (Test Case 1) ValueError raised.
+            (Test Case 2) Message references both threshold names so
+                callers can identify the misconfigured field.
+        """
+        with pytest.raises(ValueError, match="warn_pct"):
+            HostMemoryWatchdog(warn_pct=float("nan"))
+
+    def test_nan_abort_pct_raises(self):
+        """
+        ``abort_pct=NaN`` is rejected for the same reason as
+        ``warn_pct=NaN`` — the chain comparison short-circuits to
+        False.
+
+        Tests:
+            (Test Case 1) ValueError raised.
+            (Test Case 2) Message references ``abort_pct``.
+        """
+        with pytest.raises(ValueError, match="abort_pct"):
+            HostMemoryWatchdog(abort_pct=float("nan"))
+
+    def test_nan_both_thresholds_raises(self):
+        """
+        Both ``warn_pct`` and ``abort_pct`` set to NaN still raises;
+        the chain comparison is False regardless of which operand is
+        NaN.
+
+        Tests:
+            (Test Case 1) ValueError raised.
+        """
+        with pytest.raises(ValueError):
+            HostMemoryWatchdog(warn_pct=float("nan"), abort_pct=float("nan"))
+
+
+class TestRunPreflightDuckTypedIterables:
+    """``run_preflight`` documents its inputs as ``Sequence[Any]`` and
+    only iterates them. Pin two duck-typed cases that the type hint
+    alone does not pin down: tuples are accepted as drop-in
+    replacements for lists, and unequal-length intermediate/results
+    sequences do NOT trigger a length validation — each is iterated
+    independently. A future refactor that introduces a ``zip(...)``
+    over the two folder sequences would silently change semantics for
+    callers that rely on the current independent iteration; these
+    tests lock that contract in place.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _silence_v2_helpers(self, monkeypatch):
+        """Mute the FEAT-001..003 dispatchers and writable check so the
+        run completes without OS-side side effects on placeholder paths.
+        Mirrors the ``TestRunPreflight`` fixture so the new tests stay
+        hermetic on developer workstations.
+        """
+        monkeypatch.setattr(preflight_mod, "_check_sorter_dependencies", lambda c: [])
+        monkeypatch.setattr(preflight_mod, "_check_gpu_device_present", lambda c: None)
+        monkeypatch.setattr(
+            preflight_mod, "_check_recording_sample_rate", lambda c, recs: []
+        )
+        monkeypatch.setattr(
+            preflight_mod,
+            "_check_filesystem_writable",
+            lambda folders, *, label, code_prefix: [],
+        )
+
+    def test_tuple_recording_files_iterates_like_list(self, monkeypatch):
+        """
+        Passing ``recording_files`` as a tuple behaves identically to
+        passing it as a list. A non-empty tuple should not raise the
+        empty-sequence fail finding.
+
+        Tests:
+            (Test Case 1) Tuple of one mock is accepted (no
+                ``no_recordings`` finding).
+            (Test Case 2) Final findings list type is ``list``.
+        """
+        cfg = _make_config(sorter_name="kilosort2")
+        monkeypatch.setattr(preflight_mod, "_disk_free_gb", lambda p: 500.0)
+        monkeypatch.setattr(preflight_mod, "_available_ram_gb", lambda: 64.0)
+        monkeypatch.delenv("HDF5_PLUGIN_PATH", raising=False)
+        findings = run_preflight(
+            cfg,
+            (mock.Mock(),),  # tuple, not list
+            ["/inter"],
+            ["/results"],
+        )
+        codes = [f.code for f in findings]
+        assert "no_recordings" not in codes
+        assert isinstance(findings, list)
+
+    def test_unequal_intermediate_and_results_iterate_independently(self, monkeypatch):
+        """
+        ``intermediate_folders`` and ``results_folders`` are iterated
+        independently — there is no length-equality validation and no
+        ``zip`` truncation. Each folder produces its own per-folder
+        finding without any cross-sequence pairing.
+
+        Tests:
+            (Test Case 1) Two intermediate folders both produce
+                ``low_disk_inter`` findings.
+            (Test Case 2) One results folder produces a single
+                ``low_disk_results`` finding (not truncated by the
+                shorter cross-list).
+            (Test Case 3) No ValueError is raised for the length
+                mismatch.
+        """
+        cfg = _make_config(sorter_name="kilosort2")
+        monkeypatch.setattr(preflight_mod, "_disk_free_gb", lambda p: 1.0)
+        monkeypatch.setattr(preflight_mod, "_available_ram_gb", lambda: 64.0)
+        monkeypatch.delenv("HDF5_PLUGIN_PATH", raising=False)
+        findings = run_preflight(
+            cfg,
+            [mock.Mock()],
+            ["/inter_a", "/inter_b"],  # length 2
+            ["/results_a"],  # length 1
+        )
+        inter_findings = [f for f in findings if f.code == "low_disk_inter"]
+        results_findings = [f for f in findings if f.code == "low_disk_results"]
+        assert len(inter_findings) == 2
+        assert len(results_findings) == 1
+
+
+class TestComputeInactivityTimeoutSNaNBaseAndMax:
+    """``compute_inactivity_timeout_s`` NaN handling for ``base_s`` and
+    ``max_s``.
+
+    The source explicitly guards ``recording_duration_min=NaN``
+    (coerces to zero), but the symmetric NaN cases on ``base_s`` and
+    ``max_s`` are NOT guarded. Pin the existing behaviour as
+    documented gaps:
+
+    * ``base_s=NaN`` propagates NaN through ``float(base_s) + ...`` and
+      returns NaN, which silently disables every downstream comparison
+      (``inactivity >= NaN`` is always False). Watchdog becomes a
+      no-op.
+    * ``max_s=NaN`` does NOT propagate the same way on CPython because
+      ``min(x, nan)`` returns ``x`` (the first operand) — the timeout
+      survives intact. This is platform-dependent in principle, but
+      CPython's stable ``min`` semantics make it deterministic.
+
+    Both are gaps the source's docstring promises to handle. Pin
+    behaviour so a later strict-NaN-guard fix has a regression target.
+    """
+
+    def test_base_s_nan_returns_nan(self):
+        """
+        ``base_s=NaN`` propagates NaN through the formula. The result
+        is a NaN float, which silently disables the watchdog.
+
+        Tests:
+            (Test Case 1) Result is NaN (``math.isnan`` returns True).
+            (Test Case 2) Source oddity: this is an unguarded NaN
+                input — pinned, not fixed.
+        """
+        from spikelab.spike_sorting.guards._inactivity import (
+            compute_inactivity_timeout_s,
+        )
+
+        result = compute_inactivity_timeout_s(
+            recording_duration_min=10.0,
+            base_s=float("nan"),
+            per_min_s=30.0,
+            max_s=7200.0,
+        )
+        assert math.isnan(result)
+
+    def test_max_s_nan_returns_finite(self):
+        """
+        ``max_s=NaN`` does NOT propagate to the result because the
+        ``min(timeout, NaN)`` call returns ``timeout`` (CPython
+        deterministic). The watchdog timeout stays finite.
+
+        Tests:
+            (Test Case 1) Result is the un-capped timeout
+                (``base_s + per_min_s * duration``).
+            (Test Case 2) Result is not NaN.
+        """
+        from spikelab.spike_sorting.guards._inactivity import (
+            compute_inactivity_timeout_s,
+        )
+
+        result = compute_inactivity_timeout_s(
+            recording_duration_min=10.0,
+            base_s=600.0,
+            per_min_s=30.0,
+            max_s=float("nan"),
+        )
+        # base + per_min * 10 = 600 + 300 = 900
+        assert result == 900.0
+        assert not math.isnan(result)
+
+
+class TestHostMemoryWatchdogDoubleEnter:
+    """Constructing a single ``HostMemoryWatchdog`` and calling
+    ``__enter__`` twice without an intervening ``__exit__`` leaks the
+    first ContextVar token.
+
+    The instance stores ``self._token`` as a single attribute, so the
+    second ``__enter__`` overwrites the first token reference. A
+    subsequent ``__exit__`` only resets the second token — the first
+    one is no longer reachable, and the ContextVar still has the
+    watchdog set as the active publication after a single ``__exit__``.
+
+    This is a source oddity: nested context-manager use is not
+    supported on the same instance, but there is no construction-time
+    or enter-time guard against it. Pin the current behaviour
+    explicitly so a later "raise on re-enter" fix has a regression
+    target.
+    """
+
+    def test_double_enter_overwrites_token_and_leaks_active_publication(self):
+        """
+        Entering the same watchdog twice replaces ``_token`` with the
+        second token, so a single exit only undoes the second enter
+        and the watchdog remains the active ContextVar publication
+        afterward.
+
+        Tests:
+            (Test Case 1) Both ``__enter__`` calls succeed (no raise).
+            (Test Case 2) The second ``_token`` differs from the
+                first — i.e. the first is overwritten.
+            (Test Case 3) After a single ``__exit__``,
+                ``get_active_watchdog()`` still returns the watchdog
+                (leak).
+            (Test Case 4) A second ``__exit__`` is needed before
+                ``get_active_watchdog()`` returns ``None``. The second
+                exit may suppress a token-reset error silently.
+        """
+        wd = HostMemoryWatchdog()
+        assert get_active_watchdog() is None
+        # First enter publishes the watchdog.
+        wd.__enter__()
+        first_token = wd._token
+        assert first_token is not None
+        assert get_active_watchdog() is wd
+        try:
+            # Second enter without exiting first — overwrites _token.
+            wd.__enter__()
+            second_token = wd._token
+            assert second_token is not None
+            assert second_token is not first_token
+            # First exit only resets the second token; the first token's
+            # publication remains live.
+            wd.__exit__(None, None, None)
+            assert get_active_watchdog() is wd
+        finally:
+            # Clean teardown: second exit should clear the remaining
+            # publication. The watchdog's exit guard swallows
+            # LookupError/RuntimeError on a stale token, so this is
+            # safe to call even when the inner branch above ran.
+            try:
+                wd.__exit__(None, None, None)
+            except Exception:
+                pass
+            # Ensure we leave the ContextVar clean for other tests in
+            # this module — if the leak persists, reset directly.
+            if get_active_watchdog() is wd:
+                watchdog_mod._active_watchdog.set(None)

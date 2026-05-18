@@ -7244,6 +7244,59 @@ class TestRecentering:
         assert 10 <= result < 50
 
 
+class TestBuildReferenceTraceZeroChannels:
+    """``_build_reference_trace`` called with a zero-channel ``traces``
+    array ``(0, T)``.
+
+    Pinned behaviour: the call does NOT crash. NumPy's
+    ``np.max(traces, axis=1)`` over a zero-length axis-0 produces an
+    empty ``(0,)`` amps array, and ``np.argpartition([], -1)[-1:]``
+    returns an empty index array. The final ``traces[empty_idx].sum``
+    over axis 0 yields an all-zero ``(T,)`` reference. Source oddity:
+    callers downstream may treat this silent zero-reference as a real
+    signal — there is no explicit guard for empty input. Pin the
+    current behaviour so any later fix has a regression target.
+    """
+
+    def test_zero_channels_returns_zero_reference(self):
+        """
+        ``traces.shape == (0, T)`` returns ``np.zeros((T,))`` instead
+        of raising.
+
+        Tests:
+            (Test Case 1) Returned array has shape ``(T,)``.
+            (Test Case 2) Every element is zero.
+        """
+        from spikelab.spike_sorting.stim_sorting.recentering import (
+            _build_reference_trace,
+        )
+
+        traces = np.zeros((0, 100), dtype=np.float32)
+        ref = _build_reference_trace(traces, n_reference_channels=1)
+        assert ref.shape == (100,)
+        assert np.all(ref == 0.0)
+
+    def test_zero_channels_zero_samples_raises_value_error(self):
+        """
+        Doubly empty ``(0, 0)`` input DOES raise: ``np.max`` over
+        ``axis=1`` of a zero-row, zero-column array reduces over an
+        empty axis with no identity, which raises ``ValueError``.
+        This differs from the ``(0, T>0)`` case above and is a source
+        oddity worth pinning explicitly.
+
+        Tests:
+            (Test Case 1) ``ValueError`` raised, message references
+                the zero-size reduction.
+        """
+        from spikelab.spike_sorting.stim_sorting.recentering import (
+            _build_reference_trace,
+        )
+
+        traces = np.zeros((0, 0), dtype=np.float32)
+        with pytest.raises(ValueError, match="zero-size array"):
+            _build_reference_trace(traces, n_reference_channels=3)
+
+
 # ===========================================================================
 # Edge Case Tests -- Artifact Removal (stim_sorting/artifact_removal.py)
 # ===========================================================================
@@ -11362,9 +11415,7 @@ class TestLoadSingleRecordingConfigPropagation:
                 return getattr(self._rec, name)
 
         monkeypatch.setattr(recording_io, "ScaleRecording", _StubScale)
-        monkeypatch.setattr(
-            recording_io, "bandpass_filter", lambda rec, **_kw: rec
-        )
+        monkeypatch.setattr(recording_io, "bandpass_filter", lambda rec, **_kw: rec)
 
         cfg = SortingPipelineConfig(recording=RecordingConfig(gain_to_uv=2.5))
         recording_io.load_single_recording(base_recording, config=cfg)
@@ -11395,9 +11446,7 @@ class TestLoadSingleRecordingConfigPropagation:
                 return getattr(self._rec, name)
 
         monkeypatch.setattr(recording_io, "ScaleRecording", _StubScale)
-        monkeypatch.setattr(
-            recording_io, "bandpass_filter", lambda rec, **_kw: rec
-        )
+        monkeypatch.setattr(recording_io, "bandpass_filter", lambda rec, **_kw: rec)
 
         cfg = SortingPipelineConfig(recording=RecordingConfig(offset_to_uv=7.0))
         recording_io.load_single_recording(base_recording, config=cfg)
@@ -11419,9 +11468,7 @@ class TestLoadSingleRecordingConfigPropagation:
 
         captured = {}
 
-        monkeypatch.setattr(
-            recording_io, "ScaleRecording", lambda rec, **_kw: rec
-        )
+        monkeypatch.setattr(recording_io, "ScaleRecording", lambda rec, **_kw: rec)
 
         def _stub_bp(rec, **kw):
             captured.update(kw)
@@ -11664,9 +11711,7 @@ class TestWaveformExtractorCreateInitialConfigNone:
         ks_folder.mkdir()
         np.save(ks_folder / "spike_times.npy", np.array([100, 200], dtype=np.int64))
         np.save(ks_folder / "spike_clusters.npy", np.array([0, 0], dtype=np.int64))
-        np.save(
-            ks_folder / "templates.npy", np.zeros((1, 41, 4), dtype=np.float32)
-        )
+        np.save(ks_folder / "templates.npy", np.zeros((1, 41, 4), dtype=np.float32))
         np.save(ks_folder / "channel_map.npy", np.arange(4))
         (ks_folder / "params.py").write_text(
             f"dat_path = 'r.dat'\nn_channels_dat = 4\ndtype = 'float32'\n"
@@ -11773,10 +11818,10 @@ class TestSpikeSortDockerCustomKilosortParamsHonored:
 class TestSpikeSortKs4EarlyReturnAndPosPeakThresh:
     """``ks4_runner.spike_sort`` covers two MED-priority gaps:
 
-      - ``recompute_sorting=False`` with existing ``spike_times.npy``
-        → load existing results without invoking the sorter.
-      - ``config.waveform.pos_peak_thresh`` propagates to the returned
-        ``KilosortSortingExtractor``.
+    - ``recompute_sorting=False`` with existing ``spike_times.npy``
+      → load existing results without invoking the sorter.
+    - ``config.waveform.pos_peak_thresh`` propagates to the returned
+      ``KilosortSortingExtractor``.
     """
 
     def test_existing_results_skip_run_sorter(self, tmp_path, monkeypatch):
@@ -11827,9 +11872,7 @@ class TestSpikeSortKs4EarlyReturnAndPosPeakThresh:
         assert hasattr(result, "unit_ids")
         assert set(result.unit_ids) == {0, 1}
 
-    def test_pos_peak_thresh_reaches_returned_extractor(
-        self, tmp_path, monkeypatch
-    ):
+    def test_pos_peak_thresh_reaches_returned_extractor(self, tmp_path, monkeypatch):
         """
         Tests:
             (Test Case 1) ``config.waveform.pos_peak_thresh=1.5`` is
@@ -12017,9 +12060,7 @@ class TestRTSortSpikeSortSaveRtSortPickle:
         )
         return output_folder
 
-    def test_save_true_persists_pickle_next_to_recording(
-        self, runner_stubs, tmp_path
-    ):
+    def test_save_true_persists_pickle_next_to_recording(self, runner_stubs, tmp_path):
         """
         Tests:
             (Test Case 1) ``save_rt_sort_pickle=True`` triggers exactly
