@@ -670,6 +670,20 @@ class WaveformExtractor:
                         st_trace - nbefore : st_trace + nafter, :
                     ]  # Python slices with [start, end), so waveform is in format (nbefore + spike_location + nafter-1, n_channels)
                     wfs[pos, :, :] = wf
+                # Force this unit's mmap writes to disk before moving
+                # on to the next unit. Two reasons:
+                #   1. Durability — without an explicit flush the OS
+                #      may hold dirty pages indefinitely; if the worker
+                #      exits abnormally (watchdog kill, OOM, etc.) those
+                #      writes are lost even though the file looks the
+                #      right size on disk.
+                #   2. IOStallWatchdog visibility — its byte-counter
+                #      delta detection only credits flushed writes, so
+                #      without this call the watchdog can decide the
+                #      worker is stalled when it's actually batching
+                #      writes in the OS page cache. The 2*stall_s blind
+                #      trip added in commit 6a74e16 would compound this.
+                wfs.flush()
         return spike_times_centered
 
     @staticmethod
