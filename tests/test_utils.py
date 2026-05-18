@@ -4446,3 +4446,82 @@ class TestComputeCrossCorrelationWithLagAllNaN:
         b = np.full(50, np.nan, dtype=float)
         score, _lag = compute_cross_correlation_with_lag(a, b, max_lag=10)
         assert np.isnan(score)
+
+
+class TestUtilsResampledIsiEmptyTimes:
+    """``_resampled_isi(spikes, times=np.array([]), ...)`` with two
+    or more spikes falls through the early-return guards into the
+    single-time branch (``len(times) < 2``) which accesses
+    ``times[0]`` on an empty array, raising ``IndexError``.
+
+    This pins existing behavior — see REVIEW.md for the gap on the
+    lack of an explicit empty-times guard.
+    """
+
+    def test_empty_times_raises_index_error(self):
+        """
+        Empty ``times`` array with a non-trivial spike train raises
+        ``IndexError`` from the ``times[0]`` access.
+
+        Tests:
+            (Test Case 1) ``IndexError`` is raised when ``times`` has
+                length zero and the train has 3 spikes.
+        """
+        from spikelab.spikedata.utils import _resampled_isi
+
+        spikes = np.array([1.0, 2.0, 3.0])
+        times = np.array([], dtype=float)
+        with pytest.raises(IndexError):
+            _resampled_isi(spikes, times, sigma_ms=10.0)
+
+
+class TestUtilsButterFilterShortInput:
+    """``butter_filter`` ultimately calls ``scipy.signal.sosfiltfilt``
+    which requires the input length to exceed ``padlen`` (which scales
+    with filter order — for ``order=5`` the SOS form has padlen=18).
+    A length-2 input therefore raises ``ValueError`` from SciPy.
+    """
+
+    def test_input_shorter_than_padlen_raises(self):
+        """
+        A length-2 input with ``order=5`` is shorter than the
+        ``sosfiltfilt`` padlen and raises ``ValueError`` mentioning
+        padlen.
+
+        Tests:
+            (Test Case 1) ``ValueError`` is raised.
+            (Test Case 2) Error message mentions ``padlen``.
+        """
+        data = np.array([1.0, 2.0])
+        with pytest.raises(ValueError, match="padlen"):
+            butter_filter(data, highcut=100.0, fs=1000.0, order=5)
+
+
+class TestUtilsShuffleZScoreAllNaNStd:
+    """``shuffle_z_score(observed, shuffle=full-NaN)``: ``np.nanmean``
+    of all-NaN returns NaN and emits a ``RuntimeWarning`` ("Mean of
+    empty slice"); ``np.nanstd`` with ``ddof=1`` likewise returns NaN
+    and emits "Degrees of freedom <= 0 for slice." The downstream
+    ``safe_std`` guard checks ``std == 0`` (False for NaN), so the
+    division proceeds and the final z is NaN. Pin both the NaN result
+    and the upstream warnings so a regression that silenced them
+    (e.g. by adding ``np.errstate(invalid='ignore')``) would surface.
+    """
+
+    def test_all_nan_shuffle_returns_nan_with_runtime_warnings(self):
+        """
+        An all-NaN shuffle distribution yields a NaN z-score and emits
+        the two upstream NumPy RuntimeWarnings ("Mean of empty slice"
+        and "Degrees of freedom <= 0 for slice.").
+
+        Tests:
+            (Test Case 1) The returned z is NaN.
+            (Test Case 2) At least one ``RuntimeWarning`` is emitted
+                during the call.
+        """
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            z = shuffle_z_score(5.0, np.full(10, np.nan))
+        assert np.isnan(z)
+        runtime_warns = [w for w in caught if issubclass(w.category, RuntimeWarning)]
+        assert len(runtime_warns) >= 1

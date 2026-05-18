@@ -2580,3 +2580,38 @@ class TestRateSliceStackUnitCorrConstantRate:
             np.testing.assert_allclose(sub, np.ones_like(sub), atol=1e-9)
         # Average per-unit correlation across the lower triangle is 1.0.
         np.testing.assert_allclose(av_corr, np.ones(2), atol=1e-9)
+
+
+class TestRateSliceStackSubsliceEmpty:
+    """``RateSliceStack.subslice(slices=[])`` is silently accepted —
+    the bounds check loop has no iterations, ``new_times`` ends up
+    empty, and ``event_stack[:, :, []]`` produces a zero-S sub-stack.
+    The ``__init__`` guard rejects ``T==0`` but does NOT reject
+    ``S==0``, so the result is a valid RateSliceStack with shape
+    ``(U, T, 0)``.
+
+    This pins existing behavior — see REVIEW.md for the gap on
+    silently producing zero-slice stacks that downstream operations
+    may not handle gracefully.
+    """
+
+    def test_empty_slice_list_yields_zero_S_stack(self):
+        """
+        ``subslice(slices=[])`` returns a RateSliceStack with the
+        same U and T but S=0 and an empty ``times`` list. No error
+        is raised.
+
+        Tests:
+            (Test Case 1) ``event_stack.shape[2] == 0``.
+            (Test Case 2) ``event_stack.shape[:2]`` matches the
+                original ``(U, T)``.
+            (Test Case 3) ``times`` is an empty list.
+            (Test Case 4) ``step_size`` is carried over.
+        """
+        mat = make_event_matrix(n_units=2, n_times=5, n_slices=3)
+        rss = RateSliceStack(event_matrix=mat, step_size=2.0)
+        out = rss.subslice(slices=[])
+        assert out.event_stack.shape[2] == 0
+        assert out.event_stack.shape[:2] == (2, 5)
+        assert out.times == []
+        assert out.step_size == 2.0

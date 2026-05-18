@@ -8628,3 +8628,328 @@ class TestCompareSorterNeighborChannelsValidation:
                 f_rel_to_trough=(2, 2),
                 max_lag=0,
             )
+
+
+class TestSpikeDataLatenciesInfTimes:
+    """``SpikeData.latencies(times=[np.inf])``: the argmin over
+    ``abs(train - inf)`` is well defined (all entries are inf, argmin
+    returns 0), but the candidate latency itself is +/-inf which
+    fails the ``abs_diff <= window_ms`` guard. Pin the silent-empty
+    behavior so a regression that surfaced the NaN/inf later in the
+    pipeline would be caught here."""
+
+    def test_latencies_inf_query_time_returns_empty_per_unit(self):
+        """
+        Query time +inf produces argmin=0 (all distances are inf) and
+        a latency of -inf, which is rejected by the window check
+        (``abs_diff <= window_ms`` is False for inf), so each unit
+        gets an empty list.
+
+        Tests:
+            (Test Case 1) ``times=[np.inf]`` returns ``[[]]`` for a
+                single non-empty train (no error raised).
+        """
+        sd = SpikeData([[5.0, 10.0]], length=20.0)
+        result = sd.latencies([np.inf], window_ms=100.0)
+        assert result == [[]]
+
+
+class TestSpikeDataSpikeTimeTilingsNEquals1:
+    """``SpikeData.spike_time_tilings`` with a single unit: the
+    diagonal is initialized to 1.0 by ``np.eye(self.N)`` and the
+    upper-triangle loop range is empty when ``N == 1``, so the
+    method must return a ``(1, 1)`` PCM with value 1.0."""
+
+    def test_n1_returns_1x1_with_self_tiling_one(self):
+        """
+        STTC of a single train against itself is 1.0; the method
+        returns a (1, 1) PairwiseCompMatrix whose only entry is 1.0.
+
+        Tests:
+            (Test Case 1) Result matrix shape is ``(1, 1)``.
+            (Test Case 2) The single entry equals 1.0.
+        """
+        sd = SpikeData([[10.0, 20.0, 30.0]], length=100.0)
+        pcm = sd.spike_time_tilings()
+        assert pcm.matrix.shape == (1, 1)
+        np.testing.assert_allclose(pcm.matrix, [[1.0]])
+
+
+class TestSpikeDataAppendOffsetNaN:
+    """``SpikeData.append`` with ``offset=NaN`` produces NaN-shifted
+    spike times. The resulting SpikeData constructor rejects spike
+    trains containing NaN via the validator that runs before the
+    length-NaN check. Pin the ValueError so a refactor that swapped
+    the order of validation still surfaces a clear failure."""
+
+    def test_append_with_nan_offset_raises(self):
+        """
+        Appending with ``offset=NaN`` raises ``ValueError`` because
+        the shifted spikes contain NaN.
+
+        Tests:
+            (Test Case 1) ``ValueError`` is raised.
+            (Test Case 2) Error message mentions NaN.
+        """
+        sd1 = SpikeData([[1.0, 2.0]], length=10.0)
+        sd2 = SpikeData([[3.0]], length=10.0)
+        with pytest.raises(ValueError, match="NaN"):
+            sd1.append(sd2, offset=np.nan)
+
+
+class TestSpikeDataAppendOffsetInf:
+    """``SpikeData.append`` with ``offset=inf`` produces inf-shifted
+    spike times. The constructor rejects trains containing inf via
+    the same validator that handles NaN. Pin the ValueError."""
+
+    def test_append_with_inf_offset_raises(self):
+        """
+        Appending with ``offset=inf`` raises ``ValueError`` because
+        the shifted spikes contain inf values.
+
+        Tests:
+            (Test Case 1) ``ValueError`` is raised.
+            (Test Case 2) Error message mentions inf.
+        """
+        sd1 = SpikeData([[1.0, 2.0]], length=10.0)
+        sd2 = SpikeData([[3.0]], length=10.0)
+        with pytest.raises(ValueError, match="inf"):
+            sd1.append(sd2, offset=np.inf)
+
+
+class TestSpikeDataAppendNeuronAttrsAsymmetric:
+    """``SpikeData.append`` salvages ``neuron_attributes`` when only
+    one operand has them. When ``self`` has none and ``other`` does,
+    the result inherits ``other``'s attrs and a ``RuntimeWarning``
+    is emitted. Pin both behaviors so a silent-drop regression would
+    fail this test."""
+
+    def test_self_none_other_present_salvages_with_warning(self):
+        """
+        ``self.neuron_attributes=None`` + ``other.neuron_attributes=[{...}]``:
+        the result uses ``other``'s attrs and a ``RuntimeWarning`` is
+        emitted (mentioning ``drop_neuron_attributes``).
+
+        Tests:
+            (Test Case 1) Result inherits ``other``'s neuron_attributes.
+            (Test Case 2) Exactly one RuntimeWarning is raised that
+                mentions the salvage opt-out flag.
+        """
+        sd_self = SpikeData([[1.0]], length=10.0)
+        sd_other = SpikeData([[2.0]], length=10.0, neuron_attributes=[{"size": 1.0}])
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            r = sd_self.append(sd_other)
+        # Salvage: the appended operand's attrs flow through.
+        assert r.neuron_attributes == [{"size": 1.0}]
+        runtime_msgs = [
+            str(w.message) for w in caught if issubclass(w.category, RuntimeWarning)
+        ]
+        assert any("drop_neuron_attributes" in m for m in runtime_msgs)
+
+    def test_self_present_other_none_keeps_self_silently(self):
+        """
+        ``self.neuron_attributes=[{...}]`` + ``other.neuron_attributes=None``:
+        the result keeps ``self``'s attrs and no warning is emitted
+        (only the inverse direction warns).
+
+        Tests:
+            (Test Case 1) Result inherits ``self``'s neuron_attributes.
+            (Test Case 2) No RuntimeWarning is emitted for this direction.
+        """
+        sd_self = SpikeData([[1.0]], length=10.0, neuron_attributes=[{"size": 1.0}])
+        sd_other = SpikeData([[2.0]], length=10.0)
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            r = sd_self.append(sd_other)
+        assert r.neuron_attributes == [{"size": 1.0}]
+        runtime_msgs = [w for w in caught if issubclass(w.category, RuntimeWarning)]
+        assert runtime_msgs == []
+
+
+class TestSpikeDataAlignToEventsBinLargerThanWindow:
+    """``SpikeData.align_to_events(kind="rate", bin_size_ms=...)``
+    with a bin larger than the pre/post window does not raise — the
+    upstream ``resampled_isi`` step uses ``np.arange(start, end,
+    bin_size_ms)`` over the full recording and a single bin lands
+    inside the (pre, post) slice window. The output has ``T=1``
+    (silent undersampling). Pin the contract so a future fix that
+    rejects bin>window or returns T=0 surfaces here.
+
+    This pins existing behavior — see REVIEW.md for the gap on
+    silently undersampled event-aligned rate stacks.
+    """
+
+    def test_bin_larger_than_window_produces_t_eq_1(self):
+        """
+        ``pre_ms=10, post_ms=10, bin_size_ms=50`` (bin > total window):
+        the aligned rate stack has ``T=1`` (one bin per slice) and
+        does not raise.
+
+        Tests:
+            (Test Case 1) Returned event_stack shape is ``(U, 1, 1)``.
+            (Test Case 2) ``step_size`` equals the requested
+                ``bin_size_ms`` (50).
+            (Test Case 3) No exception raised.
+        """
+        sd = SpikeData([[5.0, 50.0, 150.0]], length=300.0)
+        rss = sd.align_to_events(
+            events=[100.0],
+            pre_ms=10,
+            post_ms=10,
+            kind="rate",
+            bin_size_ms=50,
+        )
+        # Silent undersampling: T collapses to 1.
+        assert rss.event_stack.shape == (1, 1, 1)
+        assert rss.step_size == 50.0
+
+
+class TestSpikeDataGetFracActiveEdgesStartGreaterThanEnd:
+    """``SpikeData.get_frac_active`` with ``edges=[[start, end]]``
+    where ``start > end``: the boolean mask
+    ``(times >= start) & (times <= end)`` is always False, so the
+    burst contains zero spikes for every unit and the per-burst /
+    per-unit fractions are zero. No error is raised.
+
+    This pins existing behavior — see REVIEW.md for the gap on
+    silently-accepted inverted edges.
+    """
+
+    def test_inverted_edges_yields_zero_fractions(self):
+        """
+        ``edges=[[5, 1]]`` (start > end): all units record 0 spikes
+        for that burst, so ``frac_per_unit`` and ``frac_per_burst``
+        are zero, and ``backbone_units`` is empty.
+
+        Tests:
+            (Test Case 1) ``frac_per_unit`` is all zeros.
+            (Test Case 2) ``frac_per_burst`` is all zeros.
+            (Test Case 3) ``backbone_units`` is empty.
+        """
+        sd = SpikeData([[1.0, 3.0, 5.0, 7.0, 9.0]], length=100.0)
+        edges = np.array([[5, 1]])
+        frac_per_unit, frac_per_burst, backbone = sd.get_frac_active(
+            edges, MIN_SPIKES=1, backbone_threshold=0.5
+        )
+        np.testing.assert_array_equal(frac_per_unit, np.zeros(1))
+        np.testing.assert_array_equal(frac_per_burst, np.zeros(1))
+        assert backbone.size == 0
+
+
+class TestSpikeDataGetFracActiveEdgesShape3:
+    """``SpikeData.get_frac_active`` with a third edges column: the
+    implementation only indexes ``edges[burst, 0]`` and
+    ``edges[burst, 1]``, so any third column is silently ignored. No
+    shape validation on ``edges.shape[1]``.
+
+    This pins existing behavior — see REVIEW.md for the gap on
+    silently-tolerated extra edge columns.
+    """
+
+    def test_three_column_edges_third_column_ignored(self):
+        """
+        ``edges=np.array([[0, 10, 99]])`` runs to completion using
+        only the first two columns; the third (``99``) is ignored.
+        The result has shape (B=1,) for per-burst and (N,) for
+        per-unit.
+
+        Tests:
+            (Test Case 1) No error is raised.
+            (Test Case 2) ``frac_per_unit`` has shape ``(N,)``.
+            (Test Case 3) ``frac_per_burst`` has shape ``(B,) = (1,)``.
+        """
+        sd = SpikeData([[1.0, 3.0, 5.0, 7.0, 9.0]], length=100.0)
+        edges3 = np.array([[0, 10, 99]])
+        frac_per_unit, frac_per_burst, _ = sd.get_frac_active(
+            edges3, MIN_SPIKES=1, backbone_threshold=0.5
+        )
+        assert frac_per_unit.shape == (1,)
+        assert frac_per_burst.shape == (1,)
+
+
+class TestSpikeDataGetBurstsThresholdMultGreaterThanOne:
+    """``SpikeData.get_bursts(burst_edge_mult_thresh=1.5)``: an edge
+    multiplier above 1.0 forces ``edge_level = trough + 1.5*(peak -
+    trough) > peak``, so no samples lie below the threshold around
+    the peak. ``rel_frames`` ends up missing one side of the peak
+    and every detected burst is filtered out — the method returns
+    empty arrays.
+    """
+
+    def test_threshold_above_one_returns_no_bursts(self):
+        """
+        With ``burst_edge_mult_thresh=1.5`` and a synthetic noisy
+        recording, the edge-finding step rejects every candidate
+        peak, yielding empty ``tburst`` / ``edges`` / ``peak_amp``.
+
+        Tests:
+            (Test Case 1) ``tburst`` is empty.
+            (Test Case 2) ``edges`` has shape ``(0, 2)``.
+            (Test Case 3) ``peak_amp`` is empty.
+        """
+        rng = np.random.default_rng(0)
+        trains = [np.sort(rng.uniform(0, 1000, 200)) for _ in range(5)]
+        sd = SpikeData(trains, length=1000.0)
+        tburst, edges, peak_amp = sd.get_bursts(
+            thr_burst=1.0,
+            min_burst_diff=10,
+            burst_edge_mult_thresh=1.5,
+        )
+        assert tburst.shape == (0,)
+        assert edges.shape == (0, 2)
+        assert peak_amp.shape == (0,)
+
+
+class TestSpikeDataComputeStPRAllEmpty:
+    """``SpikeData.compute_spike_trig_pop_rate`` with every train
+    empty: each unit's ``total_spikes`` is 0 and the loop skips the
+    coupling computation; ``stPR`` stays at its zeros initialization
+    and the low-pass filter on zeros also returns zeros. No division
+    by zero occurs.
+    """
+
+    def test_all_empty_trains_returns_zero_coupling_no_nan(self):
+        """
+        Empty trains yield an all-zero coupling curve and no NaN
+        leakage anywhere in the output tuple.
+
+        Tests:
+            (Test Case 1) ``stPR_filtered.shape == (N, 2*window_ms + 1)``.
+            (Test Case 2) ``coupling_strengths_zero_lag`` is all zero.
+            (Test Case 3) Neither ``coupling_strengths_max`` nor
+                ``delays`` contain NaN.
+        """
+        sd = SpikeData([[], [], []], length=1000.0)
+        stPR_filtered, czero, cmax, delays, lags = sd.compute_spike_trig_pop_rate(
+            window_ms=80
+        )
+        assert stPR_filtered.shape == (3, 161)
+        np.testing.assert_array_equal(czero, np.zeros(3))
+        assert not np.any(np.isnan(cmax))
+        assert not np.any(np.isnan(delays))
+
+
+class TestSpikeDataBestMatchAllNaNScores:
+    """``SpikeData.best_match_assignment`` forwards an all-NaN cost
+    matrix to ``scipy.optimize.linear_sum_assignment``, which rejects
+    matrices containing invalid numeric entries with a ``ValueError``.
+    Pin the contract so a regression that silently returned an empty
+    assignment would surface.
+    """
+
+    def test_all_nan_score_matrix_raises_value_error(self):
+        """
+        An all-NaN score matrix triggers a ``ValueError`` from
+        ``linear_sum_assignment``.
+
+        Tests:
+            (Test Case 1) ``ValueError`` is raised.
+            (Test Case 2) Message mentions invalid numeric entries
+                (the SciPy upstream wording).
+        """
+        mat = np.full((3, 3), np.nan)
+        with pytest.raises(ValueError, match="invalid"):
+            SpikeData.best_match_assignment(mat)
