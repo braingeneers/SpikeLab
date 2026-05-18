@@ -690,15 +690,22 @@ class TestNWBExporters:
             st = np.asarray(f["units/spike_times"])
             assert len(st) == 3  # 2 + 1 spikes total
 
-    def test_nonzero_start_time_warning(self, tmp_path):
+    def test_nonzero_start_time_roundtrips(self, tmp_path):
         """
-        NWB export with non-zero start_time issues a UserWarning.
+        NWB export now round-trips ``start_time`` through the file
+        attributes (commit 609aa09) instead of warning that it would
+        be lost. Reload the file and assert ``loaded.start_time``
+        equals the source value.
 
         Tests:
-            (Test Case 1) start_time=-100 triggers a UserWarning about
-                NWB not preserving start_time.
+            (Test Case 1) start_time=-100 round-trips losslessly.
+            (Test Case 2) No "start_time" UserWarning is emitted
+                during export (regression guard against the old
+                warn-on-nonzero contract).
         """
         import warnings
+
+        from spikelab.data_loaders import data_loaders as loaders
 
         trains = [np.array([-50.0, 0.0, 50.0])]
         sd = SpikeData(trains, length=200.0, start_time=-100.0)
@@ -707,8 +714,16 @@ class TestNWBExporters:
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
             exporters.export_spikedata_to_nwb(sd, path)
-            user_warnings = [x for x in w if issubclass(x.category, UserWarning)]
-            assert any("start_time" in str(x.message) for x in user_warnings)
+            user_warnings = [
+                x
+                for x in w
+                if issubclass(x.category, UserWarning)
+                and "start_time" in str(x.message)
+            ]
+            assert user_warnings == []
+
+        loaded = loaders.load_spikedata_from_nwb(path)
+        assert loaded.start_time == -100.0
 
     def test_z_coordinates_roundtrip(self, tmp_path):
         """
@@ -1455,19 +1470,32 @@ class TestScan:
                     0,
                 ), f"Unit {i} should be empty, got shape {ds.shape}"
 
-    def test_nwb_export_event_centered_warns(self, tmp_path):
-        """Tests: NWB export with event-centered SpikeData emits start_time warning.
-        (Test Case 4)
+    def test_nwb_export_event_centered_roundtrips_start_time(self, tmp_path):
+        """Tests: NWB export with event-centered SpikeData now round-trips
+        ``start_time`` through the file (commit 609aa09) instead of
+        warning that it would be lost. (Test Case 4)
         """
+        import warnings
+
+        from spikelab.data_loaders import data_loaders as loaders
+
         sd = SpikeData(
             [np.array([-150.0, -50.0, 100.0]), np.array([-80.0])],
             length=400.0,
             start_time=-200.0,
         )
         filepath = str(tmp_path / "event_centered.nwb")
-        with pytest.warns(UserWarning, match="start_time"):
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
             exporters.export_spikedata_to_nwb(sd, filepath)
+            assert not any(
+                "start_time" in str(x.message)
+                for x in w
+                if issubclass(x.category, UserWarning)
+            )
         assert os.path.isfile(filepath)
+        loaded = loaders.load_spikedata_from_nwb(filepath)
+        assert loaded.start_time == -200.0
 
     def test_kilosort_export_event_centered_warns(self, tmp_path):
         """Tests: KiloSort export with event-centered SpikeData emits start_time warning.
