@@ -1,6 +1,7 @@
 """Custom waveform extractor with per-spike peak centering, used by all Kilosort backends."""
 
 import json
+import logging
 import os
 import shutil
 import sys
@@ -13,6 +14,8 @@ from tqdm import tqdm
 
 from .config import SortingPipelineConfig, WaveformConfig
 from .sorting_utils import Stopwatch, create_folder, print_stage
+
+_logger = logging.getLogger(__name__)
 
 
 class WaveformExtractor:
@@ -70,7 +73,31 @@ class WaveformExtractor:
         # always contains these keys; the fallback to ``WaveformConfig``
         # defaults is defensive for JSON files written before
         # ``save_waveform_files`` was persisted.
+        #
+        # When the fallback fires, emit one ``_logger.warning`` per
+        # missing key so an operator reloading a pre-Phase-2.4
+        # extractor sees that defaults were substituted (the loaded
+        # extractor would otherwise look identical to one written
+        # with the same defaults). The warning includes the source
+        # folder so the operator can identify which extractor
+        # triggered it.
         _wf_defaults = WaveformConfig()
+        _legacy_fallback_keys = (
+            "pos_peak_thresh",
+            "max_waveforms_per_unit",
+            "save_waveform_files",
+        )
+        for _key in _legacy_fallback_keys:
+            if _key not in parameters:
+                _logger.warning(
+                    "extraction_parameters.json at %s is missing %r — "
+                    "substituting WaveformConfig default %r. Expected "
+                    "for waveform folders written before Phase-2.4; "
+                    "re-extract with current parameters to silence.",
+                    root_folder,
+                    _key,
+                    getattr(_wf_defaults, _key),
+                )
         self.pos_peak_thresh = parameters.get(
             "pos_peak_thresh", _wf_defaults.pos_peak_thresh
         )
