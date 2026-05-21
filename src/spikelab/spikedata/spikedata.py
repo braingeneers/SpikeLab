@@ -582,6 +582,28 @@ class SpikeData:
         if kind not in ("spike", "rate"):
             raise ValueError(f"kind must be 'spike' or 'rate', got {kind!r}")
 
+        # Validate the bin-size / window relationship for rate slices.
+        # ``bin_size_ms`` larger than the per-event window (pre + post)
+        # silently produces degenerate ``(U, 1, 1)`` slices because the
+        # underlying resample grid has fewer than one point per slice.
+        # Reject at the boundary so the failure mode is visible to the
+        # caller rather than buried in a downstream "wrong shape"
+        # surprise.
+        if kind == "rate":
+            if bin_size_ms is None or bin_size_ms <= 0:
+                raise ValueError(
+                    f"bin_size_ms must be > 0 for kind='rate', got {bin_size_ms!r}."
+                )
+            window = pre_ms + post_ms
+            if bin_size_ms > window:
+                raise ValueError(
+                    f"bin_size_ms ({bin_size_ms}) exceeds the per-event "
+                    f"window pre_ms + post_ms ({window}). Each slice "
+                    "would collapse to a degenerate (U, 1, S) shape with "
+                    "fewer than one bin per event. Use a smaller "
+                    "bin_size_ms, a larger pre_ms/post_ms, or kind='spike'."
+                )
+
         # Resolve metadata key to array.
         if isinstance(events, str):
             if self.metadata is None or events not in self.metadata:
