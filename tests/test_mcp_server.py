@@ -8485,3 +8485,178 @@ class TestPcmStackThresholdOutKeySentinels:
         # Output is binary at the new key.
         out = ws.get(ns, "pcms_binary").stack
         assert set(np.unique(out).tolist()).issubset({0.0, 1.0})
+
+
+# ============================================================================
+# _sanitize_for_json — numpy scalar coercion. Existing tests cover the
+# float (Python and np.float64) NaN/Inf path and the ndarray inlining +
+# size-cap path. This class pins the .item() coercion for non-float64
+# numpy scalar types — np.float32 (not a Python-float subclass on numpy
+# 2.x), np.int64, np.bool_, np.uint*.
+# ============================================================================
+
+
+class TestSanitizeForJsonNumpyScalarCoercion:
+    """``_sanitize_for_json`` routes any ``np.generic`` instance through
+    ``.item()`` to convert to a native Python type before delegating to
+    the regular float / dict / list / passthrough branches. Pins the
+    coercion for the four non-``float64`` numpy scalar families that
+    were the regression target of the numpy-support commit.
+    """
+
+    def test_float32_finite_coerces_to_python_float(self):
+        """
+        Tests:
+            (Test Case 1) ``np.float32(1.5)`` → Python ``float`` 1.5.
+                Verifies the value, the type (not just equality —
+                ``np.float32`` does NOT subclass ``float`` on numpy 2.x).
+        """
+        from spikelab.mcp_server.server import _sanitize_for_json
+
+        out = _sanitize_for_json(np.float32(1.5))
+        assert out == 1.5
+        assert type(out) is float
+
+    def test_float32_nan_inf_become_none(self):
+        """
+        After ``.item()`` produces a Python float, the float branch
+        converts NaN / ±Inf to ``None``.
+
+        Tests:
+            (Test Case 1) ``np.float32('nan')`` → None.
+            (Test Case 2) ``np.float32('inf')`` → None.
+            (Test Case 3) ``np.float32('-inf')`` → None.
+        """
+        from spikelab.mcp_server.server import _sanitize_for_json
+
+        assert _sanitize_for_json(np.float32("nan")) is None
+        assert _sanitize_for_json(np.float32("inf")) is None
+        assert _sanitize_for_json(np.float32("-inf")) is None
+
+    def test_numpy_int_types_coerce_to_python_int(self):
+        """
+        Tests:
+            (Test Case 1) ``np.int64(7)`` → Python ``int`` 7.
+            (Test Case 2) ``np.int32(-3)`` → Python ``int`` -3.
+            (Test Case 3) ``np.uint8(255)`` → Python ``int`` 255.
+        """
+        from spikelab.mcp_server.server import _sanitize_for_json
+
+        for dtype, val in [(np.int64, 7), (np.int32, -3), (np.uint8, 255)]:
+            out = _sanitize_for_json(dtype(val))
+            assert out == val
+            assert type(out) is int
+
+    def test_numpy_bool_coerces_to_python_bool(self):
+        """
+        Tests:
+            (Test Case 1) ``np.bool_(True)`` → Python ``bool`` True.
+            (Test Case 2) ``np.bool_(False)`` → Python ``bool`` False.
+        """
+        from spikelab.mcp_server.server import _sanitize_for_json
+
+        out_t = _sanitize_for_json(np.bool_(True))
+        out_f = _sanitize_for_json(np.bool_(False))
+        assert out_t is True
+        assert out_f is False
+        assert type(out_t) is bool
+        assert type(out_f) is bool
+
+
+# ============================================================================
+# MCP tool registration schemas — pcm_stack_threshold + concatenate_units.
+# Pin two contracts that the LLM-facing tool catalog depends on:
+#   - pcm_stack_threshold advertises `preserve_nan` (boolean, optional)
+#     and the `out_key` description carries the "OVERWRITE" warning.
+#   - concatenate_units advertises `out_namespace` as optional.
+# Schema drift would degrade LLM tool choice silently.
+# ============================================================================
+
+
+class TestPcmStackThresholdToolSchema:
+    """``pcm_stack_threshold`` tool registration in ``_list_tools``
+    exposes the ``preserve_nan`` kwarg (boolean, optional) and the
+    ``out_key`` description carries the "OVERWRITE" warning so an
+    LLM caller is alerted to the destructive default.
+    """
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_schema_includes_preserve_nan_optional_boolean(self):
+        """
+        Tests:
+            (Test Case 1) The ``pcm_stack_threshold`` tool is registered.
+            (Test Case 2) ``preserve_nan`` is in ``inputSchema.properties``.
+            (Test Case 3) Its type is ``boolean``.
+            (Test Case 4) It is NOT in ``inputSchema.required``.
+        """
+        from spikelab.mcp_server.server import _list_tools
+
+        tools = await _list_tools()
+        tool = next((t for t in tools if t.name == "pcm_stack_threshold"), None)
+        assert tool is not None, "pcm_stack_threshold tool not registered"
+
+        props = tool.inputSchema["properties"]
+        assert "preserve_nan" in props
+        assert props["preserve_nan"]["type"] == "boolean"
+        assert "preserve_nan" not in tool.inputSchema.get("required", [])
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_out_key_description_warns_about_overwrite_default(self):
+        """
+        Tests:
+            (Test Case 1) ``out_key`` property exists in the schema.
+            (Test Case 2) Its description contains the word "OVERWRITE"
+                (case-sensitive — matches the source wording that
+                alerts an LLM caller to the destructive default).
+            (Test Case 3) The top-level tool description also names
+                the OVERWRITE behaviour so a single read of the
+                catalog surfaces the warning.
+        """
+        from spikelab.mcp_server.server import _list_tools
+
+        tools = await _list_tools()
+        tool = next((t for t in tools if t.name == "pcm_stack_threshold"), None)
+        assert tool is not None
+
+        out_key_desc = tool.inputSchema["properties"]["out_key"]["description"]
+        assert "OVERWRITE" in out_key_desc
+        # Top-level tool description also mentions it.
+        assert "OVERWRITE" in tool.description
+
+
+class TestConcatenateUnitsToolSchema:
+    """``concatenate_units`` tool registration exposes ``out_namespace``
+    as an optional kwarg. Companion to
+    ``TestConcatenateUnitsOutNamespace`` which pins the runtime
+    behaviour; this class pins the schema contract that an LLM
+    caller sees.
+    """
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_schema_exposes_out_namespace_optional(self):
+        """
+        Tests:
+            (Test Case 1) The ``concatenate_units`` tool is registered.
+            (Test Case 2) ``out_namespace`` is in
+                ``inputSchema.properties``.
+            (Test Case 3) Its type is ``string``.
+            (Test Case 4) It is NOT in ``inputSchema.required`` (the
+                only required keys are ``workspace_id``,
+                ``namespace_a``, ``namespace_b``).
+        """
+        from spikelab.mcp_server.server import _list_tools
+
+        tools = await _list_tools()
+        tool = next((t for t in tools if t.name == "concatenate_units"), None)
+        assert tool is not None, "concatenate_units tool not registered"
+
+        props = tool.inputSchema["properties"]
+        assert "out_namespace" in props
+        assert props["out_namespace"]["type"] == "string"
+
+        required = tool.inputSchema.get("required", [])
+        assert "out_namespace" not in required
+        assert set(required) == {"workspace_id", "namespace_a", "namespace_b"}
