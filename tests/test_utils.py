@@ -4356,22 +4356,27 @@ class TestUtilsCoreReview:
 class TestResampledIsiEmptyTimes:
     """Boundary tests for _resampled_isi with degenerate ``times`` arrays."""
 
-    def test_resampled_isi_empty_times_with_multi_spikes_raises(self):
+    def test_resampled_isi_empty_times_with_multi_spikes_returns_empty(self):
         """
-        _resampled_isi falls into the single-time branch when len(times) < 2,
-        but a length-0 ``times`` array makes the times[0] access raise
-        IndexError. Pin current behaviour.
+        _resampled_isi now returns an empty float array when ``times``
+        is empty, regardless of how many spikes are present. Matches
+        the empty-friendly behaviour of the ``len(spikes) <= 1`` branch
+        (``np.zeros_like([])`` is empty). Previously the single-time
+        fast path crashed at ``times[0]`` with IndexError when 2+
+        spikes were present.
 
         Tests:
-            (Test Case 1) Multi-spike train with len(times)==0 raises
-                IndexError out of times[0].
+            (Test Case 1) Multi-spike train with len(times)==0 returns
+                ``np.array([], dtype=float)`` — no exception.
         """
         from spikelab.spikedata.utils import _resampled_isi
 
         spikes = [1.0, 2.0, 3.0]
         times = np.array([], dtype=float)
-        with pytest.raises(IndexError):
-            _resampled_isi(spikes, times, sigma_ms=1.0)
+        out = _resampled_isi(spikes, times, sigma_ms=1.0)
+        assert isinstance(out, np.ndarray)
+        assert out.size == 0
+        assert out.dtype == np.float64
 
 
 class TestSliceToSliceSimilarityMatrix:
@@ -4544,30 +4549,29 @@ class TestComputeCrossCorrelationWithLagAllNaN:
 
 
 class TestUtilsResampledIsiEmptyTimes:
-    """``_resampled_isi(spikes, times=np.array([]), ...)`` with two
-    or more spikes falls through the early-return guards into the
-    single-time branch (``len(times) < 2``) which accesses
-    ``times[0]`` on an empty array, raising ``IndexError``.
-
-    This pins existing behavior — see REVIEW.md for the gap on the
-    lack of an explicit empty-times guard.
+    """``_resampled_isi(spikes, times=np.array([]), ...)`` now
+    short-circuits to an empty float array at the top of the function,
+    regardless of the spike count. Previously the single-time fast path
+    crashed at ``times[0]`` with IndexError when 2+ spikes were present.
     """
 
-    def test_empty_times_raises_index_error(self):
+    def test_empty_times_returns_empty_array(self):
         """
-        Empty ``times`` array with a non-trivial spike train raises
-        ``IndexError`` from the ``times[0]`` access.
+        Empty ``times`` returns ``np.array([], dtype=float)`` — no
+        exception. Consistent with the empty-friendly ``len(spikes)
+        <= 1`` branch that already returned ``np.zeros_like([])``.
 
         Tests:
-            (Test Case 1) ``IndexError`` is raised when ``times`` has
-                length zero and the train has 3 spikes.
+            (Test Case 1) Multi-spike + empty times returns empty array.
+            (Test Case 2) Result dtype is float64.
         """
         from spikelab.spikedata.utils import _resampled_isi
 
         spikes = np.array([1.0, 2.0, 3.0])
         times = np.array([], dtype=float)
-        with pytest.raises(IndexError):
-            _resampled_isi(spikes, times, sigma_ms=10.0)
+        out = _resampled_isi(spikes, times, sigma_ms=10.0)
+        assert out.size == 0
+        assert out.dtype == np.float64
 
 
 class TestUtilsButterFilterShortInput:

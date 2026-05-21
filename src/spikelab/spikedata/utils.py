@@ -196,6 +196,13 @@ def _resampled_isi(spikes, times, sigma_ms):
         width.
     """
 
+    # Empty times → empty rates. Matches the empty-friendly behaviour
+    # of the ``len(spikes) <= 1`` branch below (``np.zeros_like([])``
+    # is empty). Without this guard the single-time fast path crashes
+    # at ``times[0]`` with a bare IndexError when 2+ spikes are present.
+    if len(times) == 0:
+        return np.array([], dtype=float)
+
     if len(spikes) == 0 or len(spikes) == 1:
         # Need at least 2 spikes to do get inter-spike interval
         return np.zeros_like(times)
