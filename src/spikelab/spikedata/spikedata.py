@@ -1223,8 +1223,12 @@ class SpikeData:
         length = self.length + spikeData.length + offset
 
         # neuron_attributes salvage: when only one operand has them,
-        # use the available set (with a warning) rather than silently
-        # dropping. Opt out with ``drop_neuron_attributes=True``.
+        # use the available set with a warning rather than silently
+        # dropping. The two single-sided cases warn symmetrically so
+        # the user sees the asymmetry from either direction. Opt out
+        # with ``drop_neuron_attributes=True``. The both-present case
+        # stays silent because it's the documented ``self``-wins-on-
+        # collision rule.
         if drop_neuron_attributes:
             new_neuron_attributes = None
         elif (
@@ -1235,6 +1239,14 @@ class SpikeData:
             # wins on collision, matching the metadata precedence rule).
             new_neuron_attributes = self.neuron_attributes
         elif self.neuron_attributes is not None:
+            warnings.warn(
+                "SpikeData.append: self has neuron_attributes but the "
+                "appended SpikeData does not. Using self's attributes "
+                "for the result. Pass drop_neuron_attributes=True to "
+                "suppress salvage.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
             new_neuron_attributes = self.neuron_attributes
         elif spikeData.neuron_attributes is not None:
             warnings.warn(

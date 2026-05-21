@@ -8719,16 +8719,21 @@ class TestSpikeDataAppendOffsetInf:
 
 class TestSpikeDataAppendNeuronAttrsAsymmetric:
     """``SpikeData.append`` salvages ``neuron_attributes`` when only
-    one operand has them. When ``self`` has none and ``other`` does,
-    the result inherits ``other``'s attrs and a ``RuntimeWarning``
-    is emitted. Pin both behaviors so a silent-drop regression would
-    fail this test."""
+    one operand has them. Both single-sided cases now emit a
+    symmetric ``RuntimeWarning`` so the user sees the asymmetry from
+    either direction. Use ``drop_neuron_attributes=True`` to suppress
+    salvage and force the result to ``None``.
+
+    The both-present case stays silent because it's the documented
+    ``self``-wins-on-collision metadata-precedence rule (not an
+    "asymmetric drop" — a deterministic precedence).
+    """
 
     def test_self_none_other_present_salvages_with_warning(self):
         """
         ``self.neuron_attributes=None`` + ``other.neuron_attributes=[{...}]``:
         the result uses ``other``'s attrs and a ``RuntimeWarning`` is
-        emitted (mentioning ``drop_neuron_attributes``).
+        emitted mentioning the salvage opt-out flag.
 
         Tests:
             (Test Case 1) Result inherits ``other``'s neuron_attributes.
@@ -8748,15 +8753,18 @@ class TestSpikeDataAppendNeuronAttrsAsymmetric:
         ]
         assert any("drop_neuron_attributes" in m for m in runtime_msgs)
 
-    def test_self_present_other_none_keeps_self_silently(self):
+    def test_self_present_other_none_keeps_self_with_warning(self):
         """
         ``self.neuron_attributes=[{...}]`` + ``other.neuron_attributes=None``:
-        the result keeps ``self``'s attrs and no warning is emitted
-        (only the inverse direction warns).
+        the result keeps ``self``'s attrs AND a ``RuntimeWarning`` is
+        emitted symmetric to the inverse direction. Previously this
+        path was silent; the warning closes the asymmetry so the
+        user is notified that one operand was missing attrs.
 
         Tests:
             (Test Case 1) Result inherits ``self``'s neuron_attributes.
-            (Test Case 2) No RuntimeWarning is emitted for this direction.
+            (Test Case 2) Exactly one RuntimeWarning is raised that
+                mentions the salvage opt-out flag.
         """
         sd_self = SpikeData([[1.0]], length=10.0, neuron_attributes=[{"size": 1.0}])
         sd_other = SpikeData([[2.0]], length=10.0)
@@ -8765,8 +8773,39 @@ class TestSpikeDataAppendNeuronAttrsAsymmetric:
             warnings.simplefilter("always")
             r = sd_self.append(sd_other)
         assert r.neuron_attributes == [{"size": 1.0}]
-        runtime_msgs = [w for w in caught if issubclass(w.category, RuntimeWarning)]
-        assert runtime_msgs == []
+        runtime_msgs = [
+            str(w.message) for w in caught if issubclass(w.category, RuntimeWarning)
+        ]
+        assert any("drop_neuron_attributes" in m for m in runtime_msgs)
+
+    def test_drop_neuron_attributes_suppresses_warn_in_both_directions(self):
+        """
+        Passing ``drop_neuron_attributes=True`` short-circuits the
+        salvage logic before the warning fires, in both asymmetric
+        directions. The result is ``None`` and no RuntimeWarning is
+        emitted.
+
+        Tests:
+            (Test Case 1) ``self+/other-`` with drop=True: result is
+                None, no warning.
+            (Test Case 2) ``self-/other+`` with drop=True: same.
+        """
+        sd_with = SpikeData([[1.0]], length=10.0, neuron_attributes=[{"size": 1}])
+        sd_without = SpikeData([[2.0]], length=10.0)
+
+        for left, right, label in [
+            (sd_with, sd_without, "self+/other-"),
+            (sd_without, sd_with, "self-/other+"),
+        ]:
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter("always")
+                r = left.append(right, drop_neuron_attributes=True)
+            assert r.neuron_attributes is None, label
+            runtime = [w for w in caught if issubclass(w.category, RuntimeWarning)]
+            assert runtime == [], (
+                f"{label} produced unexpected warnings: "
+                f"{[str(w.message) for w in runtime]}"
+            )
 
 
 class TestSpikeDataAlignToEventsBinLargerThanWindow:
