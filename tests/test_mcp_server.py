@@ -4694,21 +4694,24 @@ class TestCallTool:
     @pytest.mark.asyncio
     async def test_json_serialization_with_numpy_scalars(self):
         """
-        Tool return dict containing numpy scalars raises TypeError from
-        ``json.dumps``. The exception propagates to the MCP framework, which
-        surfaces it as ``isError=True`` so clients see a real failure
-        rather than a successful result with a confusing payload.
+        Tool return dict containing numpy scalars round-trips through
+        ``_call_tool``: ``_sanitize_for_json`` coerces ``np.float64`` /
+        ``np.int64`` to native Python types via ``.item()`` before the
+        ``json.dumps`` call, so MCP clients receive a clean payload.
 
         Tests:
-            (Test Case 1) When a tool handler returns numpy scalars (int64,
-                float64), _call_tool raises TypeError naming the
-                non-serializable object type.
+            (Test Case 1) When a tool handler returns numpy scalars
+                (int64, float64), the dispatcher succeeds and the
+                serialized JSON contains the same numeric values as
+                native Python types.
 
         Notes:
             - Patching ``spikelab.mcp_server.server.analysis.compute_rates``
               alone is insufficient because ``_TOOL_DISPATCH`` was bound at
               import time. Swap the dispatch entry directly.
         """
+        import json
+
         from spikelab.mcp_server.server import _call_tool, _TOOL_DISPATCH
 
         mock_fn = AsyncMock(
@@ -4721,15 +4724,15 @@ class TestCallTool:
         original = _TOOL_DISPATCH["compute_rates"]
         _TOOL_DISPATCH["compute_rates"] = mock_fn
         try:
-            with pytest.raises(TypeError, match="not JSON serializable"):
-                await _call_tool(
-                    "compute_rates",
-                    {
-                        "workspace_id": "ws",
-                        "namespace": "ns",
-                        "key": "rates",
-                    },
-                )
+            result = await _call_tool(
+                "compute_rates",
+                {"workspace_id": "ws", "namespace": "ns", "key": "rates"},
+            )
+            assert len(result) == 1
+            payload = json.loads(result[0].text)
+            assert payload["rates"] == [0.1, 0.2]
+            assert payload["unit"] == "kHz"
+            assert payload["num_neurons"] == 2
         finally:
             _TOOL_DISPATCH["compute_rates"] = original
 
@@ -7869,14 +7872,19 @@ class TestListNeuronsNumpyArrayAttr:
 
     @pytestmark_server
     @pytest.mark.asyncio
-    async def test_json_dumps_via_dispatcher_raises_type_error(self, loaded_ws):
+    async def test_json_dumps_via_dispatcher_handles_numpy_arrays(
+        self, loaded_ws
+    ):
         """
         Tests:
             (Test Case 1) Routing the result through the MCP dispatcher
-                (which sanitises NaN/Inf but not numpy arrays) raises
-                ``TypeError`` at the ``json.dumps`` boundary, mentioning
-                ``ndarray``.
+                inlines numpy arrays as nested Python lists via
+                ``_sanitize_for_json``; ``json.dumps`` succeeds.
+            (Test Case 2) The serialized payload contains the template
+                values (``[1.0, 2.0, 3.0]``) as a JSON array.
         """
+        import json
+
         ws_id, ns = loaded_ws
         wm = get_workspace_manager()
         ws = wm.get_workspace(ws_id)
@@ -7891,11 +7899,21 @@ class TestListNeuronsNumpyArrayAttr:
 
         from spikelab.mcp_server import server as srv
 
-        with pytest.raises(TypeError, match=r"ndarray"):
-            await srv._call_tool(
-                "list_neurons",
-                {"workspace_id": ws_id, "namespace": "np_ns2"},
-            )
+        result = await srv._call_tool(
+            "list_neurons",
+            {"workspace_id": ws_id, "namespace": "np_ns2"},
+        )
+        # _call_tool returns a list[TextContent]; the JSON-encoded
+        # payload is on .text.
+        assert len(result) == 1
+        payload = json.loads(result[0].text)
+        # The template should be inlined as a list of floats.
+        # Tolerant lookup: payload shape depends on list_neurons' return
+        # format, but somewhere it should contain the array values.
+        flat = json.dumps(payload)
+        assert "1.0" in flat and "2.0" in flat and "3.0" in flat, (
+            f"template values not found in payload: {flat[:500]}"
+        )
 
 
 class TestComputeResampledIsiSigmaMsZero:

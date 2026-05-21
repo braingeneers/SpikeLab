@@ -4176,16 +4176,72 @@ async def _call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCon
     ]
 
 
-def _sanitize_for_json(obj: Any) -> Any:
-    """Recursively replace NaN / Inf floats with None for RFC-8259 JSON.
+#: Soft cap on the number of elements in a numpy array that the MCP
+#: result sanitiser will inline into the JSON response. Arrays whose
+#: ``.size`` exceeds this raise a :class:`ValueError` from
+#: :func:`_sanitize_for_json` rather than being silently materialised
+#: into a Python list (which can blow up the JSON payload and slow
+#: the protocol layer to a crawl). Adjustable at runtime by writing
+#: to ``spikelab.mcp_server.server.MAX_INLINE_ARRAY_SIZE`` after
+#: import — e.g. for embedded callers that know the protocol can
+#: handle larger payloads, or for tests that want to exercise the
+#: threshold branch with a small cap.
+MAX_INLINE_ARRAY_SIZE = 10_000
 
-    ``json.dumps(..., allow_nan=False)`` rejects non-finite floats — but those
-    floats arise legitimately from many statistical tools on degenerate input
-    (empty arrays, zero-variance signals, all-NaN slices). Replacing them with
-    ``None`` at the serialisation boundary lets clients distinguish "no value"
-    from a parse error.
+
+def _sanitize_for_json(obj: Any) -> Any:
+    """Recursively prepare an MCP tool result for ``json.dumps``.
+
+    Three responsibilities:
+
+      1. Replace non-finite floats (``NaN`` / ``Inf``) with ``None``
+         so ``json.dumps(..., allow_nan=False)`` succeeds. These
+         arise legitimately from statistical tools on degenerate
+         input (empty arrays, zero-variance signals, all-NaN
+         slices).
+      2. Coerce numpy scalars (``np.float32`` / ``np.int64`` /
+         ``np.bool_`` / etc.) to native Python types so
+         ``json.dumps`` doesn't reject them with
+         ``TypeError: Object of type np.float32 is not JSON
+         serializable``.
+      3. Inline small numpy arrays as nested Python lists; raise
+         :class:`ValueError` on arrays whose ``.size`` exceeds
+         :data:`MAX_INLINE_ARRAY_SIZE`, pointing the user at the
+         workspace-store-by-reference pattern (an MCP tool that
+         needs to return a large array should write it to the
+         workspace and return ``{"namespace": ..., "key": ...}``).
     """
     import math as _math
+
+    # Numpy branch first: ``np.float64`` happens to be a ``float``
+    # subclass on modern numpy and would route through the float
+    # branch below correctly, but ``np.float32`` is not — and
+    # ``np.ndarray`` / ``np.int64`` / ``np.bool_`` never were. Catch
+    # all of them up-front via the numpy hierarchy so the float
+    # branch only has to handle Python ``float``.
+    try:
+        import numpy as _np
+
+        if isinstance(obj, _np.ndarray):
+            if obj.size > MAX_INLINE_ARRAY_SIZE:
+                raise ValueError(
+                    f"numpy array with {obj.size} elements (shape "
+                    f"{obj.shape}, dtype {obj.dtype}) exceeds the inline "
+                    f"JSON cap of {MAX_INLINE_ARRAY_SIZE}. Either store "
+                    "the array in the workspace and return its "
+                    "(namespace, key) reference, or raise the cap by "
+                    "setting ``spikelab.mcp_server.server."
+                    "MAX_INLINE_ARRAY_SIZE`` to a larger value before "
+                    "invoking the tool."
+                )
+            return [_sanitize_for_json(v) for v in obj.tolist()]
+        if isinstance(obj, _np.generic):
+            # Numpy scalar — convert to Python equivalent so the float
+            # NaN/Inf branch (or the dict/list/passthrough branches)
+            # below can take over uniformly.
+            return _sanitize_for_json(obj.item())
+    except ImportError:
+        pass  # numpy not available — skip numpy-specific handling
 
     if isinstance(obj, float):
         if _math.isnan(obj) or _math.isinf(obj):
