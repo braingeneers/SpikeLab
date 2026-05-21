@@ -2583,35 +2583,41 @@ class TestRateSliceStackUnitCorrConstantRate:
 
 
 class TestRateSliceStackSubsliceEmpty:
-    """``RateSliceStack.subslice(slices=[])`` is silently accepted —
-    the bounds check loop has no iterations, ``new_times`` ends up
-    empty, and ``event_stack[:, :, []]`` produces a zero-S sub-stack.
-    The ``__init__`` guard rejects ``T==0`` but does NOT reject
-    ``S==0``, so the result is a valid RateSliceStack with shape
-    ``(U, T, 0)``.
-
-    This pins existing behavior — see REVIEW.md for the gap on
-    silently producing zero-slice stacks that downstream operations
-    may not handle gracefully.
+    """``RateSliceStack.subslice(slices=[])`` now raises ``ValueError``
+    via the symmetric T=0/S=0 guard in ``__init__``. The S=0 case was
+    silently accepted previously, producing a ``(U, T, 0)`` stack that
+    downstream slice-aware methods weren't designed to handle.
+    Callers that want a "no slices" sentinel should use ``None``
+    rather than a degenerate stack.
     """
 
-    def test_empty_slice_list_yields_zero_S_stack(self):
+    def test_empty_slice_list_raises(self):
         """
-        ``subslice(slices=[])`` returns a RateSliceStack with the
-        same U and T but S=0 and an empty ``times`` list. No error
-        is raised.
+        ``subslice(slices=[])`` propagates ``ValueError`` from the
+        ``__init__`` S=0 guard.
 
         Tests:
-            (Test Case 1) ``event_stack.shape[2] == 0``.
-            (Test Case 2) ``event_stack.shape[:2]`` matches the
-                original ``(U, T)``.
-            (Test Case 3) ``times`` is an empty list.
-            (Test Case 4) ``step_size`` is carried over.
+            (Test Case 1) ``ValueError`` raised.
+            (Test Case 2) Message identifies S=0 as the issue and
+                points the caller at the ``None`` alternative.
         """
         mat = make_event_matrix(n_units=2, n_times=5, n_slices=3)
         rss = RateSliceStack(event_matrix=mat, step_size=2.0)
-        out = rss.subslice(slices=[])
-        assert out.event_stack.shape[2] == 0
-        assert out.event_stack.shape[:2] == (2, 5)
-        assert out.times == []
-        assert out.step_size == 2.0
+        with pytest.raises(ValueError, match="zero slices"):
+            rss.subslice(slices=[])
+
+    def test_zero_s_event_matrix_raises(self):
+        """
+        Constructing a RateSliceStack directly with ``S=0`` also
+        raises (symmetric with the existing T=0 guard).
+
+        Tests:
+            (Test Case 1) Construction with ``(U, T, 0)`` event_matrix
+                raises ValueError with "zero slices" in the message.
+        """
+        with pytest.raises(ValueError, match="zero slices"):
+            RateSliceStack(
+                event_matrix=np.zeros((2, 5, 0)),
+                times_start_to_end=[],
+                step_size=1.0,
+            )

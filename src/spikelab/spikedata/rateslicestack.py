@@ -191,10 +191,26 @@ class RateSliceStack:
             self.event_stack = event_matrix
             self.times = times_start_to_end
 
+        # Reject both degenerate axis lengths. The T=0 case was rejected
+        # historically; S=0 was accepted silently, which let
+        # ``subslice([])`` (or any caller that filtered to no slices)
+        # produce a zero-slice stack that downstream slice-aware
+        # methods (``apply``, ``__getitem__``, similarity computations)
+        # weren't built to handle. Reject symmetric for predictable
+        # downstream behaviour. Callers that genuinely need a 0-slice
+        # placeholder should manage that as ``None`` rather than a
+        # degenerate stack.
         if self.event_stack.shape[1] == 0:
             raise ValueError(
                 "event_stack has zero time bins (T=0). "
                 "A RateSliceStack requires at least one time bin."
+            )
+        if self.event_stack.shape[2] == 0:
+            raise ValueError(
+                "event_stack has zero slices (S=0). "
+                "A RateSliceStack requires at least one slice; "
+                "represent the no-slice case as ``None`` rather than "
+                "a degenerate stack."
             )
 
         if neuron_attributes is None and data_obj is not None:
