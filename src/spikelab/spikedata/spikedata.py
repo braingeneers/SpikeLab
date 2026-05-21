@@ -1997,6 +1997,34 @@ class SpikeData:
             backbone_units (numpy.ndarray): 1D array of the neuron/unit
                 indices that are backbone units.
         """
+        # Shape validation at the API boundary. ``edges`` must be 2-D
+        # with exactly two columns ``[start, end]``. The previous
+        # implementation silently ignored any 3rd+ columns (no error,
+        # no warning) which let callers leak per-burst metadata that
+        # would never be consulted. Also reject 1-D inputs explicitly
+        # rather than letting the per-burst loop produce IndexError
+        # mid-computation.
+        edges = np.asarray(edges)
+        if edges.ndim != 2 or (edges.size > 0 and edges.shape[1] != 2):
+            raise ValueError(
+                f"edges must be a 2-D array of shape (B, 2) "
+                f"containing [start, end] indices, got "
+                f"shape={edges.shape} ndim={edges.ndim}."
+            )
+
+        # Reject inverted edges (``start > end``). The per-burst loop
+        # below uses a ``>= start & <= end`` mask: inverted ranges
+        # produce an all-False mask and silently count zero spikes,
+        # making the affected bursts indistinguishable from genuinely
+        # quiet ones.
+        if edges.size > 0 and (edges[:, 0] > edges[:, 1]).any():
+            bad = int(np.argmax(edges[:, 0] > edges[:, 1]))
+            raise ValueError(
+                f"Inverted edge at row {bad}: "
+                f"start={int(edges[bad, 0])} > end={int(edges[bad, 1])}. "
+                "All edges must satisfy start <= end."
+            )
+
         t_spk_mat = self.sparse_raster(bin_size=bin_size).toarray()
 
         # Sanity check: edges must fit within the raster dimensions

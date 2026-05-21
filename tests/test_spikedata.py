@@ -8771,28 +8771,46 @@ class TestSpikeDataAppendNeuronAttrsAsymmetric:
 
 class TestSpikeDataAlignToEventsBinLargerThanWindow:
     """``SpikeData.align_to_events(kind="rate", bin_size_ms=...)``
-    with a bin larger than the pre/post window does not raise — the
-    upstream ``resampled_isi`` step uses ``np.arange(start, end,
-    bin_size_ms)`` over the full recording and a single bin lands
-    inside the (pre, post) slice window. The output has ``T=1``
-    (silent undersampling). Pin the contract so a future fix that
-    rejects bin>window or returns T=0 surfaces here.
-
-    This pins existing behavior — see REVIEW.md for the gap on
-    silently undersampled event-aligned rate stacks.
+    with a bin larger than the pre/post window now raises
+    :class:`ValueError` at the API boundary. Previously it silently
+    produced a degenerate ``(U, 1, 1)`` output via the upstream
+    ``resampled_isi`` step picking up a single grid point per slice.
     """
 
-    def test_bin_larger_than_window_produces_t_eq_1(self):
+    def test_bin_larger_than_window_raises(self):
         """
-        ``pre_ms=10, post_ms=10, bin_size_ms=50`` (bin > total window):
-        the aligned rate stack has ``T=1`` (one bin per slice) and
-        does not raise.
+        ``pre_ms=10, post_ms=10, bin_size_ms=50`` (bin > 20 ms total
+        window): the boundary guard raises ``ValueError`` with both
+        values in the message and suggests the three remediations.
 
         Tests:
-            (Test Case 1) Returned event_stack shape is ``(U, 1, 1)``.
-            (Test Case 2) ``step_size`` equals the requested
-                ``bin_size_ms`` (50).
-            (Test Case 3) No exception raised.
+            (Test Case 1) ``ValueError`` is raised.
+            (Test Case 2) Message contains "bin_size_ms" and "window".
+            (Test Case 3) Message contains the offending bin size
+                and window total.
+        """
+        sd = SpikeData([[5.0, 50.0, 150.0]], length=300.0)
+        with pytest.raises(ValueError, match="bin_size_ms") as exc_info:
+            sd.align_to_events(
+                events=[100.0],
+                pre_ms=10,
+                post_ms=10,
+                kind="rate",
+                bin_size_ms=50,
+            )
+        msg = str(exc_info.value)
+        assert (
+            "50" in msg and "20" in msg
+        ), f"expected bin (50) and window (20) in message: {msg}"
+
+    def test_bin_equal_to_window_still_works(self):
+        """
+        ``bin_size_ms == pre_ms + post_ms`` is the boundary case
+        — one bin fits per slice. Legal (if degenerate), no error.
+
+        Tests:
+            (Test Case 1) No exception raised.
+            (Test Case 2) Returned stack has the expected step_size.
         """
         sd = SpikeData([[5.0, 50.0, 150.0]], length=300.0)
         rss = sd.align_to_events(
@@ -8800,74 +8818,70 @@ class TestSpikeDataAlignToEventsBinLargerThanWindow:
             pre_ms=10,
             post_ms=10,
             kind="rate",
-            bin_size_ms=50,
+            bin_size_ms=20,
         )
-        # Silent undersampling: T collapses to 1.
-        assert rss.event_stack.shape == (1, 1, 1)
-        assert rss.step_size == 50.0
+        assert rss.step_size == 20.0
 
 
 class TestSpikeDataGetFracActiveEdgesStartGreaterThanEnd:
-    """``SpikeData.get_frac_active`` with ``edges=[[start, end]]``
-    where ``start > end``: the boolean mask
-    ``(times >= start) & (times <= end)`` is always False, so the
-    burst contains zero spikes for every unit and the per-burst /
-    per-unit fractions are zero. No error is raised.
-
-    This pins existing behavior — see REVIEW.md for the gap on
-    silently-accepted inverted edges.
+    """``SpikeData.get_frac_active`` with inverted ``edges`` (i.e.
+    ``start > end``) now raises :class:`ValueError` at the boundary
+    rather than silently counting zero spikes (the previous
+    behaviour: the ``>= start & <= end`` mask was always False).
     """
 
-    def test_inverted_edges_yields_zero_fractions(self):
+    def test_inverted_edges_raises(self):
         """
-        ``edges=[[5, 1]]`` (start > end): all units record 0 spikes
-        for that burst, so ``frac_per_unit`` and ``frac_per_burst``
-        are zero, and ``backbone_units`` is empty.
+        ``edges=[[5, 1]]`` (start > end): boundary guard raises
+        ``ValueError`` naming the offending row and both indices.
 
         Tests:
-            (Test Case 1) ``frac_per_unit`` is all zeros.
-            (Test Case 2) ``frac_per_burst`` is all zeros.
-            (Test Case 3) ``backbone_units`` is empty.
+            (Test Case 1) ``ValueError`` is raised.
+            (Test Case 2) Message contains "Inverted edge" and both
+                start/end values.
         """
         sd = SpikeData([[1.0, 3.0, 5.0, 7.0, 9.0]], length=100.0)
         edges = np.array([[5, 1]])
-        frac_per_unit, frac_per_burst, backbone = sd.get_frac_active(
-            edges, MIN_SPIKES=1, backbone_threshold=0.5
-        )
-        np.testing.assert_array_equal(frac_per_unit, np.zeros(1))
-        np.testing.assert_array_equal(frac_per_burst, np.zeros(1))
-        assert backbone.size == 0
+        with pytest.raises(ValueError, match="Inverted edge") as exc_info:
+            sd.get_frac_active(edges, MIN_SPIKES=1, backbone_threshold=0.5)
+        msg = str(exc_info.value)
+        assert "5" in msg and "1" in msg
 
 
 class TestSpikeDataGetFracActiveEdgesShape3:
-    """``SpikeData.get_frac_active`` with a third edges column: the
-    implementation only indexes ``edges[burst, 0]`` and
-    ``edges[burst, 1]``, so any third column is silently ignored. No
-    shape validation on ``edges.shape[1]``.
-
-    This pins existing behavior — see REVIEW.md for the gap on
-    silently-tolerated extra edge columns.
+    """``SpikeData.get_frac_active`` with edges of wrong shape (3+
+    columns, or 1-D) now raises :class:`ValueError`. The previous
+    behaviour silently used only ``edges[:, 0:2]`` and ignored any
+    further columns, letting callers leak per-burst metadata that
+    would never be consulted.
     """
 
-    def test_three_column_edges_third_column_ignored(self):
+    def test_three_column_edges_raises(self):
         """
-        ``edges=np.array([[0, 10, 99]])`` runs to completion using
-        only the first two columns; the third (``99``) is ignored.
-        The result has shape (B=1,) for per-burst and (N,) for
-        per-unit.
+        ``edges=np.array([[0, 10, 99]])`` raises because the third
+        column would be silently ignored.
 
         Tests:
-            (Test Case 1) No error is raised.
-            (Test Case 2) ``frac_per_unit`` has shape ``(N,)``.
-            (Test Case 3) ``frac_per_burst`` has shape ``(B,) = (1,)``.
+            (Test Case 1) ``ValueError`` is raised.
+            (Test Case 2) Message names the offending shape.
         """
         sd = SpikeData([[1.0, 3.0, 5.0, 7.0, 9.0]], length=100.0)
         edges3 = np.array([[0, 10, 99]])
-        frac_per_unit, frac_per_burst, _ = sd.get_frac_active(
-            edges3, MIN_SPIKES=1, backbone_threshold=0.5
-        )
-        assert frac_per_unit.shape == (1,)
-        assert frac_per_burst.shape == (1,)
+        with pytest.raises(ValueError, match=r"shape=\(1, 3\)"):
+            sd.get_frac_active(edges3, MIN_SPIKES=1, backbone_threshold=0.5)
+
+    def test_one_d_edges_raises(self):
+        """
+        ``edges=np.array([0, 10])`` (1-D) raises with a clear shape
+        message rather than the prior IndexError mid-computation.
+
+        Tests:
+            (Test Case 1) ``ValueError`` is raised with shape info.
+        """
+        sd = SpikeData([[1.0, 3.0, 5.0, 7.0, 9.0]], length=100.0)
+        edges_1d = np.array([0, 10])
+        with pytest.raises(ValueError, match="ndim=1"):
+            sd.get_frac_active(edges_1d, MIN_SPIKES=1, backbone_threshold=0.5)
 
 
 class TestSpikeDataGetBurstsThresholdMultGreaterThanOne:
