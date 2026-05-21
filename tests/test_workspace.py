@@ -5609,3 +5609,152 @@ class TestDumpDictSchemaAdditions:
             assert loaded_a.tolist() == ["x", "y", "z"]
         else:
             assert list(loaded_a) == ["x", "y", "z"]
+
+
+class TestDumpDictRaggedTupleRejection:
+    """``_dump_dict`` rejects mixed-type / ragged tuples. Two error
+    paths exist depending on numpy version:
+
+      - numpy 2.x: ``np.asarray`` on inhomogeneous data raises
+        ``ValueError`` before the dtype check fires.
+      - older numpy: ``np.asarray`` succeeds with ``dtype=object`` and
+        the explicit ``TypeError("ragged or mixed-type tuple")`` fires.
+
+    Pin both: the test asserts that either error type is raised for
+    a ragged tuple. The TypeError branch is reachable via inputs that
+    numpy converts to object-dtype without raising (e.g. mixed
+    Python-typed elements of homogeneous outer shape).
+    """
+
+    @pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py not installed")
+    def test_ragged_tuple_raises(self, tmp_path):
+        """
+        Tests:
+            (Test Case 1) ``{"mixed": ("a", 1, [2, 3])}`` raises one
+                of ``(TypeError, ValueError)`` — either branch
+                surfaces the bad input cleanly to the caller.
+        """
+        import h5py
+
+        from spikelab.workspace.hdf5_io import _dump_dict
+
+        path = str(tmp_path / "ragged_tuple.h5")
+        with h5py.File(path, "w") as f:
+            grp = f.create_group("d")
+            with pytest.raises((TypeError, ValueError)):
+                _dump_dict(grp, {"mixed": ("a", 1, [2, 3])}, created_at=0.0)
+
+    @pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py not installed")
+    def test_object_dtype_tuple_raises_type_error_naming_key(self, tmp_path):
+        """
+        Object-dtype tuples (where ``np.asarray`` produces
+        ``dtype=object`` without raising — e.g. a tuple of dicts)
+        take the explicit ``TypeError("ragged or mixed-type tuple")``
+        path so the message names the offending dict key.
+
+        Tests:
+            (Test Case 1) ``{"bad": ({"x": 1}, {"y": 2})}`` raises
+                ``TypeError``.
+            (Test Case 2) The message contains the offending key
+                (``"bad"``) and the words ``"ragged or mixed-type
+                tuple"``.
+        """
+        import h5py
+
+        from spikelab.workspace.hdf5_io import _dump_dict
+
+        path = str(tmp_path / "object_tuple.h5")
+        with h5py.File(path, "w") as f:
+            grp = f.create_group("d")
+            with pytest.raises(TypeError, match="ragged or mixed-type tuple"):
+                _dump_dict(
+                    grp,
+                    {"bad": ({"x": 1}, {"y": 2})},
+                    created_at=0.0,
+                )
+
+
+class TestDumpDictUnorderableSetRejection:
+    """``_dump_dict`` requires set / frozenset values to be orderable so
+    the on-disk representation is deterministic. Mixed-type sets
+    (e.g. ``{1, "a"}``) fail to sort and raise ``TypeError`` naming
+    the offending key.
+    """
+
+    @pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py not installed")
+    def test_unorderable_set_raises_type_error(self, tmp_path):
+        """
+        Tests:
+            (Test Case 1) ``{"bad": {1, "a"}}`` raises ``TypeError``.
+            (Test Case 2) The error message names the offending key
+                and mentions ``"unorderable elements"``.
+        """
+        import h5py
+
+        from spikelab.workspace.hdf5_io import _dump_dict
+
+        path = str(tmp_path / "unorderable_set.h5")
+        with h5py.File(path, "w") as f:
+            grp = f.create_group("d")
+            with pytest.raises(TypeError, match="unorderable elements"):
+                _dump_dict(grp, {"bad": {1, "a"}}, created_at=0.0)
+
+    @pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py not installed")
+    def test_unorderable_frozenset_raises_type_error(self, tmp_path):
+        """
+        Tests:
+            (Test Case 1) Same contract applies to ``frozenset``:
+                ``{"bad": frozenset({1, "a"})}`` raises ``TypeError``
+                with the "unorderable" wording.
+        """
+        import h5py
+
+        from spikelab.workspace.hdf5_io import _dump_dict
+
+        path = str(tmp_path / "unorderable_frozenset.h5")
+        with h5py.File(path, "w") as f:
+            grp = f.create_group("d")
+            with pytest.raises(TypeError, match="unorderable elements"):
+                _dump_dict(grp, {"bad": frozenset({1, "a"})}, created_at=0.0)
+
+
+class TestDumpDictListOfStringsRoundtrip:
+    """Lists of strings convert to a unicode ndarray via ``np.asarray``
+    and round-trip through ``_dump_dict`` / ``_load_dict`` losslessly
+    after commit 6945961 lifted the unicode-ndarray rejection.
+
+    Sibling of ``TestDumpDictSchemaAdditions.test_string_ndarray_value_roundtrips``
+    — that test covers explicit ``np.array([...])``; this one covers
+    the more common Python-list-of-strings entry point.
+    """
+
+    @pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py not installed")
+    def test_list_of_strings_roundtrips(self, tmp_path):
+        """
+        Tests:
+            (Test Case 1) ``{"names": ["alpha", "beta", "gamma"]}``
+                round-trips through ``_dump_dict`` + ``_load_dict``
+                without raising.
+            (Test Case 2) Loaded values match the original strings
+                (whether returned as ndarray or list — both are
+                accepted shapes).
+        """
+        import h5py
+
+        from spikelab.workspace.hdf5_io import _dump_dict, _load_dict
+
+        path = str(tmp_path / "list_of_strings.h5")
+        with h5py.File(path, "w") as f:
+            grp = f.create_group("d")
+            _dump_dict(
+                grp,
+                {"names": ["alpha", "beta", "gamma"]},
+                created_at=0.0,
+            )
+        with h5py.File(path, "r") as f:
+            loaded = _load_dict(f["d"])
+        loaded_names = loaded["names"]
+        if isinstance(loaded_names, np.ndarray):
+            assert loaded_names.tolist() == ["alpha", "beta", "gamma"]
+        else:
+            assert list(loaded_names) == ["alpha", "beta", "gamma"]

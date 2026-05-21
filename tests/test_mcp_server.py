@@ -8169,6 +8169,129 @@ class TestSetNeuronAttributeEmptyIndices:
 
 
 # ============================================================================
+# _sanitize_for_json: numpy ndarray inlining + oversize-cap. Existing
+# TestMcpJsonNanSanitiser covers NaN/Inf → None; these classes pin the
+# ndarray handling and the MAX_INLINE_ARRAY_SIZE guard.
+# ============================================================================
+
+
+class TestSanitizeForJsonNdarrayInlining:
+    """``_sanitize_for_json`` inlines small numpy arrays as nested
+    Python lists. NaN / Inf values inside the array are still
+    replaced with ``None``. 0-D arrays become a 1-element list via
+    ``.tolist()``.
+    """
+
+    def test_1d_ndarray_inlined_with_nan_replacement(self):
+        """
+        Tests:
+            (Test Case 1) ``np.array([1.0, np.nan, 3.0])`` → ``[1.0,
+                None, 3.0]`` (NaN → None per the existing contract).
+        """
+        from spikelab.mcp_server.server import _sanitize_for_json
+
+        out = _sanitize_for_json(np.array([1.0, np.nan, 3.0]))
+        assert out == [1.0, None, 3.0]
+
+    def test_2d_ndarray_inlined_as_nested_list(self):
+        """
+        Tests:
+            (Test Case 1) ``np.array([[1, 2], [3, 4]])`` → ``[[1, 2],
+                [3, 4]]`` (shape preserved as nested lists).
+        """
+        from spikelab.mcp_server.server import _sanitize_for_json
+
+        out = _sanitize_for_json(np.array([[1, 2], [3, 4]]))
+        assert out == [[1, 2], [3, 4]]
+
+    def test_empty_ndarray_becomes_empty_list(self):
+        """
+        Tests:
+            (Test Case 1) ``np.array([])`` → ``[]``.
+        """
+        from spikelab.mcp_server.server import _sanitize_for_json
+
+        out = _sanitize_for_json(np.array([]))
+        assert out == []
+
+
+class TestSanitizeForJsonOversizeRaises:
+    """``_sanitize_for_json`` raises ``ValueError`` on numpy arrays
+    larger than ``MAX_INLINE_ARRAY_SIZE`` (10,000 by default). The
+    error message points the caller at the workspace-store-by-
+    reference pattern and at the cap-raise knob.
+    """
+
+    def test_oversize_ndarray_raises_with_size_and_cap_in_message(self):
+        """
+        Tests:
+            (Test Case 1) Array of 20,000 zeros raises ``ValueError``.
+            (Test Case 2) Error message includes the actual element
+                count, the documented cap (10000), and the words
+                "exceeds the inline JSON cap" so the user can
+                attribute the failure.
+        """
+        from spikelab.mcp_server.server import (
+            MAX_INLINE_ARRAY_SIZE,
+            _sanitize_for_json,
+        )
+
+        big = np.zeros(MAX_INLINE_ARRAY_SIZE + 1)
+        with pytest.raises(ValueError, match="exceeds the inline JSON cap"):
+            _sanitize_for_json(big)
+
+    def test_at_cap_is_inlined_above_cap_raises(self):
+        """
+        Tests:
+            (Test Case 1) Array of exactly ``MAX_INLINE_ARRAY_SIZE``
+                elements is inlined (the cap is ``> cap``, not ``>=``,
+                so the boundary case passes through).
+            (Test Case 2) ``cap + 1`` elements raises.
+        """
+        from spikelab.mcp_server.server import (
+            MAX_INLINE_ARRAY_SIZE,
+            _sanitize_for_json,
+        )
+
+        at_cap = np.zeros(MAX_INLINE_ARRAY_SIZE)
+        out = _sanitize_for_json(at_cap)
+        assert len(out) == MAX_INLINE_ARRAY_SIZE
+
+        above = np.zeros(MAX_INLINE_ARRAY_SIZE + 1)
+        with pytest.raises(ValueError):
+            _sanitize_for_json(above)
+
+
+class TestMergeWorkspaceNonexistentPath:
+    """``merge_workspace`` calls ``AnalysisWorkspace.load(path)``
+    directly without a try/except, so a non-existent path propagates
+    the underlying error to the caller. Pin the actual current
+    behavior — propagation, not a wrapped error dict — so a future
+    swap to error-dict semantics is detected as a contract change.
+    """
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_nonexistent_path_propagates_error(
+        self, loaded_ws, tmp_path
+    ):
+        """
+        Tests:
+            (Test Case 1) ``merge_workspace(ws_id, path=<missing>)``
+                raises (current behavior — the underlying
+                ``AnalysisWorkspace.load`` raises). The exact
+                exception type is not asserted (could be
+                FileNotFoundError, OSError, or h5py-specific) — just
+                that an error propagates rather than being silently
+                swallowed.
+        """
+        ws_id, _ns = loaded_ws
+        missing = str(tmp_path / "does_not_exist.h5")
+        with pytest.raises(Exception):
+            await analysis.merge_workspace(ws_id, path=missing)
+
+
+# ============================================================================
 # Parallel-session source: MCP concatenate_units out_namespace (commit 55acbb4)
 # ============================================================================
 

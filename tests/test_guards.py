@@ -13978,71 +13978,74 @@ class TestComputeInactivityTimeoutSNaNBaseAndMax:
 
 
 class TestHostMemoryWatchdogDoubleEnter:
-    """Constructing a single ``HostMemoryWatchdog`` and calling
-    ``__enter__`` twice without an intervening ``__exit__`` leaks the
-    first ContextVar token.
+    """``HostMemoryWatchdog`` raises ``RuntimeError`` when ``__enter__``
+    is called a second time while the watchdog is still active (i.e.
+    no intervening ``__exit__``). The class stores a single
+    ``self._token`` and is not designed to be reentrant; the guard
+    converts a silent ContextVar-leak hazard into an actionable error.
 
-    The instance stores ``self._token`` as a single attribute, so the
-    second ``__enter__`` overwrites the first token reference. A
-    subsequent ``__exit__`` only resets the second token — the first
-    one is no longer reachable, and the ContextVar still has the
-    watchdog set as the active publication after a single ``__exit__``.
-
-    This is a source oddity: nested context-manager use is not
-    supported on the same instance, but there is no construction-time
-    or enter-time guard against it. Pin the current behaviour
-    explicitly so a later "raise on re-enter" fix has a regression
-    target.
+    This pins the post-fix contract from the source guard (commit
+    that closes the "HostMemoryWatchdog double-enter leaks token"
+    oddity). After the first exit, re-entering is fine — the
+    watchdog is reusable, just not nestable.
     """
 
-    def test_double_enter_overwrites_token_and_leaks_active_publication(self):
+    def test_double_enter_raises_runtime_error(self):
         """
-        Entering the same watchdog twice replaces ``_token`` with the
-        second token, so a single exit only undoes the second enter
-        and the watchdog remains the active ContextVar publication
-        afterward.
-
         Tests:
-            (Test Case 1) Both ``__enter__`` calls succeed (no raise).
-            (Test Case 2) The second ``_token`` differs from the
-                first — i.e. the first is overwritten.
-            (Test Case 3) After a single ``__exit__``,
-                ``get_active_watchdog()`` still returns the watchdog
-                (leak).
-            (Test Case 4) A second ``__exit__`` is needed before
-                ``get_active_watchdog()`` returns ``None``. The second
-                exit may suppress a token-reset error silently.
+            (Test Case 1) First ``__enter__`` succeeds and publishes
+                the watchdog.
+            (Test Case 2) A second ``__enter__`` without an
+                intervening exit raises ``RuntimeError`` with a
+                message mentioning "not reentrant".
+            (Test Case 3) The watchdog is still published after the
+                failed second enter (the first enter's token survives).
+            (Test Case 4) Exiting normally clears the ContextVar — a
+                single ``__exit__`` is sufficient because the second
+                enter never published a new token.
         """
         wd = HostMemoryWatchdog()
         assert get_active_watchdog() is None
-        # First enter publishes the watchdog.
         wd.__enter__()
         first_token = wd._token
         assert first_token is not None
         assert get_active_watchdog() is wd
         try:
-            # Second enter without exiting first — overwrites _token.
-            wd.__enter__()
-            second_token = wd._token
-            assert second_token is not None
-            assert second_token is not first_token
-            # First exit only resets the second token; the first token's
-            # publication remains live.
-            wd.__exit__(None, None, None)
+            with pytest.raises(RuntimeError, match="not reentrant"):
+                wd.__enter__()
+            # First token still present — the second enter raised
+            # before mutating ``self._token``.
+            assert wd._token is first_token
             assert get_active_watchdog() is wd
         finally:
-            # Clean teardown: second exit should clear the remaining
-            # publication. The watchdog's exit guard swallows
-            # LookupError/RuntimeError on a stale token, so this is
-            # safe to call even when the inner branch above ran.
-            try:
-                wd.__exit__(None, None, None)
-            except Exception:
-                pass
-            # Ensure we leave the ContextVar clean for other tests in
-            # this module — if the leak persists, reset directly.
-            if get_active_watchdog() is wd:
-                watchdog_mod._active_watchdog.set(None)
+            wd.__exit__(None, None, None)
+            # Single exit cleanly clears the ContextVar.
+            assert get_active_watchdog() is None
+
+    def test_reuse_after_exit_is_allowed(self):
+        """
+        The "not reentrant" guard only rejects re-entering while the
+        watchdog is still active. Once it has been exited cleanly,
+        the same instance can be entered again — the watchdog is
+        reusable, just not nestable.
+
+        Tests:
+            (Test Case 1) After enter → exit → enter, the second
+                enter succeeds without raising.
+            (Test Case 2) ``get_active_watchdog()`` reflects the
+                re-published watchdog.
+        """
+        wd = HostMemoryWatchdog()
+        wd.__enter__()
+        wd.__exit__(None, None, None)
+        assert get_active_watchdog() is None
+        # Re-enter is fine now.
+        wd.__enter__()
+        try:
+            assert get_active_watchdog() is wd
+        finally:
+            wd.__exit__(None, None, None)
+        assert get_active_watchdog() is None
 
 
 class TestIOStallWatchdogBlindReadTrip:

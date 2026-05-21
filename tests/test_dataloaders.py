@@ -5881,3 +5881,56 @@ class TestKilosortPhyChannelMapResolution:
                 f"gave electrode {sd.neuron_attributes[i].get('electrode')}, "
                 f"expected {int(channel_map[int(clu)])}"
             )
+
+
+class TestLoadNwbStartTimeAttribute:
+    """``load_spikedata_from_nwb`` honors the ``start_time`` file
+    attribute (written by :func:`export_spikedata_to_nwb` in commit
+    609aa09) and falls back to 0.0 when the attribute is absent. The
+    ``start_time_ms`` keyword argument overrides both.
+
+    Existing tests pin the round-trip via the exporter side
+    (``TestNWBExporters::test_nonzero_start_time_roundtrips``); these
+    tests pin the loader side directly through hand-written h5py
+    fixtures so the loader's three-tier resolution (caller arg →
+    file attr → 0.0 default) is locked.
+    """
+
+    def test_caller_start_time_ms_overrides_file_attribute(self, tmp_path):
+        """
+        Tests:
+            (Test Case 1) File written with ``start_time=100.0`` attr;
+                loader called with explicit ``start_time_ms=50.0``;
+                resulting ``SpikeData.start_time == 50.0`` (caller wins).
+        """
+        path = str(tmp_path / "override.nwb")
+        with h5py.File(path, "w") as f:  # type: ignore
+            f.attrs["start_time"] = 100.0
+            g = f.create_group("units")
+            g.create_dataset("spike_times", data=np.array([0.2, 0.3]))
+            g.create_dataset("spike_times_index", data=np.array([1, 2]))
+
+        sd = loaders.load_spikedata_from_nwb(
+            path,
+            prefer_pynwb=False,
+            start_time_ms=50.0,
+            length_ms=500.0,
+        )
+        assert sd.start_time == 50.0
+
+    def test_missing_start_time_attr_falls_back_to_zero(self, tmp_path):
+        """
+        Tests:
+            (Test Case 1) NWB file without a ``start_time`` file
+                attribute loads with ``start_time == 0.0`` (no error,
+                no warning required — the default is documented).
+        """
+        path = str(tmp_path / "no_start_time.nwb")
+        with h5py.File(path, "w") as f:  # type: ignore
+            # Deliberately do NOT set f.attrs["start_time"].
+            g = f.create_group("units")
+            g.create_dataset("spike_times", data=np.array([0.2, 0.3]))
+            g.create_dataset("spike_times_index", data=np.array([1, 2]))
+
+        sd = loaders.load_spikedata_from_nwb(path, prefer_pynwb=False)
+        assert sd.start_time == 0.0

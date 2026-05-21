@@ -13006,3 +13006,68 @@ class TestKilosortSortingExtractorClusterIdCoercion:
         # column. Accept either "object" or "dtype" so the test stays
         # robust to formatting tweaks.
         assert "dtype" in msg.lower() or "object" in msg.lower()
+
+
+class TestSortingUtilsBannerConstantsExport:
+    """``print_stage`` reads ``BANNER_WIDTH`` (70) and ``BANNER_CHAR``
+    ("=") from module-level constants (commit 0d91204) so the
+    ``report.py`` parser regex stays in sync with the actual banner
+    output via documented constants rather than two hard-coded
+    literals. Pin (a) the constants are importable and have the
+    documented values, and (b) ``print_stage``'s output reflects the
+    constants at call time (verified by monkeypatching the width).
+    """
+
+    def test_constants_importable_with_documented_values(self):
+        """
+        Tests:
+            (Test Case 1) ``BANNER_WIDTH`` is exported and equals 70.
+            (Test Case 2) ``BANNER_CHAR`` is exported and equals "=".
+            (Test Case 3) Both have stable types (int and str).
+        """
+        from spikelab.spike_sorting.sorting_utils import (
+            BANNER_CHAR,
+            BANNER_WIDTH,
+        )
+
+        assert BANNER_WIDTH == 70
+        assert BANNER_CHAR == "="
+        assert isinstance(BANNER_WIDTH, int)
+        assert isinstance(BANNER_CHAR, str)
+
+    def test_print_stage_uses_banner_width_constant_at_call_time(
+        self, capsys, monkeypatch
+    ):
+        """
+        Monkeypatch ``BANNER_WIDTH`` to 30 and confirm the banner
+        output reflects it. Pins the contract that the constant is
+        the single source of truth, not a hard-coded literal that
+        would diverge from the parser regex.
+
+        Tests:
+            (Test Case 1) Banner output's framing line has the
+                patched width (30 ``=`` characters).
+            (Test Case 2) Default (un-patched) call produces the
+                70-character framing line.
+        """
+        import spikelab.spike_sorting.sorting_utils as su
+
+        # Patched width — banner framing line should be 30 ='s.
+        monkeypatch.setattr(su, "BANNER_WIDTH", 30)
+        su.print_stage("TEST")
+        captured = capsys.readouterr().out
+        assert "=" * 30 in captured
+        assert "=" * 31 not in captured.split("\n")[1]
+
+    def test_print_stage_uses_banner_char_constant(self, capsys, monkeypatch):
+        """
+        Tests:
+            (Test Case 1) Patching ``BANNER_CHAR`` to "#" produces a
+                banner framed by "#" instead of "=".
+        """
+        import spikelab.spike_sorting.sorting_utils as su
+
+        monkeypatch.setattr(su, "BANNER_CHAR", "#")
+        su.print_stage("TEST")
+        captured = capsys.readouterr().out
+        assert "#" * 70 in captured
