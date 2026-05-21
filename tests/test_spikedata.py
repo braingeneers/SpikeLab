@@ -8953,3 +8953,96 @@ class TestSpikeDataBestMatchAllNaNScores:
         mat = np.full((3, 3), np.nan)
         with pytest.raises(ValueError, match="invalid"):
             SpikeData.best_match_assignment(mat)
+
+
+# ============================================================================
+# SpikeData boundary tests — channel_raster N=0, spike_shuffle all-empty,
+# get_pop_rate square_width > recording. All hermetic, no extras.
+# ============================================================================
+
+
+class TestSpikeDataChannelRasterZeroN:
+    """``SpikeData.channel_raster`` on an N=0 SpikeData raises the
+    documented "No channel information found" ValueError. (Source:
+    ``spikedata.py:channel_raster`` — the neuron_to_channel mapping is
+    empty for an empty SpikeData, falling through to the
+    explicit-error branch.)
+    """
+
+    def test_n_zero_raises_no_channel_information(self):
+        """
+        Tests:
+            (Test Case 1) ``SpikeData([], length=100).channel_raster()``
+                raises ValueError.
+            (Test Case 2) The error message mentions "No channel
+                information" — pinning the existing user-facing
+                message rather than a deeper internal failure.
+        """
+        sd = SpikeData([], length=100.0)
+        with pytest.raises(ValueError, match="No channel information"):
+            sd.channel_raster()
+
+
+class TestSpikeDataSpikeShuffleAllEmptyTrains:
+    """``SpikeData.spike_shuffle`` on N>0 with all-empty trains
+    returns a fresh SpikeData without raising. The source explicitly
+    short-circuits ``N == 0`` to return an empty SpikeData; the
+    all-empty-trains-but-N>0 case takes the regular code path through
+    ``sparse_raster`` + ``randomize`` and must not crash on the
+    zero-spike binary matrix.
+    """
+
+    def test_all_empty_trains_returns_spikedata(self):
+        """
+        Tests:
+            (Test Case 1) ``SpikeData([[],[],[]], length=100).spike_shuffle()``
+                returns a SpikeData (no exception).
+            (Test Case 2) The result has the same N as the input.
+            (Test Case 3) All trains in the result are empty (no
+                spikes were invented).
+            (Test Case 4) Length and start_time round-trip.
+        """
+        sd = SpikeData([[], [], []], length=100.0, start_time=0.0)
+        shuffled = sd.spike_shuffle(seed=42)
+        assert isinstance(shuffled, SpikeData)
+        assert shuffled.N == 3
+        for train in shuffled.train:
+            assert len(train) == 0
+        assert shuffled.length == 100.0
+        assert shuffled.start_time == 0.0
+
+
+class TestSpikeDataGetPopRateSquareWidthLargerThanRecording:
+    """``SpikeData.get_pop_rate`` with ``square_width`` larger than the
+    recording length: the square-window smoothing kernel is bigger
+    than the signal. ``np.convolve(signal, kernel, mode="same")``
+    returns an output of length ``max(len(signal), len(kernel))``, so
+    the output ends up the kernel's length when the kernel is wider.
+    Pin this current behavior so a future switch to a different
+    convolution mode is detected.
+    """
+
+    def test_square_width_larger_than_recording_returns_kernel_length(self):
+        """
+        Tests:
+            (Test Case 1) ``square_width = 10 * recording_length`` does
+                not raise.
+            (Test Case 2) Output length equals the kernel size in bins
+                (1000), not the raster bin count (100) — this is the
+                ``np.convolve(mode="same")`` `max(len_a, len_v)`
+                contract pinned.
+            (Test Case 3) Output is finite (no NaN / inf leak).
+        """
+        sd = SpikeData(
+            [np.array([10.0, 30.0, 70.0])],
+            length=100.0,
+            start_time=0.0,
+        )
+        pop = sd.get_pop_rate(
+            square_width=1000.0,  # 10x recording length
+            gauss_sigma=0.0,  # disable gaussian to isolate the square branch
+            raster_bin_size_ms=1.0,
+        )
+        # np.convolve(arr_100, kernel_1000, mode="same") returns 1000-length output.
+        assert pop.shape == (1000,)
+        assert np.all(np.isfinite(pop))

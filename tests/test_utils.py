@@ -3908,6 +3908,83 @@ class TestComputeFootprintSimilarity:
             _compute_footprint_similarity(fp1, fp2)
 
 
+class TestComputeFootprintSimilarityAllZero:
+    """``_compute_footprint_similarity`` zero-norm contract, pinned via
+    ``_cosine_sim``'s documented behavior ("NaN if both zero-norm,
+    0.0 if one is"):
+
+      - both footprints all-zero → all candidate cosines are NaN,
+        ``best`` stays at ``-inf``, returns NaN.
+      - one footprint all-zero → all candidate cosines are 0.0 (NOT
+        NaN), ``best`` becomes 0.0, returns 0.0.
+
+    Tests pin this asymmetric current behavior. If `_cosine_sim` is
+    ever changed to return NaN on either-zero-norm, the one-zero
+    test will start failing — that's the regression signal.
+    """
+
+    def test_both_all_zero_returns_nan(self):
+        """
+        Tests:
+            (Test Case 1) Two all-zero footprints produce NaN
+                similarity (cosine of two zero vectors is undefined;
+                _cosine_sim returns NaN; the lag loop never updates
+                best from -inf; the final fallback returns NaN).
+        """
+        from spikelab.spikedata.utils import _compute_footprint_similarity
+
+        fp1 = np.zeros((2, 5))
+        fp2 = np.zeros((2, 5))
+        sim = _compute_footprint_similarity(fp1, fp2, max_lag=0)
+        assert np.isnan(sim)
+
+    def test_one_all_zero_returns_zero(self):
+        """
+        ``_cosine_sim(zero_norm, non_zero_norm)`` returns 0.0 (not
+        NaN) per the docstring. Both call orders (zero-first and
+        zero-second) take the ``norm_a == 0.0 or norm_b == 0.0``
+        branch.
+
+        Tests:
+            (Test Case 1) ``_compute_footprint_similarity(zeros,
+                non_zero)`` returns 0.0.
+            (Test Case 2) Symmetric — swapping the two also returns 0.0.
+        """
+        from spikelab.spikedata.utils import _compute_footprint_similarity
+
+        fp1 = np.zeros((2, 5))
+        fp2 = np.array(
+            [
+                [1.0, 2.0, 3.0, 4.0, 5.0],
+                [5.0, 4.0, 3.0, 2.0, 1.0],
+            ]
+        )
+        sim_a = _compute_footprint_similarity(fp1, fp2, max_lag=0)
+        sim_b = _compute_footprint_similarity(fp2, fp1, max_lag=0)
+        assert sim_a == 0.0
+        assert sim_b == 0.0
+
+    def test_all_zero_with_lag_search_still_returns_nan(self):
+        """
+        The lag-search loop tests ``2 * max_lag + 1`` shifted slices
+        and picks the max non-NaN cosine. With both footprints
+        all-zero, every shifted slice still has zero norm on both
+        sides → every cosine is NaN → ``best`` stays at -inf → the
+        final return falls through to NaN.
+
+        Tests:
+            (Test Case 1) max_lag=3 on two all-zero footprints still
+                returns NaN (lag search does not invent a non-NaN
+                candidate).
+        """
+        from spikelab.spikedata.utils import _compute_footprint_similarity
+
+        fp1 = np.zeros((1, 10))
+        fp2 = np.zeros((1, 10))
+        sim = _compute_footprint_similarity(fp1, fp2, max_lag=3)
+        assert np.isnan(sim)
+
+
 # ---------------------------------------------------------------------------
 # _sliding_rate_single_train (basic behavior)
 # ---------------------------------------------------------------------------
