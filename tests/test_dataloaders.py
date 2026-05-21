@@ -5513,21 +5513,20 @@ class TestLoadKilosortInvalidTimeUnit:
 
 @skip_no_h5py
 class TestRawArraysShapeMismatch:
-    """``_read_raw_arrays`` does NOT validate that ``raw_data.shape[-1]``
-    matches ``raw_time.shape[0]``. A mismatched HDF5 file returns both
-    arrays at their stored sizes with no warning and no error, leaving
-    the caller to detect the inconsistency. Pinning this so any future
-    addition of a shape-mismatch guard surfaces as a test failure.
+    """``_read_raw_arrays`` validates ``raw_data.shape[-1] ==
+    raw_time.shape[0]`` at the loader boundary. A mismatched HDF5
+    file raises :class:`ValueError` with both shapes in the message
+    so the user can diagnose the misalignment without first having
+    to chase through the SpikeData constructor's suffix-shape check.
     """
 
-    def test_mismatched_shapes_returned_silently(self, tmp_path):
+    def test_mismatched_shapes_raises(self, tmp_path):
         """
         Tests:
-            (Test Case 1) ``_read_raw_arrays`` returns the raw_data and
-                raw_time arrays at their stored shapes, even though
-                ``raw_data.shape[-1] != raw_time.shape[0]``.
-            (Test Case 2) No warning is emitted.
-            (Test Case 3) No exception is raised.
+            (Test Case 1) ``_read_raw_arrays`` raises ``ValueError``
+                when ``raw_data.shape[-1] != raw_time.shape[0]``.
+            (Test Case 2) The error message includes both array shapes
+                so the caller can identify the mismatch.
         """
         path = str(tmp_path / "mismatch.h5")
         raw_data = np.random.randn(3, 100)
@@ -5537,16 +5536,35 @@ class TestRawArraysShapeMismatch:
             f.create_dataset("raw_time", data=raw_time)
 
         with h5py.File(path, "r") as f:  # type: ignore
-            with warnings.catch_warnings(record=True) as recwarn:
-                warnings.simplefilter("always")
-                rd, rt = loaders._read_raw_arrays(f, "raw", "raw_time", "ms", None)
+            with pytest.raises(
+                ValueError, match="does not match raw_time length"
+            ) as exc_info:
+                loaders._read_raw_arrays(f, "raw", "raw_time", "ms", None)
+        msg = str(exc_info.value)
+        assert "(3, 100)" in msg, f"raw_data shape missing from message: {msg}"
+        assert "(50,)" in msg, f"raw_time shape missing from message: {msg}"
 
-        # Both arrays come back at their stored sizes — no validation.
+    def test_matched_shapes_succeed(self, tmp_path):
+        """
+        Tests:
+            (Test Case 1) Matched shapes (raw_data trailing axis equal to
+                raw_time length) load cleanly, no exception.
+            (Test Case 2) Time vector is converted to ms as specified by
+                ``raw_time_unit``.
+        """
+        path = str(tmp_path / "match.h5")
+        raw_data = np.random.randn(3, 100)
+        raw_time = np.arange(100, dtype=float)  # matches!
+        with h5py.File(path, "w") as f:  # type: ignore
+            f.create_dataset("raw", data=raw_data)
+            f.create_dataset("raw_time", data=raw_time)
+
+        with h5py.File(path, "r") as f:  # type: ignore
+            rd, rt = loaders._read_raw_arrays(f, "raw", "raw_time", "s", None)
         assert rd is not None and rt is not None
         assert rd.shape == (3, 100)
-        assert rt.shape == (50,)
-        # Loader does not warn about the shape mismatch.
-        assert len(recwarn) == 0
+        # Seconds -> milliseconds.
+        np.testing.assert_array_equal(rt, raw_time * 1e3)
 
 
 # ---------------------------------------------------------------------------

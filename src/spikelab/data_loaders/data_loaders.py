@@ -174,13 +174,34 @@ def _read_raw_arrays(
     raw_time_unit: str,
     fs_Hz: Optional[float],
 ) -> tuple[Optional[np.ndarray], Optional[Union[np.ndarray, float]]]:
-    """Read optional raw arrays and convert the time vector to milliseconds."""
+    """Read optional raw arrays and convert the time vector to milliseconds.
+
+    Raises:
+        ValueError: If ``raw_data.shape[-1]`` does not equal
+            ``raw_time.shape[0]``. The trailing axis of ``raw_data`` is
+            the time axis by convention; a mismatch with the time vector
+            length means the two arrays are not aligned and the resulting
+            ``SpikeData`` would carry silently corrupt raw signal.
+    """
     raw_data = None
     raw_time: Optional[Union[np.ndarray, float]] = None
     if raw_dataset is not None:
         raw_data = np.asarray(f[raw_dataset])
         if raw_time_dataset is not None:
             raw_time_vals = np.asarray(f[raw_time_dataset])
+            # Reject shape mismatch at the loader boundary. Without this
+            # the SpikeData constructor accepts the mis-aligned arrays
+            # (its own suffix-shape check tolerates extra axes) and the
+            # silent corruption only surfaces when downstream code indexes
+            # into the wrong sample positions.
+            if raw_data.shape[-1] != raw_time_vals.shape[0]:
+                raise ValueError(
+                    f"raw_data trailing axis length ({raw_data.shape[-1]}) "
+                    f"does not match raw_time length ({raw_time_vals.shape[0]}). "
+                    f"raw_data.shape={raw_data.shape}, "
+                    f"raw_time.shape={raw_time_vals.shape}. The trailing axis "
+                    "of raw_data is the time axis by convention."
+                )
             if raw_time_unit == "s":
                 raw_time = raw_time_vals * 1e3
             elif raw_time_unit == "ms":
