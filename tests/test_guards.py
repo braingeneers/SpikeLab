@@ -14048,6 +14048,146 @@ class TestHostMemoryWatchdogDoubleEnter:
         assert get_active_watchdog() is None
 
 
+class TestGpuMemoryWatchdogDoubleEnter:
+    """``GpuMemoryWatchdog.__enter__`` raises ``RuntimeError`` when
+    called a second time without an intervening ``__exit__`` —
+    symmetric with the HostMemoryWatchdog guard. Pre-fix, double-
+    enter overwrote ``self._token`` and leaked the active-watchdog
+    publication. Post-fix, the misuse is loud.
+    """
+
+    def test_double_enter_raises_runtime_error(self):
+        """
+        Tests:
+            (Test Case 1) First ``__enter__`` succeeds (low used-pct
+                keeps the watchdog quiescent).
+            (Test Case 2) Second ``__enter__`` raises ``RuntimeError``
+                with "GpuMemoryWatchdog is not reentrant" in the
+                message.
+            (Test Case 3) The first ``_token`` survives the failed
+                second enter (guard fires before mutating state).
+        """
+        from spikelab.spike_sorting.guards import _gpu_watchdog as gpu_mod
+
+        # Patch the GPU-memory reader so the daemon thread doesn't
+        # need a real CUDA device. 50% used is below the abort/warn
+        # threshold so the watchdog stays quiet during the test.
+        with mock.patch.object(gpu_mod, "read_gpu_memory", lambda i: (50.0, 24.0)):
+            wd = GpuMemoryWatchdog(
+                device_index=0, warn_pct=85, abort_pct=95, poll_interval_s=5.0
+            )
+            wd.__enter__()
+            first_token = wd._token
+            assert first_token is not None
+            try:
+                with pytest.raises(
+                    RuntimeError, match="GpuMemoryWatchdog is not reentrant"
+                ):
+                    wd.__enter__()
+                # Token survives — the guard fires before mutation.
+                assert wd._token is first_token
+            finally:
+                wd.__exit__(None, None, None)
+            assert wd._token is None
+
+    def test_reuse_after_exit_is_allowed(self):
+        """
+        Tests:
+            (Test Case 1) After clean enter → exit → enter, the
+                second enter succeeds and assigns a fresh token.
+        """
+        from spikelab.spike_sorting.guards import _gpu_watchdog as gpu_mod
+
+        with mock.patch.object(gpu_mod, "read_gpu_memory", lambda i: (50.0, 24.0)):
+            wd = GpuMemoryWatchdog(
+                device_index=0, warn_pct=85, abort_pct=95, poll_interval_s=5.0
+            )
+            wd.__enter__()
+            first_token = wd._token
+            wd.__exit__(None, None, None)
+            assert wd._token is None
+            # Re-enter is fine.
+            wd.__enter__()
+            try:
+                assert wd._token is not None
+                assert wd._token is not first_token
+            finally:
+                wd.__exit__(None, None, None)
+            assert wd._token is None
+
+
+class TestIOStallWatchdogDoubleEnter:
+    """``IOStallWatchdog.__enter__`` raises ``RuntimeError`` when
+    called a second time without an intervening ``__exit__`` —
+    symmetric with the HostMemoryWatchdog / GpuMemoryWatchdog guards.
+
+    Note: this test uses process-mode (``pids=...``) rather than
+    device-mode (``folder=...``) so the watchdog can be instantiated
+    without resolving a real block device — the device-mode path
+    short-circuits to disabled on systems where psutil cannot map
+    the path to a device (e.g. CI without /sys mounts).
+    """
+
+    def test_double_enter_raises_runtime_error(self):
+        """
+        Tests:
+            (Test Case 1) First ``__enter__`` succeeds (mocked PID
+                I/O counters keep the watchdog quiescent).
+            (Test Case 2) Second ``__enter__`` raises ``RuntimeError``
+                with "IOStallWatchdog is not reentrant".
+            (Test Case 3) The first ``_token`` survives the failed
+                second enter.
+        """
+        from spikelab.spike_sorting.guards import _io_stall as iom
+
+        # Mock the PID-mode counter probe so the watchdog enables.
+        # _read_io_bytes_for_pids returns (initial_counter, alive_count).
+        with mock.patch.object(
+            iom, "_read_io_bytes_for_pids", return_value=(1000, 1)
+        ):
+            wd = IOStallWatchdog(
+                pids=[os.getpid()], stall_s=10.0, poll_interval_s=5.0
+            )
+            wd.__enter__()
+            first_token = wd._token
+            assert first_token is not None
+            try:
+                with pytest.raises(
+                    RuntimeError, match="IOStallWatchdog is not reentrant"
+                ):
+                    wd.__enter__()
+                assert wd._token is first_token
+            finally:
+                wd.__exit__(None, None, None)
+            assert wd._token is None
+
+    def test_reuse_after_exit_is_allowed(self):
+        """
+        Tests:
+            (Test Case 1) After clean enter → exit → enter, the
+                second enter succeeds and assigns a fresh token.
+        """
+        from spikelab.spike_sorting.guards import _io_stall as iom
+
+        with mock.patch.object(
+            iom, "_read_io_bytes_for_pids", return_value=(1000, 1)
+        ):
+            wd = IOStallWatchdog(
+                pids=[os.getpid()], stall_s=10.0, poll_interval_s=5.0
+            )
+            wd.__enter__()
+            first_token = wd._token
+            wd.__exit__(None, None, None)
+            assert wd._token is None
+            wd.__enter__()
+            try:
+                assert wd._token is not None
+                assert wd._token is not first_token
+            finally:
+                wd.__exit__(None, None, None)
+            assert wd._token is None
+
+
 class TestIOStallWatchdogBlindReadTrip:
     """``IOStallWatchdog`` blind-read trip contract (commit 6a74e16).
 
