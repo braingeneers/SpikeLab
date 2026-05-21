@@ -1838,6 +1838,50 @@ def run_preflight(
             )
         )
 
+    # ---------- Parallel-sequence length check --------------------------
+    # ``intermediate_folders`` and ``results_folders`` are by convention
+    # parallel to ``recording_files`` (one entry per recording). The disk
+    # checks below iterate the folder sequences independently, so a
+    # mismatched length silently truncates work to the shortest list. A
+    # future ``zip(...)`` refactor in the disk-check loop would change
+    # semantics without any signal. Emit fail-level findings so the
+    # caller can escalate via ``preflight_strict``.
+    n_rec = len(recording_files)
+    if intermediate_folders and len(intermediate_folders) != n_rec:
+        findings.append(
+            PreflightFinding(
+                level="fail",
+                code="folder_count_mismatch",
+                message=(
+                    f"intermediate_folders has {len(intermediate_folders)} entries "
+                    f"but recording_files has {n_rec}. The two sequences must be "
+                    "parallel: one folder per recording."
+                ),
+                remediation=(
+                    "Ensure the caller builds intermediate_folders in the same "
+                    "loop as recording_files, with matching length."
+                ),
+                category="environment",
+            )
+        )
+    if results_folders and len(results_folders) != n_rec:
+        findings.append(
+            PreflightFinding(
+                level="fail",
+                code="folder_count_mismatch",
+                message=(
+                    f"results_folders has {len(results_folders)} entries but "
+                    f"recording_files has {n_rec}. The two sequences must be "
+                    "parallel: one folder per recording."
+                ),
+                remediation=(
+                    "Ensure the caller builds results_folders in the same loop "
+                    "as recording_files, with matching length."
+                ),
+                category="environment",
+            )
+        )
+
     # ---------- Disk -----------------------------------------------------
     for folder in intermediate_folders:
         free_gb = _disk_free_gb(Path(folder))
