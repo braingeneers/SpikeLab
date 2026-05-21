@@ -542,6 +542,20 @@ class IOStallWatchdog:
     # ------------------------------------------------------------------
 
     def __enter__(self) -> "IOStallWatchdog":
+        # Reject double-``__enter__``. ``self._token`` is a single
+        # attribute; a second ``__enter__`` without an intervening
+        # ``__exit__`` overwrites the first token reference and
+        # leaks the original active-watchdog publication. Symmetric
+        # with the guard added to HostMemoryWatchdog and
+        # GpuMemoryWatchdog so all three watchdogs fail loudly on
+        # reentry rather than silently corrupting ContextVar state.
+        if self._token is not None:
+            raise RuntimeError(
+                "IOStallWatchdog is not reentrant: __enter__ was "
+                "called while the watchdog is still active. Exit the "
+                "existing context manager before entering a new one."
+            )
+
         if self._mode == "process":
             # Probe once to confirm we can read at least one PID's
             # counters. If none of the registered PIDs are alive

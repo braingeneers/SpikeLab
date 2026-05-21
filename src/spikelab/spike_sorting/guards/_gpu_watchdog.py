@@ -692,6 +692,20 @@ class GpuMemoryWatchdog:
     # ------------------------------------------------------------------
 
     def __enter__(self) -> "GpuMemoryWatchdog":
+        # Reject double-``__enter__``. ``self._token`` is a single
+        # attribute; a second ``__enter__`` without an intervening
+        # ``__exit__`` overwrites the first token reference and
+        # leaks the original active-watchdog publication. Symmetric
+        # with the guard added to HostMemoryWatchdog and
+        # IOStallWatchdog so all three watchdogs fail loudly on
+        # reentry rather than silently corrupting ContextVar state.
+        if self._token is not None:
+            raise RuntimeError(
+                "GpuMemoryWatchdog is not reentrant: __enter__ was "
+                "called while the watchdog is still active. Exit the "
+                "existing context manager before entering a new one."
+            )
+
         # Capture the active per-recording log path on the main
         # thread; the daemon polling thread cannot read the
         # ContextVar reliably.

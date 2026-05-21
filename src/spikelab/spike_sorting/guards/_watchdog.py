@@ -295,6 +295,20 @@ class HostMemoryWatchdog:
     # ------------------------------------------------------------------
 
     def __enter__(self) -> "HostMemoryWatchdog":
+        # Reject double-``__enter__``. ``self._token`` is a single
+        # attribute, so a second ``__enter__`` without an intervening
+        # ``__exit__`` would overwrite the first token reference and
+        # leak the original active-watchdog publication after teardown
+        # (only the second token's reset would run). The class is
+        # not designed to be reentrant; surface the misuse rather
+        # than silently corrupting the ContextVar state.
+        if self._token is not None:
+            raise RuntimeError(
+                "HostMemoryWatchdog is not reentrant: __enter__ was "
+                "called while the watchdog is still active. Exit the "
+                "existing context manager before entering a new one."
+            )
+
         # Capture the active per-recording log path on the main
         # thread; the daemon polling thread cannot read the
         # ContextVar reliably.
