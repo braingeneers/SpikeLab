@@ -219,8 +219,18 @@ Build reusable base images for CPU and GPU workloads:
 
 .. code-block:: bash
 
-   docker build -f docker/analysis-base/Dockerfile.cpu -t spikelab/analysis-base:cpu .
-   docker build -f docker/analysis-base/Dockerfile.gpu -t spikelab/analysis-base:gpu .
+   bash scripts/build_base_image.sh cpu spikelab/analysis-base:cpu
+   bash scripts/build_base_image.sh gpu spikelab/analysis-base:gpu
+
+The base image bakes in the SpikeLab source via ``COPY src ./src`` and
+``pip install -e .``. It is a frozen snapshot — published SpikeLab releases do
+not update an existing image automatically. Rebuild whenever the library
+source has changed and you need that change reflected on the cluster.
+
+When iterating on a feature branch, build under a developer-scoped tag (e.g.,
+``ghcr.io/<org>/spikelab-analysis-base:${USER}-$(git rev-parse --short HEAD)``)
+and pass it explicitly via ``--image`` so concurrent developers do not clobber
+each other's shared ``:cpu`` / ``:gpu`` tags.
 
 Temporary images
 ^^^^^^^^^^^^^^^^
@@ -231,6 +241,10 @@ Build and push a temporary image for a single run:
 
    bash scripts/build_temp_image.sh gpu ghcr.io/<org>/spikelab-analysis-temp:<tag>
    bash scripts/push_temp_image.sh ghcr.io/<org>/spikelab-analysis-temp:<tag>
+
+This layers analysis-time files on top of an existing ``analysis-base`` image
+without rebuilding it. Use this when only the analysis script changed; if
+``src/spikelab/`` itself changed, rebuild the base image first (see above).
 
 Reference this tag in the ``ContainerSpec`` when creating your ``JobSpec``.
 
