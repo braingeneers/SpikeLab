@@ -992,6 +992,26 @@ class TestRateDataFrames:
         with pytest.raises(ValueError, match="fewer than 2 time points"):
             rd.frames(length=1.0)
 
+    def test_frames_empty_times_raises(self):
+        """
+        frames() on an empty-times RateData raises ValueError —
+        with zero time points the bin step_size cannot be inferred
+        and the function falls through the same guard as T=1. A
+        regression that fell through this guard would land in
+        ``np.arange(t0, t_end - length + step_size, step)`` with a
+        nonsense ``step_size`` and produce empty or oversized
+        frames.
+
+        Tests:
+            (Test Case 1) RateData with T=0 raises ValueError naming
+                "fewer than 2 time points".
+        """
+        data = np.zeros((2, 0))
+        times = np.array([], dtype=float)
+        rd = RateData(data, times)
+        with pytest.raises(ValueError, match="fewer than 2 time points"):
+            rd.frames(length=1.0)
+
     def test_frames_non_uniform_times_raises(self):
         """
         frames() on a RateData with non-uniformly-spaced times raises

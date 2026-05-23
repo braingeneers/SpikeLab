@@ -885,6 +885,35 @@ class TestSpikeDataConstruction:
         assert sd2.length == 180.0  # 80 - (-100)
         assert sd2.start_time == -100.0
 
+    def test_init_start_time_length_inference_precision_at_extreme_value(self):
+        """
+        ``length = max_spike - start_time`` retains sub-ms precision
+        when ``start_time`` is large enough that naive subtraction
+        suffers catastrophic cancellation. With ``start_time=1e10``
+        and a spike at ``1e10 + 0.001``, the inferred length must
+        still be ~0.001 ms (within float64's ~1 ULP at 1e10, which
+        is ~1e-6 ms).
+
+        Tests:
+            (Test Case 1) Inferred length is finite and non-zero.
+            (Test Case 2) Inferred length is within numerically
+                achievable precision of the analytic 0.001 — pins
+                the constructor against a regression that drops
+                start_time before the subtraction (which would
+                produce ``length=1e10+0.001 - 0 = 1e10``).
+        """
+        start = 1e10
+        delta = 0.001
+        sd = SpikeData([[start + delta]], start_time=start)
+        assert np.isfinite(sd.length)
+        # Float64 spacing at 1e10 is ~1.9e-6 ms — so the inferred
+        # length is delta ± a few ULPs at 1e10. Allow a generous
+        # absolute tolerance equal to ten ULPs of 1e10.
+        assert sd.length == pytest.approx(delta, abs=10 * np.spacing(start))
+        # The pre-fix regression (dropping start_time) would yield
+        # length ≈ 1e10, which is many orders of magnitude away.
+        assert sd.length < 1.0
+
     def test_init_start_time_propagated_by_from_raster(self):
         """
         Static constructors forward start_time via **kwargs.
@@ -5249,6 +5278,35 @@ class TestSpikeDataSubsetStack:
         assert len(stack.spike_stack) == 3
         for s in stack.spike_stack:
             assert s.N == 0
+
+    def test_full_unit_count_preserves_unit_order(self):
+        """
+        ``units_per_subset == N`` returns subsets whose unit order
+        matches the original (because ``SpikeData.subset`` sorts the
+        unit indices internally, so any permutation drawn by
+        ``rng.choice`` is re-sorted before the slice is built).
+
+        Tests:
+            (Test Case 1) Each slice's ``neuron_attributes`` ordering
+                matches the original — pinning the implicit sort
+                contract that prevents random permutation noise from
+                leaking into downstream slice-aligned analyses.
+            (Test Case 2) Each slice's spike trains match the
+                original positions (id 0..3 with spikes at
+                10/20/30/40 ms).
+        """
+        sd = SpikeData(
+            [[10.0], [20.0], [30.0], [40.0]], length=50.0
+        )
+        sd.neuron_attributes = [{"id": i} for i in range(4)]
+
+        stack = sd.subset_stack(n_subsets=3, units_per_subset=4, seed=0)
+
+        for s in stack.spike_stack:
+            ids = [a["id"] for a in s.neuron_attributes]
+            assert ids == [0, 1, 2, 3]
+            for u, train in enumerate(s.train):
+                assert list(train) == [(u + 1) * 10.0]
 
 
 class TestSpikeDataStPR:
