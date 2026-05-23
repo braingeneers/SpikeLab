@@ -1280,8 +1280,9 @@ would fall below <code class="docutils literal notranslate"><span class="pre">mi
 probability the classifier assigned to that class for samples whose
 true label matches. Optionally subtracts the mean probability over
 a set of baseline cycles to highlight changes across stim rounds.</p>
-<p>Cell <code class="docutils literal notranslate"><span class="pre">(i,</span> <span class="pre">j)</span></code> of the heatmap = mean <code class="docutils literal notranslate"><span class="pre">proba[i,</span> <span class="pre">samples</span> <span class="pre">in</span> <span class="pre">cycle</span> <span class="pre">j</span>
-<span class="pre">where</span> <span class="pre">true</span> <span class="pre">==</span> <span class="pre">classes[i]]</span></code>.</p>
+<p>Cell <code class="docutils literal notranslate"><span class="pre">(i,</span> <span class="pre">j)</span></code> of the heatmap is the mean of <code class="docutils literal notranslate"><span class="pre">proba[i,</span> <span class="pre">s]</span></code> taken
+over samples <code class="docutils literal notranslate"><span class="pre">s</span></code> in cycle <code class="docutils literal notranslate"><span class="pre">j</span></code> whose true label equals
+<code class="docutils literal notranslate"><span class="pre">classes[i]</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -1314,8 +1315,10 @@ plot. Defaults to indices.</p></li>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
-<dt><a href="#id1"><span class="problematic" id="id2">``</span></a>{“heatmap”: (K, n_groups) array, “ax”: ax,</dt><dd><p>”bar_ax”: bar_ax or None, “groups”: (n_groups,) array,
-“classes”: (K,) array}``.</p>
+<dt>Mapping with keys <code class="docutils literal notranslate"><span class="pre">&quot;heatmap&quot;</span></code> (<code class="docutils literal notranslate"><span class="pre">(K,</span> <span class="pre">n_groups)</span></code></dt><dd><p>array), <code class="docutils literal notranslate"><span class="pre">&quot;ax&quot;</span></code> (the heatmap axes), <code class="docutils literal notranslate"><span class="pre">&quot;bar_ax&quot;</span></code> (the bar
+axes or <code class="docutils literal notranslate"><span class="pre">None</span></code>), <code class="docutils literal notranslate"><span class="pre">&quot;groups&quot;</span></code> (<code class="docutils literal notranslate"><span class="pre">(n_groups,)</span></code> array of
+cycle indices), and <code class="docutils literal notranslate"><span class="pre">&quot;classes&quot;</span></code> (<code class="docutils literal notranslate"><span class="pre">(K,)</span></code> array of class
+labels).</p>
 </dd>
 </dl>
 </p>
@@ -1383,8 +1386,10 @@ mode.</p></li>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
-<dt><a href="#id3"><span class="problematic" id="id4">``</span></a>{“ax”: ax, “scatter”: PathCollection,</dt><dd><p>”target_scatter”: PathCollection,
-“other_target_scatter”: PathCollection or None}``.</p>
+<dt>Mapping with keys <code class="docutils literal notranslate"><span class="pre">&quot;ax&quot;</span></code> (the plot axes),</dt><dd><p><code class="docutils literal notranslate"><span class="pre">&quot;scatter&quot;</span></code> (the units <code class="docutils literal notranslate"><span class="pre">PathCollection</span></code>),
+<code class="docutils literal notranslate"><span class="pre">&quot;target_scatter&quot;</span></code> (the target marker <code class="docutils literal notranslate"><span class="pre">PathCollection</span></code>),
+and <code class="docutils literal notranslate"><span class="pre">&quot;other_target_scatter&quot;</span></code> (the other-stim
+<code class="docutils literal notranslate"><span class="pre">PathCollection</span></code> or <code class="docutils literal notranslate"><span class="pre">None</span></code>).</p>
 </dd>
 </dl>
 </p>

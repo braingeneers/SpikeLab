@@ -3859,12 +3859,10 @@ has already paid the memory cost).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>stim_recording</strong> – <p>The stimulation recording.  Can be:
-- <code class="docutils literal notranslate"><span class="pre">str</span></code> or <code class="docutils literal notranslate"><span class="pre">Path</span></code> to a recording file (Maxwell .h5 or</p>
-<blockquote>
-<div><p>NWB).  Chunked path.</p>
-</div></blockquote>
+<li><p><strong>stim_recording</strong> – <p>The stimulation recording.  Can be:</p>
 <ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">str</span></code> or <code class="docutils literal notranslate"><span class="pre">Path</span></code> to a recording file (Maxwell .h5 or
+NWB).  Chunked path.</p></li>
 <li><p>A SpikeInterface <code class="docutils literal notranslate"><span class="pre">BaseRecording</span></code> object.  Chunked path.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">np.ndarray</span></code> of shape <code class="docutils literal notranslate"><span class="pre">(channels,</span> <span class="pre">samples)</span></code>.
 Full-recording path (no chunking possible).</p></li>
@@ -4005,7 +4003,7 @@ representations).  Default <code class="docutils literal notranslate"><span clas
 </ul>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.14)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code></a>[BaseRecording, <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>]</span></p>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.14)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">BaseRecording</span></code>, <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>]</span></p>
 </dd>
 <dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p><ul>
@@ -4050,13 +4048,11 @@ milliseconds.  Need not be sorted.</p></li>
 <li><p><strong>fs_Hz</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Sampling frequency in Hz.</p></li>
 <li><p><strong>max_offset_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Radius of the search window around
 each logged stim time, in milliseconds.  Default 50.0.</p></li>
-<li><p><strong>peak_mode</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – <p>Alignment target.  One of:
-* <code class="docutils literal notranslate"><span class="pre">&quot;abs_max&quot;</span></code> (default): largest <code class="docutils literal notranslate"><span class="pre">|voltage|</span></code> across</p>
-<blockquote>
-<div><p>channels.  Backward-compatible with the pre-<code class="docutils literal notranslate"><span class="pre">peak_mode</span></code>
-API.</p>
-</div></blockquote>
+<li><p><strong>peak_mode</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – <p>Alignment target.  One of:</p>
 <ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;abs_max&quot;</span></code> (default): largest <code class="docutils literal notranslate"><span class="pre">|voltage|</span></code> across
+channels.  Backward-compatible with the pre-<code class="docutils literal notranslate"><span class="pre">peak_mode</span></code>
+API.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">&quot;pos_peak&quot;</span></code>: largest positive voltage in the top-K
 summed reference trace.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">&quot;neg_peak&quot;</span></code>: most negative voltage in the top-K

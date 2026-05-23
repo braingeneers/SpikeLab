@@ -3316,8 +3316,9 @@
 <span class="sd">    true label matches. Optionally subtracts the mean probability over</span>
 <span class="sd">    a set of baseline cycles to highlight changes across stim rounds.</span>
 
-<span class="sd">    Cell ``(i, j)`` of the heatmap = mean ``proba[i, samples in cycle j</span>
-<span class="sd">    where true == classes[i]]``.</span>
+<span class="sd">    Cell ``(i, j)`` of the heatmap is the mean of ``proba[i, s]`` taken</span>
+<span class="sd">    over samples ``s`` in cycle ``j`` whose true label equals</span>
+<span class="sd">    ``classes[i]``.</span>
 
 <span class="sd">    Parameters:</span>
 <span class="sd">        probabilities (np.ndarray): Predicted probabilities, shape</span>
@@ -3347,9 +3348,11 @@
 <span class="sd">            &quot;P(correct)&quot; or &quot;ΔP vs baseline&quot;.</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">        result (dict): ``{&quot;heatmap&quot;: (K, n_groups) array, &quot;ax&quot;: ax,</span>
-<span class="sd">            &quot;bar_ax&quot;: bar_ax or None, &quot;groups&quot;: (n_groups,) array,</span>
-<span class="sd">            &quot;classes&quot;: (K,) array}``.</span>
+<span class="sd">        result (dict): Mapping with keys ``&quot;heatmap&quot;`` (``(K, n_groups)``</span>
+<span class="sd">            array), ``&quot;ax&quot;`` (the heatmap axes), ``&quot;bar_ax&quot;`` (the bar</span>
+<span class="sd">            axes or ``None``), ``&quot;groups&quot;`` (``(n_groups,)`` array of</span>
+<span class="sd">            cycle indices), and ``&quot;classes&quot;`` (``(K,)`` array of class</span>
+<span class="sd">            labels).</span>
 
 <span class="sd">    Notes:</span>
 <span class="sd">        - Requires ``matplotlib``.</span>
@@ -3552,9 +3555,11 @@
 <span class="sd">        other_target_marker_size (float): Marker size for other-stim X.</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">        result (dict): ``{&quot;ax&quot;: ax, &quot;scatter&quot;: PathCollection,</span>
-<span class="sd">            &quot;target_scatter&quot;: PathCollection,</span>
-<span class="sd">            &quot;other_target_scatter&quot;: PathCollection or None}``.</span>
+<span class="sd">        result (dict): Mapping with keys ``&quot;ax&quot;`` (the plot axes),</span>
+<span class="sd">            ``&quot;scatter&quot;`` (the units ``PathCollection``),</span>
+<span class="sd">            ``&quot;target_scatter&quot;`` (the target marker ``PathCollection``),</span>
+<span class="sd">            and ``&quot;other_target_scatter&quot;`` (the other-stim</span>
+<span class="sd">            ``PathCollection`` or ``None``).</span>
 
 <span class="sd">    Notes:</span>
 <span class="sd">        - Requires ``matplotlib``.</span>

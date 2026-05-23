@@ -652,10 +652,18 @@ trade-offs:</p>
 <section id="base-images">
 <h3><a class="toc-backref" href="#id14" role="doc-backlink">Base images</a><a class="headerlink" href="#base-images" title="Link to this heading"></a></h3>
 <p>Build reusable base images for CPU and GPU workloads:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>build<span class="w"> </span>-f<span class="w"> </span>docker/analysis-base/Dockerfile.cpu<span class="w"> </span>-t<span class="w"> </span>spikelab/analysis-base:cpu<span class="w"> </span>.
-docker<span class="w"> </span>build<span class="w"> </span>-f<span class="w"> </span>docker/analysis-base/Dockerfile.gpu<span class="w"> </span>-t<span class="w"> </span>spikelab/analysis-base:gpu<span class="w"> </span>.
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>bash<span class="w"> </span>scripts/build_base_image.sh<span class="w"> </span>cpu<span class="w"> </span>spikelab/analysis-base:cpu
+bash<span class="w"> </span>scripts/build_base_image.sh<span class="w"> </span>gpu<span class="w"> </span>spikelab/analysis-base:gpu
 </pre></div>
 </div>
+<p>The base image bakes in the SpikeLab source via <code class="docutils literal notranslate"><span class="pre">COPY</span> <span class="pre">src</span> <span class="pre">./src</span></code> and
+<code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">-e</span> <span class="pre">.</span></code>. It is a frozen snapshot — published SpikeLab releases do
+not update an existing image automatically. Rebuild whenever the library
+source has changed and you need that change reflected on the cluster.</p>
+<p>When iterating on a feature branch, build under a developer-scoped tag (e.g.,
+<code class="docutils literal notranslate"><span class="pre">ghcr.io/&lt;org&gt;/spikelab-analysis-base:${USER}-$(git</span> <span class="pre">rev-parse</span> <span class="pre">--short</span> <span class="pre">HEAD)</span></code>)
+and pass it explicitly via <code class="docutils literal notranslate"><span class="pre">--image</span></code> so concurrent developers do not clobber
+each other’s shared <code class="docutils literal notranslate"><span class="pre">:cpu</span></code> / <code class="docutils literal notranslate"><span class="pre">:gpu</span></code> tags.</p>
 </section>
 <section id="temporary-images">
 <h3><a class="toc-backref" href="#id15" role="doc-backlink">Temporary images</a><a class="headerlink" href="#temporary-images" title="Link to this heading"></a></h3>
@@ -664,6 +672,9 @@ docker<span class="w"> </span>build<span class="w"> </span>-f<span class="w"> </
 bash<span class="w"> </span>scripts/push_temp_image.sh<span class="w"> </span>ghcr.io/&lt;org&gt;/spikelab-analysis-temp:&lt;tag&gt;
 </pre></div>
 </div>
+<p>This layers analysis-time files on top of an existing <code class="docutils literal notranslate"><span class="pre">analysis-base</span></code> image
+without rebuilding it. Use this when only the analysis script changed; if
+<code class="docutils literal notranslate"><span class="pre">src/spikelab/</span></code> itself changed, rebuild the base image first (see above).</p>
 <p>Reference this tag in the <code class="docutils literal notranslate"><span class="pre">ContainerSpec</span></code> when creating your <code class="docutils literal notranslate"><span class="pre">JobSpec</span></code>.</p>
 </section>
 </section>
