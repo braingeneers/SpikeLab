@@ -15,9 +15,12 @@ interactive exploration.
 """
 
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import TYPE_CHECKING, Optional, Tuple
 
 import numpy as np
+
+if TYPE_CHECKING:
+    from spikeinterface.core import BaseRecording
 
 
 def preprocess_stim_artifacts(

@@ -91,6 +91,7 @@ def sort_stim_recording(
 
     Parameters:
         stim_recording: The stimulation recording.  Can be:
+
             - ``str`` or ``Path`` to a recording file (Maxwell .h5 or
               NWB).  Chunked path.
             - A SpikeInterface ``BaseRecording`` object.  Chunked path.

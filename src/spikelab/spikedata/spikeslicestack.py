@@ -488,6 +488,7 @@ class SpikeSliceStack:
                 window relative to slice origin used to estimate the
                 per-slice baseline rate.
             mode (str): Normalization mode:
+
                 - ``"subtract"`` (default) — counts above baseline expectation.
                 - ``"ratio"`` — counts / expected_counts (NaN where expected
                   is 0).

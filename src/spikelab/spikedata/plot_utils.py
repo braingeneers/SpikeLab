@@ -2828,8 +2828,9 @@ def plot_prediction_probability_heatmap(
     true label matches. Optionally subtracts the mean probability over
     a set of baseline cycles to highlight changes across stim rounds.
 
-    Cell ``(i, j)`` of the heatmap = mean ``proba[i, samples in cycle j
-    where true == classes[i]]``.
+    Cell ``(i, j)`` of the heatmap is the mean of ``proba[i, s]`` taken
+    over samples ``s`` in cycle ``j`` whose true label equals
+    ``classes[i]``.
 
     Parameters:
         probabilities (np.ndarray): Predicted probabilities, shape
@@ -2859,9 +2860,11 @@ def plot_prediction_probability_heatmap(
             "P(correct)" or "ΔP vs baseline".
 
     Returns:
-        result (dict): ``{"heatmap": (K, n_groups) array, "ax": ax,
-            "bar_ax": bar_ax or None, "groups": (n_groups,) array,
-            "classes": (K,) array}``.
+        result (dict): Mapping with keys ``"heatmap"`` (``(K, n_groups)``
+            array), ``"ax"`` (the heatmap axes), ``"bar_ax"`` (the bar
+            axes or ``None``), ``"groups"`` (``(n_groups,)`` array of
+            cycle indices), and ``"classes"`` (``(K,)`` array of class
+            labels).
 
     Notes:
         - Requires ``matplotlib``.
@@ -3061,9 +3064,11 @@ def plot_responsive_unit_map(
         other_target_marker_size (float): Marker size for other-stim X.
 
     Returns:
-        result (dict): ``{"ax": ax, "scatter": PathCollection,
-            "target_scatter": PathCollection,
-            "other_target_scatter": PathCollection or None}``.
+        result (dict): Mapping with keys ``"ax"`` (the plot axes),
+            ``"scatter"`` (the units ``PathCollection``),
+            ``"target_scatter"`` (the target marker ``PathCollection``),
+            and ``"other_target_scatter"`` (the other-stim
+            ``PathCollection`` or ``None``).
 
     Notes:
         - Requires ``matplotlib``.

@@ -231,6 +231,7 @@ def recenter_stim_times(
         max_offset_ms (float): Radius of the search window around
             each logged stim time, in milliseconds.  Default 50.0.
         peak_mode (str): Alignment target.  One of:
+
             * ``"abs_max"`` (default): largest ``|voltage|`` across
               channels.  Backward-compatible with the pre-``peak_mode``
               API.

@@ -85,12 +85,38 @@ These scripts are in the SpikeLab repository under `scripts/` and `docker/`. The
    - `python scripts/generate_job_config.py --image <image-tag> --profile <cpu|gpu> --output configs/batch-temp-job.yaml`
 5. Confirm image is pullable from target cluster/namespace before deploy.
 
+### When SpikeLab source has changed (developer iteration)
+
+The `build_temp_image.sh` workflow above layers analysis code on top of an existing `analysis-base` image. It does **not** capture changes to `src/spikelab/` itself. If the user has modified the SpikeLab library (e.g., they are on a feature branch with new methods that the submitted script depends on), the `analysis-base` image must be rebuilt first — otherwise the running container exposes a stale API and the job will fail with `AttributeError` or run against outdated behavior.
+
+In that case, rebuild and push a **developer-scoped base image** before submitting, and pass it explicitly via `--image`:
+
+```bash
+# From SpikeLab repo root. Use ${USER:-${USERNAME}} for Linux/Mac/Windows compatibility.
+USER_TAG="ghcr.io/<org>/spikelab-analysis-base:${USER:-${USERNAME}}-$(git rev-parse --short HEAD)"
+
+bash scripts/build_base_image.sh cpu "${USER_TAG}"   # or 'gpu'
+bash scripts/push_temp_image.sh "${USER_TAG}"
+
+# Submit using the freshly built image
+spikelab-batch-jobs deploy-job \
+  --profile <profile> \
+  --job-config <path> \
+  --image "${USER_TAG}"
+```
+
+Notes:
+- The Dockerfile uses `COPY src ./src`, so **uncommitted edits in `src/spikelab/` are also baked into the image**. This is useful for fast iteration but can be surprising — confirm `git status` reflects the state you intend to ship.
+- Use a developer-scoped tag (username + short SHA) rather than the shared `:cpu`/`:gpu` tags so concurrent developers do not clobber each other's images.
+- The shared `ghcr.io/braingeneers/spikelab-analysis-base:cpu` / `:gpu` tags are static snapshots — they do **not** track new SpikeLab releases automatically. Always rebuild when the library source has changed locally.
+
 ## Fixed Workflow
 
 1. **Preflight checks**
    - Run `kubectl version --client`.
    - Run `kubectl config current-context`.
    - Validate registry/image tag exists and is pushed.
+   - If `git status` shows changes to `src/spikelab/`, the cluster-side image is stale relative to local code. Rebuild and push a developer-scoped base image before submitting (see "When SpikeLab source has changed" under Container Prep) and pass the resulting tag via `--image`.
    - Optionally verify S3 access if asked by the user.
 2. **Validate inputs**
    - Ensure `--job-config` is present.
