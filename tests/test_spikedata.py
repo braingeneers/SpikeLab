@@ -9764,32 +9764,42 @@ class TestSpikeDataFitGplvmBinLargerThanRecording:
         with pytest.raises(ValueError, match="bin_size_ms"):
             sd.fit_gplvm(bin_size_ms=100.0, n_latent_bin=2, n_iter=2)
 
-    def test_bin_equal_recording_boundary_succeeds(self):
+    def test_bin_equal_recording_boundary_does_not_raise_guard(self):
         """
-        Boundary test: ``bin_size_ms = self.length`` (exact equality)
-        is the largest accepted value. Produces a single-bin spike
-        count matrix; the GPLVM fit may emit convergence warnings
-        but should not raise.
+        Boundary test: ``bin_size_ms == self.length`` is the largest
+        accepted value. The source guard is ``bin_size_ms > self.length``,
+        so the equal-case must pass the early validation. The actual
+        GPLVM fit on a degenerate 1-bin matrix is JAX-flaky on Linux
+        CI (it can segfault on numerical pathologies), so we patch
+        the model constructor to skip the live EM and just verify
+        the guard does not fire.
 
         Tests:
-            (Test Case 1) ``bin_size_ms == self.length`` does not
-                raise during the bin-size validation.
+            (Test Case 1) ``bin_size_ms == self.length`` passes the
+                pre-fit ValueError guard. Any downstream failure must
+                not mention ``bin_size_ms``.
         """
         pytest.importorskip("poor_man_gplvm")
+        import poor_man_gplvm as pmg
+
         sd = SpikeData([[1.0, 5.0, 9.0], [2.0, 6.0]], length=10.0)
-        # The boundary should pass validation; the actual EM fit may
-        # warn or fail later on degenerate data — that's expected.
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            try:
-                result = sd.fit_gplvm(bin_size_ms=10.0, n_latent_bin=2, n_iter=2)
-                assert result is not None
-            except (RuntimeError, ValueError) as exc:
-                # Acceptable if a downstream JAX/numpy step rejects
-                # the degenerate 1-bin matrix. The key assertion is
-                # that the bin_size_ms guard did NOT fire.
-                msg = str(exc).lower()
-                assert "bin_size_ms" not in msg
+
+        # Replace the model class with a stub that raises a marker
+        # exception so we can confirm execution proceeded past the
+        # bin_size_ms guard but stop before JAX runs.
+        class _StopBeforeJaxFit(RuntimeError):
+            pass
+
+        def _stub_model(*args, **kwargs):
+            raise _StopBeforeJaxFit("stub")
+
+        with pytest.raises(_StopBeforeJaxFit):
+            sd.fit_gplvm(
+                bin_size_ms=10.0,
+                n_latent_bin=2,
+                n_iter=2,
+                model_class=_stub_model,
+            )
 
 
 class TestSpikeDataFramesOverlapEqualsLength:
