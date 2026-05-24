@@ -25,6 +25,6 @@ jobs:
           pip install scikit-learn networkx pandas matplotlib tqdm
 
       - name: Run tests
-        run: pytest -q
+        run: pytest -v --tb=short -p no:cacheprovider
 
 
