@@ -2712,7 +2712,9 @@ class TestShuffleZScore:
             z = shuffle_z_score(5.0, dist)
         assert np.isnan(z)
         runtime = [w for w in caught if issubclass(w.category, RuntimeWarning)]
-        assert runtime == [], f"unexpected RuntimeWarnings: {[str(w.message) for w in runtime]}"
+        assert (
+            runtime == []
+        ), f"unexpected RuntimeWarnings: {[str(w.message) for w in runtime]}"
 
     def test_uses_bessel_corrected_sample_std(self):
         """
@@ -4627,9 +4629,9 @@ class TestUtilsShuffleZScoreAllNaNStd:
             z = shuffle_z_score(5.0, np.full(10, np.nan))
         assert np.isnan(z)
         runtime_warns = [w for w in caught if issubclass(w.category, RuntimeWarning)]
-        assert runtime_warns == [], (
-            f"unexpected RuntimeWarnings: {[str(w.message) for w in runtime_warns]}"
-        )
+        assert (
+            runtime_warns == []
+        ), f"unexpected RuntimeWarnings: {[str(w.message) for w in runtime_warns]}"
 
 
 class TestResampledIsiUniformGridPositive:
@@ -4856,9 +4858,7 @@ class TestUtilsRankOrderCorrelationMinOverlapZero:
                 _rank_order_correlation_from_timing,
             )
         except ImportError:
-            pytest.skip(
-                "_rank_order_correlation_from_timing not exported"
-            )
+            pytest.skip("_rank_order_correlation_from_timing not exported")
 
         # Simple 2-unit, 3-slice timing matrix.
         timing = np.array([[1.0, 2.0, 3.0], [3.0, 2.0, 1.0]])

@@ -1932,6 +1932,4 @@ class TestRateDataGetPairwiseFrCorrCompareFuncRaises:
             raise RuntimeError("compare_func intentional failure")
 
         with pytest.raises(RuntimeError, match="compare_func intentional"):
-            rd.get_pairwise_fr_corr(
-                compare_func=bad_compare, max_lag=1, n_jobs=1
-            )
+            rd.get_pairwise_fr_corr(compare_func=bad_compare, max_lag=1, n_jobs=1)

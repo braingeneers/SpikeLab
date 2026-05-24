@@ -5306,9 +5306,7 @@ class TestSpikeDataSubsetStack:
                 original positions (id 0..3 with spikes at
                 10/20/30/40 ms).
         """
-        sd = SpikeData(
-            [[10.0], [20.0], [30.0], [40.0]], length=50.0
-        )
+        sd = SpikeData([[10.0], [20.0], [30.0], [40.0]], length=50.0)
         sd.neuron_attributes = [{"id": i} for i in range(4)]
 
         stack = sd.subset_stack(n_subsets=3, units_per_subset=4, seed=0)
@@ -9147,9 +9145,7 @@ class TestSpikeDataGetPopRateOversizedKernelGuards:
             (Test Case 1) ``square_width = 10 * length`` raises
                 ``ValueError`` naming ``square_width``.
         """
-        sd = SpikeData(
-            [np.array([10.0, 30.0, 70.0])], length=100.0
-        )
+        sd = SpikeData([np.array([10.0, 30.0, 70.0])], length=100.0)
         with pytest.raises(ValueError, match="square_width"):
             sd.get_pop_rate(
                 square_width=1000.0,
@@ -9167,9 +9163,7 @@ class TestSpikeDataGetPopRateOversizedKernelGuards:
             (Test Case 1) ``square_width = length`` does not raise.
             (Test Case 2) Output shape matches raster bin count.
         """
-        sd = SpikeData(
-            [np.array([10.0, 30.0, 70.0])], length=100.0
-        )
+        sd = SpikeData([np.array([10.0, 30.0, 70.0])], length=100.0)
         pop = sd.get_pop_rate(
             square_width=100.0,
             gauss_sigma=0.0,
@@ -9189,9 +9183,7 @@ class TestSpikeDataGetPopRateOversizedKernelGuards:
                 the threshold) raises ``ValueError`` naming
                 ``gauss_sigma``.
         """
-        sd = SpikeData(
-            [np.array([10.0, 30.0, 70.0])], length=100.0
-        )
+        sd = SpikeData([np.array([10.0, 30.0, 70.0])], length=100.0)
         with pytest.raises(ValueError, match="gauss_sigma"):
             sd.get_pop_rate(
                 square_width=0.0,
@@ -9207,9 +9199,7 @@ class TestSpikeDataGetPopRateOversizedKernelGuards:
         Tests:
             (Test Case 1) ``gauss_sigma = length / 6`` does not raise.
         """
-        sd = SpikeData(
-            [np.array([10.0, 30.0, 70.0])], length=120.0
-        )
+        sd = SpikeData([np.array([10.0, 30.0, 70.0])], length=120.0)
         # 6 * 20 = 120 — exactly fits.
         pop = sd.get_pop_rate(
             square_width=0.0,
@@ -9245,9 +9235,7 @@ class TestSpikeDataAlignToEventsBoundary:
         sd = SpikeData([[10.0, 50.0, 90.0]], length=100.0)
         sd.metadata["events"] = np.array([[10.0, 11.0], [50.0, 51.0]])
         try:
-            stack = sd.align_to_events(
-                events="events", pre_ms=5.0, post_ms=5.0
-            )
+            stack = sd.align_to_events(events="events", pre_ms=5.0, post_ms=5.0)
             # If it succeeds, pin that the shape is degenerate.
             assert stack is not None
         except (ValueError, IndexError) as exc:
@@ -9446,9 +9434,7 @@ class TestSpikeDataGetPairwiseLatenciesEmptyDistributions:
                 matrix are empty arrays.
         """
         sd = SpikeData([[], []], length=100.0)
-        result = sd.get_pairwise_latencies(
-            window_ms=10.0, return_distributions=True
-        )
+        result = sd.get_pairwise_latencies(window_ms=10.0, return_distributions=True)
         # API returns (latency_matrix, std_matrix, distributions) or similar.
         # Accept whatever the function returns; assert distributions are
         # arrays (possibly empty).
@@ -9456,7 +9442,11 @@ class TestSpikeDataGetPairwiseLatenciesEmptyDistributions:
             # Find a distributions component that is a list/object array
             # of arrays.
             for item in result:
-                arr = np.asarray(item, dtype=object) if not isinstance(item, np.ndarray) else item
+                arr = (
+                    np.asarray(item, dtype=object)
+                    if not isinstance(item, np.ndarray)
+                    else item
+                )
                 # If this is the distribution slot, off-diagonal arrays
                 # should be empty.
                 if arr.dtype == object:
@@ -9508,9 +9498,7 @@ class TestSpikeDataGetFracActiveMinSpikesZero:
         """
         sd = SpikeData([[10.0], [20.0], [30.0]], length=100.0)
         edges = np.array([[0.0, 100.0]])
-        result = sd.get_frac_active(
-            edges, MIN_SPIKES=0, backbone_threshold=0.0
-        )
+        result = sd.get_frac_active(edges, MIN_SPIKES=0, backbone_threshold=0.0)
         # API returns a tuple (frac_active_per_unit, ...). Just pin
         # that the frac_active component is all-1.0 with MIN_SPIKES=0.
         frac = result[0] if isinstance(result, tuple) else result
@@ -9569,10 +9557,12 @@ class TestSpikeDataBurstEdgeMultThreshAboveOne:
                 does not crash on an over-tight edge threshold.
         """
         # Construct a SpikeData with a clear burst near t=50ms.
-        train = np.concatenate([
-            np.linspace(45.0, 55.0, 50),
-            np.array([10.0, 90.0]),
-        ])
+        train = np.concatenate(
+            [
+                np.linspace(45.0, 55.0, 50),
+                np.array([10.0, 90.0]),
+            ]
+        )
         sd = SpikeData([np.sort(train)], length=100.0)
         try:
             result = sd.get_bursts(
@@ -9674,9 +9664,7 @@ class TestSpikeDataComputeStPRBoundaryCases:
         """
         sd = SpikeData([[50.0]], length=100.0)
         try:
-            result = sd.compute_spike_trig_pop_rate(
-                window_ms=10000.0, bin_size=1.0
-            )
+            result = sd.compute_spike_trig_pop_rate(window_ms=10000.0, bin_size=1.0)
             assert result is not None
         except ValueError:
             pass
@@ -9697,9 +9685,7 @@ class TestSpikeDataFromThresholdingHysteresisSingleBin:
         """
         raw = np.array([[1.0]], dtype=float)  # shape (1, 1)
         try:
-            sd = SpikeData.from_thresholding(
-                raw, fs_Hz=1000.0, hysteresis=True
-            )
+            sd = SpikeData.from_thresholding(raw, fs_Hz=1000.0, hysteresis=True)
             assert sd.N >= 1
             for tr in sd.train:
                 assert len(tr) == 0
@@ -9723,9 +9709,7 @@ class TestSpikeDataPlotAlignedPopRateBoundary:
         import matplotlib
 
         matplotlib.use("Agg")
-        sd = SpikeData(
-            [np.linspace(40.0, 60.0, 20)], length=100.0
-        )
+        sd = SpikeData([np.linspace(40.0, 60.0, 20)], length=100.0)
         sd.metadata["events"] = np.array([50.0])  # length-1 → looks scalar
         try:
             sd.plot_aligned_pop_rate(
@@ -9747,9 +9731,7 @@ class TestSpikeDataPlotAlignedPopRateBoundary:
         import matplotlib
 
         matplotlib.use("Agg")
-        sd = SpikeData(
-            [np.linspace(20.0, 80.0, 50)], length=100.0
-        )
+        sd = SpikeData([np.linspace(20.0, 80.0, 50)], length=100.0)
         sd.metadata["events"] = np.array([30.0, 50.0, 70.0])
         for pct in (0, 100):
             try:
@@ -9794,17 +9776,13 @@ class TestSpikeDataFitGplvmBinLargerThanRecording:
                 raise during the bin-size validation.
         """
         pytest.importorskip("poor_man_gplvm")
-        sd = SpikeData(
-            [[1.0, 5.0, 9.0], [2.0, 6.0]], length=10.0
-        )
+        sd = SpikeData([[1.0, 5.0, 9.0], [2.0, 6.0]], length=10.0)
         # The boundary should pass validation; the actual EM fit may
         # warn or fail later on degenerate data — that's expected.
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             try:
-                result = sd.fit_gplvm(
-                    bin_size_ms=10.0, n_latent_bin=2, n_iter=2
-                )
+                result = sd.fit_gplvm(bin_size_ms=10.0, n_latent_bin=2, n_iter=2)
                 assert result is not None
             except (RuntimeError, ValueError) as exc:
                 # Acceptable if a downstream JAX/numpy step rejects
@@ -9899,9 +9877,7 @@ class TestSpikeDataFromThresholdingFilterDictMissingKeys:
         # because lowcut/highcut are missing.
         raw = np.random.RandomState(0).normal(0, 1, (2, 5000))
         with pytest.raises((TypeError, ValueError)):
-            SpikeData.from_thresholding(
-                raw, fs_Hz=20000.0, filter={"order": 3}
-            )
+            SpikeData.from_thresholding(raw, fs_Hz=20000.0, filter={"order": 3})
 
 
 class TestSpikeDataAlignToEventsEmptyMetadataList:
@@ -10031,8 +10007,6 @@ class TestUtilsFindEdgeMonotonicDecreasing:
         try:
             idx = _find_down_edge(ref, lo=0, hi=100, neg_peak=99)
             # idx must be either None or a non-negative integer
-            assert idx is None or (
-                isinstance(idx, (int, np.integer)) and idx >= 0
-            )
+            assert idx is None or (isinstance(idx, (int, np.integer)) and idx >= 0)
         except (TypeError, ValueError):
             pytest.skip("API signature differs")

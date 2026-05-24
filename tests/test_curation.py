@@ -1888,9 +1888,7 @@ class TestEstimateNoiseLevelsBoundary:
 
         # Constant signal → MAD is 0.
         raw = np.zeros((4, 100))
-        noise = _estimate_noise_levels(
-            raw, num_chunks=10, chunk_size=100, seed=0
-        )
+        noise = _estimate_noise_levels(raw, num_chunks=10, chunk_size=100, seed=0)
         assert noise.shape == (4,)
         assert (noise == 0.0).all()
 
@@ -1906,9 +1904,7 @@ class TestEstimateNoiseLevelsBoundary:
         from spikelab.spikedata.curation import _estimate_noise_levels
 
         raw = np.zeros((3, 50))  # smaller than chunk_size=200
-        noise = _estimate_noise_levels(
-            raw, num_chunks=5, chunk_size=200, seed=0
-        )
+        noise = _estimate_noise_levels(raw, num_chunks=5, chunk_size=200, seed=0)
         assert noise.shape == (3,)
         assert (noise == 0.0).all()
 
@@ -1928,9 +1924,7 @@ class TestEstimateNoiseLevelsBoundary:
 
         rng = np.random.default_rng(0)
         raw = rng.normal(0, 1, (2, 60))
-        noise = _estimate_noise_levels(
-            raw, num_chunks=20, chunk_size=50, seed=0
-        )
+        noise = _estimate_noise_levels(raw, num_chunks=20, chunk_size=50, seed=0)
         assert noise.shape == (2,)
         assert np.all(np.isfinite(noise))
         assert (noise > 0).all()

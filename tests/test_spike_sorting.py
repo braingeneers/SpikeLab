@@ -12538,9 +12538,7 @@ class TestCompilerIncludeFailedUnitsBarNSelected:
         # ``if self.create_figures`` block, so patch the source module.
         import spikelab.spike_sorting.figures as figures_mod
 
-        monkeypatch.setattr(
-            figures_mod, "plot_curation_bar", _fake_plot_curation_bar
-        )
+        monkeypatch.setattr(figures_mod, "plot_curation_bar", _fake_plot_curation_bar)
         # std_scatter_plot is guarded off in the helper config; no need
         # to patch.
 
@@ -12581,9 +12579,7 @@ class TestCompilerIncludeFailedUnitsBarNSelected:
 
         import spikelab.spike_sorting.figures as figures_mod
 
-        monkeypatch.setattr(
-            figures_mod, "plot_curation_bar", _fake_plot_curation_bar
-        )
+        monkeypatch.setattr(figures_mod, "plot_curation_bar", _fake_plot_curation_bar)
 
         compiler.save_results(tmp_path / "out")
 
@@ -12761,9 +12757,7 @@ class TestPlotCurationBarRotationApi:
 
         from spikelab.spike_sorting.figures import plot_curation_bar
 
-        fig = plot_curation_bar(
-            ["recA", "recB"], [10, 20], [5, 15], label_rotation=30
-        )
+        fig = plot_curation_bar(["recA", "recB"], [10, 20], [5, 15], label_rotation=30)
         try:
             ax = fig.axes[0]
             rotations = {

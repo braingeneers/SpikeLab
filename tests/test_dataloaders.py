@@ -5955,9 +5955,7 @@ class TestParseS3UrlMixedCase:
         """
         from spikelab.data_loaders.s3_utils import parse_s3_url
 
-        bucket, key = parse_s3_url(
-            "https://s3.amazonaws.com/MyBucket/path/file.h5"
-        )
+        bucket, key = parse_s3_url("https://s3.amazonaws.com/MyBucket/path/file.h5")
         assert bucket == "MyBucket"
         assert key == "path/file.h5"
 
@@ -5970,8 +5968,6 @@ class TestParseS3UrlMixedCase:
         """
         from spikelab.data_loaders.s3_utils import parse_s3_url
 
-        bucket, key = parse_s3_url(
-            "https://MyBucket.s3.amazonaws.com/key/file.h5"
-        )
+        bucket, key = parse_s3_url("https://MyBucket.s3.amazonaws.com/key/file.h5")
         assert bucket == "MyBucket"
         assert key == "key/file.h5"

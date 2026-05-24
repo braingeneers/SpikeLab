@@ -2820,9 +2820,7 @@ class TestPairwiseCompMatrixToNetworkxThresholdBoundary:
         pytest.importorskip("networkx")
         from spikelab.spikedata.pairwise import PairwiseCompMatrix
 
-        m = np.array(
-            [[0.0, 0.9, 0.5], [0.9, 0.0, 0.3], [0.5, 0.3, 0.0]]
-        )
+        m = np.array([[0.0, 0.9, 0.5], [0.9, 0.0, 0.3], [0.5, 0.3, 0.0]])
         pcm = PairwiseCompMatrix(matrix=m)
         with pytest.raises(ValueError, match="finite"):
             pcm.to_networkx(threshold=np.inf)
@@ -2866,17 +2864,11 @@ class TestPairwiseCompMatrixExtractPairsByGroupSingleUnit:
 
         pcm = PairwiseCompMatrix(matrix=np.array([[0.0]]))
         try:
-            result = pcm.extract_pairs_by_group(
-                unit_labels=np.array(["A"])
-            )
+            result = pcm.extract_pairs_by_group(unit_labels=np.array(["A"]))
             # Whatever shape it returns, the body should be empty.
             if isinstance(result, dict):
-                empty = (
-                    len(result) == 0
-                    or all(
-                        (hasattr(v, "__len__") and len(v) == 0)
-                        for v in result.values()
-                    )
+                empty = len(result) == 0 or all(
+                    (hasattr(v, "__len__") and len(v) == 0) for v in result.values()
                 )
                 assert empty
             else:
