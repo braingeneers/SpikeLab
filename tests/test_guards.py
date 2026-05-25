@@ -8026,6 +8026,38 @@ class TestValidateRecordingInputsEdges:
         assert findings[0].level == "fail"
         assert findings[0].code == "recording_input_none"
 
+    def test_none_in_middle_of_list_records_finding_and_continues_loop(
+        self, tmp_path
+    ):
+        """
+        ``_validate_recording_inputs`` accumulates findings across the
+        entire input list — a ``None`` in the middle produces one
+        ``recording_input_none`` finding and the loop continues to
+        evaluate subsequent entries (so two missing files produce two
+        ``recording_missing`` findings even after a ``None`` at index 1).
+
+        Tests:
+            (Test Case 1) ``[exists_path, None, missing_path]`` produces
+                findings including ``recording_input_none`` at index 1.
+            (Test Case 2) The loop reaches the entry at index 2 — its
+                missing-file finding is also present.
+        """
+        from spikelab.spike_sorting.guards._preflight import (
+            _validate_recording_inputs,
+        )
+
+        existing = tmp_path / "ok.h5"
+        existing.write_bytes(b"placeholder")
+        missing = tmp_path / "absent.h5"
+
+        findings = _validate_recording_inputs([existing, None, missing])
+        codes = [f.code for f in findings]
+        # Index 1's None surfaces.
+        assert "recording_input_none" in codes
+        # Index 2's missing path also surfaced — proves the loop kept
+        # iterating after the None entry.
+        assert "recording_missing" in codes
+
     def test_no_extension_path_yields_unfamiliar_warning(self, tmp_path):
         """
         A real file without an extension yields a warn-level

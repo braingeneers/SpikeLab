@@ -939,6 +939,44 @@ class TestWaveformExtractorToSpikeData:
 
 
 @skip_no_spikeinterface
+class TestShellScriptStartUsesErrorsReplace:
+    """``ShellScript.start`` passes ``errors="replace"`` to
+    ``subprocess.Popen`` so a sorter that writes invalid UTF-8 to
+    stdout/stderr doesn't crash the log-mirroring loop with
+    UnicodeDecodeError.
+    """
+
+    def test_start_invokes_popen_with_errors_replace(self, tmp_path, monkeypatch):
+        """
+        Tests:
+            (Test Case 1) ``subprocess.Popen`` is invoked with
+                ``errors="replace"`` among its kwargs.
+        """
+        from spikelab.spike_sorting.ks2_runner import ShellScript
+
+        # Stub Popen with a MagicMock that has the bare interface ShellScript
+        # touches (stdout iterator, returncode).
+        captured_kwargs: dict = {}
+
+        class _FakeProcess:
+            def __init__(self, *args, **kwargs):
+                captured_kwargs.update(kwargs)
+                self.stdout = iter(["line1\n", "line2\n"])
+                self.returncode = 0
+
+            def wait(self, timeout=None):
+                return 0
+
+        import subprocess
+
+        monkeypatch.setattr(subprocess, "Popen", _FakeProcess)
+
+        ss = ShellScript("echo hello", log_path=str(tmp_path / "log"))
+        ss.start()
+
+        assert captured_kwargs.get("errors") == "replace"
+
+
 class TestShellScriptTextProcessing:
     """
     Tests for ShellScript private text-processing helpers.
@@ -1653,6 +1691,46 @@ class TestTimeChunksToFrames:
             total_duration_s=60.0,
         )
         assert chunks == [(10000, 60000)]
+
+    def test_zero_total_duration_with_time_param_rejected(self, helper):
+        """
+        ``total_duration_s=0`` with any time-slicing parameter set
+        produces a clear ValueError mentioning the non-positive
+        duration. Without this guard the downstream frame conversion
+        silently produces ``(0, 0)`` chunks.
+
+        Tests:
+            (Test Case 1) ``total_duration_s=0`` + ``start_time_s=0.0``
+                raises ValueError mentioning "non-positive".
+        """
+        with pytest.raises(ValueError, match="non-positive"):
+            helper(
+                start_time_s=0.0,
+                end_time_s=None,
+                rec_chunks_s=[],
+                fs=1000.0,
+                total_duration_s=0.0,
+            )
+
+    def test_no_time_param_no_chunks_no_error_even_at_zero_duration(self, helper):
+        """
+        Without any time-slicing parameter (no ``start_time_s``, no
+        ``end_time_s``, empty ``rec_chunks_s``), the non-positive
+        duration check is skipped — the function returns an empty
+        list without raising.
+
+        Tests:
+            (Test Case 1) All-None inputs at ``total_duration_s=10``
+                produce ``[]`` and do not raise.
+        """
+        chunks = helper(
+            start_time_s=None,
+            end_time_s=None,
+            rec_chunks_s=[],
+            fs=1000.0,
+            total_duration_s=10.0,
+        )
+        assert chunks == []
 
     def test_combined_start_end_and_rec_chunks_s(self, helper):
         """start_time_s/end_time_s and rec_chunks_s can coexist — both are included."""
@@ -8221,6 +8299,54 @@ class TestPrintPipelineSummary:
         assert "ValueError" in out
         assert "bad config" in out
 
+    def test_classified_error_surfaces_sorter_and_log_path_lines(self, capsys):
+        """
+        A ``SpikeSortingClassifiedError`` (e.g. ``GPUOutOfMemoryError``)
+        attaches ``sorter`` / ``log_path`` / ``model_path`` / ``reason``
+        attributes; ``_print_pipeline_summary`` prints each as its own
+        labelled line so the operator does not need to grep pod logs
+        for actionable detail.
+
+        Tests:
+            (Test Case 1) ``GPUOutOfMemoryError`` with ``sorter`` and
+                ``log_path`` set surfaces both fields in stdout in
+                addition to the standard ``Error:`` line.
+        """
+        from spikelab.spike_sorting._exceptions import GPUOutOfMemoryError
+        from spikelab.spike_sorting.pipeline import _print_pipeline_summary
+
+        err = GPUOutOfMemoryError(
+            "GPU OOM in detection stage",
+            sorter="ks4",
+            log_path=Path("/tmp/x.log"),
+        )
+        _print_pipeline_summary(status="failed", elapsed_s=1.0, error=err)
+        out = capsys.readouterr().out
+        assert "Error:" in out
+        assert "sorter:" in out
+        assert "ks4" in out
+        assert "log_path:" in out
+        assert "/tmp/x.log" in out or "x.log" in out
+
+    def test_plain_runtime_error_emits_only_error_line(self, capsys):
+        """
+        A plain ``RuntimeError`` (not a classified-sort-failure subclass)
+        produces just the standard ``Error:`` line — no labelled
+        ``sorter:`` / ``log_path:`` follow-up.
+
+        Tests:
+            (Test Case 1) ``RuntimeError`` produces no ``sorter:`` or
+                ``log_path:`` line.
+        """
+        from spikelab.spike_sorting.pipeline import _print_pipeline_summary
+
+        err = RuntimeError("plain failure")
+        _print_pipeline_summary(status="failed", elapsed_s=1.0, error=err)
+        out = capsys.readouterr().out
+        assert "Error:" in out
+        assert "sorter:" not in out
+        assert "log_path:" not in out
+
 
 class TestPrintBatchSummary:
     """
@@ -8683,6 +8809,90 @@ class TestConcatenateRecordingsEmptyDirectory:
         with pytest.raises(FileNotFoundError):
             _concatenate_recordings_with_state(tmp_path)
 
+    def test_mixed_recording_file_types_rejected_before_loading(self, tmp_path):
+        """
+        ``_concatenate_recordings_with_state`` rejects a directory that
+        mixes ``.raw.h5`` and ``.nwb`` files before any recording is
+        loaded — the operator sees a clear "mix of file types" error
+        rather than a confusing downstream sampling-rate / channel-
+        count mismatch.
+
+        Tests:
+            (Test Case 1) Directory with one ``.raw.h5`` + one ``.nwb``
+                raises ValueError mentioning "mix of file types".
+            (Test Case 2) The error fires before any ``load_single_recording``
+                call (we never write valid recording bytes, so a
+                load-then-fail would surface a different error).
+        """
+        from spikelab.spike_sorting.recording_io import (
+            _concatenate_recordings_with_state,
+        )
+
+        # Placeholder files with the right extensions — the validator
+        # fires before any loader inspects bytes.
+        (tmp_path / "rec_a.raw.h5").write_bytes(b"placeholder-not-real-h5")
+        (tmp_path / "rec_b.nwb").write_bytes(b"placeholder-not-real-nwb")
+
+        with pytest.raises(ValueError, match="mix of file types"):
+            _concatenate_recordings_with_state(tmp_path)
+
+
+class TestKilosortSortingExtractorQuoteSafeGroupFilter:
+    """``KilosortSortingExtractor`` filters ``exclude_cluster_groups``
+    via boolean indexing rather than ``cluster_info.query(...)``. A
+    group name with a single quote (``"foo's"``) breaks the
+    pandas eval-style parser used by ``query``; the boolean-index
+    path handles it correctly.
+    """
+
+    @staticmethod
+    def _make_phy_dir_with_quoted_group(tmp_path, groups):
+        """Build a minimal Phy folder where one cluster has the
+        quote-containing group string."""
+        path = tmp_path / "phy"
+        spike_times = np.arange(len(groups), dtype=np.int64)
+        spike_clusters = np.arange(len(groups), dtype=np.int64)
+        cluster_ids = list(range(len(groups)))
+        tsv_data = {
+            "cluster_id": cluster_ids,
+            "group": list(groups),
+        }
+        _write_ks_folder(
+            path,
+            spike_times,
+            spike_clusters,
+            sample_rate=20000.0,
+            tsv_data=tsv_data,
+            write_templates=True,
+        )
+        return path
+
+    @pytest.mark.skipif(not _has_pandas, reason="pandas not installed")
+    @skip_no_spikeinterface
+    def test_single_quote_in_group_name_excluded_without_parser_error(
+        self, tmp_path
+    ):
+        """
+        Tests:
+            (Test Case 1) ``exclude_cluster_groups="foo's"`` removes
+                the matching cluster without raising a pandas parser
+                error.
+            (Test Case 2) Non-matching groups survive.
+        """
+        from spikelab.spike_sorting.sorting_extractor import (
+            KilosortSortingExtractor,
+        )
+
+        path = self._make_phy_dir_with_quoted_group(
+            tmp_path, ["foo's", "good", "good"]
+        )
+        ext = KilosortSortingExtractor(
+            folder_path=str(path),
+            exclude_cluster_groups="foo's",
+        )
+        # 3 clusters total; cluster 0 (group="foo's") removed.
+        assert len(ext.unit_ids) == 2
+
 
 class TestRunKilosortFormatParamsIsPure:
     """``RunKilosort.format_params`` is a pure function — it never
@@ -8753,6 +8963,37 @@ class TestRunKilosortFormatParamsIsPure:
         # NT must be ≥ 1024 after rounding — pick a multiple-of-32 above that.
         out = RunKilosort.format_params({"car": False, "NT": 2048, "ntbuff": 64})
         assert out["car"] == 0
+
+    def test_format_params_nt_below_1024_after_rounding_raises(self):
+        """
+        ``NT=16`` rounds down to 0, which is below the 1024-sample
+        minimum (KS2 crashes with an opaque error on smaller batches).
+        Pin the boundary rejection independently of the rounding test.
+
+        Tests:
+            (Test Case 1) ``NT=16`` raises ValueError mentioning the
+                1024-sample minimum.
+        """
+        from spikelab.spike_sorting.ks2_runner import RunKilosort
+
+        with pytest.raises(ValueError, match="1024-sample minimum"):
+            RunKilosort.format_params({"car": False, "NT": 16, "ntbuff": 64})
+
+    def test_format_params_nt_none_resolves_to_default(self):
+        """
+        ``NT=None`` falls through the rounding branch and resolves to
+        the canonical Kilosort2 default (``64*1024 + ntbuff``). The
+        None branch must not hit the 1024-sample minimum check (since
+        no concrete NT was passed).
+
+        Tests:
+            (Test Case 1) ``NT=None`` survives ``format_params`` and
+                resolves to ``64*1024 + ntbuff``.
+        """
+        from spikelab.spike_sorting.ks2_runner import RunKilosort
+
+        out = RunKilosort.format_params({"car": False, "NT": None, "ntbuff": 64})
+        assert out["NT"] == 64 * 1024 + 64
 
 
 @skip_no_spikeinterface
@@ -12251,6 +12492,112 @@ def _new_compiler(include_failed_units_cfg=False):
     cfg.compilation.save_electrodes = False
     cfg.compilation.include_failed_units = include_failed_units_cfg
     return Compiler(cfg)
+
+
+class TestCompilerWaveformCompileMmapBranch:
+    """``Compiler.save_results`` waveform-compile branch: when
+    ``compile_waveforms=True`` and a unit's
+    ``attrs["_waveforms_path"]`` points at an ``.npy`` file, the
+    code copies that file to the dest. Two sub-branches:
+
+    - ``_waveforms_window is None`` → direct ``shutil.copyfile``
+      (avoids materializing a multi-GB mmap into RAM).
+    - ``_waveforms_window = (a, b)`` → sliced chunked write via
+      ``np.lib.format.open_memmap`` so only the slice is materialized.
+    """
+
+    @staticmethod
+    def _make_compiler_with_waveforms():
+        """Compiler configured for waveform compilation only."""
+        from spikelab.spike_sorting.pipeline import Compiler
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+
+        cfg = SortingPipelineConfig()
+        cfg.figures.create_figures = False
+        cfg.compilation.compile_to_mat = False
+        cfg.compilation.compile_to_npz = True
+        cfg.compilation.compile_waveforms = True
+        cfg.compilation.save_electrodes = False
+        cfg.compilation.include_failed_units = False
+        return Compiler(cfg)
+
+    @staticmethod
+    def _make_sd_with_waveforms(tmp_path, wf_array, wf_window=None):
+        """SpikeData whose unit attrs reference an on-disk waveform .npy."""
+        from spikelab.spikedata import SpikeData
+
+        wf_path = tmp_path / "wfs.npy"
+        np.save(str(wf_path), wf_array)
+
+        sd = SpikeData(
+            [np.array([10.0, 20.0])],
+            length=100.0,
+            neuron_attributes=[
+                {
+                    "unit_id": 1,
+                    "has_pos_peak": False,
+                    "amplitude": 50.0,
+                    "spike_train_samples": np.array([100, 200], dtype=np.int64),
+                    "electrode": 0,
+                    "template": np.zeros(40),
+                    "template_windowed": np.zeros(40),
+                    "template_peak_ind": 20,
+                    "x": 0.0,
+                    "y": 0.0,
+                    "channel": 0,
+                    "channel_id": 0,
+                    "_waveforms_path": str(wf_path),
+                    "_waveforms_window": wf_window,
+                }
+            ],
+            metadata={"fs_Hz": 20000.0, "n_samples": 200, "channel_locations": None},
+        )
+        return sd, wf_path
+
+    def test_waveform_window_none_uses_direct_file_copy(self, tmp_path):
+        """
+        Tests:
+            (Test Case 1) ``_waveforms_window=None`` produces a dest
+                file identical to the source on disk (file-copy path).
+        """
+        compiler = self._make_compiler_with_waveforms()
+        # Random waveform array — anything goes; we only check copy fidelity.
+        rng = np.random.default_rng(0)
+        wf = rng.standard_normal((5, 40, 2)).astype(np.float32)
+        sd, wf_path = self._make_sd_with_waveforms(tmp_path, wf, wf_window=None)
+        compiler.add_recording("rec_a", sd, curation_history=None)
+
+        out_folder = tmp_path / "out"
+        compiler.save_results(out_folder)
+
+        dest = out_folder / "negative_peaks" / "waveforms_0.npy"
+        assert dest.is_file()
+        # Direct file copy → byte-identical to source.
+        assert dest.read_bytes() == Path(wf_path).read_bytes()
+
+    def test_waveform_window_set_writes_sliced_shape(self, tmp_path):
+        """
+        Tests:
+            (Test Case 1) ``_waveforms_window=(start, stop)`` produces
+                a dest file whose middle axis (samples) matches the
+                slice length.
+            (Test Case 2) Values in the dest match the sliced source.
+        """
+        compiler = self._make_compiler_with_waveforms()
+        rng = np.random.default_rng(1)
+        wf = rng.standard_normal((4, 50, 3)).astype(np.float32)
+        sd, _ = self._make_sd_with_waveforms(tmp_path, wf, wf_window=(10, 30))
+        compiler.add_recording("rec_b", sd, curation_history=None)
+
+        out_folder = tmp_path / "out"
+        compiler.save_results(out_folder)
+
+        dest = out_folder / "negative_peaks" / "waveforms_0.npy"
+        assert dest.is_file()
+        loaded = np.load(str(dest))
+        # Middle axis (samples) is the slice length (30 - 10 = 20).
+        assert loaded.shape == (4, 20, 3)
+        np.testing.assert_array_equal(loaded, wf[:, 10:30, :])
 
 
 class TestCompilerIncludeFailedUnitsDefault:

@@ -337,7 +337,9 @@ def _extract_unit_count(result: Any) -> Optional[int]:
     n = getattr(candidate, "N", None)
     # Accept numpy integer types (np.int64, etc.) as well as Python int.
     # SpikeData.N is sometimes assigned from numpy operations such as
-    # np.unique(...).size, which returns a numpy scalar.
-    if isinstance(n, (int, np.integer)):
+    # np.unique(...).size, which returns a numpy scalar. Reject bool
+    # — it subclasses int and would silently report ``N=1`` for a
+    # truthy flag accidentally returned in place of a SpikeData.
+    if isinstance(n, (int, np.integer)) and not isinstance(n, bool):
         return int(n)
     return None

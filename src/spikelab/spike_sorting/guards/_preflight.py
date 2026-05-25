@@ -477,10 +477,23 @@ def _validate_recording_inputs(
     findings: List[PreflightFinding] = []
     for i, entry in enumerate(recording_files):
         if entry is None:
-            raise ValueError(
-                f"recording_inputs[{i}] is None (caller bug — pass a path, "
-                f"BaseRecording, or omit the entry)"
+            findings.append(
+                PreflightFinding(
+                    level="fail",
+                    code="recording_input_none",
+                    category="environment",
+                    message=(
+                        f"recording_inputs[{i}] is None — expected a path "
+                        "or BaseRecording."
+                    ),
+                    remediation=(
+                        "Drop the None entry from recording_inputs, or "
+                        "pass a path / pre-loaded BaseRecording in its "
+                        "place."
+                    ),
+                )
             )
+            continue
         rec = entry
         if not isinstance(rec, (str, Path)):
             # Pre-loaded recording object — skip.
@@ -805,7 +818,7 @@ def _ping_docker_daemon() -> Tuple[bool, Optional[PreflightFinding]]:
         subprocess.run(
             ["docker", "info"],
             check=True,
-            timeout=5,
+            timeout=30,
             capture_output=True,
         )
         return True, None

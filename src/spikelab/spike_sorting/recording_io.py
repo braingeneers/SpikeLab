@@ -197,6 +197,12 @@ def _time_chunks_to_frames(
     chunks: List[Tuple[int, int]] = []
 
     if start_time_s is not None or end_time_s is not None:
+        if total_duration_s <= 0:
+            raise ValueError(
+                f"Recording duration is non-positive (total_duration_s="
+                f"{total_duration_s}); refusing to slice. The recording is "
+                "likely corrupt or empty."
+            )
         start_s = start_time_s if start_time_s is not None else 0.0
         end_s = end_time_s if end_time_s is not None else total_duration_s
         if end_s > total_duration_s:
@@ -517,15 +523,28 @@ def _concatenate_recordings_with_state(
     new_rec_chunks: List[Tuple[int, int]] = []
     start_frame = 0
 
-    recording_names = natsorted(
-        [
-            p.name
-            for p in rec_path.iterdir()
-            if p.name.endswith(".raw.h5") or p.name.endswith(".nwb")
-        ]
-    )
+    # Build the candidate set once, then validate uniformity of file
+    # extensions. Mixing ``.raw.h5`` and ``.nwb`` is rejected up front
+    # so the operator sees the bundle error here rather than a confusing
+    # downstream sampling-rate / channel-count mismatch from
+    # cross-format loading.
+    candidates = [
+        p
+        for p in rec_path.iterdir()
+        if p.name.endswith(".raw.h5") or p.name.endswith(".nwb")
+    ]
+    suffixes = {".raw.h5" if p.name.endswith(".raw.h5") else ".nwb" for p in candidates}
+    if len(suffixes) > 1:
+        raise ValueError(
+            f"Cannot concatenate: {rec_path} contains a mix of file types "
+            f"({sorted(suffixes)}). Concatenation requires all recordings to "
+            "share the same on-disk format. Move one of the formats to a "
+            "separate folder."
+        )
+    by_name = {p.name: p for p in candidates}
+    recording_names = natsorted(by_name.keys())
     for rec_name in recording_names:
-        rec_file = [p for p in rec_path.iterdir() if p.name == rec_name][0]
+        rec_file = by_name[rec_name]
         rec = load_single_recording(rec_file, config=config)
         recordings.append(rec)
         print(

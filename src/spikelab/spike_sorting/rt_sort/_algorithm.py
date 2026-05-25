@@ -369,8 +369,9 @@ def detect_sequences(
 
         # Save traces for detection model
         if num_processes is None:
-            num_processes = max(1, round(os.cpu_count() * 2 / 3))
-            num_processes_save_traces = max(1, os.cpu_count() // 3)
+            cpu_count = os.cpu_count() or 1
+            num_processes = max(1, round(cpu_count * 2 / 3))
+            num_processes_save_traces = max(1, cpu_count // 3)
         else:
             num_processes_save_traces = num_processes
 

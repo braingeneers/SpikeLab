@@ -139,6 +139,24 @@ class TestHierarchy:
         assert issubclass(concrete, SpikeSortingClassifiedError)
         assert issubclass(concrete, RuntimeError)
 
+    def test_model_loading_error_inherits_environment_sort_failure(self):
+        """
+        ``ModelLoadingError`` must remain under the ``EnvironmentSortFailure``
+        category, and ``GPUOutOfMemoryError`` must remain under
+        ``ResourceSortFailure`` — pins the section-header invariant from
+        the ``_exceptions.py`` module's structure.
+
+        Tests:
+            (Test Case 1) ``ModelLoadingError.__mro__`` includes
+                ``EnvironmentSortFailure``.
+            (Test Case 2) ``GPUOutOfMemoryError.__mro__`` includes
+                ``ResourceSortFailure``.
+        """
+        from spikelab.spike_sorting._exceptions import ModelLoadingError
+
+        assert EnvironmentSortFailure in ModelLoadingError.__mro__
+        assert ResourceSortFailure in GPUOutOfMemoryError.__mro__
+
     @pytest.mark.parametrize(
         "categorical",
         [BiologicalSortFailure, EnvironmentSortFailure, ResourceSortFailure],

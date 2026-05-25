@@ -563,6 +563,13 @@ end"""
             out["NT"] = 64 * 1024 + out["ntbuff"]
         else:
             out["NT"] = int(out["NT"]) // 32 * 32
+            if out["NT"] < 1024:
+                raise ValueError(
+                    f"NT={out['NT']} after rounding to multiple of 32 is below "
+                    "the 1024-sample minimum (KS2 crashes with an opaque error "
+                    "for smaller batches). Increase NT in the sorter config "
+                    "or omit it to use the default."
+                )
         out["car"] = 1 if out.get("car") else 0
         return out
 
@@ -679,6 +686,7 @@ class ShellScript:
             stderr=subprocess.STDOUT,
             bufsize=1,
             universal_newlines=True,
+            errors="replace",
         )
         with open(script_log_path, "w+") as script_log_file:
             for line in self._process.stdout:

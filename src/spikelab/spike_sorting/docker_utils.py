@@ -7,6 +7,7 @@ without manual image selection.
 """
 
 import subprocess
+import sys
 from contextlib import contextmanager
 from typing import Any, Dict, Iterator, Optional
 
@@ -399,4 +400,14 @@ def _safe_exit_inactivity_watchdog(watchdog: Any) -> None:
     try:
         watchdog.__exit__(None, None, None)
     except Exception as exc:
-        print(f"[container kill] inactivity watchdog __exit__ failed: {exc!r}")
+        # ``__stderr__`` not ``stderr``: finalizers may run during
+        # interpreter shutdown when ``sys.stderr`` has been swapped
+        # for a closed stream, while ``sys.__stderr__`` retains the
+        # original handle.
+        try:
+            print(
+                f"[container kill] inactivity watchdog __exit__ failed: {exc!r}",
+                file=sys.__stderr__,
+            )
+        except Exception:
+            pass

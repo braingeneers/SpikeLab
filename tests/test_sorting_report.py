@@ -185,6 +185,37 @@ class TestParseSortingLog:
         assert any("SPIKE SORTING" in n for n in names)
         assert any("PER-UNIT FIGURES" in n for n in names)
 
+    def test_repeated_banner_pairs_with_closest_preceding(self):
+        """
+        ``parse_sorting_log`` pairs each ISO timestamp with the closest
+        preceding banner using the enumerate index, not the first
+        occurrence (``lines.index(...)``). If a banner name repeats
+        in the log, each subsequent timestamp must pair with the
+        *most recent* preceding instance.
+
+        Tests:
+            (Test Case 1) A log with two identical "INNER STAGE"
+                banners — each followed by its own timestamp — yields
+                two ``stage_timings`` entries with the matching
+                timestamps in order, not two entries both pointing at
+                the first timestamp.
+        """
+        log = (
+            "    INNER STAGE\n"
+            "\n"
+            "[2026-05-25 10:00:00]\n"
+            "    INNER STAGE\n"
+            "\n"
+            "[2026-05-25 10:05:00]\n"
+        )
+        info = parse_sorting_log(log)
+        stages = info["stage_timings"]
+        inner = [s for s in stages if "INNER STAGE" in s["name"]]
+        assert len(inner) == 2
+        # Each timestamp paired with its own preceding banner.
+        assert inner[0]["timestamp"] == "2026-05-25 10:00:00"
+        assert inner[1]["timestamp"] == "2026-05-25 10:05:00"
+
     def test_curation_line_extracted(self):
         """
         The "Curation: N -> M units" line is captured verbatim.
@@ -349,6 +380,32 @@ class TestExtractUnitQualityStats:
         """
         result = extract_unit_quality_stats(tmp_path / "does_not_exist.pkl")
         assert result == {}
+
+    def test_non_pickle_file_warns_and_returns_empty(self, tmp_path, caplog):
+        """
+        A file that exists but is not a valid pickle returns ``{}`` and
+        emits a WARNING-level log message from the module's logger.
+        Operators inspecting log streams can see why the curated stats
+        block came out empty.
+
+        Tests:
+            (Test Case 1) Garbage bytes produce ``{}`` return.
+            (Test Case 2) The module's logger records a WARNING.
+        """
+        import logging
+
+        bad_path = tmp_path / "garbage.pkl"
+        bad_path.write_bytes(b"not-a-pickle")
+
+        with caplog.at_level(logging.WARNING, logger="spikelab.spike_sorting.report"):
+            result = extract_unit_quality_stats(bad_path)
+
+        assert result == {}
+        warning_records = [
+            r for r in caplog.records if r.levelno >= logging.WARNING
+        ]
+        assert warning_records, "expected a WARNING-level log record"
+        assert "extract_unit_quality_stats" in warning_records[0].getMessage()
 
     def test_extracts_snr_and_std_norm_and_amplitude(self, tmp_path):
         """

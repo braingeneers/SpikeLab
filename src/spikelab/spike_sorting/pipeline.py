@@ -601,18 +601,35 @@ class Compiler:
                         wf_path = attrs.get("_waveforms_path")
                         wf_window = attrs.get("_waveforms_window")
                         if wf_path is not None:
-                            waveforms = np.load(wf_path, mmap_mode="r")
-                            if wf_window is not None:
-                                waveforms = waveforms[:, wf_window[0] : wf_window[1], :]
                             wf_folder = (
                                 folder / "positive_peaks"
                                 if has_pos
                                 else folder / "negative_peaks"
                             )
-                            np.save(
-                                wf_folder / f"waveforms_{sorted_index}.npy",
-                                np.array(waveforms),
-                            )
+                            dest = wf_folder / f"waveforms_{sorted_index}.npy"
+                            if wf_window is None:
+                                # No window slice → straight file copy
+                                # avoids materializing a multi-GB mmap
+                                # into RAM via ``np.array(waveforms)``.
+                                shutil.copyfile(wf_path, dest)
+                            else:
+                                # Windowed: write the sliced view in
+                                # chunks so we don't materialize the
+                                # full mmap. ``np.lib.format.open_memmap``
+                                # gives a memmap-backed sink we can
+                                # copy into per-spike.
+                                src = np.load(wf_path, mmap_mode="r")
+                                sliced = src[:, wf_window[0] : wf_window[1], :]
+                                sink = np.lib.format.open_memmap(
+                                    str(dest),
+                                    mode="w+",
+                                    dtype=sliced.dtype,
+                                    shape=sliced.shape,
+                                )
+                                chunk = max(1, 1024)
+                                for i in range(0, sliced.shape[0], chunk):
+                                    sink[i : i + chunk] = sliced[i : i + chunk]
+                                del sink, sliced, src
 
                     sorted_index += 1
 
@@ -1384,6 +1401,18 @@ def _print_pipeline_summary(
     print(f"Status:         {status}")
     if error is not None:
         print(f"Error:          {type(error).__name__}: {error}")
+        # Surface classified-error attached attributes (sorter,
+        # log_path, model_path, reason, ...) when present so the
+        # operator does not need to grep pod logs for actionable
+        # detail. ``SpikeSortingClassifiedError`` instances carry
+        # these on the exception object itself.
+        from ._exceptions import SpikeSortingClassifiedError
+
+        if isinstance(error, SpikeSortingClassifiedError):
+            for attr in ("sorter", "log_path", "model_path", "reason"):
+                value = getattr(error, attr, None)
+                if value is not None:
+                    print(f"  {attr}:{' ' * max(0, 13 - len(attr))}{value}")
 
     minutes, seconds = divmod(int(elapsed_s), 60)
     print(f"Wall time:      {minutes}m {seconds}s")

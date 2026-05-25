@@ -292,11 +292,6 @@ class DockerEnvironmentError(EnvironmentSortFailure):
         self.reason = reason
 
 
-# ---------------------------------------------------------------------------
-# Resource failures
-# ---------------------------------------------------------------------------
-
-
 class ModelLoadingError(EnvironmentSortFailure):
     """Detection model could not be loaded or is unusable.
 
@@ -320,6 +315,11 @@ class ModelLoadingError(EnvironmentSortFailure):
         super().__init__(message)
         self.sorter = sorter
         self.model_path = model_path
+
+
+# ---------------------------------------------------------------------------
+# Resource failures
+# ---------------------------------------------------------------------------
 
 
 class GPUOutOfMemoryError(ResourceSortFailure):

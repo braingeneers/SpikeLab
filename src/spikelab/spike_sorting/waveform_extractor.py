@@ -280,7 +280,7 @@ class WaveformExtractor:
         # unchanged: positions never written by any worker still
         # return zero, just as with the explicit ``np.zeros`` fill.
         print("Preparing memory maps for waveforms")
-        wfs_memmap = {}
+        wfs_memmap_files = {}
         for unit_id in self.sorting.unit_ids:
             file_path = self.root_folder / "waveforms" / f"waveforms_{unit_id}.npy"
             n_spikes = int(np.sum([e.size for e in selected_spike_times[unit_id]]))
@@ -293,10 +293,10 @@ class WaveformExtractor:
             )
             # Release the parent's mmap immediately so we don't hold
             # 200+ open file handles concurrently while still
-            # populating ``wfs_memmap``. Workers reopen the file via
+            # populating ``wfs_memmap_files``. Workers reopen the file via
             # ``np.load(..., mmap_mode="r+")`` when they need it.
             del mm
-            wfs_memmap[unit_id] = file_path
+            wfs_memmap_files[unit_id] = file_path
 
         # Run extract waveforms
         func = WaveformExtractor._waveform_extractor_chunk
@@ -306,7 +306,7 @@ class WaveformExtractor:
             self.recording,
             self.sorting,
             self,
-            wfs_memmap,
+            wfs_memmap_files,
             selected_spikes,
             selected_spike_times,
             self.nbefore,
@@ -724,7 +724,7 @@ class WaveformExtractor:
         recording,
         sorting,
         waveform_extractor,
-        wfs_memmap,
+        wfs_memmap_files,
         selected_spikes,
         selected_spike_times,
         nbefore,
@@ -737,7 +737,7 @@ class WaveformExtractor:
         worker_ctx["sorting"] = sorting
         worker_ctx["waveform_extractor"] = waveform_extractor
 
-        worker_ctx["wfs_memmap_files"] = wfs_memmap
+        worker_ctx["wfs_memmap_files"] = wfs_memmap_files
         worker_ctx["selected_spikes"] = selected_spikes
         worker_ctx["selected_spike_times"] = selected_spike_times
         worker_ctx["nbefore"] = nbefore
@@ -1334,12 +1334,6 @@ class Utils:
         elif n_jobs == 0:
             n_jobs = 1
         elif n_jobs is None:
-            n_jobs = 1
-
-        version = sys.version_info
-
-        if (n_jobs != 1) and not (version.major >= 3 and version.minor >= 7):
-            print(f"Python {sys.version} does not support parallel processing")
             n_jobs = 1
 
         return n_jobs

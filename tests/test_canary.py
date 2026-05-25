@@ -18,6 +18,7 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
+import numpy as np
 import pytest
 
 from spikelab.spike_sorting._exceptions import (
@@ -912,6 +913,43 @@ class TestExtractUnitCount:
         from spikelab.spike_sorting.canary import _extract_unit_count
 
         assert _extract_unit_count(()) is None
+
+    def test_extract_unit_count_rejects_bool_n(self):
+        """
+        ``bool`` is a subclass of ``int``; if a SpikeData-like candidate
+        accidentally has ``N=True``, ``isinstance(True, int)`` would
+        report 1 unit. The helper explicitly excludes ``bool`` so a
+        truthy-flag-confused-for-SpikeData situation returns None.
+
+        Tests:
+            (Test Case 1) Candidate with ``N=True`` returns None.
+            (Test Case 2) Candidate with ``N=False`` returns None.
+        """
+        from spikelab.spike_sorting.canary import _extract_unit_count
+
+        class _FakeSD:
+            def __init__(self, n):
+                self.N = n
+
+        assert _extract_unit_count(_FakeSD(True)) is None
+        assert _extract_unit_count(_FakeSD(False)) is None
+
+    def test_extract_unit_count_accepts_numpy_int(self):
+        """
+        ``np.int64`` (and other numpy integer types) are accepted —
+        ``SpikeData.N`` is sometimes assigned from ``np.unique(...).size``
+        which returns a numpy scalar.
+
+        Tests:
+            (Test Case 1) Candidate with ``N=np.int64(7)`` returns 7.
+        """
+        from spikelab.spike_sorting.canary import _extract_unit_count
+
+        class _FakeSD:
+            def __init__(self, n):
+                self.N = n
+
+        assert _extract_unit_count(_FakeSD(np.int64(7))) == 7
 
     def test_extract_unit_count_two_tuple_returns_curated_count(self):
         """

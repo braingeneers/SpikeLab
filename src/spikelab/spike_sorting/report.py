@@ -37,6 +37,7 @@ gate for applying ``tee_log_policy`` (delete / gzip the Tee log).
 from __future__ import annotations
 
 import json
+import logging
 import os
 import pickle
 import re
@@ -45,6 +46,8 @@ from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+
+_logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Tee log parsing
@@ -103,7 +106,7 @@ def parse_sorting_log(log_text: str) -> Dict[str, Any]:
     # We walk the file once and collect into the right bucket.
     current_section: Optional[str] = None
     summary_started = False
-    for line in lines:
+    for i, line in enumerate(lines):
         stripped = line.strip()
         if stripped.startswith("-- Environment --"):
             current_section = "environment"
@@ -149,11 +152,9 @@ def parse_sorting_log(log_text: str) -> Dict[str, Any]:
         # ``[YYYY-MM-DD HH:MM:SS]`` line. We pair them.
         m_ts = _TIMESTAMP_RE.search(line)
         if m_ts is not None:
-            # Look back up to 3 lines for the centered banner text.
             ts = m_ts.group(1)
-            lookback_idx = lines.index(line) if line in lines else -1
-            if lookback_idx > 0:
-                for j in range(max(0, lookback_idx - 3), lookback_idx):
+            if i > 0:
+                for j in range(max(0, i - 3), i):
                     cand = _BANNER_TEXT_RE.match(lines[j])
                     if cand:
                         name = cand.group(1).strip()
@@ -273,11 +274,20 @@ def diff_against_default(
 
 
 def _walk_diff(prefix: str, default: Any, actual: Any, out: List) -> None:
-    """Recurse two parallel dicts; record diverging leaf values."""
+    """Recurse two parallel dicts or lists; record diverging leaf values."""
     if isinstance(default, dict) and isinstance(actual, dict):
         for key in actual.keys() | default.keys():
             sub_prefix = f"{prefix}.{key}" if prefix else key
             _walk_diff(sub_prefix, default.get(key), actual.get(key), out)
+        return
+    if (
+        isinstance(default, list)
+        and isinstance(actual, list)
+        and len(default) == len(actual)
+    ):
+        for idx, (d, a) in enumerate(zip(default, actual)):
+            sub_prefix = f"{prefix}[{idx}]"
+            _walk_diff(sub_prefix, d, a, out)
         return
     if default != actual:
         out.append((prefix, default, actual))
@@ -344,6 +354,12 @@ def extract_unit_quality_stats(curated_pkl_path: Path) -> Dict[str, Dict[str, fl
         with open(p, "rb") as f:
             sd = pickle.load(f)
     except Exception:
+        _logger.warning(
+            "extract_unit_quality_stats: failed to unpickle %s; returning "
+            "empty stats.",
+            p,
+            exc_info=True,
+        )
         return {}
 
     stats: Dict[str, Dict[str, float]] = {}

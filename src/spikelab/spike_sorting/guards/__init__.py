@@ -132,7 +132,6 @@ __all__ = [
     "read_gpu_memory",
     "resolve_active_device",
     "find_tripped_global_watchdog",
-    "linux_cgroup_v2_memory_cap",
     "PreflightFinding",
     "run_preflight",
     "report_findings",

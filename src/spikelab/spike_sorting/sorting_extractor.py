@@ -116,14 +116,19 @@ class KilosortSortingExtractor:
             ) from exc
 
         if exclude_cluster_groups is not None:
+            # Boolean indexing instead of ``query`` so a group name
+            # containing a single quote or other expression-special
+            # character doesn't reach the ``pd.eval`` parser and
+            # silently mismatch or raise a parser error.
             if isinstance(exclude_cluster_groups, str):
-                cluster_info = cluster_info.query(
-                    f"group != '{exclude_cluster_groups}'"
-                )
+                cluster_info = cluster_info[
+                    cluster_info["group"] != exclude_cluster_groups
+                ]
             elif isinstance(exclude_cluster_groups, list):
                 if len(exclude_cluster_groups) > 0:
-                    for exclude_group in exclude_cluster_groups:
-                        cluster_info = cluster_info.query(f"group != '{exclude_group}'")
+                    cluster_info = cluster_info[
+                        ~cluster_info["group"].isin(exclude_cluster_groups)
+                    ]
 
         if keep_good_only and "KSLabel" in cluster_info.columns:
             cluster_info = cluster_info.query("KSLabel == 'good'")
