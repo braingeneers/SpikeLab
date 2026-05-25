@@ -3,8 +3,18 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass
 from typing import Dict, Optional
+
+#: Sensitive substrings matched as word-boundary tokens in upper-cased
+#: keys. The previous substring check redacted ``SECRETS_PATH`` (and
+#: similar non-secret keys that happened to contain ``SECRET``) as a
+#: false positive. Word-boundary matching restricts the heuristic to
+#: keys that actually name a secret credential.
+_SENSITIVE_PATTERNS = tuple(
+    re.compile(rf"(^|[^A-Z]){tok}([^A-Z]|$)") for tok in ("SECRET", "TOKEN", "PASSWORD")
+)
 
 
 @dataclass
@@ -33,14 +43,23 @@ def resolve_credentials(
 
 
 def redact_sensitive_map(values: Dict[str, Optional[str]]) -> Dict[str, str]:
-    """Redact common secret values before logging."""
+    """Redact common secret values before logging.
+
+    Notes:
+        - Keys are matched against word-boundary patterns for
+          ``SECRET``, ``TOKEN``, and ``PASSWORD``. Previously the
+          substring check redacted ``SECRETS_PATH`` (and similar
+          non-secret keys that happened to contain ``SECRET``) as a
+          false positive — the value of ``SECRETS_PATH`` is a
+          filesystem path, not a credential.
+    """
     redacted: Dict[str, str] = {}
     for key, value in values.items():
         if value is None:
             redacted[key] = ""
             continue
         key_upper = key.upper()
-        if "SECRET" in key_upper or "TOKEN" in key_upper or "PASSWORD" in key_upper:
+        if any(pat.search(key_upper) for pat in _SENSITIVE_PATTERNS):
             redacted[key] = "***REDACTED***"
         else:
             redacted[key] = value

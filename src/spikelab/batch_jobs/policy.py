@@ -34,6 +34,18 @@ def _contains_disallowed_sleep(command: Sequence[str], args: Sequence[str]) -> b
     constructs like ``while true; do sleep 60; done`` or obfuscated
     variants. The goal is to flag accidental misuse, not to prevent
     determined circumvention.
+
+    Notes:
+        - The bare-``sleep`` check fires only when ``sleep`` is the sole
+          token across ``command + args``. A trailing token that
+          happens to be the literal string ``"sleep"`` (e.g.
+          ``["python", "-c", "sleep"]``, where ``"sleep"`` is a Python
+          snippet, not a shell command) is intentionally NOT flagged.
+          This avoids false positives on commands that legitimately
+          pass the string ``"sleep"`` as an argument. The downside is
+          that a determined operator can sneak in a real
+          ``exec("sleep infinity")``-style payload; this is documented
+          as out-of-scope for the heuristic.
     """
     # Flatten multi-word tokens (e.g., ["sleep infinity"] from sh -c)
     # into individual words for consistent token-pair matching.

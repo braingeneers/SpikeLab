@@ -335,9 +335,43 @@ class RunSession:
         run_id: Optional[str] = None,
         allow_policy_risk: bool = False,
     ) -> SubmitResult:
-        """Submit a job without generating bundle artifacts."""
+        """Submit a job without generating bundle artifacts.
+
+        Parameters:
+            job_spec (JobSpec): K8s job spec.
+            run_id (str | None): Optional explicit run identifier. Must
+                be a single path component — no ``/``, ``\\``, or
+                ``..`` segments. Defaults to a random UUID hex when None.
+            allow_policy_risk (bool): Bypass policy preflight BLOCK
+                findings.
+
+        Returns:
+            result (SubmitResult): The submitted job descriptor.
+
+        Notes:
+            - Unlike ``submit_workspace_job`` / ``submit_sorting_job``,
+              this path skips ``package_analysis_bundle`` (which has its
+              own traversal guard on run_id). The same traversal check
+              is applied here so an operator-supplied run_id like
+              ``"../escape"`` cannot escape the storage prefix.
+        """
         self._preflight(job_spec, allow_policy_risk)
         current_run_id = run_id or uuid4().hex
+        # Mirror the path-traversal guard from package_analysis_bundle so
+        # an operator-supplied run_id cannot escape the storage prefix
+        # downstream. The bundle path is gated by the packager; this
+        # path bypasses the packager entirely.
+        if (
+            not current_run_id
+            or "/" in current_run_id
+            or "\\" in current_run_id
+            or ".." in current_run_id.split("/")
+        ):
+            raise ValueError(
+                f"run_id={current_run_id!r} contains path-traversal segments "
+                "or separators; run_id must be a single path component (no "
+                "'/', '\\\\', or '..')."
+            )
         return self._submit(
             job_spec=job_spec,
             run_id=current_run_id,

@@ -98,18 +98,26 @@ class JobSpec(BaseModel):
     @field_validator("name_prefix")
     @classmethod
     def _validate_name_prefix(cls, value: str) -> str:
-        value = value.strip().lower()
-        if not value:
-            raise ValueError("name_prefix cannot be empty")
+        # Unified validation: both whitespace-only and all-hyphen inputs
+        # produce a single "no usable ASCII content" message so operators
+        # don't see different errors for inputs that look equivalent.
+        # Previously ``"   "`` raised "cannot be empty" while ``"---"``
+        # raised "empty after ASCII sanitization" — same root cause,
+        # different wording, operator confusion.
+        stripped = value.strip().lower()
         # Replace any character outside the RFC 1123 ASCII subset with '-'.
-        safe = re.sub(r"[^a-z0-9-]", "-", value)
+        safe = re.sub(r"[^a-z0-9-]", "-", stripped)
         # Collapse runs of hyphens.
         safe = re.sub(r"-+", "-", safe)
         # Truncate, then strip leading/trailing hyphens so the result never
         # ends in '-' after truncation (RFC 1123 violation).
         safe = safe[:40].strip("-")
         if not safe:
-            raise ValueError("name_prefix is empty after ASCII sanitization")
+            raise ValueError(
+                f"name_prefix={value!r} has no usable ASCII content (after "
+                "stripping whitespace and reducing to RFC 1123 characters). "
+                "Pass a non-empty alphanumeric prefix."
+            )
         return safe
 
 

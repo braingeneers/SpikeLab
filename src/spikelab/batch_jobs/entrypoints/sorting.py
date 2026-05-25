@@ -18,6 +18,7 @@ import tempfile
 import zipfile
 from dataclasses import fields
 from pathlib import Path
+from typing import Dict
 
 
 def _require_env(name: str) -> str:
@@ -74,8 +75,15 @@ def main() -> None:
         storage.download_file(s3_uri=input_uri, local_path=bundle_zip)
 
         extract_dir = work / "input"
+        # Validate zip members against the target directory before
+        # extracting. Without this, a malicious bundle (compromised S3,
+        # hostile workspace job) could write files outside extract_dir
+        # via ``../`` segments — full RCE inside the container on
+        # Python <3.12 which does not validate ZipInfo paths.
+        from spikelab.batch_jobs.artifact_packager import _safe_extractall
+
         with zipfile.ZipFile(bundle_zip, "r") as zf:
-            zf.extractall(extract_dir)
+            _safe_extractall(zf, extract_dir)
 
         # --- Load sorting config ---
         config_files = list(extract_dir.rglob("sorting_config.json"))
@@ -98,6 +106,26 @@ def main() -> None:
 
         if not recording_files:
             raise FileNotFoundError("No recording files found in input bundle")
+
+        # Reject stem-level collisions across recording_files. Two
+        # recordings with the same stem (e.g. ``rec.bin`` and
+        # ``rec.h5``, or ``dir_a/rec.bin`` and ``dir_b/rec.bin`` in a
+        # legacy bundle) would both produce ``pkl_name="rec_curated.pkl"``
+        # and silently overwrite each other on S3. The host-side
+        # packager already rejects duplicate basenames at packaging
+        # time, but this defensive check catches bundles constructed
+        # externally or via non-spikelab tooling.
+        stem_to_path: Dict[str, str] = {}
+        for rec_path in recording_files:
+            stem = Path(rec_path).stem
+            if stem in stem_to_path:
+                raise RuntimeError(
+                    f"Recording basename collision on stem {stem!r}: "
+                    f"{stem_to_path[stem]!r} and {rec_path!r} both produce "
+                    f"output filename {stem}_curated.pkl. Rename the inputs "
+                    "so each recording has a unique stem before bundling."
+                )
+            stem_to_path[stem] = rec_path
 
         # --- Set up output folders ---
         results_dir = work / "results"
