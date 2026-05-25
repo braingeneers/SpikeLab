@@ -1349,9 +1349,7 @@ class SpikeData:
         if np.isnan(bin_size) or bin_size <= 0:
             raise ValueError(f"bin_size must be > 0, got {bin_size}.")
         if not np.isfinite(time_offset):
-            raise ValueError(
-                f"time_offset must be finite, got {time_offset}."
-            )
+            raise ValueError(f"time_offset must be finite, got {time_offset}.")
         if time_offset < -self.length:
             raise ValueError(
                 f"time_offset ({time_offset}) cannot be less than -length "

@@ -3680,11 +3680,19 @@ class TestCli:
     def test_cmd_deploy_validation_error_without_errors_attr(
         self, monkeypatch, tmp_path
     ):
-        """Validation error without .errors() attribute uses str(exc)."""
+        """Validation error without .errors() attribute uses str(exc).
+
+        Pre-2026-05-24 the test relied on YAML-level breakage to land
+        a non-Pydantic exception in ``_cmd_deploy``'s except block. The
+        parallel-session ``_apply_image_selection`` pre-check now
+        consumes empty-image YAML before validate_job_spec runs, so we
+        patch the validator directly to raise a plain ``ValueError``
+        (no ``.errors()`` attr) to exercise the ``str(exc)`` fallback.
+        """
         config_path = tmp_path / "bad.yaml"
         config_path.write_text(
             "name_prefix: analysis-job\nnamespace: default\n"
-            "container:\n  image: ''\n  command: []\n  args: []\n  env: {}\n"
+            "container:\n  image: 'placeholder:latest'\n  command: []\n  args: []\n  env: {}\n"
             "resources:\n  requests_cpu: '1'\n  requests_memory: 2Gi\n"
             "  limits_cpu: '1'\n  limits_memory: 2Gi\n"
             "  requests_gpu: 0\n  limits_gpu: 0\n  node_selector: {}\n"
@@ -3702,6 +3710,13 @@ class TestCli:
             "_build_session",
             lambda *args, **kwargs: MagicMock(),
         )
+
+        # Plain ValueError has no ``.errors()`` attribute → exercises
+        # the ``str(exc)`` fallback path in ``_cmd_deploy``.
+        def _raise_plain(payload):
+            raise ValueError("custom validation message")
+
+        monkeypatch.setattr(cli, "validate_job_spec", _raise_plain)
 
         args = SimpleNamespace(
             profile="defaults",

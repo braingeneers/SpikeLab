@@ -9066,9 +9066,7 @@ class TestComputeWaveformMetricsHappyPath:
         ws.store("ns", "spikedata", sd)
         # No raw_data → should raise.
         with pytest.raises(ValueError):
-            await analysis.compute_waveform_metrics(
-                workspace_id=ws_id, namespace="ns"
-            )
+            await analysis.compute_waveform_metrics(workspace_id=ws_id, namespace="ns")
 
 
 class TestSubmitPreparedJobMcpDispatcher:
@@ -9321,9 +9319,7 @@ class TestLoadFromHdf5RaggedHappyPath:
 
         sd = SpikeData([[10.0, 20.0], [15.0, 25.0]], length=100.0)
         h5_path = tmp_path / "test.h5"
-        exporters.export_spikedata_to_hdf5(
-            sd, str(h5_path), style="ragged"
-        )
+        exporters.export_spikedata_to_hdf5(sd, str(h5_path), style="ragged")
         # MCP wrapper.
         result = await data_loaders.load_from_hdf5_ragged(
             workspace_id="",

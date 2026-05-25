@@ -6272,9 +6272,7 @@ class TestBuildS3Kwargs:
         """
         from spikelab.data_loaders.s3_utils import _build_s3_kwargs
 
-        assert _build_s3_kwargs(region_name="us-west-2") == {
-            "region_name": "us-west-2"
-        }
+        assert _build_s3_kwargs(region_name="us-west-2") == {"region_name": "us-west-2"}
 
     def test_full_credentials_passed_through(self):
         """
@@ -6334,9 +6332,7 @@ class TestNwbLoaderStartTimeMsBrittleness:
             with h5py.File(path, "w") as f:
                 units = f.create_group("units")
                 units.create_dataset("id", data=np.array([0]))
-                units.create_dataset(
-                    "spike_times", data=np.array([0.001, 0.002])
-                )
+                units.create_dataset("spike_times", data=np.array([0.001, 0.002]))
                 units.create_dataset("spike_times_index", data=np.array([2]))
             sd = load_spikedata_from_nwb(
                 path,

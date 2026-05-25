@@ -5222,16 +5222,22 @@ class TestMakeSummaryNone:
 
 
 class TestDumpNeuronAttributesBoolCoercion:
-    """Round-trip test for bool-typed neuron attribute values."""
+    """Round-trip test for bool-typed neuron attribute values.
 
-    def test_bool_attribute_round_trips_as_float(self, tmp_path):
+    The parallel-session HDF5 schema update (2026-05-24) preserves the
+    original Python type on round-trip via a ``__scalar_kind__`` tag, so
+    ``True`` reloads as ``True`` (bool) rather than the previous
+    ``1.0`` (float) coercion.
+    """
+
+    def test_bool_attribute_round_trips_as_bool(self, tmp_path):
         """
-        _dump_neuron_attributes coerces bool values to float64 via float(v),
-        so a True attribute reloads as 1.0 (the bool dtype is lost).
-
         Tests:
-            (Test Case 1) attr["passed"] = True is dumped + loaded as 1.0.
-            (Test Case 2) The reloaded value's type is float, not bool.
+            (Test Case 1) attr["passed"] = True is dumped + loaded as
+                ``True``.
+            (Test Case 2) The reloaded value's type is ``bool`` — the
+                ``__scalar_kind__`` tag in the source preserves the
+                original Python type across the HDF5 boundary.
         """
         if not H5PY_AVAILABLE:
             pytest.skip("h5py not installed")
@@ -5246,9 +5252,8 @@ class TestDumpNeuronAttributesBoolCoercion:
             _dump_spikedata(grp, sd)
         with h5py.File(path, "r") as f:
             loaded = _load_spikedata(f["sd"])
-        assert loaded.neuron_attributes[0]["passed"] == 1.0
-        assert isinstance(loaded.neuron_attributes[0]["passed"], float)
-        assert not isinstance(loaded.neuron_attributes[0]["passed"], bool)
+        assert loaded.neuron_attributes[0]["passed"] is True
+        assert isinstance(loaded.neuron_attributes[0]["passed"], bool)
 
 
 class TestDumpDictKeyValidation:

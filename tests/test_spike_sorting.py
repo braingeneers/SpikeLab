@@ -1310,9 +1310,11 @@ class TestSpikeSortDocker:
         mock_rs = MagicMock(return_value=None)
 
         with (
-            patch("spikelab.spike_sorting.ks2_runner.write_binary_recording"),
-            patch("spikelab.spike_sorting.ks2_runner.BinaryRecordingExtractor"),
-            patch("spikelab.spike_sorting.ks2_runner.run_sorter", mock_rs),
+            patch("spikeinterface.core.write_binary_recording"),
+            patch(
+                "spikeinterface.extractors.extractor_classes.BinaryRecordingExtractor"
+            ),
+            patch("spikeinterface.sorters.run_sorter", mock_rs),
         ):
             result = _spike_sort_docker(recording, output_folder)
 
@@ -1343,9 +1345,11 @@ class TestSpikeSortDocker:
         recording = _make_mock_recording()
 
         with (
-            patch("spikelab.spike_sorting.ks2_runner.write_binary_recording"),
-            patch("spikelab.spike_sorting.ks2_runner.BinaryRecordingExtractor"),
-            patch("spikelab.spike_sorting.ks2_runner.run_sorter", MagicMock()),
+            patch("spikeinterface.core.write_binary_recording"),
+            patch(
+                "spikeinterface.extractors.extractor_classes.BinaryRecordingExtractor"
+            ),
+            patch("spikeinterface.sorters.run_sorter", MagicMock()),
         ):
             result = _spike_sort_docker(recording, output_folder)
 
@@ -1366,9 +1370,11 @@ class TestSpikeSortDocker:
         recording = _make_mock_recording()
 
         with (
-            patch("spikelab.spike_sorting.ks2_runner.write_binary_recording"),
-            patch("spikelab.spike_sorting.ks2_runner.BinaryRecordingExtractor"),
-            patch("spikelab.spike_sorting.ks2_runner.run_sorter", MagicMock()),
+            patch("spikeinterface.core.write_binary_recording"),
+            patch(
+                "spikeinterface.extractors.extractor_classes.BinaryRecordingExtractor"
+            ),
+            patch("spikeinterface.sorters.run_sorter", MagicMock()),
         ):
             result = _spike_sort_docker(recording, output_folder)
 
@@ -6794,15 +6800,21 @@ class TestDivideSegmentIntoChunks:
 class TestGetNoiseLevels:
     """Edge cases for _get_noise_levels in pipeline.py."""
 
-    def test_short_recording_raises(self):
-        """Recording shorter than chunk_size raises ValueError
-        from rng.randint(0, negative)."""
+    def test_short_recording_warns_and_falls_back(self):
+        """Recording shorter than chunk_size now warns and falls back
+        to a single full-trace MAD estimate (parallel-session source
+        fix on 2026-05-24) instead of raising the cryptic
+        ``rng.randint(0, negative)`` error.
+        """
         from spikelab.spike_sorting.pipeline import _get_noise_levels
 
         # Recording with only 100 samples, chunk_size default is 10000
         recording = _make_mock_recording(num_samples=100)
-        with pytest.raises(ValueError):
-            _get_noise_levels(recording)
+        with pytest.warns(UserWarning, match="shorter than chunk_size"):
+            noise = _get_noise_levels(recording)
+        # Fallback returns a finite per-channel noise estimate.
+        assert noise.shape == (recording.get_num_channels(),)
+        assert np.all(np.isfinite(noise))
 
     def test_single_channel_recording(self):
         """Single-channel recording produces a 1-element noise array."""
@@ -10440,9 +10452,11 @@ class TestSpikeSortDockerNoKwargsUsesDefaults:
         defaults_before = dict(DEFAULT_KILOSORT2_PARAMS)
 
         with (
-            patch.object(ks2_runner, "write_binary_recording"),
-            patch.object(ks2_runner, "BinaryRecordingExtractor"),
-            patch.object(ks2_runner, "run_sorter", captured),
+            patch("spikeinterface.core.write_binary_recording"),
+            patch(
+                "spikeinterface.extractors.extractor_classes.BinaryRecordingExtractor"
+            ),
+            patch("spikeinterface.sorters.run_sorter", captured),
         ):
             ks2_runner._spike_sort_docker(_make_mock_recording(), output_folder)
 
@@ -11133,9 +11147,11 @@ class TestSpikeSortDockerCustomKilosortParams:
         custom_params["detect_threshold"] = 9
 
         with (
-            patch.object(ks2_runner, "write_binary_recording"),
-            patch.object(ks2_runner, "BinaryRecordingExtractor"),
-            patch.object(ks2_runner, "run_sorter", captured),
+            patch("spikeinterface.core.write_binary_recording"),
+            patch(
+                "spikeinterface.extractors.extractor_classes.BinaryRecordingExtractor"
+            ),
+            patch("spikeinterface.sorters.run_sorter", captured),
         ):
             ks2_runner._spike_sort_docker(
                 _make_mock_recording(),
@@ -11860,9 +11876,11 @@ class TestSpikeSortDockerCustomKilosortParamsHonored:
         _write_ks_folder(sorter_output, spike_times, spike_clusters, tsv_data=tsv)
 
         with (
-            patch.object(ks2_runner, "write_binary_recording"),
-            patch.object(ks2_runner, "BinaryRecordingExtractor"),
-            patch.object(ks2_runner, "run_sorter", MagicMock(return_value=None)),
+            patch("spikeinterface.core.write_binary_recording"),
+            patch(
+                "spikeinterface.extractors.extractor_classes.BinaryRecordingExtractor"
+            ),
+            patch("spikeinterface.sorters.run_sorter", MagicMock(return_value=None)),
         ):
             result = ks2_runner._spike_sort_docker(
                 _make_mock_recording(),
@@ -11890,9 +11908,11 @@ class TestSpikeSortDockerCustomKilosortParamsHonored:
         )
 
         with (
-            patch.object(ks2_runner, "write_binary_recording"),
-            patch.object(ks2_runner, "BinaryRecordingExtractor"),
-            patch.object(ks2_runner, "run_sorter", MagicMock(return_value=None)),
+            patch("spikeinterface.core.write_binary_recording"),
+            patch(
+                "spikeinterface.extractors.extractor_classes.BinaryRecordingExtractor"
+            ),
+            patch("spikeinterface.sorters.run_sorter", MagicMock(return_value=None)),
         ):
             result = ks2_runner._spike_sort_docker(
                 _make_mock_recording(),

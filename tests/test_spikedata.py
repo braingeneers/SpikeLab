@@ -9570,6 +9570,11 @@ class TestSpikeDataFitGplvmBinLargerThanRecording:
             (Test Case 1) ``bin_size_ms = 10 * length`` raises
                 ``ValueError`` whose message names ``bin_size_ms``.
         """
+        # `fit_gplvm` imports poor_man_gplvm before checking the guard,
+        # so on environments without the optional dep the ImportError
+        # masks the ValueError. Skip in that case — the guard contract
+        # is only meaningful when the function can actually run.
+        pytest.importorskip("poor_man_gplvm")
         sd = SpikeData([[5.0, 7.0], [3.0, 8.0]], length=10.0)
         with pytest.raises(ValueError, match="bin_size_ms"):
             sd.fit_gplvm(bin_size_ms=100.0, n_latent_bin=2, n_iter=2)
