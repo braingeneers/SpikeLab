@@ -2650,6 +2650,63 @@ class TestRateSliceStackSubsliceEmpty:
             rss.subslice([])
 
 
+class TestRateSliceStackStepSizeFromMedianDiff:
+    """``RateSliceStack.__init__`` infers ``step_size`` from
+    ``np.median(np.diff(times))`` rather than ``times[1] - times[0]``,
+    so a single anomalous gap or duplicate-time pair at the start of
+    an otherwise-uniform grid does not poison the inferred resolution.
+    """
+
+    def test_duplicate_start_time_doesnt_poison_step_size(self):
+        """
+        Tests:
+            (Test Case 1) Times ``[0, 0, 1, 2, ..., 14]`` (a duplicate
+                at the start of an otherwise-uniform 1.0 ms grid)
+                yields ``step_size == 1.0``, not 0.0.
+
+        Notes:
+            - Uses a single slice that begins past the duplicate so
+              the stack-of-slices construction succeeds; the step_size
+              inference path runs over the full ``times`` array
+              regardless of which slices are extracted.
+        """
+        # 4 rates × 16 time samples, uniform 1.0 ms grid except the
+        # first two entries are both 0.0 (duplicate-start anomaly).
+        # RateData accepts monotonically non-decreasing times.
+        times = np.concatenate(([0.0], np.arange(15.0)))
+        rates = np.ones((4, len(times)), dtype=float)
+        rd = RateData(rates, times)
+        rss = RateSliceStack(
+            data_obj=rd,
+            times_start_to_end=[(5.0, 10.0)],
+        )
+        # diffs = [0, 1, 1, ..., 1]; median is the uniform 1.0.
+        # Without the median-diff defence, step_size would have been
+        # ``times[1] - times[0] == 0.0``, poisoning the stack.
+        assert rss.step_size == pytest.approx(1.0)
+
+    def test_single_anomalous_gap_doesnt_poison_step_size(self):
+        """
+        Tests:
+            (Test Case 1) A single 4 ms gap among otherwise-uniform
+                1 ms diffs yields ``step_size == 1.0`` because
+                ``median`` is robust to the single outlier.
+        """
+        # Insert one 4 ms gap (between samples 1 and 2). The rest is
+        # uniform 1 ms.
+        times = np.array(
+            [0.0, 1.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0]
+        )
+        rates = np.ones((4, len(times)), dtype=float)
+        rd = RateData(rates, times)
+        rss = RateSliceStack(
+            data_obj=rd,
+            times_start_to_end=[(6.0, 11.0)],
+        )
+        # diffs = [1, 4, 1, 1, 1, 1, 1, 1, 1]; median = 1.0.
+        assert rss.step_size == pytest.approx(1.0)
+
+
 class TestRateSliceStackInitSigmaZero:
     """``sigma_ms=0`` is accepted (only negative is rejected at line
     86-87) and routes through ``resampled_isi`` with no Gaussian

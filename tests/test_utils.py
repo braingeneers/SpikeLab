@@ -3840,6 +3840,39 @@ class TestComputeFootprint:
         # Channel 1 has the neighbor template (0.5x)
         assert fp[1, 2] == pytest.approx(-1.5)
 
+    def test_positive_going_template_locates_peak_via_abs(self):
+        """
+        Positive-going templates (inverted-polarity sorter output) must
+        place the alignment point at ``argmax(abs(template))`` so the
+        peak sample lands at ``f_rel_to_trough[0]`` of the footprint.
+
+        Tests:
+            (Test Case 1) A template with a positive peak at index 2 is
+                centered at the footprint's anchor column (column 2 for
+                ``f_rel_to_trough=(2, 2)``), not at the least-positive
+                sample.
+        """
+        from spikelab.spikedata.utils import _compute_footprint
+
+        # Positive-going template — peak at index 2, value +3.0.
+        # ``np.argmin`` would return index 0 or 4 (the least-positive
+        # samples), producing a wrong alignment.
+        template = np.array([0.0, 1.0, 3.0, 1.0, 0.0], dtype=float)
+        attrs = {
+            "template": template,
+            "neighbor_templates": np.zeros((1, 5)),
+            "channel": 1,
+            "neighbor_channels": np.array([1]),
+        }
+        fp = _compute_footprint(attrs, f_rel_to_trough=(2, 2), n_channels=3)
+
+        # Anchor column = f_rel_to_trough[0] = 2; the +3.0 peak lives
+        # at column 2 of the main-channel row.
+        assert fp[1, 2] == 3.0
+        # Pre/post samples are also placed correctly.
+        assert fp[1, 1] == 1.0
+        assert fp[1, 3] == 1.0
+
 
 # ---------------------------------------------------------------------------
 # _compute_footprint_similarity
@@ -4547,6 +4580,7 @@ class TestComputeCrossCorrelationWithLagAllNaN:
         b = np.full(50, np.nan, dtype=float)
         score, _lag = compute_cross_correlation_with_lag(a, b, max_lag=10)
         assert np.isnan(score)
+
 
 
 class TestUtilsResampledIsiEmptyTimes:

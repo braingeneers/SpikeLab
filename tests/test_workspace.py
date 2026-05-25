@@ -5368,6 +5368,151 @@ class TestDumpDictKeyValidation:
         assert loaded["with_underscore"] == 2
 
 
+class TestLazyAnalysisWorkspaceCloseDeleteCleanup:
+    """``LazyAnalysisWorkspace.close()`` deterministically unlinks the
+    backing temp HDF5 file and ``WorkspaceManager.delete_workspace``
+    invokes ``close()`` to avoid leaking temp files past
+    ``__del__`` (which is unreliable on Windows and during interpreter
+    shutdown). Second close is a no-op.
+    """
+
+    @pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py not installed")
+    def test_delete_workspace_unlinks_temp_h5(self):
+        """
+        Tests:
+            (Test Case 1) After ``WorkspaceManager.delete_workspace``,
+                the LazyAnalysisWorkspace's backing temp file is gone.
+            (Test Case 2) The workspace is removed from the manager
+                (subsequent ``get_workspace`` raises KeyError).
+        """
+        from spikelab.workspace.workspace import (
+            LazyAnalysisWorkspace,
+            WorkspaceManager,
+        )
+
+        manager = WorkspaceManager()
+        ws = LazyAnalysisWorkspace(name="cleanup-test")
+        h5_path = ws._h5_path
+        assert os.path.exists(h5_path)
+
+        manager._workspaces[ws.workspace_id] = ws
+        manager.delete_workspace(ws.workspace_id)
+
+        assert not os.path.exists(h5_path)
+        with pytest.raises(KeyError):
+            manager.get_workspace(ws.workspace_id)
+
+    @pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py not installed")
+    def test_double_close_is_noop(self):
+        """
+        Tests:
+            (Test Case 1) Calling ``close()`` a second time after the
+                file has already been unlinked does not raise.
+        """
+        from spikelab.workspace.workspace import LazyAnalysisWorkspace
+
+        ws = LazyAnalysisWorkspace(name="double-close")
+        ws.close()
+        # Second close on an already-closed workspace must be safe.
+        ws.close()  # should not raise
+        assert ws._h5_path is None
+
+
+class TestDumpWorkspaceAtomicH5Cleanup:
+    """``dump_workspace`` writes the HDF5 to ``{path}.h5.tmp`` and
+    ``os.replace``-s into position on success. A mid-write failure
+    leaves no stale ``.h5.tmp`` and the pre-existing ``{path}.h5``
+    is preserved.
+    """
+
+    def test_h5_write_failure_cleans_tmp_and_preserves_original_h5(
+        self, tmp_path, monkeypatch
+    ):
+        """
+        Tests:
+            (Test Case 1) When ``_dump_item`` raises mid-write, the
+                ``.h5.tmp`` sidecar does NOT survive on disk.
+            (Test Case 2) A pre-existing ``foo.h5`` is left unchanged.
+            (Test Case 3) The original exception propagates to the caller.
+        """
+        try:
+            import h5py  # noqa: F401
+        except ImportError:
+            pytest.skip("h5py not installed")
+        from spikelab.workspace.workspace import AnalysisWorkspace
+        from spikelab.workspace import hdf5_io as io_mod
+
+        # Pre-existing successful save to establish baseline ``foo.h5``.
+        ws = AnalysisWorkspace(name="atomic-h5-save")
+        ws.store("ns", "key", np.array([1, 2, 3]))
+        base = str(tmp_path / "foo")
+        ws.save(base)
+        original_h5_bytes = (tmp_path / "foo.h5").read_bytes()
+
+        # Patch _dump_item so the second save fails mid-write.
+        def fake_dump_item(*args, **kwargs):
+            raise RuntimeError("simulated h5 write failure")
+
+        monkeypatch.setattr(io_mod, "_dump_item", fake_dump_item)
+
+        with pytest.raises(RuntimeError, match="simulated h5 write failure"):
+            ws.save(base)
+
+        assert not (tmp_path / "foo.h5.tmp").exists()
+        assert (tmp_path / "foo.h5").read_bytes() == original_h5_bytes
+
+
+class TestAnalysisWorkspaceSaveAtomicJsonCleanup:
+    """``AnalysisWorkspace.save`` writes the JSON index via tmp-file +
+    ``os.replace``, so a mid-write failure must leave no stale
+    ``.json.tmp`` on disk and the pre-existing ``.json`` (if any) must
+    be preserved unchanged.
+    """
+
+    def test_json_write_failure_cleans_tmp_and_preserves_original_json(
+        self, tmp_path, monkeypatch
+    ):
+        """
+        Tests:
+            (Test Case 1) When ``json.dump`` raises mid-write, the
+                ``.json.tmp`` sidecar does NOT survive on disk.
+            (Test Case 2) A pre-existing ``foo.json`` is left unchanged
+                (the failed save did not overwrite it).
+            (Test Case 3) The original exception propagates to the caller.
+        """
+        try:
+            import h5py  # noqa: F401
+        except ImportError:
+            pytest.skip("h5py not installed")
+        from spikelab.workspace.workspace import AnalysisWorkspace
+
+        # Pre-existing successful save establishes baseline ``foo.h5``
+        # and ``foo.json``.
+        ws = AnalysisWorkspace(name="atomic-json-save")
+        base = str(tmp_path / "foo")
+        ws.save(base)
+        original_json_bytes = (tmp_path / "foo.json").read_bytes()
+
+        # Now make ``json.dump`` raise mid-write. The workspace.save
+        # body catches the exception only to unlink the tmp file before
+        # re-raising — patch on the workspace module's reference so the
+        # global json module stays usable.
+        import spikelab.workspace.workspace as ws_mod
+
+        def fake_dump(*args, **kwargs):
+            raise OSError("simulated disk full")
+
+        monkeypatch.setattr(ws_mod.json, "dump", fake_dump)
+
+        with pytest.raises(OSError, match="simulated disk full"):
+            ws.save(base)
+
+        # Test Case 1: no stale .json.tmp.
+        assert not (tmp_path / "foo.json.tmp").exists()
+        # Test Case 2: original .json unchanged.
+        assert (tmp_path / "foo.json").read_bytes() == original_json_bytes
+
+
 class TestAnalysisWorkspaceSaveStripsH5Suffix:
     """``AnalysisWorkspace.save`` strips a trailing ``.h5`` from the path."""
 

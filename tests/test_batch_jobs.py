@@ -772,6 +772,34 @@ class TestS3StorageClient:
             )
             assert result == "s3://bucket/pfx/inputs/run-1/data.pkl"
 
+    def test_upload_file_missing_local_path_raises_before_boto3(self, tmp_path):
+        """
+        ``upload_file`` validates ``local_path`` and raises
+        ``FileNotFoundError`` before any boto3 call. Without this,
+        boto3 produces a less informative error and the upload still
+        opens a client connection on a nonexistent file.
+
+        Tests:
+            (Test Case 1) Missing path raises FileNotFoundError.
+            (Test Case 2) The error message names the missing path.
+            (Test Case 3) The boto3 client's ``upload_file`` is NOT
+                invoked.
+        """
+        with patch("spikelab.batch_jobs.storage_s3.boto3") as mock_boto3:
+            mock_s3 = MagicMock()
+            mock_boto3.client.return_value = mock_s3
+            client = S3StorageClient(prefix="s3://bucket/pfx/")
+            missing_path = str(tmp_path / "does_not_exist.pkl")
+            with pytest.raises(FileNotFoundError) as excinfo:
+                client.upload_file(
+                    local_path=missing_path,
+                    s3_uri="s3://bucket/pfx/inputs/run-1/data.pkl",
+                )
+            # The error message embeds the path via repr() — match on
+            # the basename to stay portable across OS path separators.
+            assert "does_not_exist.pkl" in str(excinfo.value)
+            mock_s3.upload_file.assert_not_called()
+
     def test_upload_bundle_builds_uri_and_uploads(self, tmp_path):
         """upload_bundle composes build_uri + upload_file."""
         local_zip = tmp_path / "run-7.zip"
@@ -2019,6 +2047,64 @@ class TestRunSessionWorkspaceJob:
         storage.upload_bundle.assert_called_once()
         backend.apply_manifest.assert_called_once()
 
+    def test_submit_returns_redacted_manifest_but_applies_real_one(self, tmp_path):
+        """
+        ``RunSession._submit`` writes the *real* manifest (with secrets
+        intact) to the tempfile applied via ``backend.apply_manifest``,
+        but returns a *redacted* manifest in ``SubmitResult.manifest_yaml``
+        so the value can be logged/audited without leaking credentials.
+
+        Tests:
+            (Test Case 1) ``SubmitResult.manifest_yaml`` contains
+                ``***REDACTED***`` for the secret-named env var and the
+                non-secret value verbatim.
+            (Test Case 2) The manifest path passed to
+                ``backend.apply_manifest`` carries the REAL secret on
+                disk at the time of the call.
+        """
+        from spikelab.workspace.workspace import AnalysisWorkspace
+
+        session, backend, storage = self._make_session()
+
+        # Capture the file contents from disk at apply-time so the
+        # tempfile content can be inspected post-call (apply_manifest
+        # unlinks the file on its caller in ``_submit``).
+        captured_manifest = {"text": None}
+
+        def capture_apply(path):
+            with open(path, encoding="utf-8") as f:
+                captured_manifest["text"] = f.read()
+            return "test-job-abc"
+
+        backend.apply_manifest.side_effect = capture_apply
+
+        ws = AnalysisWorkspace(name="redact-secret")
+        script = tmp_path / "analyze.py"
+        script.write_text("print('hello')", encoding="utf-8")
+
+        payload = _example_payload()
+        payload["container"]["env"] = {
+            "AWS_SECRET_ACCESS_KEY": "real-secret-value",
+            "NORMAL_VAR": "value",
+        }
+        job_spec = validate_job_spec(payload)
+
+        result = session.submit_workspace_job(
+            workspace=ws,
+            script=str(script),
+            job_spec=job_spec,
+        )
+
+        # Test Case 1: returned manifest carries the redacted env.
+        assert "***REDACTED***" in result.manifest_yaml
+        assert "real-secret-value" not in result.manifest_yaml
+        assert "NORMAL_VAR" in result.manifest_yaml
+        assert "value" in result.manifest_yaml
+
+        # Test Case 2: the applied manifest carried the real secret.
+        assert captured_manifest["text"] is not None
+        assert "real-secret-value" in captured_manifest["text"]
+
     def test_submit_workspace_job_with_path(self, tmp_path):
         """
         submit_workspace_job accepts a string path to a saved workspace.
@@ -2065,6 +2151,43 @@ class TestRunSessionWorkspaceJob:
                 script=str(script),
                 job_spec=job_spec,
             )
+
+    def test_submit_workspace_with_string_base_missing_json_raises(self, tmp_path):
+        """
+        ``_save_workspace`` for a string base-path verifies both ``.h5``
+        and ``.json`` exist. A missing ``.json`` (but present ``.h5``)
+        raises FileNotFoundError mentioning the index file — without
+        this, the partial save would silently propagate downstream.
+
+        Tests:
+            (Test Case 1) Path with only ``.h5`` (no ``.json``) raises
+                FileNotFoundError.
+            (Test Case 2) Error message names the missing ``.json``
+                file.
+        """
+        try:
+            import h5py
+        except ImportError:
+            pytest.skip("h5py not installed")
+
+        session, _, _ = self._make_session()
+        script = tmp_path / "analyze.py"
+        script.write_text("print('hello')", encoding="utf-8")
+
+        # Create only the .h5 file; omit the .json index.
+        base = tmp_path / "partial"
+        with h5py.File(str(base) + ".h5", "w") as f:
+            f.attrs["__workspace_id__"] = "test"
+
+        job_spec = validate_job_spec(_example_payload())
+        with pytest.raises(FileNotFoundError) as excinfo:
+            session.submit_workspace_job(
+                workspace=str(base),
+                script=str(script),
+                job_spec=job_spec,
+            )
+        msg = str(excinfo.value)
+        assert "partial.json" in msg or "index" in msg.lower()
 
     def test_submit_workspace_job_missing_script_raises(self, tmp_path):
         """
@@ -2894,6 +3017,35 @@ class TestFindWorkspaceH5:
         result = _find_workspace_h5(bundle)
         assert result == ws
 
+    def test_only_corrupt_h5_raises_with_diagnostic_listing(self, tmp_path):
+        """
+        When the bundle contains ONLY corrupt .h5 files (no readable
+        workspace), the FileNotFoundError message lists the corrupt
+        path under a ``could not be inspected`` line so the operator
+        can tell "no workspace" apart from "workspace was unreadable".
+
+        Tests:
+            (Test Case 1) FileNotFoundError is raised.
+            (Test Case 2) The error names the corrupt file.
+            (Test Case 3) The error mentions "could not be inspected".
+        """
+        try:
+            import h5py  # noqa: F401
+        except ImportError:
+            pytest.skip("h5py not installed")
+        from spikelab.batch_jobs.entrypoints.workspace import _find_workspace_h5
+
+        bundle = tmp_path / "bundle"
+        bundle.mkdir()
+        corrupt = bundle / "corrupt.h5"
+        corrupt.write_bytes(b"not an HDF5 file")
+
+        with pytest.raises(FileNotFoundError) as excinfo:
+            _find_workspace_h5(bundle)
+        msg = str(excinfo.value)
+        assert "corrupt.h5" in msg
+        assert "could not be inspected" in msg
+
 
 class TestSortingEntrypoint:
     def test_require_env_raises_on_missing(self):
@@ -3124,6 +3276,139 @@ class TestSortingEntrypointMain:
             loaded = pickle.loads(payload)
             assert isinstance(loaded, SpikeData)
 
+    def test_main_uploads_sort_run_report_and_prints_partial_failure_marker(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        """
+        After a sort with mixed success/failure, ``main()`` must upload
+        ``sort_run_report.json`` with per-recording status records and
+        print a ``partial failures`` marker to stdout so a "job exit 0"
+        doesn't silently mask a degraded run.
+
+        Tests:
+            (Test Case 1) ``sort_run_report.json`` is uploaded under
+                OUTPUT_PREFIX.
+            (Test Case 2) The uploaded JSON contains one record per
+                recording with the populated ``status`` field
+                (mixed success / failure).
+            (Test Case 3) Stdout contains a ``partial failures`` marker
+                naming the failed recording.
+        """
+        import dataclasses
+        import json
+        import shutil
+        import zipfile
+        from unittest.mock import MagicMock
+
+        from spikelab.batch_jobs.entrypoints.sorting import main as sorting_main
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+        from spikelab.spike_sorting.pipeline import RecordingResult
+        from spikelab.spikedata import SpikeData
+
+        # --- Build bundle with two recordings ---
+        bundle_dir = tmp_path / "bundle"
+        bundle_dir.mkdir(parents=True)
+        config = SortingPipelineConfig()
+        (bundle_dir / "sorting_config.json").write_text(
+            json.dumps(dataclasses.asdict(config)), encoding="utf-8"
+        )
+        (bundle_dir / "rec_ok.bin").write_bytes(b"payload-a")
+        (bundle_dir / "rec_bad.bin").write_bytes(b"payload-b")
+
+        zip_path = tmp_path / "bundle.zip"
+        with zipfile.ZipFile(zip_path, "w") as zf:
+            for path in bundle_dir.iterdir():
+                zf.write(path, path.name)
+
+        # --- Mock S3 with payload capture ---
+        upload_calls: list[tuple[str, bytes]] = []
+
+        def fake_download(*, s3_uri, local_path):
+            shutil.copy2(zip_path, local_path)
+            return local_path
+
+        def fake_upload(*, local_path, s3_uri):
+            with open(local_path, "rb") as f:
+                upload_calls.append((s3_uri, f.read()))
+            return s3_uri
+
+        mock_storage = MagicMock()
+        mock_storage.download_file.side_effect = fake_download
+        mock_storage.upload_file.side_effect = fake_upload
+        monkeypatch.setattr(
+            "spikelab.batch_jobs.storage_s3.S3StorageClient",
+            lambda **kwargs: mock_storage,
+        )
+
+        # --- Mock sort_recording: succeed on rec_ok, fail on rec_bad ---
+        def fake_sort_recording(
+            recording_files,
+            config,
+            intermediate_folders,
+            results_folders,
+            out_report=None,
+            **kwargs,
+        ):
+            results = []
+            for rec_path, res_folder in zip(recording_files, results_folders):
+                rec_name = Path(rec_path).stem
+                if rec_name == "rec_ok":
+                    out_report.add(
+                        RecordingResult(
+                            rec_name=rec_name,
+                            rec_path=str(rec_path),
+                            results_folder=str(res_folder),
+                            status="success",
+                            wall_time_s=0.1,
+                            n_curated_units=1,
+                        )
+                    )
+                    results.append(SpikeData([[1.0]], length=10.0))
+                else:
+                    out_report.add(
+                        RecordingResult(
+                            rec_name=rec_name,
+                            rec_path=str(rec_path),
+                            results_folder=str(res_folder),
+                            status="failed",
+                            wall_time_s=0.05,
+                            error_class="RuntimeError",
+                            error_message="synthetic failure",
+                        )
+                    )
+                    # main() still expects one SpikeData per recording.
+                    results.append(SpikeData([[]], length=10.0))
+            return results
+
+        monkeypatch.setattr(
+            "spikelab.spike_sorting.pipeline.sort_recording", fake_sort_recording
+        )
+
+        monkeypatch.setenv("INPUT_URI", "s3://b/in/bundle.zip")
+        monkeypatch.setenv("OUTPUT_PREFIX", "s3://b/out/run/")
+
+        sorting_main()
+
+        # Test Case 1: sort_run_report.json uploaded.
+        report_uploads = [
+            (uri, payload)
+            for uri, payload in upload_calls
+            if uri.endswith("sort_run_report.json")
+        ]
+        assert len(report_uploads) == 1
+        # Test Case 2: report content names both recordings + their statuses.
+        report = json.loads(report_uploads[0][1].decode("utf-8"))
+        assert report["n_total"] == 2
+        assert report["n_succeeded"] == 1
+        assert report["n_failed"] == 1
+        status_by_name = {r["rec_name"]: r["status"] for r in report["records"]}
+        assert status_by_name == {"rec_ok": "success", "rec_bad": "failed"}
+
+        # Test Case 3: stdout carries the partial-failure marker.
+        captured = capsys.readouterr().out
+        assert "partial failures" in captured.lower()
+        assert "rec_bad" in captured
+
     def test_main_raises_on_missing_sorting_config(self, tmp_path, monkeypatch):
         """
         ``main()`` raises FileNotFoundError when the bundle contains
@@ -3260,6 +3545,41 @@ class TestJobSpecNamePrefix:
         payload_all_non_ascii["name_prefix"] = "áöü"
         with pytest.raises(ValueError, match="no usable ASCII content"):
             validate_job_spec(payload_all_non_ascii)
+
+    def test_oversized_name_prefix_emits_truncation_warning(self):
+        """
+        A name_prefix longer than 40 chars (after stripping) emits a
+        UserWarning whose message contains both the original input
+        and the truncated form so the operator can shorten upstream.
+
+        Tests:
+            (Test Case 1) A 50-char alphanumeric prefix triggers a
+                UserWarning.
+            (Test Case 2) The warning message contains the original
+                value (e.g. via ``repr``).
+            (Test Case 3) The warning message contains the truncated
+                40-char form.
+        """
+        import warnings as _warnings
+
+        payload = _example_payload()
+        original = "a" * 50
+        payload["name_prefix"] = original
+        with _warnings.catch_warnings(record=True) as w:
+            _warnings.simplefilter("always")
+            job_spec = validate_job_spec(payload)
+
+        warn_msgs = [
+            str(rec.message) for rec in w if rec.category is UserWarning
+        ]
+        relevant = [
+            m for m in warn_msgs if "name_prefix" in m and "truncated" in m
+        ]
+        assert relevant, warn_msgs
+        # Both the original and the truncated 40-char form appear.
+        assert original in relevant[0]
+        assert job_spec.name_prefix in relevant[0]
+        assert len(job_spec.name_prefix) == 40
 
     def test_trailing_hyphens_stripped_after_truncation(self):
         """Trailing hyphens exposed by 40-char truncation are stripped.
@@ -3420,6 +3740,66 @@ class TestKubernetesBatchJobBackendK8sClientPath:
         manifest = "apiVersion: batch/v1\nkind: Job\nmetadata:\n  labels: {}\n"
         with pytest.raises(ValueError, match="metadata.name"):
             backend.apply_manifest(manifest)
+
+    def test_apply_manifest_rejects_namespace_disagreement(self):
+        """
+        ``apply_manifest`` raises ValueError when the manifest's
+        ``metadata.namespace`` is set and differs from the backend's
+        configured namespace — otherwise the apply would silently
+        deploy into the backend's namespace instead of the rendered
+        target.
+
+        Tests:
+            (Test Case 1) ValueError is raised.
+            (Test Case 2) The error message names both the manifest
+                namespace and the backend namespace.
+            (Test Case 3) The K8s client's ``create_namespaced_job``
+                is NOT invoked (we refused before issuing the apply).
+        """
+        backend = KubernetesBatchJobBackend(namespace="prod")
+        mock_batch_api = MagicMock()
+        backend._batch_api = mock_batch_api
+
+        manifest = (
+            "apiVersion: batch/v1\nkind: Job\n"
+            "metadata:\n  name: my-job\n  namespace: staging\n"
+        )
+        with pytest.raises(ValueError) as excinfo:
+            backend.apply_manifest(manifest)
+        msg = str(excinfo.value)
+        assert "staging" in msg
+        assert "prod" in msg
+        mock_batch_api.create_namespaced_job.assert_not_called()
+
+    def test_apply_manifest_kubectl_fallback_returns_metadata_name(self, tmp_path):
+        """
+        Both the kubectl-fallback path and the Python-client path
+        return the bare ``metadata.name`` (E8). Pin the fallback path:
+        if the rendered YAML's ``metadata.name`` is available, the
+        returned value is the name (not raw ``kubectl apply`` stdout).
+
+        Tests:
+            (Test Case 1) The kubectl-fallback path returns
+                ``metadata.name`` from the parsed YAML, not the raw
+                ``kubectl apply`` stdout containing it.
+        """
+        backend = KubernetesBatchJobBackend(namespace="test-ns")
+        backend._batch_api = None  # force fallback
+        backend.use_kubectl_fallback = True
+
+        # Stub the kubectl invocation so the test stays hermetic.
+        backend._run_kubectl = lambda cmd: (
+            "job.batch/clean-job-name created\n"
+        )
+
+        manifest_file = tmp_path / "job.yaml"
+        manifest_file.write_text(
+            "apiVersion: batch/v1\nkind: Job\nmetadata:\n  name: clean-job-name\n",
+            encoding="utf-8",
+        )
+        result = backend.apply_manifest(str(manifest_file))
+        # Returns the bare name (E8 contract), not the raw stdout.
+        assert result == "clean-job-name"
 
     def test_delete_job_k8s_client(self):
         """delete_job via K8s client calls delete_namespaced_job."""
@@ -3667,6 +4047,45 @@ class TestCli:
 
         with pytest.raises(ValueError, match="must contain an object"):
             cli._load_payload(str(config_path))
+
+    def test_apply_image_selection_does_not_mutate_caller_payload(self):
+        """
+        ``_apply_image_selection`` deep-copies the payload before
+        mutating so callers can reuse the same parsed config dict
+        across multiple invocations with different image profiles.
+
+        Tests:
+            (Test Case 1) The caller's payload dict is byte-equal
+                before and after the call (deep-copy via
+                ``copy.deepcopy`` then dict equality).
+            (Test Case 2) The returned dict carries the resolved
+                image (different from the caller's original).
+        """
+        import copy
+
+        payload = {
+            "container": {
+                "image": "",  # empty so resolution must fill it in
+                "command": ["python"],
+                "args": [],
+                "env": {"K": "v"},
+            },
+            "other_field": [1, 2, 3],
+        }
+        profile = ClusterProfile(
+            name="t", default_images={"cpu": "ghcr.io/example/cpu:latest"}
+        )
+        snapshot = copy.deepcopy(payload)
+        updated = cli._apply_image_selection(
+            payload,
+            profile=profile,
+            image_profile="cpu",
+            image_override=None,
+        )
+        # Caller's payload survives unmutated.
+        assert payload == snapshot
+        # Returned dict carries the resolved image.
+        assert updated["container"]["image"] == "ghcr.io/example/cpu:latest"
 
     def test_apply_image_selection_override_takes_precedence(self):
         """image_override takes precedence over image_profile."""

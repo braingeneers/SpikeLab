@@ -862,6 +862,34 @@ class TestRateDataSubtimeByIndex:
         assert float(result.times[0]) == pytest.approx(5.0)  # index 5, step=1.0
 
 
+class TestRateDataFramesStepSizeFromMedianDiff:
+    """``RateData.frames`` infers the bin ``step_size`` from
+    ``np.median(np.diff(times))`` rather than ``times[1] - times[0]``,
+    so the uniformity-check error message reports the median rather
+    than mis-attributing a bad step to the first pair.
+    """
+
+    def test_non_uniform_grid_error_reports_median_step(self):
+        """
+        Tests:
+            (Test Case 1) On a non-uniform grid, the uniformity-check
+                ValueError surfaces ``median step``, ``min step``, and
+                ``max step`` — confirming median is the inferred
+                ``step_size`` used downstream.
+        """
+        # Uniform 1 ms grid except one 4 ms gap; this fails the
+        # allclose uniformity check (correctly), but the error message
+        # must surface the median step inference.
+        times = np.array([0.0, 1.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0])
+        rates = np.ones((3, len(times)), dtype=float)
+        rd = RateData(rates, times)
+        with pytest.raises(ValueError) as excinfo:
+            rd.frames(2.0)
+        msg = str(excinfo.value)
+        assert "median step" in msg
+        assert "uniformly-spaced" in msg
+
+
 class TestRateDataFrames:
     """Tests for the RateData.frames() method."""
 

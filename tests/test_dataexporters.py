@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import os
 import tempfile
+from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
@@ -1338,6 +1339,43 @@ class TestPickleExporters:
 
         assert len(temp_paths) == 1
         assert not os.path.exists(temp_paths[0])
+
+    def test_pickle_dump_failure_preserves_existing_destination(
+        self, tmp_path, monkeypatch
+    ):
+        """
+        A ``pickle.dump`` failure must NOT destroy a pre-existing
+        destination file: the atomic write goes through ``{filepath}.tmp``
+        and ``os.replace``, so the original file remains intact and the
+        ``.tmp`` sidecar is cleaned up on failure.
+
+        Tests:
+            (Test Case 1) An exception raised inside ``pickle.dump``
+                propagates to the caller.
+            (Test Case 2) The pre-existing destination is unchanged
+                (same bytes as before the failed call).
+            (Test Case 3) No ``{filepath}.tmp`` sidecar survives.
+        """
+        path = str(tmp_path / "original.pkl")
+        # Establish a pre-existing destination via a successful first
+        # export — this is the file we must protect from destruction.
+        sd = make_sd()
+        exporters.export_to_pickle(sd, path)
+        original_bytes = Path(path).read_bytes()
+
+        import spikelab.data_loaders.data_exporters as exporters_mod
+
+        def failing_dump(*args, **kwargs):
+            raise RuntimeError("simulated dump failure")
+
+        monkeypatch.setattr(exporters_mod.pickle, "dump", failing_dump)
+
+        with pytest.raises(RuntimeError, match="simulated dump failure"):
+            exporters.export_to_pickle(sd, path)
+
+        # Original preserved + tmp cleaned up.
+        assert Path(path).read_bytes() == original_bytes
+        assert not Path(path + ".tmp").exists()
 
 
 @skip_no_h5py
