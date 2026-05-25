@@ -114,28 +114,62 @@ def _trains_from_flat_index(
         trains (list of np.ndarray): Per-unit spike-time arrays in
             milliseconds.
     """
+    segments = _split_by_index(
+        flat_times, end_indices, n_units=n_units, name="spike_times_index"
+    )
+    return [to_ms(seg, unit, fs_Hz) for seg in segments]
+
+
+def _split_by_index(
+    flat: np.ndarray,
+    end_indices: np.ndarray,
+    *,
+    n_units: Optional[int] = None,
+    name: str = "index",
+) -> List[np.ndarray]:
+    """Split a flat array into per-unit chunks via cumulative end indices.
+
+    Handles both NWB conventions: cumulative-end (length N) and
+    leading-zero (length N+1). Disambiguation matches the rules in
+    :func:`_trains_from_flat_index`: when ``n_units`` is provided, length
+    is checked against both candidates; otherwise a heuristic
+    auto-detect runs.
+
+    Parameters:
+        flat (np.ndarray): The concatenated array to split.
+        end_indices (np.ndarray): Cumulative end indices.
+        n_units (int or None): Known number of units, used to
+            disambiguate the index convention. ``None`` triggers the
+            heuristic auto-detect.
+        name (str): Display name for error messages (e.g.
+            ``"spike_times_index"`` or ``"electrodes_index"``).
+
+    Returns:
+        chunks (list of np.ndarray): Per-unit slices of ``flat``. No
+            type conversion is applied.
+    """
     end_indices = np.asarray(end_indices)
     if len(end_indices) > 0:
         # Reject float / non-integer dtype upfront with a friendly error;
         # numpy slicing on float indices raises a confusing TypeError mid-loop.
         if not np.issubdtype(end_indices.dtype, np.integer):
             raise ValueError(
-                "spike_times_index must be an integer array, got dtype "
+                f"{name} must be an integer array, got dtype "
                 f"{end_indices.dtype}. HDF5 datasets stored as float should "
                 "be cast (e.g. `np.asarray(f[idx_key]).astype(np.int64)`)."
             )
         if end_indices[0] < 0:
             raise ValueError(
-                f"spike_times_index entries must be non-negative; got "
+                f"{name} entries must be non-negative; got "
                 f"{end_indices[0]} at position 0. Cumulative-end indices "
-                "represent spike counts and cannot be negative."
+                "represent counts and cannot be negative."
             )
         if not np.all(np.diff(end_indices) >= 0):
-            raise ValueError("spike_times_index must be monotonically non-decreasing")
-        if end_indices[-1] > len(flat_times):
+            raise ValueError(f"{name} must be monotonically non-decreasing")
+        if end_indices[-1] > len(flat):
             raise ValueError(
-                f"spike_times_index final value ({end_indices[-1]}) exceeds "
-                f"flat_times length ({len(flat_times)})"
+                f"{name} final value ({end_indices[-1]}) exceeds "
+                f"flat array length ({len(flat)})"
             )
 
     if n_units is not None:
@@ -147,7 +181,7 @@ def _trains_from_flat_index(
             end_indices = end_indices[1:]
         elif len(end_indices) != n_units:
             raise ValueError(
-                f"spike_times_index length {len(end_indices)} does not match "
+                f"{name} length {len(end_indices)} does not match "
                 f"n_units={n_units} for either cumulative-end (length N) or "
                 f"leading-zero (length N+1) convention."
             )
@@ -158,13 +192,12 @@ def _trains_from_flat_index(
         # when the array is entirely zero, which is excluded here).
         end_indices = end_indices[1:]
 
-    trains: List[np.ndarray] = []
+    chunks: List[np.ndarray] = []
     start = 0
     for stop in end_indices:
-        segment = flat_times[start:stop]
-        trains.append(to_ms(segment, unit, fs_Hz))
+        chunks.append(flat[start:stop])
         start = stop
-    return trains
+    return chunks
 
 
 def _read_raw_arrays(
@@ -726,11 +759,17 @@ def load_spikedata_from_nwb(
                     "/units/electrodes_index and /units/electrodes datasets.",
                     UserWarning,
                 )
-            electrode_indices = []
-            start = 0
-            for stop in elec_idx:
-                electrode_indices.append(elec_flat[start:stop])
-                start = stop
+            # Use the shared splitter so the leading-zero (length N+1)
+            # NWB convention is honoured the same way it is for
+            # spike_times_index. The previous inline ``for stop in
+            # elec_idx`` loop silently misaligned per-unit electrodes
+            # by one when the file used the leading-zero convention.
+            electrode_indices = _split_by_index(
+                elec_flat,
+                elec_idx,
+                n_units=n_units,
+                name="electrodes_index",
+            )
 
         electrode_positions: Optional[dict] = None
         elec_table_path = "general/extracellular_ephys/electrodes"
@@ -1359,6 +1398,7 @@ def load_spikedata_from_spikeinterface_recording(
 def load_spikedata_from_pickle(
     filepath: str,
     *,
+    allow_remote: bool = False,
     aws_access_key_id: Optional[str] = None,
     aws_secret_access_key: Optional[str] = None,
     aws_session_token: Optional[str] = None,
@@ -1371,11 +1411,17 @@ def load_spikedata_from_pickle(
         deserialization can execute arbitrary code and should never be
         used with untrusted data. The file is deserialized before type
         checking — malicious payloads execute regardless of the
-        subsequent isinstance check.
+        subsequent isinstance check. Remote (S3) loads require
+        ``allow_remote=True`` so the caller has to opt in.
 
     Parameters:
         filepath (str): Path to the pickle file, or an S3 URL
-            (s3://bucket/key).
+            (s3://bucket/key). Remote URLs require ``allow_remote=True``.
+        allow_remote (bool): When ``False`` (default), S3 URLs are
+            rejected with a ``ValueError``. Pass ``True`` to opt in to
+            loading a pickle from a remote bucket; a ``UserWarning``
+            is also emitted at the call site so the risk surfaces in
+            batch-job logs.
         aws_access_key_id (str | None): AWS access key ID for S3
             downloads.
         aws_secret_access_key (str | None): AWS secret access key for
@@ -1387,7 +1433,29 @@ def load_spikedata_from_pickle(
     Returns:
         sd (SpikeData): The deserialized SpikeData object.
     """
-    from .s3_utils import ensure_local_file
+    from .s3_utils import ensure_local_file, is_s3_url
+
+    if is_s3_url(filepath):
+        # Pickle's arbitrary-code-execution risk is amplified when the
+        # source is a remote bucket: a malicious upload (or a workspace
+        # JSON file rewritten by a hostile agent in batch jobs) would
+        # execute attacker code before the isinstance(SpikeData) check
+        # below can reject it. Force callers to opt in, and surface a
+        # warning in logs so the risk is visible at runtime rather
+        # than buried in this docstring.
+        if not allow_remote:
+            raise ValueError(
+                f"Refusing to load pickle from remote URL {filepath!r}: "
+                "pickle.load executes arbitrary code from the source. "
+                "Pass allow_remote=True to confirm you trust the bucket."
+            )
+        warnings.warn(
+            f"Loading pickle from remote URL {filepath!r}; pickle.load "
+            "will execute arbitrary code embedded in the file. Trust "
+            "the bucket and its credentials before continuing.",
+            UserWarning,
+            stacklevel=2,
+        )
 
     local_path, is_temp = ensure_local_file(
         filepath,

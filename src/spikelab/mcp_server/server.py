@@ -863,7 +863,13 @@ async def _list_tools() -> list[types.Tool]:
                 description=(
                     "Detect bursts from the population firing rate using thresholded "
                     "peak finding. Stores burst times at key_tburst, burst edges at "
-                    "key_edges (B, 2), and peak amplitudes at key_amp."
+                    "key_edges (B, 2), and peak amplitudes at key_amp. "
+                    "To keep the rate consistent with a previously computed "
+                    "get_pop_rate, pass pop_rate_key (and pop_rate_acc_key for "
+                    "the edge-detection rate). When the keys are omitted the "
+                    "rates are recomputed internally from SpikeData using "
+                    "square_width/gauss_sigma — silently inconsistent with any "
+                    "rate plotted by a separate get_pop_rate call."
                 ),
                 inputSchema={
                     "type": "object",
@@ -893,15 +899,51 @@ async def _list_tools() -> list[types.Tool]:
                             "type": "number",
                             "description": "Multiplier for burst edge detection threshold",
                         },
-                        "square_width": {"type": "integer", "default": 20},
-                        "gauss_sigma": {"type": "integer", "default": 100},
-                        "acc_square_width": {"type": "integer", "default": 8},
-                        "acc_gauss_sigma": {"type": "integer", "default": 8},
+                        "square_width": {
+                            "type": "integer",
+                            "default": 20,
+                            "description": "Ignored when pop_rate_key is set.",
+                        },
+                        "gauss_sigma": {
+                            "type": "integer",
+                            "default": 100,
+                            "description": "Ignored when pop_rate_key is set.",
+                        },
+                        "acc_square_width": {
+                            "type": "integer",
+                            "default": 8,
+                            "description": "Ignored when pop_rate_acc_key is set.",
+                        },
+                        "acc_gauss_sigma": {
+                            "type": "integer",
+                            "default": 8,
+                            "description": "Ignored when pop_rate_acc_key is set.",
+                        },
                         "raster_bin_size_ms": {"type": "number", "default": 1.0},
                         "peak_to_trough": {"type": "boolean", "default": True},
                         "pop_rms_override": {
                             "type": "number",
                             "description": "Override baseline RMS for cross-dataset normalization",
+                        },
+                        "pop_rate_key": {
+                            "type": ["string", "null"],
+                            "default": None,
+                            "description": (
+                                "Optional workspace key for a precomputed 1-D "
+                                "population rate (from get_pop_rate). When set, "
+                                "square_width/gauss_sigma are ignored and the "
+                                "stored rate is used directly — keeps the rate "
+                                "and burst edges mathematically consistent."
+                            ),
+                        },
+                        "pop_rate_acc_key": {
+                            "type": ["string", "null"],
+                            "default": None,
+                            "description": (
+                                "Optional workspace key for a precomputed 1-D "
+                                "edge-detection population rate. When set, "
+                                "acc_square_width/acc_gauss_sigma are ignored."
+                            ),
                         },
                     },
                     "required": [
@@ -1150,7 +1192,12 @@ async def _list_tools() -> list[types.Tool]:
                     "Extract a time window from SpikeData. Loads from "
                     "(namespace, 'spikedata') and stores the result at "
                     "(out_namespace, 'spikedata'). If out_namespace is empty, "
-                    "overwrites in place."
+                    "overwrites in place. NOTE: by default the result's "
+                    "spike times are shifted so the new start_time is 0 "
+                    "(i.e. spikes in [start, end) become [0, end-start)). "
+                    "Pass shift_to=0 to preserve absolute times — useful "
+                    "when downstream tools (e.g. align_to_events) rely on "
+                    "the original time origin."
                 ),
                 inputSchema={
                     "type": "object",
@@ -1158,6 +1205,17 @@ async def _list_tools() -> list[types.Tool]:
                         **_WS_PROPS,
                         "start": {"type": "number", "description": "Start time in ms"},
                         "end": {"type": "number", "description": "End time in ms"},
+                        "shift_to": {
+                            "type": ["number", "null"],
+                            "description": (
+                                "Time value that becomes t=0 in the output. "
+                                "Null (default) maps to ``start``, i.e. spikes "
+                                "are shifted so the new start_time is 0. Pass "
+                                "0 to preserve absolute times; pass an event "
+                                "time for event-centered output."
+                            ),
+                            "default": None,
+                        },
                         "out_namespace": {
                             "type": "string",
                             "description": "Namespace to store result. If empty, overwrites the input namespace.",

@@ -452,10 +452,47 @@ async def get_bursts(
     raster_bin_size_ms: float = 1.0,
     peak_to_trough: bool = True,
     pop_rms_override: Optional[float] = None,
+    pop_rate_key: Optional[str] = None,
+    pop_rate_acc_key: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Detect population bursts and store burst times, edges, and amplitudes to workspace."""
+    """Detect population bursts and store burst times, edges, and amplitudes.
+
+    When ``pop_rate_key`` is given, the pre-computed rate at
+    ``(namespace, pop_rate_key)`` is used directly and the
+    ``square_width`` / ``gauss_sigma`` smoothing args are ignored —
+    this is the recommended way to keep the rate plotted by
+    ``get_pop_rate`` and the bursts detected here mathematically
+    consistent. Same for ``pop_rate_acc_key`` /
+    ``acc_square_width`` / ``acc_gauss_sigma``. When the keys are
+    omitted, the rate is recomputed internally from SpikeData using
+    the smoothing args — backwards-compatible but silently
+    inconsistent with any previously plotted rate.
+    """
     ws = _get_workspace(workspace_id)
     sd = _get_spikedata(ws, namespace)
+
+    pop_rate = None
+    if pop_rate_key is not None:
+        pop_rate_obj = ws.get(namespace, pop_rate_key)
+        if not isinstance(pop_rate_obj, np.ndarray) or pop_rate_obj.ndim != 1:
+            raise ValueError(
+                f"pop_rate at ({namespace!r}, {pop_rate_key!r}) must be a 1-D "
+                f"ndarray, got {type(pop_rate_obj).__name__} with shape "
+                f"{getattr(pop_rate_obj, 'shape', 'N/A')}."
+            )
+        pop_rate = pop_rate_obj
+
+    pop_rate_acc = None
+    if pop_rate_acc_key is not None:
+        pop_rate_acc_obj = ws.get(namespace, pop_rate_acc_key)
+        if not isinstance(pop_rate_acc_obj, np.ndarray) or pop_rate_acc_obj.ndim != 1:
+            raise ValueError(
+                f"pop_rate_acc at ({namespace!r}, {pop_rate_acc_key!r}) must be "
+                f"a 1-D ndarray, got {type(pop_rate_acc_obj).__name__} with "
+                f"shape {getattr(pop_rate_acc_obj, 'shape', 'N/A')}."
+            )
+        pop_rate_acc = pop_rate_acc_obj
+
     tburst, edges, peak_amp = sd.get_bursts(
         thr_burst,
         min_burst_diff,
@@ -466,6 +503,8 @@ async def get_bursts(
         acc_gauss_sigma=acc_gauss_sigma,
         raster_bin_size_ms=raster_bin_size_ms,
         peak_to_trough=peak_to_trough,
+        pop_rate=pop_rate,
+        pop_rate_acc=pop_rate_acc,
         pop_rms_override=pop_rms_override,
     )
     ws.store(namespace, key_tburst, np.asarray(tburst, dtype=np.float64))
@@ -683,12 +722,19 @@ async def subtime(
     namespace: str,
     start: float,
     end: float,
+    shift_to: Optional[float] = None,
     out_namespace: str = "",
 ) -> Dict[str, Any]:
-    """Extract a time-windowed SpikeData subset and store to workspace."""
+    """Extract a time-windowed SpikeData subset and store to workspace.
+
+    By default the result's spike times are shifted so the new
+    start_time is 0 (matching ``SpikeData.subtime``'s default
+    ``shift_to=start`` behaviour). Pass ``shift_to=0`` to preserve
+    absolute times, or any other event time for event-centered output.
+    """
     ws = _get_workspace(workspace_id)
     sd = _get_spikedata(ws, namespace)
-    new_sd = sd.subtime(start, end)
+    new_sd = sd.subtime(start, end, shift_to=shift_to)
     target_ns = out_namespace if out_namespace else namespace
     ws.store(target_ns, _SPIKEDATA_KEY, new_sd)
     return {
