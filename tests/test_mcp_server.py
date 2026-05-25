@@ -3481,6 +3481,69 @@ class TestComputeResampledISI:
 
     @pytestmark_server
     @pytest.mark.asyncio
+    async def test_non_1d_times_rejected(self, loaded_ws):
+        """
+        ``compute_resampled_isi`` rejects non-1D times at the MCP
+        boundary with a clear "1-D array" message — the underlying
+        ``resampled_isi`` would otherwise surface a deep-stack shape
+        error.
+
+        Tests:
+            (Test Case 1) A 2-D times array raises ValueError mentioning
+                "1-D array".
+        """
+        ws_id, ns = loaded_ws
+        with pytest.raises(ValueError, match="1-D array"):
+            await analysis.compute_resampled_isi(
+                ws_id, ns, "rates_2d", times=[[1.0, 2.0], [3.0, 4.0]]
+            )
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_non_monotonic_times_rejected(self, loaded_ws):
+        """
+        ``compute_resampled_isi`` rejects non-strictly-increasing times
+        at the MCP boundary with a clear "strictly increasing" message.
+
+        Tests:
+            (Test Case 1) Out-of-order times raise ValueError mentioning
+                "strictly increasing".
+        """
+        ws_id, ns = loaded_ws
+        with pytest.raises(ValueError, match="strictly increasing"):
+            await analysis.compute_resampled_isi(
+                ws_id, ns, "rates_unsorted", times=[1.0, 3.0, 2.0, 4.0]
+            )
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_non_uniform_times_rejected(self, loaded_ws):
+        """
+        ``compute_resampled_isi`` rejects non-uniformly-spaced times at
+        the MCP boundary with a "uniformly spaced" message and surfaces
+        the min/max/median step so the operator can act.
+
+        Tests:
+            (Test Case 1) Non-uniform times raise ValueError mentioning
+                "uniformly spaced".
+            (Test Case 2) The error message names min, max, and median
+                step values.
+        """
+        ws_id, ns = loaded_ws
+        # Uniform 1 ms diffs except one 4 ms gap.
+        with pytest.raises(ValueError) as excinfo:
+            await analysis.compute_resampled_isi(
+                ws_id, ns, "rates_nonuniform",
+                times=[0.0, 1.0, 2.0, 6.0, 7.0, 8.0],
+            )
+        msg = str(excinfo.value)
+        assert "uniformly spaced" in msg
+        assert "median step" in msg
+        assert "min step" in msg
+        assert "max step" in msg
+
+    @pytestmark_server
+    @pytest.mark.asyncio
     async def test_single_time_point_rejected(self, loaded_ws):
         """
         Single time point is rejected up-front (Tier F).

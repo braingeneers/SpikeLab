@@ -862,6 +862,30 @@ class TestRateDataSubtimeByIndex:
         assert float(result.times[0]) == pytest.approx(5.0)  # index 5, step=1.0
 
 
+class TestRateDataFramesULPBoundaryFrameCount:
+    """``RateData.frames`` counts frames via
+    ``int(np.floor(slot_span / step)) + 1`` rather than
+    ``np.arange(t0, end - length + 1e-9, step)``. The previous
+    epsilon-pad form could emit a window whose end fell ULPs past
+    the last time bin, then ``_validate_time_start_to_end`` rejected
+    the frame.
+    """
+
+    def test_exact_integer_multiple_succeeds_with_expected_frame_count(self):
+        """
+        Tests:
+            (Test Case 1) ``frames(length=20)`` on uniform 1 ms times
+                ``[0..99]`` produces exactly 5 frames (no ULP
+                overshoot, no rejection).
+            (Test Case 2) Each frame spans exactly ``length`` ms.
+        """
+        rd = make_ratedata(n_units=3, n_times=100, step=1.0)
+        stack = rd.frames(20)
+        assert len(stack.times) == 5
+        for (start, end) in stack.times:
+            assert end - start == pytest.approx(20.0)
+
+
 class TestRateDataFramesStepSizeFromMedianDiff:
     """``RateData.frames`` infers the bin ``step_size`` from
     ``np.median(np.diff(times))`` rather than ``times[1] - times[0]``,

@@ -8340,6 +8340,57 @@ class TestSpikeDataFramesOverlapBoundary:
             sd.frames(10.0, overlap=-10.0)
 
 
+class TestSpikeDataFramesULPBoundaryFrameCount:
+    """``SpikeData.frames`` counts frames via
+    ``int(np.floor(slot_span / step)) + 1`` rather than
+    ``np.arange(start, end - length + 1e-9, step)``. The previous
+    epsilon-pad form could emit an extra start at ``end_time - length
+    + ε`` for inputs where the slot span is an exact multiple of the
+    step, and the resulting frame end would fall ULPs past
+    ``end_time`` — the strict bounds check inside
+    ``_validate_time_start_to_end`` then rejected the otherwise-valid
+    frame.
+    """
+
+    def test_exact_integer_multiple_succeeds_with_expected_frame_count(self):
+        """
+        Tests:
+            (Test Case 1) ``frames(length=10, overlap=0)`` on a 100 ms
+                recording produces exactly 10 frames (no rejection
+                from a ULP-overshoot start) and the resulting
+                ``SpikeSliceStack`` is well-formed.
+        """
+        sd = SpikeData([[1.0, 5.0, 9.0]], length=100.0)
+        stack = sd.frames(10.0, overlap=0)
+        # int(np.floor(90/10)) + 1 = 10 frames.
+        assert len(stack.times) == 10
+        # Every frame's end is at most start + length and never past
+        # the recording end.
+        for (start, end) in stack.times:
+            assert end - start == pytest.approx(10.0)
+            assert end <= sd.start_time + sd.length + 1e-9
+
+    def test_slot_span_one_ulp_below_exact_integer_succeeds(self):
+        """
+        Tests:
+            (Test Case 1) When ``(end_time - length - start_time) /
+                step`` is one ULP below an integer (the case that
+                used to silently miss a frame under the
+                ``np.arange + epsilon`` form), the frame count
+                matches the floor-and-add-one rule.
+        """
+        # length=10 ms, step=5 ms, start=0; pick a recording length
+        # where slot_span is one ULP below 95 (an exact integer
+        # multiple of step) so the explicit floor + 1 returns 20
+        # frames deterministically.
+        sd = SpikeData([[1.0]], length=105.0 - np.nextafter(0.0, 1.0))
+        stack = sd.frames(10.0, overlap=5.0)
+        end_time = sd.start_time + sd.length
+        slot_span = end_time - 10.0 - sd.start_time
+        expected = int(np.floor(slot_span / 5.0)) + 1
+        assert len(stack.times) == expected
+
+
 class TestSpikeDataGetPairwiseCcgMaxLagClamp:
     """``get_pairwise_ccg`` clamps ``max_lag`` to the raster length."""
 
