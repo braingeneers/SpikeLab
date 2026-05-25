@@ -1646,8 +1646,13 @@ class TestPolicyBoundary:
         gpu_finding = [f for f in findings if f.code == "interactive_gpu_limit"][0]
         assert gpu_finding.level == "PASS"
 
-    def test_block_sleep_infinity_disabled(self):
-        """block_sleep_infinity=False allows sleep commands through."""
+    def test_block_sleep_infinity_disabled_emits_warn(self):
+        """block_sleep_infinity=False permits sleep commands through but
+        records a WARN audit finding when a sleep pattern is actually
+        detected. The previous PASS finding was misleading — it claimed
+        no pattern was detected even when one was present, just not
+        blocked. The WARN keeps the audit trail honest.
+        """
         payload = _example_payload()
         payload["container"]["args"] = ["sleep", "infinity"]
         job_spec = validate_job_spec(payload)
@@ -1657,7 +1662,8 @@ class TestPolicyBoundary:
         )
         findings = evaluate_policy(job_spec, profile)
         sleep_finding = [f for f in findings if f.code == "sleep_in_batch_job"][0]
-        assert sleep_finding.level == "PASS"
+        assert sleep_finding.level == "WARN"
+        assert "block_sleep_infinity is" in sleep_finding.message
 
     def test_active_deadline_at_boundary(self):
         """

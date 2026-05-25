@@ -105,15 +105,31 @@ def evaluate_policy(
             )
         )
 
-    if cfg.block_sleep_infinity and _contains_disallowed_sleep(
+    sleep_present = _contains_disallowed_sleep(
         job_spec.container.command, job_spec.container.args
-    ):
+    )
+    if cfg.block_sleep_infinity and sleep_present:
         findings.append(
             PolicyFinding(
                 "sleep_in_batch_job",
                 "BLOCK",
                 "Batch jobs containing 'sleep infinity' or trailing sleep "
                 "are disallowed.",
+            )
+        )
+    elif sleep_present:
+        # ``block_sleep_infinity`` is disabled in the profile, but a
+        # sleep pattern *was* detected. Surfacing this as a WARN keeps
+        # the audit trail honest — the previous code emitted a PASS
+        # ("No forbidden sleep patterns detected") even though the
+        # pattern was present, just not blocked.
+        findings.append(
+            PolicyFinding(
+                "sleep_in_batch_job",
+                "WARN",
+                "Sleep pattern detected but block_sleep_infinity is "
+                "disabled in this profile; the job will be permitted "
+                "but the pattern is recorded for audit.",
             )
         )
     else:

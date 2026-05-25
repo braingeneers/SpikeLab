@@ -58,6 +58,11 @@ def _unique_namespace(ws, namespace: str) -> str:
     Return namespace, appending _1, _2, ... until unique within ws.
 
     If the namespace does not yet exist in ws, it is returned unchanged.
+    When a collision is detected, emit a ``UserWarning`` naming both
+    the requested and the assigned namespace so the agent can see
+    that its requested key was bumped — without this, the response
+    dict carries a different ``namespace`` field than the agent
+    asked for, with no signal that the rename happened.
     """
     existing = set(ws.list_keys().keys())
     if namespace not in existing:
@@ -65,7 +70,17 @@ def _unique_namespace(ws, namespace: str) -> str:
     i = 1
     while f"{namespace}_{i}" in existing:
         i += 1
-    return f"{namespace}_{i}"
+    assigned = f"{namespace}_{i}"
+    import warnings
+
+    warnings.warn(
+        f"requested namespace {namespace!r} already exists in workspace; "
+        f"bumping to {assigned!r} to avoid overwrite. Pass a unique "
+        "namespace if you want to control the destination.",
+        UserWarning,
+        stacklevel=2,
+    )
+    return assigned
 
 
 # ---------------------------------------------------------------------------
@@ -737,6 +752,34 @@ async def load_from_ibl(
     ns_final = _unique_namespace(ws, ns_derived)
     ws.store(ns_final, SPIKEDATA_KEY, spikedata)
 
+    # Surface array-valued IBL metadata (trial_start_times, stim_on_times,
+    # response_times, etc.) instead of dropping it. The previous
+    # ``hasattr(v, "__len__")`` filter excluded every ndarray/list,
+    # silently hiding the trial table the agent typically needs to do
+    # event-aligned analysis. Convert arrays to a brief summary so the
+    # response stays JSON-friendly and bounded; the full arrays remain
+    # on the SpikeData object (``sd.metadata``) and the agent can fetch
+    # them via ``fetch_workspace_item`` if needed.
+    metadata_summary: Dict[str, Any] = {}
+    for k, v in spikedata.metadata.items():
+        if isinstance(v, (str, int, float, bool)) or v is None:
+            metadata_summary[k] = v
+        elif hasattr(v, "shape") and hasattr(v, "dtype"):  # ndarray-like
+            metadata_summary[k] = {
+                "__array_summary__": True,
+                "shape": list(v.shape),
+                "dtype": str(v.dtype),
+                "size": int(v.size),
+            }
+        elif isinstance(v, (list, tuple)):
+            metadata_summary[k] = {
+                "__sequence_summary__": True,
+                "type": type(v).__name__,
+                "length": len(v),
+            }
+        else:
+            metadata_summary[k] = repr(v)
+
     return {
         "workspace_id": resolved_wid,
         "namespace": ns_final,
@@ -745,11 +788,7 @@ async def load_from_ibl(
             "num_neurons": spikedata.N,
             "length_ms": spikedata.length,
             "start_time": spikedata.start_time,
-            "metadata": {
-                k: v
-                for k, v in spikedata.metadata.items()
-                if not hasattr(v, "__len__") or isinstance(v, str)
-            },
+            "metadata": metadata_summary,
         },
     }
 

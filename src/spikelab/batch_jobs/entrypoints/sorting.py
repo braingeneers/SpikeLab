@@ -18,7 +18,7 @@ import tempfile
 import zipfile
 from dataclasses import fields
 from pathlib import Path
-from typing import Dict
+from typing import Any, Dict
 
 
 def _require_env(name: str) -> str:
@@ -31,6 +31,19 @@ def _require_env(name: str) -> str:
 def _reconstruct_config(config_dict: dict):
     """Rebuild a SortingPipelineConfig from a nested dict.
 
+    Host-side ``_resolve_sorting_config`` serialises via
+    ``dataclasses.asdict(config)`` + ``json.dumps(..., default=str)``,
+    which flattens ``Path`` fields to plain strings. The naive
+    reconstruction ``f.type(**sub_dict)`` would then leave ``Path``-
+    annotated fields as ``str`` at runtime (dataclasses do not coerce
+    from type hints), and downstream code that does
+    ``cfg.recording.intermediate_dir / "subdir"`` would crash with
+    ``TypeError: unsupported operand type(s) for /: 'str' and 'str'``.
+
+    This loop re-wraps any field whose static type annotation is
+    ``pathlib.Path`` back into a ``Path`` after the
+    sub-dataclass is constructed.
+
     Parameters:
         config_dict (dict): Nested dict as produced by
             ``dataclasses.asdict(config)``.
@@ -38,12 +51,38 @@ def _reconstruct_config(config_dict: dict):
     Returns:
         config (SortingPipelineConfig): Reconstructed config.
     """
+    from pathlib import Path
+
     from spikelab.spike_sorting.config import SortingPipelineConfig
+
+    def _is_path_annotation(annotation: Any) -> bool:
+        # Match ``Path`` and ``Optional[Path]`` (the latter shows up as
+        # a typing union with NoneType in the get_type_hints result).
+        if annotation is Path:
+            return True
+        args = getattr(annotation, "__args__", None)
+        if args:
+            return any(a is Path for a in args)
+        return False
+
+    import typing
 
     sub_configs = {}
     for f in fields(SortingPipelineConfig):
         sub_dict = config_dict.get(f.name, {})
-        sub_configs[f.name] = f.type(**sub_dict)
+        sub_instance = f.type(**sub_dict)
+        # Restore Path fields on the just-constructed sub-config.
+        try:
+            sub_hints = typing.get_type_hints(f.type)
+        except Exception:
+            sub_hints = {}
+        for sub_field_name, sub_annotation in sub_hints.items():
+            if not _is_path_annotation(sub_annotation):
+                continue
+            val = getattr(sub_instance, sub_field_name, None)
+            if isinstance(val, str) and val:
+                setattr(sub_instance, sub_field_name, Path(val))
+        sub_configs[f.name] = sub_instance
     return SortingPipelineConfig(**sub_configs)
 
 

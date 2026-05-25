@@ -50,15 +50,19 @@ def _apply_namespace_hooks(
     namespace: str,
     container: Dict[str, Any],
     mounts: List[Dict[str, Any]],
-    affinity: Dict[str, Any],
     profile: ClusterProfile,
-) -> tuple[Dict[str, Any], List[Dict[str, Any]], Dict[str, Any]]:
+) -> tuple[Dict[str, Any], List[Dict[str, Any]]]:
     """Apply profile-driven default volumes and namespace-specific hooks.
 
     1. Merge ``profile.default_volumes`` (always applied).
     2. If *namespace* matches a key in ``profile.namespace_hooks``, apply
        that hook's ``image_pull_policy``, ``default_command``, and
        ``required_volumes``.
+
+    Returns the updated ``(container, mounts)`` pair. ``affinity`` used
+    to be passed through this function unchanged — that parameter was
+    dead weight and has been removed; the caller now owns the
+    affinity dict directly.
     """
     seen = {_volume_entry_key(item) for item in mounts}
     merged_mounts = list(mounts)
@@ -74,7 +78,7 @@ def _apply_namespace_hooks(
     # Namespace-specific hook
     hook = profile.namespace_hooks.get(namespace)
     if hook is None:
-        return container, merged_mounts, affinity
+        return container, merged_mounts
 
     updated_container = dict(container)
     if hook.image_pull_policy:
@@ -96,7 +100,7 @@ def _apply_namespace_hooks(
             merged_mounts.append(entry)
             seen.add(key)
 
-    return updated_container, merged_mounts, affinity
+    return updated_container, merged_mounts
 
 
 def _build_pod_volumes(mounts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -169,11 +173,10 @@ def build_template_context(
     container["command"] = _sanitize_list(container.get("command", []))
     container["args"] = _sanitize_list(container.get("args", []))
     affinity = profile.affinity
-    container, mounts, affinity = _apply_namespace_hooks(
+    container, mounts = _apply_namespace_hooks(
         namespace=namespace,
         container=container,
         mounts=mounts,
-        affinity=affinity,
         profile=profile,
     )
     pod_volumes = _build_pod_volumes(mounts)

@@ -500,6 +500,28 @@ def load_spikedata_from_hdf5(
                 f"got len(idces)={len(idces)}, len(times)={len(times)}."
             )
         N = int(idces.max()) + 1 if idces.size else 0
+        # Surface sparse cluster_id padding so the operator can tell a
+        # legitimate "unit N had no spikes" case apart from "unit N
+        # was dropped by Phy curation and the loader filled in an
+        # empty train". Without this, a curated Phy export that
+        # dropped clusters 2..46 silently produced 45 empty units in
+        # the middle and downstream consumers had no signal.
+        unique_ids = np.unique(idces) if idces.size else np.array([])
+        if idces.size and len(unique_ids) != N:
+            missing = sorted(set(range(N)) - set(int(u) for u in unique_ids))
+            preview = missing[:5]
+            more = "..." if len(missing) > 5 else ""
+            warnings.warn(
+                f"paired-style HDF5 has sparse cluster_ids: max+1={N} "
+                f"but only {len(unique_ids)} distinct ids present. "
+                f"The loader will create {len(missing)} empty unit(s) "
+                f"to pad (cluster_ids {preview}{more}). If this is a "
+                "Phy-curated export, the empty units may not match the "
+                "user's mental model — consider compacting the cluster "
+                "ids upstream.",
+                UserWarning,
+                stacklevel=2,
+            )
         sd = SpikeData.from_idces_times(
             idces,
             times,

@@ -198,10 +198,24 @@ def export_spikedata_to_hdf5(
                 raise ValueError(
                     "raster_bin_size_ms must be provided and > 0 for raster style"
                 )
+            # Raster convention: ``sd.raster(...)`` returns a bin matrix
+            # whose column 0 corresponds to the recording's start_time
+            # (not literal t=0). On reload, the loader passes
+            # ``start_time=file_start_time`` into ``from_raster``, which
+            # offsets the generated spike times. Event-centered data
+            # (``start_time<0``) therefore round-trips correctly only
+            # when the file-level ``start_time`` attr is preserved —
+            # which it is (written above on line 151). Document the
+            # convention here so a future refactor of either side
+            # doesn't accidentally drop the offset.
             raster = sd.raster(raster_bin_size_ms)
             f.create_dataset(raster_dataset, data=np.asarray(raster))
             # Store bin size as an attribute for provenance (readers can ignore)
             f[raster_dataset].attrs["bin_size_ms"] = float(raster_bin_size_ms)
+            # Tag the raster's time origin so an external consumer (not
+            # the matching loader) knows that ``column 0 == start_time``,
+            # not ``column 0 == 0``.
+            f[raster_dataset].attrs["time_origin_ms"] = float(sd.start_time)
             return  # file-level attr (start_time) already written above
 
         if style == "ragged":
@@ -358,8 +372,12 @@ def export_spikedata_to_kilosort(
             'samples': integer sample indices (default, KiloSort
             standard). 'ms': milliseconds (float). 's': seconds (float).
         cluster_ids (Sequence[int] | None): Custom cluster IDs for each
-            unit. If None, uses sequential integers 0, 1, 2, ... Length
-            must match sd.N.
+            unit. Length **must match sd.N** even when some units are
+            empty — ``cluster_ids[i]`` reserves the cluster identifier
+            for unit ``i`` so the unit ordering is stable on reload.
+            For empty units the ``cluster_ids[i]`` entry is consumed
+            but contributes no rows to the output arrays. If None, uses
+            sequential integers 0, 1, 2, ...
 
     Returns:
         paths (tuple[str, str]): Paths to the created spike_times.npy
@@ -370,7 +388,7 @@ def export_spikedata_to_kilosort(
           across all units).
         - Spike times are sorted by unit order, not chronologically.
         - Empty units (no spikes) don't contribute entries to the output
-          arrays.
+          arrays, but their ``cluster_ids[i]`` slot is still consumed.
         - The 'samples' time unit produces integer arrays suitable for
           KiloSort/Phy.
         - Cluster IDs can be arbitrary integers and don't need to be

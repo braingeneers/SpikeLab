@@ -332,19 +332,22 @@ class RateData:
 
         t0 = float(self.times[0])
         t_end = float(self.times[-1])
-        step_size = float(self.times[1] - self.times[0])
 
         # frames() places windows on the uniform grid implied by
-        # times[1] - times[0]. Validate the rest of the grid matches —
-        # non-uniform times silently misalign frame boundaries with
-        # bins, and the downstream np.stack in RateSliceStack fails
-        # opaquely on the resulting shape-mismatched frames.
+        # ``np.median(np.diff(times))``. Using the median (rather than
+        # ``times[1] - times[0]``) is robust to a single anomalous
+        # gap or duplicate-time pair at the start that
+        # ``RateData.__init__`` allows under its monotonically-
+        # non-decreasing contract — without this, the first-pair
+        # step could poison the uniformity check below for an
+        # otherwise-uniform grid.
         diffs = np.diff(np.asarray(self.times, dtype=float))
+        step_size = float(np.median(diffs))
         if not np.allclose(diffs, step_size, rtol=1e-6, atol=1e-9):
             raise ValueError(
                 "RateData.frames requires uniformly-spaced times; got "
                 f"min step {diffs.min():g}, max step {diffs.max():g} "
-                f"(first-pair step {step_size:g}). Resample to a "
+                f"(median step {step_size:g}). Resample to a "
                 "uniform grid before framing."
             )
 

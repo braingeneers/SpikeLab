@@ -329,12 +329,19 @@ async def export_to_kilosort(
     cluster_ids: Optional[List[int]] = None,
 ) -> Dict[str, Any]:
     """
-    Export spike data to a KiloSort/Phy folder.
+    Export spike data to a **local** KiloSort/Phy folder.
+
+    .. note::
+        S3 folder paths are not currently supported and raise
+        ``NotImplementedError`` (mirrors the
+        ``load_from_kilosort`` loader). Download/upload the folder
+        out-of-band for now.
 
     Args:
         workspace_id: Workspace ID containing the SpikeData
         namespace: Namespace within the workspace
-        folder_path: Local folder path for output
+        folder_path: Local folder path for output (``s3://`` URLs raise
+            ``NotImplementedError``)
         fs_Hz: Sampling frequency in Hz
         spike_times_file: Filename for spike_times.npy
         spike_clusters_file: Filename for spike_clusters.npy

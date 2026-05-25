@@ -175,6 +175,16 @@ def dump_item_to_file(
 ) -> None:
     """Write a single item to an HDF5 file, creating or overwriting the item group.
 
+    .. warning::
+        HDF5 does **not** support concurrent writes to the same file.
+        Two processes (or threads) calling ``dump_item_to_file`` on
+        the same ``h5_path`` simultaneously will corrupt the file.
+        The caller is responsible for serialising writes — typically
+        by using per-process workspaces and ``AnalysisWorkspace.merge_from``
+        for aggregation (see the ``merge_from`` docstring for the
+        merge protocol). ``LazyAnalysisWorkspace`` is safe by virtue
+        of each instance owning a unique ``tempfile.mkstemp`` path.
+
     Parameters:
         h5_path (str): Full path to the HDF5 file (including .h5 extension).
         namespace (str): Namespace group to write into.

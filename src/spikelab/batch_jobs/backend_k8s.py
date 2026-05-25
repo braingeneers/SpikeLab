@@ -5,7 +5,7 @@ from __future__ import annotations
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Iterator, List, Optional
+from typing import Any, Iterator, List, Optional
 
 import yaml
 
@@ -50,6 +50,13 @@ class KubernetesBatchJobBackend:
     def apply_manifest(self, manifest_path_or_str: str) -> str:
         """Apply a job manifest by YAML file path or raw YAML string.
 
+        Returns the job's ``metadata.name`` (consistent across both
+        paths). Previously the kubectl-fallback path returned the
+        raw stdout of ``kubectl apply`` (e.g. ``"job.batch/myjob
+        created\\n"``) while the Python-client path returned the
+        clean name — callers had no portable way to extract the
+        identifier without sniffing the backend.
+
         Raises ``ValueError`` if the manifest's ``metadata.namespace``
         is set and disagrees with the backend's ``self.namespace`` —
         this would otherwise silently deploy into the backend's
@@ -71,20 +78,50 @@ class KubernetesBatchJobBackend:
                     "the rendered one."
                 )
 
+        def _extract_job_name(payload: Any) -> Optional[str]:
+            """Best-effort extraction of metadata.name from a parsed manifest.
+
+            Returns ``None`` when the structure isn't a dict-of-dicts;
+            callers should fall back to the kubectl stdout (only the
+            Python-client path requires the name to be present).
+            """
+            if not isinstance(payload, dict):
+                return None
+            meta = payload.get("metadata")
+            if not isinstance(meta, dict):
+                return None
+            name = meta.get("name")
+            return name if isinstance(name, str) and name else None
+
+        path = Path(manifest_path_or_str)
+
+        # Resolve the kubectl-fallback path first when the Python client
+        # is unavailable. The fallback uses ``kubectl apply`` directly,
+        # which itself rejects manifests missing ``metadata.name``, so
+        # we only do a best-effort namespace check here without raising
+        # on missing-name. The namespace check still runs on whatever
+        # YAML we can parse; an unparseable payload skips the check.
         if self._batch_api is None:
             if not self.use_kubectl_fallback:
                 raise RuntimeError(
                     "Kubernetes client unavailable and kubectl fallback disabled"
                 )
-            path = Path(manifest_path_or_str)
+            try:
+                if path.exists():
+                    payload_for_check = yaml.safe_load(path.read_text(encoding="utf-8"))
+                else:
+                    payload_for_check = yaml.safe_load(manifest_path_or_str)
+            except yaml.YAMLError:
+                payload_for_check = None
+            if payload_for_check is not None:
+                _check_manifest_namespace(payload_for_check)
+            fallback_job_name = _extract_job_name(payload_for_check)
+
             if path.exists():
-                _check_manifest_namespace(
-                    yaml.safe_load(path.read_text(encoding="utf-8"))
-                )
-                return self._run_kubectl(
+                stdout = self._run_kubectl(
                     ["apply", "-f", str(path), "-n", self.namespace]
                 )
-            _check_manifest_namespace(yaml.safe_load(manifest_path_or_str))
+                return fallback_job_name or stdout
             temp_path = None
             with tempfile.NamedTemporaryFile(
                 mode="w", suffix=".yaml", encoding="utf-8", delete=False
@@ -92,21 +129,31 @@ class KubernetesBatchJobBackend:
                 f.write(manifest_path_or_str)
                 temp_path = f.name
             try:
-                return self._run_kubectl(
+                stdout = self._run_kubectl(
                     ["apply", "-f", temp_path, "-n", self.namespace]
                 )
+                return fallback_job_name or stdout
             finally:
                 if temp_path:
                     Path(temp_path).unlink(missing_ok=True)
 
-        path = Path(manifest_path_or_str)
+        # Python-client path: parse strictly. ``create_namespaced_job``
+        # requires a structured payload with metadata.name, so we raise
+        # early with a clear message rather than letting the API client
+        # surface a less actionable error.
         if path.exists():
             payload = yaml.safe_load(path.read_text(encoding="utf-8"))
         else:
             payload = yaml.safe_load(manifest_path_or_str)
         _check_manifest_namespace(payload)
+        job_name = _extract_job_name(payload)
+        if job_name is None:
+            raise ValueError(
+                "Manifest does not contain metadata.name; cannot apply via "
+                "the Kubernetes Python client."
+            )
         self._batch_api.create_namespaced_job(namespace=self.namespace, body=payload)
-        return payload["metadata"]["name"]
+        return job_name
 
     def delete_job(self, name: str) -> None:
         """Delete a job and its pods. Idempotent: missing jobs are a no-op.
