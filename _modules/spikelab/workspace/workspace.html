@@ -411,6 +411,7 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#server">Server</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/mcp_server.html#spikelab.mcp_server.server.MAX_INLINE_ARRAY_SIZE"><code class="docutils literal notranslate"><span class="pre">MAX_INLINE_ARRAY_SIZE</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
 </ul>
 </li>
@@ -876,18 +877,34 @@
 
         <span class="n">dump_workspace</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
 
+        <span class="c1"># Write JSON via temp-file + os.replace so a partial write</span>
+        <span class="c1"># (disk full, permission, interrupted process) can&#39;t leave a</span>
+        <span class="c1"># stale ``{path}.json`` next to the just-written ``{path}.h5``.</span>
+        <span class="c1"># ``describe()`` consumers reading the JSON directly would</span>
+        <span class="c1"># otherwise see metadata that disagrees with the HDF5 contents.</span>
         <span class="n">json_path</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">.json&quot;</span>
-        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">json_path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-            <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span>
-                <span class="p">{</span>
-                    <span class="s2">&quot;workspace_id&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">workspace_id</span><span class="p">,</span>
-                    <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
-                    <span class="s2">&quot;created_at&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">created_at</span><span class="p">,</span>
-                    <span class="s2">&quot;index&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_index</span><span class="p">,</span>
-                <span class="p">},</span>
-                <span class="n">f</span><span class="p">,</span>
-                <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
-            <span class="p">)</span></div>
+        <span class="n">tmp_path</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">json_path</span><span class="si">}</span><span class="s2">.tmp&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span>
+                    <span class="p">{</span>
+                        <span class="s2">&quot;workspace_id&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">workspace_id</span><span class="p">,</span>
+                        <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                        <span class="s2">&quot;created_at&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">created_at</span><span class="p">,</span>
+                        <span class="s2">&quot;index&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_index</span><span class="p">,</span>
+                    <span class="p">},</span>
+                    <span class="n">f</span><span class="p">,</span>
+                    <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">,</span> <span class="n">json_path</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="c1"># Best-effort cleanup of the temp file on failure; the</span>
+            <span class="c1"># underlying error is re-raised regardless.</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
+                <span class="k">pass</span>
+            <span class="k">raise</span></div>
 
 
 <div class="viewcode-block" id="AnalysisWorkspace.load">
@@ -1268,10 +1285,38 @@
     <span class="c1"># Cleanup</span>
     <span class="c1"># ------------------------------------------------------------------</span>
 
+<div class="viewcode-block" id="LazyAnalysisWorkspace.close">
+<a class="viewcode-back" href="../../../api/workspace.html#spikelab.workspace.workspace.LazyAnalysisWorkspace.close">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Explicitly release the backing temp HDF5 file.</span>
+
+<span class="sd">        ``__del__`` is unreliable for cleanup (not called during</span>
+<span class="sd">        interpreter shutdown, not called if the workspace is captured</span>
+<span class="sd">        in a closure, not called for objects in reference cycles), so</span>
+<span class="sd">        consumers that need deterministic cleanup — notably</span>
+<span class="sd">        :meth:`WorkspaceManager.delete_workspace` — should call this</span>
+<span class="sd">        method first. Safe to call multiple times.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_h5_path&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">unlink</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
+                <span class="c1"># Best-effort: another process may have unlinked, or</span>
+                <span class="c1"># the path may be on a read-only mount. Drop the</span>
+                <span class="c1"># reference so a second close() doesn&#39;t retry.</span>
+                <span class="k">pass</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_h5_path</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># Invalidate the in-memory index so subsequent reads fail</span>
+        <span class="c1"># loudly rather than silently returning stale data after the</span>
+        <span class="c1"># backing file is gone.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_index</span> <span class="o">=</span> <span class="p">{}</span></div>
+
+
     <span class="k">def</span><span class="w"> </span><span class="fm">__del__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Best-effort fallback; explicit ``close()`` is preferred.</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_h5_path&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_h5_path</span><span class="p">):</span>
-                <span class="n">os</span><span class="o">.</span><span class="n">unlink</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_h5_path</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
         <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
             <span class="k">pass</span>
 
@@ -1360,6 +1405,14 @@
         <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">workspace_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_workspaces</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;workspace not found: </span><span class="si">{</span><span class="n">workspace_id</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">ws</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_workspaces</span><span class="p">[</span><span class="n">workspace_id</span><span class="p">]</span>
+            <span class="c1"># Release the backing temp HDF5 file deterministically</span>
+            <span class="c1"># when the workspace is a LazyAnalysisWorkspace. Without</span>
+            <span class="c1"># this, the temp file leaked until ``__del__`` ran (which</span>
+            <span class="c1"># is unreliable on Windows and during interpreter</span>
+            <span class="c1"># shutdown).</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ws</span><span class="p">,</span> <span class="n">LazyAnalysisWorkspace</span><span class="p">):</span>
+                <span class="n">ws</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
             <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">_workspaces</span><span class="p">[</span><span class="n">workspace_id</span><span class="p">]</span></div>
 
 

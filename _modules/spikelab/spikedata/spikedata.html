@@ -411,6 +411,7 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#server">Server</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/mcp_server.html#spikelab.mcp_server.server.MAX_INLINE_ARRAY_SIZE"><code class="docutils literal notranslate"><span class="pre">MAX_INLINE_ARRAY_SIZE</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
 </ul>
 </li>
@@ -666,6 +667,9 @@
         <span class="nb">filter</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">dict</span><span class="p">,</span> <span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="n">hysteresis</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
         <span class="n">direction</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;both&quot;</span><span class="p">,</span> <span class="s2">&quot;up&quot;</span><span class="p">,</span> <span class="s2">&quot;down&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;both&quot;</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">length</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">start_time</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a SpikeData object by filtering and thresholding raw electrophysiological data.</span>
 
@@ -680,6 +684,14 @@
 <span class="sd">            hysteresis (bool): Use hysteresis for thresholding.</span>
 <span class="sd">            direction (str): Direction of thresholding (&#39;both&#39;, &#39;up&#39;,</span>
 <span class="sd">                &#39;down&#39;).</span>
+<span class="sd">            length (float or None): Recording length in ms. When</span>
+<span class="sd">                ``None``, the length is inferred from ``data.shape[1]``.</span>
+<span class="sd">                Pass an explicit value to honour trailing silence</span>
+<span class="sd">                recorded in a file-level ``length_ms`` attribute.</span>
+<span class="sd">            start_time (float or None): Recording start time in ms.</span>
+<span class="sd">                When ``None``, defaults to 0.0. Pass an explicit value</span>
+<span class="sd">                for event-centered data or to honour a file-level</span>
+<span class="sd">                ``start_time`` attribute.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            sd (SpikeData): Object with the given raw data.</span>
@@ -720,9 +732,12 @@
             <span class="n">diff</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span>
             <span class="n">raster</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">diff</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">1</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">),</span> <span class="n">diff</span><span class="p">])</span>
 
-        <span class="k">return</span> <span class="n">SpikeData</span><span class="o">.</span><span class="n">from_raster</span><span class="p">(</span>
-            <span class="n">raster</span><span class="p">,</span> <span class="mf">1e3</span> <span class="o">/</span> <span class="n">fs_Hz</span><span class="p">,</span> <span class="n">raw_data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span> <span class="n">raw_time</span><span class="o">=</span><span class="n">fs_Hz</span> <span class="o">/</span> <span class="mf">1e3</span>
-        <span class="p">)</span></div>
+        <span class="n">kwargs</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;raw_data&quot;</span><span class="p">:</span> <span class="n">data</span><span class="p">,</span> <span class="s2">&quot;raw_time&quot;</span><span class="p">:</span> <span class="n">fs_Hz</span> <span class="o">/</span> <span class="mf">1e3</span><span class="p">}</span>
+        <span class="k">if</span> <span class="n">length</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;length&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">length</span>
+        <span class="k">if</span> <span class="n">start_time</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;start_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">start_time</span>
+        <span class="k">return</span> <span class="n">SpikeData</span><span class="o">.</span><span class="n">from_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="mf">1e3</span> <span class="o">/</span> <span class="n">fs_Hz</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="SpikeData.__init__">
@@ -795,6 +810,8 @@
             <span class="n">length</span> <span class="o">=</span> <span class="n">max_spike</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_time</span>
         <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">length</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;length must not be NaN&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isinf</span><span class="p">(</span><span class="n">length</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;length must be finite, got </span><span class="si">{</span><span class="n">length</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">length</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;length must be non-negative, got </span><span class="si">{</span><span class="n">length</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">=</span> <span class="n">length</span>
@@ -1056,6 +1073,28 @@
 
         <span class="k">if</span> <span class="n">kind</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;spike&quot;</span><span class="p">,</span> <span class="s2">&quot;rate&quot;</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;kind must be &#39;spike&#39; or &#39;rate&#39;, got </span><span class="si">{</span><span class="n">kind</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Validate the bin-size / window relationship for rate slices.</span>
+        <span class="c1"># ``bin_size_ms`` larger than the per-event window (pre + post)</span>
+        <span class="c1"># silently produces degenerate ``(U, 1, 1)`` slices because the</span>
+        <span class="c1"># underlying resample grid has fewer than one point per slice.</span>
+        <span class="c1"># Reject at the boundary so the failure mode is visible to the</span>
+        <span class="c1"># caller rather than buried in a downstream &quot;wrong shape&quot;</span>
+        <span class="c1"># surprise.</span>
+        <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">&quot;rate&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">bin_size_ms</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">bin_size_ms</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;bin_size_ms must be &gt; 0 for kind=&#39;rate&#39;, got </span><span class="si">{</span><span class="n">bin_size_ms</span><span class="si">!r}</span><span class="s2">.&quot;</span>
+                <span class="p">)</span>
+            <span class="n">window</span> <span class="o">=</span> <span class="n">pre_ms</span> <span class="o">+</span> <span class="n">post_ms</span>
+            <span class="k">if</span> <span class="n">bin_size_ms</span> <span class="o">&gt;</span> <span class="n">window</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;bin_size_ms (</span><span class="si">{</span><span class="n">bin_size_ms</span><span class="si">}</span><span class="s2">) exceeds the per-event &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;window pre_ms + post_ms (</span><span class="si">{</span><span class="n">window</span><span class="si">}</span><span class="s2">). Each slice &quot;</span>
+                    <span class="s2">&quot;would collapse to a degenerate (U, 1, S) shape with &quot;</span>
+                    <span class="s2">&quot;fewer than one bin per event. Use a smaller &quot;</span>
+                    <span class="s2">&quot;bin_size_ms, a larger pre_ms/post_ms, or kind=&#39;spike&#39;.&quot;</span>
+                <span class="p">)</span>
 
         <span class="c1"># Resolve metadata key to array.</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">events</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
@@ -1336,13 +1375,39 @@
 <span class="sd">            values (single value or list): Single value (applied to all) or</span>
 <span class="sd">                list/array matching neuron_indices length for each neuron.</span>
 <span class="sd">            neuron_indices (list): Neurons to update. If None, updates all.</span>
+
+<span class="sd">        Notes:</span>
+<span class="sd">            - Generator / iterator inputs are materialised via ``list()``</span>
+<span class="sd">              so the per-neuron values are stored individually. Without</span>
+<span class="sd">              this, the generator would be silently broadcast as a single</span>
+<span class="sd">              object across every neuron.</span>
+<span class="sd">            - 0-D numpy arrays (``np.array(5)``) are treated as scalars</span>
+<span class="sd">              even though they have ``__len__``-style attributes.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;key must be a string, got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">key</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">key</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="o">=</span> <span class="p">[{}</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">)]</span>
         <span class="n">indices</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">)</span> <span class="k">if</span> <span class="n">neuron_indices</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">neuron_indices</span>
-        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="s2">&quot;__len__&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+
+        <span class="c1"># Materialise iterators/generators so each neuron gets a distinct</span>
+        <span class="c1"># value rather than the generator object itself.</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="nb">iter</span><span class="p">(</span><span class="n">values</span><span class="p">)</span> <span class="ow">is</span> <span class="n">values</span>
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="s2">&quot;__iter__&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">))</span>
+            <span class="k">else</span> <span class="kc">False</span>
+        <span class="p">):</span>
+            <span class="n">values</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">values</span><span class="p">)</span>
+
+        <span class="c1"># 0-D ndarrays expose ``__len__`` indirectly but ``len(np.array(5))``</span>
+        <span class="c1"># raises. Treat them as scalar broadcasts.</span>
+        <span class="n">is_zero_d_array</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="ow">and</span> <span class="n">values</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">0</span>
+
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="ow">not</span> <span class="n">is_zero_d_array</span>
+            <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="s2">&quot;__len__&quot;</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
+        <span class="p">):</span>
             <span class="n">indices</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">indices</span><span class="p">)</span>
             <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">indices</span><span class="p">):</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
@@ -1351,8 +1416,11 @@
             <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">indices</span><span class="p">,</span> <span class="n">values</span><span class="p">):</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
         <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Unwrap 0-D arrays so the stored value is a Python scalar</span>
+            <span class="c1"># rather than a 0-D ndarray wrapper.</span>
+            <span class="n">scalar</span> <span class="o">=</span> <span class="n">values</span><span class="o">.</span><span class="n">item</span><span class="p">()</span> <span class="k">if</span> <span class="n">is_zero_d_array</span> <span class="k">else</span> <span class="n">values</span>
             <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">indices</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">values</span></div>
+                <span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">scalar</span></div>
 
 
 <div class="viewcode-block" id="SpikeData.get_neuron_attribute">
@@ -1709,8 +1777,12 @@
         <span class="n">length</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">+</span> <span class="n">spikeData</span><span class="o">.</span><span class="n">length</span> <span class="o">+</span> <span class="n">offset</span>
 
         <span class="c1"># neuron_attributes salvage: when only one operand has them,</span>
-        <span class="c1"># use the available set (with a warning) rather than silently</span>
-        <span class="c1"># dropping. Opt out with ``drop_neuron_attributes=True``.</span>
+        <span class="c1"># use the available set with a warning rather than silently</span>
+        <span class="c1"># dropping. The two single-sided cases warn symmetrically so</span>
+        <span class="c1"># the user sees the asymmetry from either direction. Opt out</span>
+        <span class="c1"># with ``drop_neuron_attributes=True``. The both-present case</span>
+        <span class="c1"># stays silent because it&#39;s the documented ``self``-wins-on-</span>
+        <span class="c1"># collision rule.</span>
         <span class="k">if</span> <span class="n">drop_neuron_attributes</span><span class="p">:</span>
             <span class="n">new_neuron_attributes</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">elif</span> <span class="p">(</span>
@@ -1721,6 +1793,14 @@
             <span class="c1"># wins on collision, matching the metadata precedence rule).</span>
             <span class="n">new_neuron_attributes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span>
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="s2">&quot;SpikeData.append: self has neuron_attributes but the &quot;</span>
+                <span class="s2">&quot;appended SpikeData does not. Using self&#39;s attributes &quot;</span>
+                <span class="s2">&quot;for the result. Pass drop_neuron_attributes=True to &quot;</span>
+                <span class="s2">&quot;suppress salvage.&quot;</span><span class="p">,</span>
+                <span class="ne">RuntimeWarning</span><span class="p">,</span>
+                <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+            <span class="p">)</span>
             <span class="n">new_neuron_attributes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span>
         <span class="k">elif</span> <span class="n">spikeData</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
@@ -1780,6 +1860,14 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">bin_size</span><span class="p">)</span> <span class="ow">or</span> <span class="n">bin_size</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;bin_size must be &gt; 0, got </span><span class="si">{</span><span class="n">bin_size</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">time_offset</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;time_offset must be finite, got </span><span class="si">{</span><span class="n">time_offset</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">time_offset</span> <span class="o">&lt;</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;time_offset (</span><span class="si">{</span><span class="n">time_offset</span><span class="si">}</span><span class="s2">) cannot be less than -length &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="si">}</span><span class="s2">); the resulting raster would have a negative &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;number of bins.&quot;</span>
+            <span class="p">)</span>
         <span class="n">length</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">+</span> <span class="n">time_offset</span><span class="p">)</span> <span class="o">/</span> <span class="n">bin_size</span><span class="p">))</span>
         <span class="c1"># N==0 short-circuit: np.hstack on an empty list raises, so</span>
         <span class="c1"># build the empty (0, T) sparse matrix directly.</span>
@@ -2528,6 +2616,34 @@
 <span class="sd">            backbone_units (numpy.ndarray): 1D array of the neuron/unit</span>
 <span class="sd">                indices that are backbone units.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Shape validation at the API boundary. ``edges`` must be 2-D</span>
+        <span class="c1"># with exactly two columns ``[start, end]``. The previous</span>
+        <span class="c1"># implementation silently ignored any 3rd+ columns (no error,</span>
+        <span class="c1"># no warning) which let callers leak per-burst metadata that</span>
+        <span class="c1"># would never be consulted. Also reject 1-D inputs explicitly</span>
+        <span class="c1"># rather than letting the per-burst loop produce IndexError</span>
+        <span class="c1"># mid-computation.</span>
+        <span class="n">edges</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">edges</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">edges</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">2</span> <span class="ow">or</span> <span class="p">(</span><span class="n">edges</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">edges</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;edges must be a 2-D array of shape (B, 2) &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;containing [start, end] indices, got &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;shape=</span><span class="si">{</span><span class="n">edges</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2"> ndim=</span><span class="si">{</span><span class="n">edges</span><span class="o">.</span><span class="n">ndim</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Reject inverted edges (``start &gt; end``). The per-burst loop</span>
+        <span class="c1"># below uses a ``&gt;= start &amp; &lt;= end`` mask: inverted ranges</span>
+        <span class="c1"># produce an all-False mask and silently count zero spikes,</span>
+        <span class="c1"># making the affected bursts indistinguishable from genuinely</span>
+        <span class="c1"># quiet ones.</span>
+        <span class="k">if</span> <span class="n">edges</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="p">(</span><span class="n">edges</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">edges</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">])</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+            <span class="n">bad</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">edges</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">edges</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]))</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Inverted edge at row </span><span class="si">{</span><span class="n">bad</span><span class="si">}</span><span class="s2">: &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;start=</span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="n">edges</span><span class="p">[</span><span class="n">bad</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">])</span><span class="si">}</span><span class="s2"> &gt; end=</span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="n">edges</span><span class="p">[</span><span class="n">bad</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">])</span><span class="si">}</span><span class="s2">. &quot;</span>
+                <span class="s2">&quot;All edges must satisfy start &lt;= end.&quot;</span>
+            <span class="p">)</span>
+
         <span class="n">t_spk_mat</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sparse_raster</span><span class="p">(</span><span class="n">bin_size</span><span class="o">=</span><span class="n">bin_size</span><span class="p">)</span><span class="o">.</span><span class="n">toarray</span><span class="p">()</span>
 
         <span class="c1"># Sanity check: edges must fit within the raster dimensions</span>
@@ -3003,6 +3119,19 @@
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;gauss_sigma must be non-negative, got </span><span class="si">{</span><span class="n">gauss_sigma</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">square_width</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;square_width must be non-negative, got </span><span class="si">{</span><span class="n">square_width</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">square_width</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;square_width (</span><span class="si">{</span><span class="n">square_width</span><span class="si">}</span><span class="s2"> ms) cannot exceed recording length &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="si">}</span><span class="s2"> ms); np.convolve(mode=&#39;same&#39;) would otherwise &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;return an output sized to the kernel rather than the raster.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="mi">6</span> <span class="o">*</span> <span class="n">gauss_sigma</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;gauss_sigma (</span><span class="si">{</span><span class="n">gauss_sigma</span><span class="si">}</span><span class="s2"> ms) is too large for recording length &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="si">}</span><span class="s2"> ms); the Gaussian kernel spans 6*sigma ms, which &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;would exceed the raster and yield an output sized to the kernel &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;rather than the raster.&quot;</span>
+            <span class="p">)</span>
 
         <span class="c1"># Convert ms to bins</span>
         <span class="n">square_width_bins</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">square_width</span> <span class="o">/</span> <span class="n">raster_bin_size_ms</span><span class="p">)))</span>
@@ -3097,6 +3226,18 @@
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;window_ms must be at least 1.&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">N</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;compute_spike_trig_pop_rate requires at least 2 units.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">cut_outer</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">cut_outer</span> <span class="o">&gt;=</span> <span class="n">window_ms</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;cut_outer (</span><span class="si">{</span><span class="n">cut_outer</span><span class="si">}</span><span class="s2">) must be in [0, window_ms=</span><span class="si">{</span><span class="n">window_ms</span><span class="si">}</span><span class="s2">); &quot;</span>
+                <span class="s2">&quot;a larger value would leave an empty trimmed array and the &quot;</span>
+                <span class="s2">&quot;downstream np.argmax would raise.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">ts</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">ts</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;compute_spike_trig_pop_rate requires at least one spike across all &quot;</span>
+                <span class="s2">&quot;units; got an all-empty spike matrix (the numba kernel cannot infer &quot;</span>
+                <span class="s2">&quot;types for a zero-spike input).&quot;</span>
+            <span class="p">)</span>
 
         <span class="c1"># Bin spike data to a spike matrix</span>
         <span class="n">spike_matrix</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sparse_raster</span><span class="p">(</span><span class="n">bin_size</span><span class="o">=</span><span class="n">bin_size</span><span class="p">)</span><span class="o">.</span><span class="n">toarray</span><span class="p">()</span>
@@ -3522,6 +3663,13 @@
                 <span class="s2">&quot;fit_gplvm requires &#39;poor_man_gplvm&#39; and &#39;jax&#39;. &quot;</span>
                 <span class="s2">&quot;Install with: pip install poor-man-gplvm jax jaxlib jaxopt optax&quot;</span>
             <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+
+        <span class="k">if</span> <span class="n">bin_size_ms</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;bin_size_ms (</span><span class="si">{</span><span class="n">bin_size_ms</span><span class="si">}</span><span class="s2">) cannot exceed recording length &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="si">}</span><span class="s2">); the resulting spike-count matrix would have &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;zero or one bins, producing a degenerate GPLVM fit.&quot;</span>
+            <span class="p">)</span>
 
         <span class="k">if</span> <span class="n">model_class</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">model_class</span> <span class="o">=</span> <span class="n">pmg</span><span class="o">.</span><span class="n">PoissonGPLVMJump1D</span>
@@ -4215,6 +4363,24 @@
 <span class="sd">                - ``metadata``: comparison settings</span>
 <span class="sd">                - For ``spike_times``: ``agreement``, ``frac_1``, ``frac_2``</span>
 <span class="sd">                - For ``waveforms``: ``similarity``</span>
+
+<span class="sd">        Notes:</span>
+<span class="sd">            **Channel numbering (``waveforms`` comparison only).** Both</span>
+<span class="sd">            ``self`` and ``other`` must use the same channel-ID scheme</span>
+<span class="sd">            for ``neuron_attributes[&quot;channel&quot;]`` and</span>
+<span class="sd">            ``neuron_attributes[&quot;neighbor_channels&quot;]`` (e.g. both</span>
+<span class="sd">            positional indices into the recording&#39;s channel list, OR</span>
+<span class="sd">            both physical electrode IDs — mixing the two silently</span>
+<span class="sd">            produces meaningless similarity values because footprints</span>
+<span class="sd">            are aligned by channel-row).</span>
+
+<span class="sd">            The footprint grid is auto-sized to</span>
+<span class="sd">            ``max(referenced_channels) + 1`` across both inputs. For</span>
+<span class="sd">            sparse high-index layouts (e.g. Maxwell recordings where</span>
+<span class="sd">            channel IDs are positions in a 26 400-electrode array)</span>
+<span class="sd">            this can produce mostly-zero footprints with a large row</span>
+<span class="sd">            count and corresponding memory cost. For dense probes</span>
+<span class="sd">            (0..N-1 channel IDs) the grid is compact.</span>
 
 <span class="sd">        References:</span>
 <span class="sd">            Buccino et al., &quot;SpikeInterface, a unified framework for spike</span>

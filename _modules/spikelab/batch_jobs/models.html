@@ -411,6 +411,7 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#server">Server</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/mcp_server.html#spikelab.mcp_server.server.MAX_INLINE_ARRAY_SIZE"><code class="docutils literal notranslate"><span class="pre">MAX_INLINE_ARRAY_SIZE</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
 </ul>
 </li>
@@ -450,6 +451,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">Optional</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseModel</span><span class="p">,</span> <span class="n">Field</span><span class="p">,</span> <span class="n">field_validator</span><span class="p">,</span> <span class="n">model_validator</span>
@@ -565,18 +567,40 @@
     <span class="nd">@field_validator</span><span class="p">(</span><span class="s2">&quot;name_prefix&quot;</span><span class="p">)</span>
     <span class="nd">@classmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_validate_name_prefix</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="n">value</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">value</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;name_prefix cannot be empty&quot;</span><span class="p">)</span>
+        <span class="c1"># Unified validation: both whitespace-only and all-hyphen inputs</span>
+        <span class="c1"># produce a single &quot;no usable ASCII content&quot; message so operators</span>
+        <span class="c1"># don&#39;t see different errors for inputs that look equivalent.</span>
+        <span class="c1"># Previously ``&quot;   &quot;`` raised &quot;cannot be empty&quot; while ``&quot;---&quot;``</span>
+        <span class="c1"># raised &quot;empty after ASCII sanitization&quot; — same root cause,</span>
+        <span class="c1"># different wording, operator confusion.</span>
+        <span class="n">stripped</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
         <span class="c1"># Replace any character outside the RFC 1123 ASCII subset with &#39;-&#39;.</span>
-        <span class="n">safe</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;[^a-z0-9-]&quot;</span><span class="p">,</span> <span class="s2">&quot;-&quot;</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+        <span class="n">safe</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;[^a-z0-9-]&quot;</span><span class="p">,</span> <span class="s2">&quot;-&quot;</span><span class="p">,</span> <span class="n">stripped</span><span class="p">)</span>
         <span class="c1"># Collapse runs of hyphens.</span>
         <span class="n">safe</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;-+&quot;</span><span class="p">,</span> <span class="s2">&quot;-&quot;</span><span class="p">,</span> <span class="n">safe</span><span class="p">)</span>
         <span class="c1"># Truncate, then strip leading/trailing hyphens so the result never</span>
         <span class="c1"># ends in &#39;-&#39; after truncation (RFC 1123 violation).</span>
+        <span class="n">pre_truncate</span> <span class="o">=</span> <span class="n">safe</span>
         <span class="n">safe</span> <span class="o">=</span> <span class="n">safe</span><span class="p">[:</span><span class="mi">40</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="s2">&quot;-&quot;</span><span class="p">)</span>
+        <span class="c1"># Warn when the input was meaningfully truncated. The operator</span>
+        <span class="c1"># may have expected the full string to survive into the Job</span>
+        <span class="c1"># name; surfacing the truncation lets them shorten the prefix</span>
+        <span class="c1"># upstream rather than discovering a mangled name in kubectl.</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">pre_truncate</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">40</span> <span class="ow">and</span> <span class="n">safe</span> <span class="ow">and</span> <span class="n">safe</span> <span class="o">!=</span> <span class="n">pre_truncate</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;name_prefix=</span><span class="si">{</span><span class="n">value</span><span class="si">!r}</span><span class="s2"> truncated to </span><span class="si">{</span><span class="n">safe</span><span class="si">!r}</span><span class="s2"> to fit the &quot;</span>
+                <span class="s2">&quot;40-character RFC 1123 budget. Job names that need to &quot;</span>
+                <span class="s2">&quot;round-trip the full prefix should pass a shorter &quot;</span>
+                <span class="s2">&quot;name_prefix upstream.&quot;</span><span class="p">,</span>
+                <span class="ne">UserWarning</span><span class="p">,</span>
+                <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+            <span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">safe</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;name_prefix is empty after ASCII sanitization&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;name_prefix=</span><span class="si">{</span><span class="n">value</span><span class="si">!r}</span><span class="s2"> has no usable ASCII content (after &quot;</span>
+                <span class="s2">&quot;stripping whitespace and reducing to RFC 1123 characters). &quot;</span>
+                <span class="s2">&quot;Pass a non-empty alphanumeric prefix.&quot;</span>
+            <span class="p">)</span>
         <span class="k">return</span> <span class="n">safe</span></div>
 
 

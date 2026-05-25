@@ -411,6 +411,7 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#server">Server</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/mcp_server.html#spikelab.mcp_server.server.MAX_INLINE_ARRAY_SIZE"><code class="docutils literal notranslate"><span class="pre">MAX_INLINE_ARRAY_SIZE</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
 </ul>
 </li>
@@ -575,20 +576,24 @@
     <span class="c1"># been created and partially populated — the user is left with a</span>
     <span class="c1"># half-written file on disk. Validate the active style&#39;s time unit</span>
     <span class="c1"># against the unit→fs_Hz contract upfront.</span>
-    <span class="k">if</span> <span class="n">style</span> <span class="o">==</span> <span class="s2">&quot;ragged&quot;</span> <span class="ow">and</span> <span class="n">spike_times_unit</span> <span class="o">==</span> <span class="s2">&quot;samples&quot;</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">fs_Hz</span><span class="p">:</span>
+    <span class="k">if</span> <span class="p">(</span>
+        <span class="n">style</span> <span class="o">==</span> <span class="s2">&quot;ragged&quot;</span>
+        <span class="ow">and</span> <span class="n">spike_times_unit</span> <span class="o">==</span> <span class="s2">&quot;samples&quot;</span>
+        <span class="ow">and</span> <span class="p">(</span><span class="ow">not</span> <span class="n">fs_Hz</span> <span class="ow">or</span> <span class="n">fs_Hz</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="p">):</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
             <span class="s2">&quot;fs_Hz must be provided and &gt; 0 when &quot;</span>
-            <span class="s2">&quot;spike_times_unit=&#39;samples&#39; (style=&#39;ragged&#39;).&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;spike_times_unit=&#39;samples&#39; (style=&#39;ragged&#39;), got </span><span class="si">{</span><span class="n">fs_Hz</span><span class="si">!r}</span><span class="s2">.&quot;</span>
         <span class="p">)</span>
-    <span class="k">if</span> <span class="n">style</span> <span class="o">==</span> <span class="s2">&quot;group&quot;</span> <span class="ow">and</span> <span class="n">group_time_unit</span> <span class="o">==</span> <span class="s2">&quot;samples&quot;</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">fs_Hz</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">style</span> <span class="o">==</span> <span class="s2">&quot;group&quot;</span> <span class="ow">and</span> <span class="n">group_time_unit</span> <span class="o">==</span> <span class="s2">&quot;samples&quot;</span> <span class="ow">and</span> <span class="p">(</span><span class="ow">not</span> <span class="n">fs_Hz</span> <span class="ow">or</span> <span class="n">fs_Hz</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
             <span class="s2">&quot;fs_Hz must be provided and &gt; 0 when &quot;</span>
-            <span class="s2">&quot;group_time_unit=&#39;samples&#39; (style=&#39;group&#39;).&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;group_time_unit=&#39;samples&#39; (style=&#39;group&#39;), got </span><span class="si">{</span><span class="n">fs_Hz</span><span class="si">!r}</span><span class="s2">.&quot;</span>
         <span class="p">)</span>
-    <span class="k">if</span> <span class="n">style</span> <span class="o">==</span> <span class="s2">&quot;paired&quot;</span> <span class="ow">and</span> <span class="n">times_unit</span> <span class="o">==</span> <span class="s2">&quot;samples&quot;</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">fs_Hz</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">style</span> <span class="o">==</span> <span class="s2">&quot;paired&quot;</span> <span class="ow">and</span> <span class="n">times_unit</span> <span class="o">==</span> <span class="s2">&quot;samples&quot;</span> <span class="ow">and</span> <span class="p">(</span><span class="ow">not</span> <span class="n">fs_Hz</span> <span class="ow">or</span> <span class="n">fs_Hz</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
             <span class="s2">&quot;fs_Hz must be provided and &gt; 0 when &quot;</span>
-            <span class="s2">&quot;times_unit=&#39;samples&#39; (style=&#39;paired&#39;).&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;times_unit=&#39;samples&#39; (style=&#39;paired&#39;), got </span><span class="si">{</span><span class="n">fs_Hz</span><span class="si">!r}</span><span class="s2">.&quot;</span>
         <span class="p">)</span>
 
     <span class="c1"># Create or overwrite the HDF5 file</span>
@@ -643,10 +648,24 @@
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                     <span class="s2">&quot;raster_bin_size_ms must be provided and &gt; 0 for raster style&quot;</span>
                 <span class="p">)</span>
+            <span class="c1"># Raster convention: ``sd.raster(...)`` returns a bin matrix</span>
+            <span class="c1"># whose column 0 corresponds to the recording&#39;s start_time</span>
+            <span class="c1"># (not literal t=0). On reload, the loader passes</span>
+            <span class="c1"># ``start_time=file_start_time`` into ``from_raster``, which</span>
+            <span class="c1"># offsets the generated spike times. Event-centered data</span>
+            <span class="c1"># (``start_time&lt;0``) therefore round-trips correctly only</span>
+            <span class="c1"># when the file-level ``start_time`` attr is preserved —</span>
+            <span class="c1"># which it is (written above on line 151). Document the</span>
+            <span class="c1"># convention here so a future refactor of either side</span>
+            <span class="c1"># doesn&#39;t accidentally drop the offset.</span>
             <span class="n">raster</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">raster</span><span class="p">(</span><span class="n">raster_bin_size_ms</span><span class="p">)</span>
             <span class="n">f</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="n">raster_dataset</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">raster</span><span class="p">))</span>
             <span class="c1"># Store bin size as an attribute for provenance (readers can ignore)</span>
             <span class="n">f</span><span class="p">[</span><span class="n">raster_dataset</span><span class="p">]</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;bin_size_ms&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">raster_bin_size_ms</span><span class="p">)</span>
+            <span class="c1"># Tag the raster&#39;s time origin so an external consumer (not</span>
+            <span class="c1"># the matching loader) knows that ``column 0 == start_time``,</span>
+            <span class="c1"># not ``column 0 == 0``.</span>
+            <span class="n">f</span><span class="p">[</span><span class="n">raster_dataset</span><span class="p">]</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;time_origin_ms&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">start_time</span><span class="p">)</span>
             <span class="k">return</span>  <span class="c1"># file-level attr (start_time) already written above</span>
 
         <span class="k">if</span> <span class="n">style</span> <span class="o">==</span> <span class="s2">&quot;ragged&quot;</span><span class="p">:</span>
@@ -722,13 +741,6 @@
 <span class="sd">          when prefer_pynwb=False.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">ensure_h5py</span><span class="p">()</span>
-    <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">start_time</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;Exporting event-centered SpikeData (start_time=</span><span class="si">{</span><span class="n">sd</span><span class="o">.</span><span class="n">start_time</span><span class="si">}</span><span class="s2">) &quot;</span>
-            <span class="s2">&quot;to NWB. The NWB format does not store start_time, so spike times &quot;</span>
-            <span class="s2">&quot;are written as-is. On reload, start_time will default to 0.&quot;</span><span class="p">,</span>
-            <span class="ne">UserWarning</span><span class="p">,</span>
-        <span class="p">)</span>
     <span class="n">counts</span> <span class="o">=</span> <span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">sd</span><span class="o">.</span><span class="n">train</span><span class="p">]</span>
     <span class="n">flat_ms</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">train</span><span class="p">)</span> <span class="k">if</span> <span class="nb">sum</span><span class="p">(</span><span class="n">counts</span><span class="p">)</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([],</span> <span class="nb">float</span><span class="p">)</span>
     <span class="n">flat_s</span> <span class="o">=</span> <span class="n">times_from_ms</span><span class="p">(</span><span class="n">flat_ms</span><span class="p">,</span> <span class="s2">&quot;s&quot;</span><span class="p">,</span> <span class="n">fs_Hz</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
@@ -816,8 +828,12 @@
 <span class="sd">            &#39;samples&#39;: integer sample indices (default, KiloSort</span>
 <span class="sd">            standard). &#39;ms&#39;: milliseconds (float). &#39;s&#39;: seconds (float).</span>
 <span class="sd">        cluster_ids (Sequence[int] | None): Custom cluster IDs for each</span>
-<span class="sd">            unit. If None, uses sequential integers 0, 1, 2, ... Length</span>
-<span class="sd">            must match sd.N.</span>
+<span class="sd">            unit. Length **must match sd.N** even when some units are</span>
+<span class="sd">            empty — ``cluster_ids[i]`` reserves the cluster identifier</span>
+<span class="sd">            for unit ``i`` so the unit ordering is stable on reload.</span>
+<span class="sd">            For empty units the ``cluster_ids[i]`` entry is consumed</span>
+<span class="sd">            but contributes no rows to the output arrays. If None, uses</span>
+<span class="sd">            sequential integers 0, 1, 2, ...</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        paths (tuple[str, str]): Paths to the created spike_times.npy</span>
@@ -828,7 +844,7 @@
 <span class="sd">          across all units).</span>
 <span class="sd">        - Spike times are sorted by unit order, not chronologically.</span>
 <span class="sd">        - Empty units (no spikes) don&#39;t contribute entries to the output</span>
-<span class="sd">          arrays.</span>
+<span class="sd">          arrays, but their ``cluster_ids[i]`` slot is still consumed.</span>
 <span class="sd">        - The &#39;samples&#39; time unit produces integer arrays suitable for</span>
 <span class="sd">          KiloSort/Phy.</span>
 <span class="sd">        - Cluster IDs can be arbitrary integers and don&#39;t need to be</span>
@@ -979,8 +995,24 @@
         <span class="n">dirpath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">filepath</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">dirpath</span><span class="p">:</span>
             <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">dirpath</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-            <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">protocol</span><span class="o">=</span><span class="n">protocol</span><span class="p">)</span>
+        <span class="c1"># Write atomically: serialise into ``{filepath}.tmp`` first</span>
+        <span class="c1"># and ``os.replace`` onto the final path on success. Without</span>
+        <span class="c1"># this, a failed pickle.dump (disk full, segfault inside a</span>
+        <span class="c1"># user-supplied ``__reduce__``, etc.) would leave the</span>
+        <span class="c1"># already-truncated destination as a corrupt file — silently</span>
+        <span class="c1"># destroying any previous good export. ``os.replace`` is</span>
+        <span class="c1"># atomic on POSIX and NTFS.</span>
+        <span class="n">tmp_path</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">filepath</span><span class="si">}</span><span class="s2">.tmp&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">protocol</span><span class="o">=</span><span class="n">protocol</span><span class="p">)</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">,</span> <span class="n">filepath</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">BaseException</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
+                <span class="k">pass</span>
+            <span class="k">raise</span>
         <span class="k">return</span> <span class="n">filepath</span></div>
 
 

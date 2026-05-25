@@ -411,6 +411,7 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/index.html#server">Server</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../../api/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/mcp_server.html#spikelab.mcp_server.server.MAX_INLINE_ARRAY_SIZE"><code class="docutils literal notranslate"><span class="pre">MAX_INLINE_ARRAY_SIZE</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
 </ul>
 </li>
@@ -620,7 +621,10 @@
 <span class="sd">    Accepts ``&quot;cuda&quot;``, ``&quot;cuda:0&quot;``, ``&quot;cuda:1&quot;``, integer-like</span>
 <span class="sd">    strings, and ``None`` (interpreted as device 0). Falls back to 0</span>
 <span class="sd">    on parse failure rather than raising — the watchdog is</span>
-<span class="sd">    best-effort.</span>
+<span class="sd">    best-effort — but emits a warning so the silent fallback is</span>
+<span class="sd">    visible in logs. A user who meant ``cuda:1`` and typo&#39;d</span>
+<span class="sd">    ``cuda;1`` would otherwise have their GPU watchdog quietly</span>
+<span class="sd">    watching the wrong device.</span>
 
 <span class="sd">    Parameters:</span>
 <span class="sd">        device (str or None): Torch-style device identifier.</span>
@@ -637,9 +641,18 @@
         <span class="k">try</span><span class="p">:</span>
             <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">1</span><span class="p">]))</span>
         <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">&quot;GPU watchdog: could not parse device index from </span><span class="si">%r</span><span class="s2">; &quot;</span>
+                <span class="s2">&quot;falling back to device 0.&quot;</span><span class="p">,</span>
+                <span class="n">device</span><span class="p">,</span>
+            <span class="p">)</span>
             <span class="k">return</span> <span class="mi">0</span>
     <span class="k">if</span> <span class="n">s</span><span class="o">.</span><span class="n">isdigit</span><span class="p">():</span>
         <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+    <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+        <span class="s2">&quot;GPU watchdog: unrecognised device string </span><span class="si">%r</span><span class="s2">; &quot;</span> <span class="s2">&quot;falling back to device 0.&quot;</span><span class="p">,</span>
+        <span class="n">device</span><span class="p">,</span>
+    <span class="p">)</span>
     <span class="k">return</span> <span class="mi">0</span>
 
 
@@ -1162,6 +1175,20 @@
     <span class="c1"># ------------------------------------------------------------------</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;GpuMemoryWatchdog&quot;</span><span class="p">:</span>
+        <span class="c1"># Reject double-``__enter__``. ``self._token`` is a single</span>
+        <span class="c1"># attribute; a second ``__enter__`` without an intervening</span>
+        <span class="c1"># ``__exit__`` overwrites the first token reference and</span>
+        <span class="c1"># leaks the original active-watchdog publication. Symmetric</span>
+        <span class="c1"># with the guard added to HostMemoryWatchdog and</span>
+        <span class="c1"># IOStallWatchdog so all three watchdogs fail loudly on</span>
+        <span class="c1"># reentry rather than silently corrupting ContextVar state.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_token</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                <span class="s2">&quot;GpuMemoryWatchdog is not reentrant: __enter__ was &quot;</span>
+                <span class="s2">&quot;called while the watchdog is still active. Exit the &quot;</span>
+                <span class="s2">&quot;existing context manager before entering a new one.&quot;</span>
+            <span class="p">)</span>
+
         <span class="c1"># Capture the active per-recording log path on the main</span>
         <span class="c1"># thread; the daemon polling thread cannot read the</span>
         <span class="c1"># ContextVar reliably.</span>

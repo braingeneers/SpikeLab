@@ -411,6 +411,7 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/index.html#server">Server</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../../api/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/mcp_server.html#spikelab.mcp_server.server.MAX_INLINE_ARRAY_SIZE"><code class="docutils literal notranslate"><span class="pre">MAX_INLINE_ARRAY_SIZE</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
 </ul>
 </li>
@@ -665,9 +666,8 @@
 <span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Check whether the signal has returned to baseline-like levels.</span>
 
-<span class="sd">    The signal is considered at baseline when the rolling maximum</span>
-<span class="sd">    of ``|voltage|`` over *window_samples* consecutive samples drops</span>
-<span class="sd">    below *baseline_threshold*.</span>
+<span class="sd">    The signal is considered at baseline when ``window_samples``</span>
+<span class="sd">    consecutive samples all have ``|voltage| &lt; baseline_threshold``.</span>
 
 <span class="sd">    Parameters:</span>
 <span class="sd">        channel_trace (np.ndarray): 1-D voltage trace.</span>
@@ -680,20 +680,47 @@
 <span class="sd">    Returns:</span>
 <span class="sd">        at_baseline (bool): True if the signal reached baseline before</span>
 <span class="sd">            the end of the trace.</span>
-<span class="sd">        end_idx (int): Sample index where baseline was reached, or</span>
-<span class="sd">            ``n_samples``.</span>
+<span class="sd">        end_idx (int): Sample index where baseline was reached (the</span>
+<span class="sd">            first sample of the qualifying window), or ``n_samples``</span>
+<span class="sd">            if the signal never reached baseline.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        Vectorised via ``np.convolve``: a rolling sum of the</span>
+<span class="sd">        below-threshold boolean equals ``window_samples`` exactly</span>
+<span class="sd">        when every sample in the window is sub-threshold. For a</span>
+<span class="sd">        long Maxwell recording (18M samples × 1018 channels) the</span>
+<span class="sd">        prior sample-by-sample Python loop was ~18B operations</span>
+<span class="sd">        worst case — the convolve runs at numpy speed (100-1000×</span>
+<span class="sd">        faster on representative inputs).</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">consecutive</span> <span class="o">=</span> <span class="mi">0</span>
-    <span class="n">idx</span> <span class="o">=</span> <span class="n">start</span>
-    <span class="k">while</span> <span class="n">idx</span> <span class="o">&lt;</span> <span class="n">n_samples</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">channel_trace</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span> <span class="o">&lt;</span> <span class="n">baseline_threshold</span><span class="p">:</span>
-            <span class="n">consecutive</span> <span class="o">+=</span> <span class="mi">1</span>
-            <span class="k">if</span> <span class="n">consecutive</span> <span class="o">&gt;=</span> <span class="n">window_samples</span><span class="p">:</span>
-                <span class="k">return</span> <span class="kc">True</span><span class="p">,</span> <span class="n">idx</span> <span class="o">-</span> <span class="n">window_samples</span> <span class="o">+</span> <span class="mi">1</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">consecutive</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="n">idx</span> <span class="o">+=</span> <span class="mi">1</span>
-    <span class="k">return</span> <span class="kc">False</span><span class="p">,</span> <span class="n">n_samples</span>
+    <span class="c1"># Guard the trivial edge cases that the convolve path can&#39;t</span>
+    <span class="c1"># express cleanly. Pathological window_samples &lt;= 0 is treated</span>
+    <span class="c1"># as &quot;baseline already reached at ``start``&quot; — consistent with</span>
+    <span class="c1"># the original loop which would return True after zero</span>
+    <span class="c1"># iterations of the consecutive counter.</span>
+    <span class="k">if</span> <span class="n">window_samples</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">True</span><span class="p">,</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">start</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">start</span> <span class="o">&gt;=</span> <span class="n">n_samples</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">False</span><span class="p">,</span> <span class="n">n_samples</span>
+
+    <span class="n">below</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">channel_trace</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">n_samples</span><span class="p">])</span> <span class="o">&lt;</span> <span class="n">baseline_threshold</span>
+    <span class="k">if</span> <span class="n">below</span><span class="o">.</span><span class="n">size</span> <span class="o">&lt;</span> <span class="n">window_samples</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">False</span><span class="p">,</span> <span class="n">n_samples</span>
+
+    <span class="c1"># Convolve with a ``window_samples``-wide box kernel in valid</span>
+    <span class="c1"># mode. ``sums[i]`` equals the count of below-threshold samples</span>
+    <span class="c1"># in the window starting at offset ``i`` (relative to ``start``).</span>
+    <span class="c1"># The window is all-below ⇔ ``sums[i] == window_samples``.</span>
+    <span class="n">sums</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">convolve</span><span class="p">(</span>
+        <span class="n">below</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">),</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">window_samples</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">),</span>
+        <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;valid&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">hits</span> <span class="o">=</span> <span class="n">sums</span> <span class="o">==</span> <span class="n">window_samples</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">hits</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+        <span class="k">return</span> <span class="kc">False</span><span class="p">,</span> <span class="n">n_samples</span>
+    <span class="n">first_hit_local</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">hits</span><span class="p">))</span>
+    <span class="k">return</span> <span class="kc">True</span><span class="p">,</span> <span class="n">start</span> <span class="o">+</span> <span class="n">first_hit_local</span>
 
 
 <span class="n">_MIN_DESCENT_SAMPLES</span> <span class="o">=</span> <span class="mi">2</span>  <span class="c1"># min samples between fit_start and neg-peak to split</span>

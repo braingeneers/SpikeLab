@@ -411,6 +411,7 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#server">Server</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/mcp_server.html#spikelab.mcp_server.server.MAX_INLINE_ARRAY_SIZE"><code class="docutils literal notranslate"><span class="pre">MAX_INLINE_ARRAY_SIZE</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
 </ul>
 </li>
@@ -462,6 +463,7 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">pickle</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">traceback</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
@@ -519,18 +521,39 @@
 <span class="sd">        noise_levels (np.ndarray): Per-channel spike-band noise, shape ``(channels,)``.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">length</span> <span class="o">=</span> <span class="n">recording</span><span class="o">.</span><span class="n">get_num_samples</span><span class="p">()</span>
-    <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">RandomState</span><span class="p">(</span><span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">)</span>
-    <span class="n">starts</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">length</span> <span class="o">-</span> <span class="n">chunk_size</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">num_chunks</span><span class="p">)</span>
-    <span class="n">chunks</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">starts</span><span class="p">:</span>
-        <span class="n">chunks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-            <span class="n">recording</span><span class="o">.</span><span class="n">get_traces</span><span class="p">(</span>
-                <span class="n">start_frame</span><span class="o">=</span><span class="n">s</span><span class="p">,</span>
-                <span class="n">end_frame</span><span class="o">=</span><span class="n">s</span> <span class="o">+</span> <span class="n">chunk_size</span><span class="p">,</span>
-                <span class="n">return_scaled</span><span class="o">=</span><span class="n">return_scaled</span><span class="p">,</span>
-            <span class="p">)</span>
+    <span class="k">if</span> <span class="n">length</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot estimate noise levels on an empty recording&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">length</span> <span class="o">&lt;=</span> <span class="n">chunk_size</span><span class="p">:</span>
+        <span class="c1"># Recording is shorter than the random-chunk size. Fall back to a</span>
+        <span class="c1"># single full-trace MAD estimate. Without this guard,</span>
+        <span class="c1"># ``rng.randint(0, length - chunk_size, ...)`` raises a cryptic</span>
+        <span class="c1"># ``ValueError: low &gt;= high``. The pipeline&#39;s</span>
+        <span class="c1"># ``canary_min_recording_s`` gate (default 120 s) covers the main</span>
+        <span class="c1"># entry point, but ad-hoc callers can bypass it.</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Recording is shorter than chunk_size (</span><span class="si">{</span><span class="n">length</span><span class="si">}</span><span class="s2"> &lt;= &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">chunk_size</span><span class="si">}</span><span class="s2"> samples); falling back to a single full-trace &quot;</span>
+            <span class="s2">&quot;noise estimate instead of random chunk sampling. Noise &quot;</span>
+            <span class="s2">&quot;estimate quality may be reduced.&quot;</span><span class="p">,</span>
+            <span class="ne">UserWarning</span><span class="p">,</span>
+            <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
         <span class="p">)</span>
-    <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">chunks</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">recording</span><span class="o">.</span><span class="n">get_traces</span><span class="p">(</span>
+            <span class="n">start_frame</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">end_frame</span><span class="o">=</span><span class="n">length</span><span class="p">,</span> <span class="n">return_scaled</span><span class="o">=</span><span class="n">return_scaled</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">RandomState</span><span class="p">(</span><span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">)</span>
+        <span class="n">starts</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">length</span> <span class="o">-</span> <span class="n">chunk_size</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">num_chunks</span><span class="p">)</span>
+        <span class="n">chunks</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">starts</span><span class="p">:</span>
+            <span class="n">chunks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">recording</span><span class="o">.</span><span class="n">get_traces</span><span class="p">(</span>
+                    <span class="n">start_frame</span><span class="o">=</span><span class="n">s</span><span class="p">,</span>
+                    <span class="n">end_frame</span><span class="o">=</span><span class="n">s</span> <span class="o">+</span> <span class="n">chunk_size</span><span class="p">,</span>
+                    <span class="n">return_scaled</span><span class="o">=</span><span class="n">return_scaled</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">chunks</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
     <span class="n">med</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">data</span> <span class="o">-</span> <span class="n">med</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">/</span> <span class="mf">0.6745</span>
 
@@ -823,16 +846,50 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">recs_cache</span> <span class="o">=</span> <span class="p">[]</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">add_recording</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">rec_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">curation_history</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">rec_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">sd</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+        <span class="n">curation_history</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">include_failed_units</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Queue a recording for compilation.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            rec_name (str): Short name for the recording.</span>
-<span class="sd">            sd (SpikeData): Curated SpikeData.</span>
-<span class="sd">            curation_history (dict or None): Curation history dict.</span>
+<span class="sd">            sd (SpikeData): SpikeData to compile.</span>
+<span class="sd">                - When ``include_failed_units=False`` (default): treated</span>
+<span class="sd">                  as a fully-curated SpikeData; every unit is recorded</span>
+<span class="sd">                  with ``is_curated=True`` and the compiled output</span>
+<span class="sd">                  contains only those units.</span>
+<span class="sd">                - When ``include_failed_units=True``: treated as the</span>
+<span class="sd">                  **pre-curation** SpikeData (all sorter-emitted units).</span>
+<span class="sd">                  Each unit&#39;s ``is_curated`` flag is computed from</span>
+<span class="sd">                  ``curation_history[&quot;curated_final&quot;]``; failed units</span>
+<span class="sd">                  still appear in the compiled output and the</span>
+<span class="sd">                  templates figure with the failed styling.</span>
+<span class="sd">            curation_history (dict or None): Curation history dict as</span>
+<span class="sd">                produced by ``build_curation_history``. Required when</span>
+<span class="sd">                ``include_failed_units=True``.</span>
+<span class="sd">            include_failed_units (bool): See ``sd``. Default ``False``.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            ValueError: When ``include_failed_units=True`` but</span>
+<span class="sd">                ``curation_history`` is missing or lacks the</span>
+<span class="sd">                ``curated_final`` key.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">recs_cache</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">rec_name</span><span class="p">,</span> <span class="n">sd</span><span class="p">,</span> <span class="n">curation_history</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">include_failed_units</span> <span class="ow">and</span> <span class="p">(</span>
+            <span class="n">curation_history</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="s2">&quot;curated_final&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">curation_history</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;include_failed_units=True requires a curation_history &quot;</span>
+                <span class="s2">&quot;dict with a &#39;curated_final&#39; key (as produced by &quot;</span>
+                <span class="s2">&quot;build_curation_history). Got &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;curation_history=</span><span class="si">{</span><span class="n">curation_history</span><span class="si">!r}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">recs_cache</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">rec_name</span><span class="p">,</span> <span class="n">sd</span><span class="p">,</span> <span class="n">curation_history</span><span class="p">,</span> <span class="nb">bool</span><span class="p">(</span><span class="n">include_failed_units</span><span class="p">))</span>
+        <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">save_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">folder</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Compile and save results from all queued recordings.</span>
@@ -861,7 +918,7 @@
         <span class="n">scatter_std_norms</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="n">fig_fs_Hz</span> <span class="o">=</span> <span class="kc">None</span>
 
-        <span class="k">for</span> <span class="n">rec_name</span><span class="p">,</span> <span class="n">sd</span><span class="p">,</span> <span class="n">curation_history</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">recs_cache</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">rec_name</span><span class="p">,</span> <span class="n">sd</span><span class="p">,</span> <span class="n">curation_history</span><span class="p">,</span> <span class="n">include_failed_units</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">recs_cache</span><span class="p">:</span>
             <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Adding recording: </span><span class="si">{</span><span class="n">rec_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
             <span class="n">fs_Hz</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;fs_Hz&quot;</span><span class="p">,</span> <span class="mf">30000.0</span><span class="p">)</span>
@@ -873,11 +930,31 @@
             <span class="k">if</span> <span class="n">fig_fs_Hz</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">fig_fs_Hz</span> <span class="o">=</span> <span class="n">fs_Hz</span>
 
+            <span class="c1"># Resolve the set of curated unit IDs once per recording so</span>
+            <span class="c1"># the per-unit ``is_curated`` flag below is a cheap lookup.</span>
+            <span class="k">if</span> <span class="n">include_failed_units</span><span class="p">:</span>
+                <span class="n">curated_final_ids</span> <span class="o">=</span> <span class="p">{</span>
+                    <span class="nb">int</span><span class="p">(</span><span class="n">uid</span><span class="p">)</span> <span class="k">for</span> <span class="n">uid</span> <span class="ow">in</span> <span class="n">curation_history</span><span class="p">[</span><span class="s2">&quot;curated_final&quot;</span><span class="p">]</span>
+                <span class="p">}</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">curated_final_ids</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># unused — every unit is curated</span>
+
             <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="p">):</span>
                 <span class="n">attrs</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="k">else</span> <span class="p">{}</span>
-                <span class="n">all_units</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">attrs</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="n">rec_name</span><span class="p">))</span>
+                <span class="k">if</span> <span class="n">include_failed_units</span><span class="p">:</span>
+                    <span class="n">uid</span> <span class="o">=</span> <span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;unit_id&quot;</span><span class="p">)</span>
+                    <span class="n">is_curated</span> <span class="o">=</span> <span class="n">uid</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">int</span><span class="p">(</span><span class="n">uid</span><span class="p">)</span> <span class="ow">in</span> <span class="n">curated_final_ids</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">is_curated</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="n">all_units</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">attrs</span><span class="p">,</span> <span class="n">is_curated</span><span class="p">,</span> <span class="n">rec_name</span><span class="p">))</span>
 
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_figures</span><span class="p">:</span>
+                <span class="c1"># bar_n_selected = number of curated units; bar_n_total =</span>
+                <span class="c1"># number of original sorter-emitted units. Under</span>
+                <span class="c1"># include_failed_units=True, ``sd`` already contains all</span>
+                <span class="c1"># original units, so ``sd.N == bar_n_total`` — but we</span>
+                <span class="c1"># still derive ``bar_n_selected`` from the curated set</span>
+                <span class="c1"># so the figure correctly shows what made it through.</span>
                 <span class="n">curated_ids</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
                 <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                     <span class="k">for</span> <span class="n">attrs</span> <span class="ow">in</span> <span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">:</span>
@@ -885,9 +962,13 @@
                 <span class="n">n_total</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">curated_ids</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">curation_history</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                     <span class="n">n_total</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">curation_history</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;initial&quot;</span><span class="p">,</span> <span class="n">curated_ids</span><span class="p">))</span>
+                <span class="k">if</span> <span class="n">include_failed_units</span> <span class="ow">and</span> <span class="n">curation_history</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">n_selected</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">curation_history</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;curated_final&quot;</span><span class="p">,</span> <span class="p">[]))</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">n_selected</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">N</span>
                 <span class="n">bar_rec_names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">rec_name</span><span class="p">)</span>
                 <span class="n">bar_n_total</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">n_total</span><span class="p">)</span>
-                <span class="n">bar_n_selected</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="p">)</span>
+                <span class="n">bar_n_selected</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">n_selected</span><span class="p">)</span>
 
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_std_scatter_plot</span> <span class="ow">and</span> <span class="n">curation_history</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                     <span class="n">scatter_n_spikes</span><span class="p">[</span><span class="n">rec_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">curation_history</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
@@ -1166,7 +1247,13 @@
             <span class="n">curation_first_folder</span><span class="p">,</span>
             <span class="n">curation_second_folder</span><span class="p">,</span>
             <span class="n">results_path</span><span class="p">,</span>
-        <span class="p">)</span> <span class="o">=</span> <span class="n">get_paths</span><span class="p">(</span><span class="n">rec_path</span><span class="p">,</span> <span class="n">inter_path</span><span class="p">,</span> <span class="n">results_path</span><span class="p">,</span> <span class="n">exe</span><span class="p">)</span>
+        <span class="p">)</span> <span class="o">=</span> <span class="n">get_paths</span><span class="p">(</span>
+            <span class="n">rec_path</span><span class="p">,</span>
+            <span class="n">inter_path</span><span class="p">,</span>
+            <span class="n">results_path</span><span class="p">,</span>
+            <span class="n">exe</span><span class="p">,</span>
+            <span class="n">sorter_name</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">sorter</span><span class="o">.</span><span class="n">sorter_name</span><span class="p">,</span>
+        <span class="p">)</span>
 
         <span class="c1"># Load Recording</span>
         <span class="k">try</span><span class="p">:</span>
@@ -1372,13 +1459,18 @@
                 <span class="n">generate_raster_overview</span> <span class="o">=</span> <span class="n">_fig</span><span class="p">[</span><span class="s2">&quot;generate_raster_overview&quot;</span><span class="p">]</span>
                 <span class="n">generate_raster_overview</span><span class="p">(</span><span class="n">sd_curated</span><span class="p">,</span> <span class="n">figures_dir</span><span class="p">)</span>
 
-            <span class="c1"># Compile results</span>
+            <span class="c1"># Compile results. When the user has opted in to</span>
+            <span class="c1"># ``include_failed_units``, pass the **pre-curation** ``sd``</span>
+            <span class="c1"># so the Compiler can mark each unit&#39;s ``is_curated`` flag</span>
+            <span class="c1"># from ``curation_history``. Otherwise (default) pass the</span>
+            <span class="c1"># curated SpikeData, matching the historical behaviour.</span>
+            <span class="n">compile_sd</span> <span class="o">=</span> <span class="n">sd</span> <span class="k">if</span> <span class="n">comp</span><span class="o">.</span><span class="n">include_failed_units</span> <span class="k">else</span> <span class="n">sd_curated</span>
             <span class="n">compile_results</span><span class="p">(</span>
                 <span class="n">config</span><span class="p">,</span>
                 <span class="n">rec_name</span><span class="p">,</span>
                 <span class="n">rec_path</span><span class="p">,</span>
                 <span class="n">results_path</span><span class="p">,</span>
-                <span class="n">sd_curated</span><span class="p">,</span>
+                <span class="n">compile_sd</span><span class="p">,</span>
                 <span class="n">curation_history</span><span class="p">,</span>
                 <span class="n">rec_chunks</span><span class="p">,</span>
             <span class="p">)</span>
@@ -1435,26 +1527,46 @@
                 <span class="p">)</span>
                 <span class="k">return</span> <span class="n">err</span>
             <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Recording failed in post-sort pipeline: </span><span class="si">{</span><span class="n">e</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="c1"># Print the full traceback so the originating call site is</span>
+            <span class="c1"># diagnosable from the batch log. The previous handler only</span>
+            <span class="c1"># printed ``repr(e)`` — for a deeply-nested failure (typical</span>
+            <span class="c1"># for waveform extraction / curation errors) that leaves the</span>
+            <span class="c1"># operator with no way to find which call raised. The</span>
+            <span class="c1"># behaviour (return the error rather than re-raising so the</span>
+            <span class="c1"># batch loop continues) is preserved.</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">traceback</span><span class="o">.</span><span class="n">format_exc</span><span class="p">())</span>
             <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Moving on to next recording&quot;</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">e</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">compile_results</span><span class="p">(</span>
-    <span class="n">config</span><span class="p">,</span> <span class="n">rec_name</span><span class="p">,</span> <span class="n">rec_path</span><span class="p">,</span> <span class="n">results_path</span><span class="p">,</span> <span class="n">sd</span><span class="p">,</span> <span class="n">curation_history</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">rec_chunks</span><span class="o">=</span><span class="kc">None</span>
+    <span class="n">config</span><span class="p">,</span>
+    <span class="n">rec_name</span><span class="p">,</span>
+    <span class="n">rec_path</span><span class="p">,</span>
+    <span class="n">results_path</span><span class="p">,</span>
+    <span class="n">sd</span><span class="p">,</span>
+    <span class="n">curation_history</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">rec_chunks</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
 <span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Compile and export sorting results for a single recording.</span>
 
 <span class="sd">    Parameters:</span>
-<span class="sd">        config (SortingPipelineConfig): Pipeline configuration.</span>
+<span class="sd">        config (SortingPipelineConfig): Pipeline configuration. When</span>
+<span class="sd">            ``config.compilation.include_failed_units`` is True, ``sd``</span>
+<span class="sd">            must be the pre-curation SpikeData (all sorter-emitted</span>
+<span class="sd">            units) and ``curation_history`` must be provided.</span>
 <span class="sd">        rec_name (str): Short name for the recording.</span>
 <span class="sd">        rec_path (str or Path): Original recording file path.</span>
 <span class="sd">        results_path (Path): Output directory.</span>
-<span class="sd">        sd (SpikeData): Curated SpikeData.</span>
+<span class="sd">        sd (SpikeData): Curated SpikeData by default; pre-curation</span>
+<span class="sd">            SpikeData when ``config.compilation.include_failed_units``</span>
+<span class="sd">            is True.</span>
 <span class="sd">        curation_history (dict or None): Curation history dict.</span>
 <span class="sd">        rec_chunks (list or None): Epoch frame boundaries.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">comp</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">compilation</span>
     <span class="n">exe</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">execution</span>
+    <span class="n">include_failed_units</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">comp</span><span class="p">,</span> <span class="s2">&quot;include_failed_units&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">))</span>
 
     <span class="n">compile_stopwatch</span> <span class="o">=</span> <span class="n">Stopwatch</span><span class="p">(</span><span class="s2">&quot;COMPILING RESULTS&quot;</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;For recording: </span><span class="si">{</span><span class="n">rec_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
@@ -1469,11 +1581,21 @@
                 <span class="k">for</span> <span class="n">c</span><span class="p">,</span> <span class="n">sd_chunk</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">epoch_sds</span><span class="p">):</span>
                     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Compiling chunk </span><span class="si">{</span><span class="n">c</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
                     <span class="n">compiler</span> <span class="o">=</span> <span class="n">Compiler</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
-                    <span class="n">compiler</span><span class="o">.</span><span class="n">add_recording</span><span class="p">(</span><span class="n">rec_name</span><span class="p">,</span> <span class="n">sd_chunk</span><span class="p">,</span> <span class="n">curation_history</span><span class="p">)</span>
+                    <span class="n">compiler</span><span class="o">.</span><span class="n">add_recording</span><span class="p">(</span>
+                        <span class="n">rec_name</span><span class="p">,</span>
+                        <span class="n">sd_chunk</span><span class="p">,</span>
+                        <span class="n">curation_history</span><span class="p">,</span>
+                        <span class="n">include_failed_units</span><span class="o">=</span><span class="n">include_failed_units</span><span class="p">,</span>
+                    <span class="p">)</span>
                     <span class="n">compiler</span><span class="o">.</span><span class="n">save_results</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">results_path</span><span class="p">)</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;chunk</span><span class="si">{</span><span class="n">c</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">compiler</span> <span class="o">=</span> <span class="n">Compiler</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
-                <span class="n">compiler</span><span class="o">.</span><span class="n">add_recording</span><span class="p">(</span><span class="n">rec_name</span><span class="p">,</span> <span class="n">sd</span><span class="p">,</span> <span class="n">curation_history</span><span class="p">)</span>
+                <span class="n">compiler</span><span class="o">.</span><span class="n">add_recording</span><span class="p">(</span>
+                    <span class="n">rec_name</span><span class="p">,</span>
+                    <span class="n">sd</span><span class="p">,</span>
+                    <span class="n">curation_history</span><span class="p">,</span>
+                    <span class="n">include_failed_units</span><span class="o">=</span><span class="n">include_failed_units</span><span class="p">,</span>
+                <span class="p">)</span>
                 <span class="n">compiler</span><span class="o">.</span><span class="n">save_results</span><span class="p">(</span><span class="n">results_path</span><span class="p">)</span>
                 <span class="n">compile_stopwatch</span><span class="o">.</span><span class="n">log_time</span><span class="p">(</span><span class="s2">&quot;Done compiling results.&quot;</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
@@ -2969,22 +3091,35 @@
     <span class="n">tmp</span> <span class="o">=</span> <span class="n">final</span><span class="o">.</span><span class="n">with_suffix</span><span class="p">(</span><span class="n">final</span><span class="o">.</span><span class="n">suffix</span> <span class="o">+</span> <span class="s2">&quot;.tmp&quot;</span><span class="p">)</span>
     <span class="n">final</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">tmp</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">protocol</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">_pkl</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">_pkl</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">protocol</span><span class="o">=</span><span class="n">protocol</span><span class="p">)</span>
-        <span class="n">f</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">tmp</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">protocol</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">_pkl</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">_pkl</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">protocol</span><span class="o">=</span><span class="n">protocol</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">fsync</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">fileno</span><span class="p">())</span>
+            <span class="k">except</span> <span class="p">(</span><span class="ne">OSError</span><span class="p">,</span> <span class="ne">AttributeError</span><span class="p">):</span>
+                <span class="c1"># fsync can fail on certain Windows file systems and</span>
+                <span class="c1"># raises AttributeError on some non-OS file objects</span>
+                <span class="c1"># (e.g. test-time wrappers). The replace below is still</span>
+                <span class="c1"># atomic; we just skip the durability hint.</span>
+                <span class="k">pass</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">tmp</span><span class="p">,</span> <span class="n">final</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">BaseException</span><span class="p">:</span>
+        <span class="c1"># Remove the partial .tmp file on any failure (pickling errors</span>
+        <span class="c1"># from non-picklable objects, OSError on disk-full, KeyboardInterrupt</span>
+        <span class="c1"># from the inactivity watchdog mid-write, etc.) so it doesn&#39;t</span>
+        <span class="c1"># accumulate in the results folder. Use BaseException because we</span>
+        <span class="c1"># explicitly want to catch SystemExit and KeyboardInterrupt for</span>
+        <span class="c1"># cleanup, then re-raise. ``missing_ok=True`` covers the case</span>
+        <span class="c1"># where the open itself failed before the tmp file was created.</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">os</span><span class="o">.</span><span class="n">fsync</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">fileno</span><span class="p">())</span>
-        <span class="k">except</span> <span class="p">(</span><span class="ne">OSError</span><span class="p">,</span> <span class="ne">AttributeError</span><span class="p">):</span>
-            <span class="c1"># fsync can fail on certain Windows file systems and</span>
-            <span class="c1"># raises AttributeError on some non-OS file objects</span>
-            <span class="c1"># (e.g. test-time wrappers). The replace below is still</span>
-            <span class="c1"># atomic; we just skip the durability hint.</span>
+            <span class="n">tmp</span><span class="o">.</span><span class="n">unlink</span><span class="p">(</span><span class="n">missing_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
             <span class="k">pass</span>
-
-    <span class="n">os</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">tmp</span><span class="p">,</span> <span class="n">final</span><span class="p">)</span>
+        <span class="k">raise</span>
 
 
 <div class="viewcode-block" id="sort_multistream">

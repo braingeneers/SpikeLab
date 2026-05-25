@@ -411,6 +411,7 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/index.html#server">Server</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../../api/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/mcp_server.html#spikelab.mcp_server.server.MAX_INLINE_ARRAY_SIZE"><code class="docutils literal notranslate"><span class="pre">MAX_INLINE_ARRAY_SIZE</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
 </ul>
 </li>
@@ -771,6 +772,20 @@
     <span class="c1"># ------------------------------------------------------------------</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;HostMemoryWatchdog&quot;</span><span class="p">:</span>
+        <span class="c1"># Reject double-``__enter__``. ``self._token`` is a single</span>
+        <span class="c1"># attribute, so a second ``__enter__`` without an intervening</span>
+        <span class="c1"># ``__exit__`` would overwrite the first token reference and</span>
+        <span class="c1"># leak the original active-watchdog publication after teardown</span>
+        <span class="c1"># (only the second token&#39;s reset would run). The class is</span>
+        <span class="c1"># not designed to be reentrant; surface the misuse rather</span>
+        <span class="c1"># than silently corrupting the ContextVar state.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_token</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                <span class="s2">&quot;HostMemoryWatchdog is not reentrant: __enter__ was &quot;</span>
+                <span class="s2">&quot;called while the watchdog is still active. Exit the &quot;</span>
+                <span class="s2">&quot;existing context manager before entering a new one.&quot;</span>
+            <span class="p">)</span>
+
         <span class="c1"># Capture the active per-recording log path on the main</span>
         <span class="c1"># thread; the daemon polling thread cannot read the</span>
         <span class="c1"># ContextVar reliably.</span>

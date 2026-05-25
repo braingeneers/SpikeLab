@@ -414,6 +414,7 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="index.html#server">Server</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="mcp_server.html#spikelab.mcp_server.server.MAX_INLINE_ARRAY_SIZE"><code class="docutils literal notranslate"><span class="pre">MAX_INLINE_ARRAY_SIZE</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
 </ul>
 </li>
@@ -519,7 +520,11 @@ across multiple conditions or time windows.</p>
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>threshold</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – If provided, only edges with absolute
-weight &gt; threshold will be included.</p></li>
+weight &gt; threshold will be included. <code class="docutils literal notranslate"><span class="pre">None</span></code> means “no
+threshold” (every non-NaN off-diagonal entry becomes an
+edge). NaN/Inf raise <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ValueError</span></code></a> — a NaN threshold
+silently produced an edge-free graph in earlier versions
+because <code class="docutils literal notranslate"><span class="pre">abs(weight)</span> <span class="pre">&gt;</span> <span class="pre">NaN</span></code> is always False.</p></li>
 <li><p><strong>invert_weights</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – If True, edge weights are set to
 (1 - value) instead of value. This is useful for weighted
 network metrics like shortest path length, where strong
@@ -533,6 +538,9 @@ rather than long/expensive paths.</p></li>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>G (networkx.Graph)</p>
 </dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">threshold</span></code> is NaN or infinite.</p>
+</dd>
 </dl>
 <p class="rubric">Notes</p>
 <p>When using NetworkX for weighted shortest path algorithms (e.g.,
@@ -545,16 +553,24 @@ strong relationships, set <code class="docutils literal notranslate"><span class
 
 <dl class="py method">
 <dt class="sig sig-object py" id="spikelab.spikedata.pairwise.PairwiseCompMatrix.threshold">
-<span class="sig-name descname"><span class="pre">threshold</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">threshold</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/pairwise.html#PairwiseCompMatrix.threshold"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.pairwise.PairwiseCompMatrix.threshold" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">threshold</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">threshold</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">preserve_nan</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/pairwise.html#PairwiseCompMatrix.threshold"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.pairwise.PairwiseCompMatrix.threshold" title="Link to this definition"></a></dt>
 <dd><p>Create a binary matrix based on a threshold.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>threshold</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Values with absolute value &gt; threshold become
-1, otherwise 0.</p>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>threshold</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Values with absolute value &gt; threshold become
+1, otherwise 0.</p></li>
+<li><p><strong>preserve_nan</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – When <code class="docutils literal notranslate"><span class="pre">False</span></code> (default), NaN values in the
+input are treated as below threshold and become 0 in the
+output — matches the historical behaviour. When <code class="docutils literal notranslate"><span class="pre">True</span></code>,
+NaN values propagate to NaN in the output, keeping “missing”
+distinguishable from “below threshold” in the binary result.</p></li>
+</ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
-<dt>A new PairwiseCompMatrix with binary</dt><dd><p>(0/1) values.</p>
+<dt>A new PairwiseCompMatrix with binary</dt><dd><p>(0/1) values, or NaN where input was NaN if
+<code class="docutils literal notranslate"><span class="pre">preserve_nan=True</span></code>.</p>
 </dd>
 </dl>
 </p>
@@ -901,16 +917,23 @@ with each matrix in the stack.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="spikelab.spikedata.pairwise.PairwiseCompMatrixStack.threshold">
-<span class="sig-name descname"><span class="pre">threshold</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">threshold</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/pairwise.html#PairwiseCompMatrixStack.threshold"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.pairwise.PairwiseCompMatrixStack.threshold" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">threshold</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">threshold</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">preserve_nan</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/pairwise.html#PairwiseCompMatrixStack.threshold"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.pairwise.PairwiseCompMatrixStack.threshold" title="Link to this definition"></a></dt>
 <dd><p>Create a binary stack based on a threshold.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>threshold</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Values with absolute value &gt; threshold become
-1, otherwise 0.</p>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>threshold</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Values with absolute value &gt; threshold become
+1, otherwise 0.</p></li>
+<li><p><strong>preserve_nan</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – When <code class="docutils literal notranslate"><span class="pre">False</span></code> (default), NaN values in the
+input are treated as below threshold and become 0 in the
+output — matches the historical behaviour. When <code class="docutils literal notranslate"><span class="pre">True</span></code>,
+NaN values propagate to NaN in the output, keeping “missing”
+distinguishable from “below threshold” in the binary result.</p></li>
+</ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
-<dt>A new stack with binary (0/1)</dt><dd><p>values.</p>
+<dt>A new stack with binary (0/1)</dt><dd><p>values, or NaN where input was NaN if <code class="docutils literal notranslate"><span class="pre">preserve_nan=True</span></code>.</p>
 </dd>
 </dl>
 </p>

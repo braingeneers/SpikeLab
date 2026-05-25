@@ -411,6 +411,7 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/index.html#server">Server</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../../api/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/mcp_server.html#spikelab.mcp_server.server.MAX_INLINE_ARRAY_SIZE"><code class="docutils literal notranslate"><span class="pre">MAX_INLINE_ARRAY_SIZE</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
 </ul>
 </li>
@@ -1024,6 +1025,20 @@
     <span class="c1"># ------------------------------------------------------------------</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;IOStallWatchdog&quot;</span><span class="p">:</span>
+        <span class="c1"># Reject double-``__enter__``. ``self._token`` is a single</span>
+        <span class="c1"># attribute; a second ``__enter__`` without an intervening</span>
+        <span class="c1"># ``__exit__`` overwrites the first token reference and</span>
+        <span class="c1"># leaks the original active-watchdog publication. Symmetric</span>
+        <span class="c1"># with the guard added to HostMemoryWatchdog and</span>
+        <span class="c1"># GpuMemoryWatchdog so all three watchdogs fail loudly on</span>
+        <span class="c1"># reentry rather than silently corrupting ContextVar state.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_token</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                <span class="s2">&quot;IOStallWatchdog is not reentrant: __enter__ was &quot;</span>
+                <span class="s2">&quot;called while the watchdog is still active. Exit the &quot;</span>
+                <span class="s2">&quot;existing context manager before entering a new one.&quot;</span>
+            <span class="p">)</span>
+
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mode</span> <span class="o">==</span> <span class="s2">&quot;process&quot;</span><span class="p">:</span>
             <span class="c1"># Probe once to confirm we can read at least one PID&#39;s</span>
             <span class="c1"># counters. If none of the registered PIDs are alive</span>
@@ -1154,15 +1169,36 @@
             <span class="n">current</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_read_bytes</span><span class="p">()</span>
             <span class="n">now</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
             <span class="k">if</span> <span class="n">current</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="c1"># Counters unreadable this poll. Reset last_change_t so</span>
-                <span class="c1"># we don&#39;t accumulate stall time we can&#39;t observe; track</span>
-                <span class="c1"># how long we have been blind so we can warn once.</span>
-                <span class="n">last_change_t</span> <span class="o">=</span> <span class="n">now</span>
+                <span class="c1"># Counters unreadable this poll. Two semantics to preserve:</span>
+                <span class="c1">#</span>
+                <span class="c1"># 1. ``last_change_t`` is NOT reset. Resetting it (the</span>
+                <span class="c1">#    original behaviour) silently masked any true stall</span>
+                <span class="c1">#    that happened to coincide with even a brief psutil</span>
+                <span class="c1">#    hiccup — the watchdog went blind precisely when</span>
+                <span class="c1">#    something was wrong. The rare false-positive case</span>
+                <span class="c1">#    (counters coincidentally landing on the same value</span>
+                <span class="c1">#    at the start and end of a blind interval) is far</span>
+                <span class="c1">#    less common and far less harmful than missing a</span>
+                <span class="c1">#    real stall.</span>
+                <span class="c1">#</span>
+                <span class="c1"># 2. Sustained blindness is itself a trip condition.</span>
+                <span class="c1">#    After ``stall_s`` of unreadable counters we emit a</span>
+                <span class="c1">#    one-shot warning (existing behaviour); after</span>
+                <span class="c1">#    ``2 * stall_s`` we trip via ``_on_trip_blind`` so</span>
+                <span class="c1">#    the sort is killed rather than running forever</span>
+                <span class="c1">#    with a silently disabled watchdog. The 2× factor</span>
+                <span class="c1">#    gives one warn cycle of grace where an operator</span>
+                <span class="c1">#    monitoring logs can investigate before the kill.</span>
                 <span class="k">if</span> <span class="n">blind_started_t</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                     <span class="n">blind_started_t</span> <span class="o">=</span> <span class="n">now</span>
-                <span class="k">elif</span> <span class="ow">not</span> <span class="n">blind_warned</span> <span class="ow">and</span> <span class="n">now</span> <span class="o">-</span> <span class="n">blind_started_t</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">stall_s</span><span class="p">:</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_warn_blind</span><span class="p">(</span><span class="n">now</span> <span class="o">-</span> <span class="n">blind_started_t</span><span class="p">)</span>
-                    <span class="n">blind_warned</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">blind_for</span> <span class="o">=</span> <span class="n">now</span> <span class="o">-</span> <span class="n">blind_started_t</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">blind_warned</span> <span class="ow">and</span> <span class="n">blind_for</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">stall_s</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_warn_blind</span><span class="p">(</span><span class="n">blind_for</span><span class="p">)</span>
+                        <span class="n">blind_warned</span> <span class="o">=</span> <span class="kc">True</span>
+                    <span class="k">if</span> <span class="n">blind_warned</span> <span class="ow">and</span> <span class="n">blind_for</span> <span class="o">&gt;=</span> <span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">stall_s</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_on_trip_blind</span><span class="p">(</span><span class="n">blind_for</span><span class="p">)</span>
+                        <span class="k">return</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_stop_event</span><span class="o">.</span><span class="n">wait</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">poll_interval_s</span><span class="p">)</span>
                 <span class="k">continue</span>
             <span class="c1"># Successful read clears the blindness tracker so a later</span>
@@ -1245,6 +1281,70 @@
             <span class="n">pids</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_pids</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mode</span> <span class="o">==</span> <span class="s2">&quot;process&quot;</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">stalled_for_s</span><span class="o">=</span><span class="n">stalled_for</span><span class="p">,</span>
             <span class="n">tolerance_s</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">stall_s</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+            <span class="n">callbacks</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_kill_callbacks</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">cb</span> <span class="ow">in</span> <span class="n">callbacks</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">cb</span><span class="p">()</span>
+            <span class="k">except</span> <span class="p">(</span><span class="ne">SystemExit</span><span class="p">,</span> <span class="ne">KeyboardInterrupt</span><span class="p">):</span>
+                <span class="c1"># An in-process kill callback delivers KeyboardInterrupt</span>
+                <span class="c1"># via _thread.interrupt_main(); SystemExit signals</span>
+                <span class="c1"># operator-requested abort. Both must propagate.</span>
+                <span class="k">raise</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                <span class="n">_logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;kill_callback raised: </span><span class="si">%r</span><span class="s2">; continuing.&quot;</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
+        <span class="c1"># If __exit__ ran while we were mid-cascade (callbacks can</span>
+        <span class="c1"># take several seconds), the with-block has already torn</span>
+        <span class="c1"># down. Sending interrupt_main() now would land a phantom</span>
+        <span class="c1"># KeyboardInterrupt in whatever code is running next — the</span>
+        <span class="c1"># next sort, an exception handler, or the interactive</span>
+        <span class="c1"># prompt. Skip it.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stop_event</span><span class="o">.</span><span class="n">is_set</span><span class="p">():</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;suppressing interrupt_main: watchdog is already exiting.&quot;</span><span class="p">)</span>
+            <span class="k">return</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">_thread</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_t</span>
+
+            <span class="n">_t</span><span class="o">.</span><span class="n">interrupt_main</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_interrupt_main_failed</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;failed to interrupt main: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
+            <span class="n">append_audit_event</span><span class="p">(</span>
+                <span class="n">watchdog</span><span class="o">=</span><span class="s2">&quot;io_stall&quot;</span><span class="p">,</span>
+                <span class="n">event</span><span class="o">=</span><span class="s2">&quot;interrupt_delivery_failed&quot;</span><span class="p">,</span>
+                <span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_device</span><span class="p">,</span>
+                <span class="n">error</span><span class="o">=</span><span class="nb">repr</span><span class="p">(</span><span class="n">exc</span><span class="p">),</span>
+            <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_on_trip_blind</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">blind_for</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Trip when sustained blindness prevents verifying I/O is moving.</span>
+
+<span class="sd">        Mirrors :meth:`_on_trip` but with a distinct log and audit-event</span>
+<span class="sd">        semantic: we have not observed a stall, we have observed that</span>
+<span class="sd">        we are unable to determine whether one is occurring. The abort</span>
+<span class="sd">        cascade (kill callbacks + ``interrupt_main``) is identical so a</span>
+<span class="sd">        blind trip cleans up the same way as an observed trip. Downstream</span>
+<span class="sd">        post-mortems can grep ``event=&quot;abort_blind&quot;`` to attribute</span>
+<span class="sd">        incidents to a watchdog-blind cause rather than a real stall.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_tripped</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_stall_at_trip</span> <span class="o">=</span> <span class="n">blind_for</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+            <span class="s2">&quot;TRIP: </span><span class="si">%s</span><span class="s2"> I/O counter unreadable for </span><span class="si">%.1f</span><span class="s2">s (&gt;= </span><span class="si">%.1f</span><span class="s2">s). &quot;</span>
+            <span class="s2">&quot;Aborting sort because watchdog cannot verify progress.&quot;</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_scope_label</span><span class="p">(),</span>
+            <span class="n">blind_for</span><span class="p">,</span>
+            <span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">stall_s</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">append_audit_event</span><span class="p">(</span>
+            <span class="n">watchdog</span><span class="o">=</span><span class="s2">&quot;io_stall&quot;</span><span class="p">,</span>
+            <span class="n">event</span><span class="o">=</span><span class="s2">&quot;abort_blind&quot;</span><span class="p">,</span>
+            <span class="n">mode</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_mode</span><span class="p">,</span>
+            <span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_device</span><span class="p">,</span>
+            <span class="n">pids</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_pids</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mode</span> <span class="o">==</span> <span class="s2">&quot;process&quot;</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">blind_for_s</span><span class="o">=</span><span class="n">blind_for</span><span class="p">,</span>
+            <span class="n">tolerance_s</span><span class="o">=</span><span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">stall_s</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
             <span class="n">callbacks</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_kill_callbacks</span><span class="p">)</span>

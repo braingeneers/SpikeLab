@@ -411,6 +411,7 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#server">Server</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/mcp_server.html#spikelab.mcp_server.server.MAX_INLINE_ARRAY_SIZE"><code class="docutils literal notranslate"><span class="pre">MAX_INLINE_ARRAY_SIZE</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
 </ul>
 </li>
@@ -506,7 +507,11 @@
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            threshold (float or None): If provided, only edges with absolute</span>
-<span class="sd">                weight &gt; threshold will be included.</span>
+<span class="sd">                weight &gt; threshold will be included. ``None`` means &quot;no</span>
+<span class="sd">                threshold&quot; (every non-NaN off-diagonal entry becomes an</span>
+<span class="sd">                edge). NaN/Inf raise :class:`ValueError` — a NaN threshold</span>
+<span class="sd">                silently produced an edge-free graph in earlier versions</span>
+<span class="sd">                because ``abs(weight) &gt; NaN`` is always False.</span>
 <span class="sd">            invert_weights (bool): If True, edge weights are set to</span>
 <span class="sd">                (1 - value) instead of value. This is useful for weighted</span>
 <span class="sd">                network metrics like shortest path length, where strong</span>
@@ -516,6 +521,9 @@
 <span class="sd">        Returns:</span>
 <span class="sd">            G (networkx.Graph): The exported graph.</span>
 
+<span class="sd">        Raises:</span>
+<span class="sd">            ValueError: If ``threshold`` is NaN or infinite.</span>
+
 <span class="sd">        Notes:</span>
 <span class="sd">            When using NetworkX for weighted shortest path algorithms (e.g.,</span>
 <span class="sd">            ``nx.shortest_path_length``), edge weights are interpreted as</span>
@@ -524,6 +532,17 @@
 <span class="sd">            - Strong correlation (0.9) -&gt; weight 0.1 (short path)</span>
 <span class="sd">            - Weak correlation (0.1) -&gt; weight 0.9 (long path)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Boundary guard: NaN/Inf threshold almost always indicates a</span>
+        <span class="c1"># config bug (e.g. unguarded division producing NaN). Raise</span>
+        <span class="c1"># rather than silently returning an edge-free graph.</span>
+        <span class="k">if</span> <span class="n">threshold</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">t</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">threshold</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="ow">or</span> <span class="n">np</span><span class="o">.</span><span class="n">isinf</span><span class="p">(</span><span class="n">t</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;threshold must be a finite number or None, &quot;</span> <span class="sa">f</span><span class="s2">&quot;got </span><span class="si">{</span><span class="n">threshold</span><span class="si">!r}</span><span class="s2">.&quot;</span>
+                <span class="p">)</span>
+            <span class="n">threshold</span> <span class="o">=</span> <span class="n">t</span>
+
         <span class="k">try</span><span class="p">:</span>
             <span class="kn">import</span><span class="w"> </span><span class="nn">networkx</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nx</span>
         <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
@@ -553,16 +572,24 @@
 
 <div class="viewcode-block" id="PairwiseCompMatrix.threshold">
 <a class="viewcode-back" href="../../../api/pairwise.html#spikelab.spikedata.pairwise.PairwiseCompMatrix.threshold">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">threshold</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">threshold</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;PairwiseCompMatrix&quot;</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">threshold</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">threshold</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">preserve_nan</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;PairwiseCompMatrix&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a binary matrix based on a threshold.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            threshold (float): Values with absolute value &gt; threshold become</span>
 <span class="sd">                1, otherwise 0.</span>
+<span class="sd">            preserve_nan (bool): When ``False`` (default), NaN values in the</span>
+<span class="sd">                input are treated as below threshold and become 0 in the</span>
+<span class="sd">                output — matches the historical behaviour. When ``True``,</span>
+<span class="sd">                NaN values propagate to NaN in the output, keeping &quot;missing&quot;</span>
+<span class="sd">                distinguishable from &quot;below threshold&quot; in the binary result.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            result (PairwiseCompMatrix): A new PairwiseCompMatrix with binary</span>
-<span class="sd">                (0/1) values.</span>
+<span class="sd">                (0/1) values, or NaN where input was NaN if</span>
+<span class="sd">                ``preserve_nan=True``.</span>
 
 <span class="sd">        Examples:</span>
 <span class="sd">            &gt;&gt;&gt; matrix = np.array([[1.0, 0.8, 0.2], [0.8, 1.0, 0.5], [0.2, 0.5, 1.0]])</span>
@@ -574,6 +601,8 @@
 <span class="sd">             [0. 1. 1.]]</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">binary_matrix</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">matrix</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">threshold</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">preserve_nan</span><span class="p">:</span>
+            <span class="n">binary_matrix</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">matrix</span><span class="p">)]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
         <span class="k">return</span> <span class="n">PairwiseCompMatrix</span><span class="p">(</span>
             <span class="n">matrix</span><span class="o">=</span><span class="n">binary_matrix</span><span class="p">,</span>
             <span class="n">labels</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">labels</span><span class="p">,</span>
@@ -1084,22 +1113,31 @@
 
 <div class="viewcode-block" id="PairwiseCompMatrixStack.threshold">
 <a class="viewcode-back" href="../../../api/pairwise.html#spikelab.spikedata.pairwise.PairwiseCompMatrixStack.threshold">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">threshold</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">threshold</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;PairwiseCompMatrixStack&quot;</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">threshold</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">threshold</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">preserve_nan</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;PairwiseCompMatrixStack&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a binary stack based on a threshold.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            threshold (float): Values with absolute value &gt; threshold become</span>
 <span class="sd">                1, otherwise 0.</span>
+<span class="sd">            preserve_nan (bool): When ``False`` (default), NaN values in the</span>
+<span class="sd">                input are treated as below threshold and become 0 in the</span>
+<span class="sd">                output — matches the historical behaviour. When ``True``,</span>
+<span class="sd">                NaN values propagate to NaN in the output, keeping &quot;missing&quot;</span>
+<span class="sd">                distinguishable from &quot;below threshold&quot; in the binary result.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            result (PairwiseCompMatrixStack): A new stack with binary (0/1)</span>
-<span class="sd">                values.</span>
+<span class="sd">                values, or NaN where input was NaN if ``preserve_nan=True``.</span>
 
 <span class="sd">        Examples:</span>
 <span class="sd">            &gt;&gt;&gt; stack = PairwiseCompMatrixStack(stack=np.random.rand(5, 5, 10))</span>
 <span class="sd">            &gt;&gt;&gt; binary_stack = stack.threshold(0.5)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">binary_stack</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stack</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">threshold</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">preserve_nan</span><span class="p">:</span>
+            <span class="n">binary_stack</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stack</span><span class="p">)]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
         <span class="k">return</span> <span class="n">PairwiseCompMatrixStack</span><span class="p">(</span>
             <span class="n">stack</span><span class="o">=</span><span class="n">binary_stack</span><span class="p">,</span>
             <span class="n">labels</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">labels</span><span class="p">,</span>

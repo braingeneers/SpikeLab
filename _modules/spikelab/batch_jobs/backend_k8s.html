@@ -411,6 +411,7 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#server">Server</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/mcp_server.html#spikelab.mcp_server.server.MAX_INLINE_ARRAY_SIZE"><code class="docutils literal notranslate"><span class="pre">MAX_INLINE_ARRAY_SIZE</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
 </ul>
 </li>
@@ -452,7 +453,7 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Iterator</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Iterator</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">yaml</span>
 
@@ -502,17 +503,80 @@
 <div class="viewcode-block" id="KubernetesBatchJobBackend.apply_manifest">
 <a class="viewcode-back" href="../../../api/batch_jobs.html#spikelab.batch_jobs.backend_k8s.KubernetesBatchJobBackend.apply_manifest">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">apply_manifest</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">manifest_path_or_str</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply a job manifest by YAML file path or raw YAML string.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply a job manifest by YAML file path or raw YAML string.</span>
+
+<span class="sd">        Returns the job&#39;s ``metadata.name`` (consistent across both</span>
+<span class="sd">        paths). Previously the kubectl-fallback path returned the</span>
+<span class="sd">        raw stdout of ``kubectl apply`` (e.g. ``&quot;job.batch/myjob</span>
+<span class="sd">        created\\n&quot;``) while the Python-client path returned the</span>
+<span class="sd">        clean name — callers had no portable way to extract the</span>
+<span class="sd">        identifier without sniffing the backend.</span>
+
+<span class="sd">        Raises ``ValueError`` if the manifest&#39;s ``metadata.namespace``</span>
+<span class="sd">        is set and disagrees with the backend&#39;s ``self.namespace`` —</span>
+<span class="sd">        this would otherwise silently deploy into the backend&#39;s</span>
+<span class="sd">        namespace, contrary to the rendered manifest. Manifests with</span>
+<span class="sd">        no ``metadata.namespace`` are accepted and assigned the</span>
+<span class="sd">        backend&#39;s namespace as before.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">_check_manifest_namespace</span><span class="p">(</span><span class="n">payload</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">manifest_ns</span> <span class="o">=</span> <span class="p">(</span><span class="n">payload</span> <span class="ow">or</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;metadata&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;namespace&quot;</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+                <span class="n">manifest_ns</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="n">manifest_ns</span> <span class="ow">and</span> <span class="n">manifest_ns</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">namespace</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Manifest metadata.namespace=</span><span class="si">{</span><span class="n">manifest_ns</span><span class="si">!r}</span><span class="s2"> disagrees &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;with backend namespace=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">namespace</span><span class="si">!r}</span><span class="s2">. Refusing &quot;</span>
+                    <span class="s2">&quot;to deploy a manifest into a different namespace than &quot;</span>
+                    <span class="s2">&quot;the rendered one.&quot;</span>
+                <span class="p">)</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">_extract_job_name</span><span class="p">(</span><span class="n">payload</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Best-effort extraction of metadata.name from a parsed manifest.</span>
+
+<span class="sd">            Returns ``None`` when the structure isn&#39;t a dict-of-dicts;</span>
+<span class="sd">            callers should fall back to the kubectl stdout (only the</span>
+<span class="sd">            Python-client path requires the name to be present).</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">payload</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+                <span class="k">return</span> <span class="kc">None</span>
+            <span class="n">meta</span> <span class="o">=</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;metadata&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">meta</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+                <span class="k">return</span> <span class="kc">None</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="n">meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;name&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">name</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="n">name</span> <span class="k">else</span> <span class="kc">None</span>
+
+        <span class="n">path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">manifest_path_or_str</span><span class="p">)</span>
+
+        <span class="c1"># Resolve the kubectl-fallback path first when the Python client</span>
+        <span class="c1"># is unavailable. The fallback uses ``kubectl apply`` directly,</span>
+        <span class="c1"># which itself rejects manifests missing ``metadata.name``, so</span>
+        <span class="c1"># we only do a best-effort namespace check here without raising</span>
+        <span class="c1"># on missing-name. The namespace check still runs on whatever</span>
+        <span class="c1"># YAML we can parse; an unparseable payload skips the check.</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_batch_api</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_kubectl_fallback</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
                     <span class="s2">&quot;Kubernetes client unavailable and kubectl fallback disabled&quot;</span>
                 <span class="p">)</span>
-            <span class="n">path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">manifest_path_or_str</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+                    <span class="n">payload_for_check</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">safe_load</span><span class="p">(</span><span class="n">path</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">))</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">payload_for_check</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">safe_load</span><span class="p">(</span><span class="n">manifest_path_or_str</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">yaml</span><span class="o">.</span><span class="n">YAMLError</span><span class="p">:</span>
+                <span class="n">payload_for_check</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="n">payload_for_check</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">_check_manifest_namespace</span><span class="p">(</span><span class="n">payload_for_check</span><span class="p">)</span>
+            <span class="n">fallback_job_name</span> <span class="o">=</span> <span class="n">_extract_job_name</span><span class="p">(</span><span class="n">payload_for_check</span><span class="p">)</span>
+
             <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
-                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_kubectl</span><span class="p">(</span>
+                <span class="n">stdout</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_kubectl</span><span class="p">(</span>
                     <span class="p">[</span><span class="s2">&quot;apply&quot;</span><span class="p">,</span> <span class="s2">&quot;-f&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">),</span> <span class="s2">&quot;-n&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">namespace</span><span class="p">]</span>
                 <span class="p">)</span>
+                <span class="k">return</span> <span class="n">fallback_job_name</span> <span class="ow">or</span> <span class="n">stdout</span>
             <span class="n">temp_path</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">NamedTemporaryFile</span><span class="p">(</span>
                 <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">suffix</span><span class="o">=</span><span class="s2">&quot;.yaml&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">,</span> <span class="n">delete</span><span class="o">=</span><span class="kc">False</span>
@@ -520,36 +584,63 @@
                 <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">manifest_path_or_str</span><span class="p">)</span>
                 <span class="n">temp_path</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">name</span>
             <span class="k">try</span><span class="p">:</span>
-                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_kubectl</span><span class="p">(</span>
+                <span class="n">stdout</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_kubectl</span><span class="p">(</span>
                     <span class="p">[</span><span class="s2">&quot;apply&quot;</span><span class="p">,</span> <span class="s2">&quot;-f&quot;</span><span class="p">,</span> <span class="n">temp_path</span><span class="p">,</span> <span class="s2">&quot;-n&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">namespace</span><span class="p">]</span>
                 <span class="p">)</span>
+                <span class="k">return</span> <span class="n">fallback_job_name</span> <span class="ow">or</span> <span class="n">stdout</span>
             <span class="k">finally</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">temp_path</span><span class="p">:</span>
                     <span class="n">Path</span><span class="p">(</span><span class="n">temp_path</span><span class="p">)</span><span class="o">.</span><span class="n">unlink</span><span class="p">(</span><span class="n">missing_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-        <span class="n">path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">manifest_path_or_str</span><span class="p">)</span>
+        <span class="c1"># Python-client path: parse strictly. ``create_namespaced_job``</span>
+        <span class="c1"># requires a structured payload with metadata.name, so we raise</span>
+        <span class="c1"># early with a clear message rather than letting the API client</span>
+        <span class="c1"># surface a less actionable error.</span>
         <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
             <span class="n">payload</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">safe_load</span><span class="p">(</span><span class="n">path</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">))</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">payload</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">safe_load</span><span class="p">(</span><span class="n">manifest_path_or_str</span><span class="p">)</span>
+        <span class="n">_check_manifest_namespace</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span>
+        <span class="n">job_name</span> <span class="o">=</span> <span class="n">_extract_job_name</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">job_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Manifest does not contain metadata.name; cannot apply via &quot;</span>
+                <span class="s2">&quot;the Kubernetes Python client.&quot;</span>
+            <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_batch_api</span><span class="o">.</span><span class="n">create_namespaced_job</span><span class="p">(</span><span class="n">namespace</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">namespace</span><span class="p">,</span> <span class="n">body</span><span class="o">=</span><span class="n">payload</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">payload</span><span class="p">[</span><span class="s2">&quot;metadata&quot;</span><span class="p">][</span><span class="s2">&quot;name&quot;</span><span class="p">]</span></div>
+        <span class="k">return</span> <span class="n">job_name</span></div>
 
 
 <div class="viewcode-block" id="KubernetesBatchJobBackend.delete_job">
 <a class="viewcode-back" href="../../../api/batch_jobs.html#spikelab.batch_jobs.backend_k8s.KubernetesBatchJobBackend.delete_job">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">delete_job</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Delete a job and its pods.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Delete a job and its pods. Idempotent: missing jobs are a no-op.</span>
+
+<span class="sd">        Matches the ``kubectl --ignore-not-found=true`` semantic on</span>
+<span class="sd">        the fallback path so the two delete paths behave the same</span>
+<span class="sd">        way for the missing-job case. Previously the Python</span>
+<span class="sd">        kubernetes-client path propagated ``ApiException(404)``</span>
+<span class="sd">        verbatim while the kubectl path exited cleanly.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_batch_api</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_run_kubectl</span><span class="p">(</span>
                 <span class="p">[</span><span class="s2">&quot;delete&quot;</span><span class="p">,</span> <span class="s2">&quot;job&quot;</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="s2">&quot;-n&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">namespace</span><span class="p">,</span> <span class="s2">&quot;--ignore-not-found=true&quot;</span><span class="p">]</span>
             <span class="p">)</span>
             <span class="k">return</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_batch_api</span><span class="o">.</span><span class="n">delete_namespaced_job</span><span class="p">(</span>
-            <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
-            <span class="n">namespace</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">namespace</span><span class="p">,</span>
-            <span class="n">body</span><span class="o">=</span><span class="n">client</span><span class="o">.</span><span class="n">V1DeleteOptions</span><span class="p">(</span><span class="n">propagation_policy</span><span class="o">=</span><span class="s2">&quot;Background&quot;</span><span class="p">),</span>
-        <span class="p">)</span></div>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_batch_api</span><span class="o">.</span><span class="n">delete_namespaced_job</span><span class="p">(</span>
+                <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+                <span class="n">namespace</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">namespace</span><span class="p">,</span>
+                <span class="n">body</span><span class="o">=</span><span class="n">client</span><span class="o">.</span><span class="n">V1DeleteOptions</span><span class="p">(</span><span class="n">propagation_policy</span><span class="o">=</span><span class="s2">&quot;Background&quot;</span><span class="p">),</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="n">client</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">ApiException</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">exc</span><span class="o">.</span><span class="n">status</span> <span class="o">==</span> <span class="mi">404</span><span class="p">:</span>
+                <span class="c1"># Missing job — idempotent no-op, matches kubectl</span>
+                <span class="c1"># ``--ignore-not-found`` behaviour. Any other API</span>
+                <span class="c1"># error (403 Forbidden, 500 Server Error, etc.)</span>
+                <span class="c1"># still propagates.</span>
+                <span class="k">return</span>
+            <span class="k">raise</span></div>
 
 
 <div class="viewcode-block" id="KubernetesBatchJobBackend.job_status">
@@ -632,11 +723,32 @@
                 <span class="k">yield</span> <span class="nb">str</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
             <span class="k">return</span>
 
-        <span class="n">text</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_core_api</span><span class="o">.</span><span class="n">read_namespaced_pod_log</span><span class="p">(</span>
-            <span class="n">name</span><span class="o">=</span><span class="n">pod_name</span><span class="p">,</span> <span class="n">namespace</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">namespace</span>
+        <span class="c1"># Stream the (non-follow) log via ``_preload_content=False``</span>
+        <span class="c1"># so multi-GB pod logs don&#39;t materialise as a single string in</span>
+        <span class="c1"># memory. The kubernetes client returns an</span>
+        <span class="c1"># ``urllib3.response.HTTPResponse`` in this mode which exposes</span>
+        <span class="c1"># ``stream(chunk_size)`` for chunked reading. We buffer</span>
+        <span class="c1"># partial lines across chunks and yield only when we see a</span>
+        <span class="c1"># newline (or at EOF), matching the line-at-a-time contract</span>
+        <span class="c1"># used by the kubectl-fallback path above.</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_core_api</span><span class="o">.</span><span class="n">read_namespaced_pod_log</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">pod_name</span><span class="p">,</span>
+            <span class="n">namespace</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">namespace</span><span class="p">,</span>
+            <span class="n">_preload_content</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">text</span><span class="o">.</span><span class="n">splitlines</span><span class="p">():</span>
-            <span class="k">yield</span> <span class="n">line</span></div>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">buf</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+            <span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">response</span><span class="o">.</span><span class="n">stream</span><span class="p">(</span><span class="n">amt</span><span class="o">=</span><span class="mi">64</span> <span class="o">*</span> <span class="mi">1024</span><span class="p">,</span> <span class="n">decode_content</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">chunk</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">):</span>
+                    <span class="n">chunk</span> <span class="o">=</span> <span class="n">chunk</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">,</span> <span class="n">errors</span><span class="o">=</span><span class="s2">&quot;replace&quot;</span><span class="p">)</span>
+                <span class="n">buf</span> <span class="o">+=</span> <span class="n">chunk</span>
+                <span class="k">while</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="ow">in</span> <span class="n">buf</span><span class="p">:</span>
+                    <span class="n">line</span><span class="p">,</span> <span class="n">buf</span> <span class="o">=</span> <span class="n">buf</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+                    <span class="k">yield</span> <span class="n">line</span>
+            <span class="k">if</span> <span class="n">buf</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="n">buf</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="n">response</span><span class="o">.</span><span class="n">release_conn</span><span class="p">()</span></div>
 </div>
 
 </pre></div>

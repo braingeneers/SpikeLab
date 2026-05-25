@@ -411,6 +411,7 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#server">Server</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/mcp_server.html#spikelab.mcp_server.server.MAX_INLINE_ARRAY_SIZE"><code class="docutils literal notranslate"><span class="pre">MAX_INLINE_ARRAY_SIZE</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
 </ul>
 </li>
@@ -592,7 +593,15 @@
                 <span class="n">data_obj</span> <span class="o">=</span> <span class="n">data_obj</span><span class="o">.</span><span class="n">resampled_isi</span><span class="p">(</span><span class="n">all_times</span><span class="p">,</span> <span class="n">sigma_ms</span><span class="p">)</span>
 
             <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">data_obj</span><span class="o">.</span><span class="n">times</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">step_size</span> <span class="o">=</span> <span class="n">data_obj</span><span class="o">.</span><span class="n">times</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">data_obj</span><span class="o">.</span><span class="n">times</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="c1"># ``RateData.__init__`` allows monotonically non-decreasing</span>
+                <span class="c1"># times (equal consecutive values are accepted), so a</span>
+                <span class="c1"># non-uniform input could pass upstream validation. Use</span>
+                <span class="c1"># the median diff rather than ``times[1] - times[0]`` so a</span>
+                <span class="c1"># single anomalous gap or a duplicate-time pair at the</span>
+                <span class="c1"># start can&#39;t poison the step inference for the rest of</span>
+                <span class="c1"># the stack. The median is exact on a uniform grid.</span>
+                <span class="n">diffs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">data_obj</span><span class="o">.</span><span class="n">times</span><span class="p">))</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">step_size</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">diffs</span><span class="p">))</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">step_size</span> <span class="o">=</span> <span class="mf">1.0</span>
 
@@ -642,10 +651,26 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">event_stack</span> <span class="o">=</span> <span class="n">event_matrix</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">times</span> <span class="o">=</span> <span class="n">times_start_to_end</span>
 
+        <span class="c1"># Reject both degenerate axis lengths. The T=0 case was rejected</span>
+        <span class="c1"># historically; S=0 was accepted silently, which let</span>
+        <span class="c1"># ``subslice([])`` (or any caller that filtered to no slices)</span>
+        <span class="c1"># produce a zero-slice stack that downstream slice-aware</span>
+        <span class="c1"># methods (``apply``, ``__getitem__``, similarity computations)</span>
+        <span class="c1"># weren&#39;t built to handle. Reject symmetric for predictable</span>
+        <span class="c1"># downstream behaviour. Callers that genuinely need a 0-slice</span>
+        <span class="c1"># placeholder should manage that as ``None`` rather than a</span>
+        <span class="c1"># degenerate stack.</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">event_stack</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="s2">&quot;event_stack has zero time bins (T=0). &quot;</span>
                 <span class="s2">&quot;A RateSliceStack requires at least one time bin.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">event_stack</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;event_stack has zero slices (S=0). &quot;</span>
+                <span class="s2">&quot;A RateSliceStack requires at least one slice; &quot;</span>
+                <span class="s2">&quot;represent the no-slice case as ``None`` rather than &quot;</span>
+                <span class="s2">&quot;a degenerate stack.&quot;</span>
             <span class="p">)</span>
 
         <span class="k">if</span> <span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">data_obj</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>

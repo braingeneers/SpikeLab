@@ -414,6 +414,7 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="index.html#server">Server</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="mcp_server.html#spikelab.mcp_server.server.MAX_INLINE_ARRAY_SIZE"><code class="docutils literal notranslate"><span class="pre">MAX_INLINE_ARRAY_SIZE</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
 </ul>
 </li>
@@ -590,8 +591,12 @@ Default is “spike_clusters.npy”.</p></li>
 ‘samples’: integer sample indices (default, KiloSort
 standard). ‘ms’: milliseconds (float). ‘s’: seconds (float).</p></li>
 <li><p><strong>cluster_ids</strong> (<em>Sequence</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em>] </em><em>| </em><em>None</em>) – Custom cluster IDs for each
-unit. If None, uses sequential integers 0, 1, 2, … Length
-must match sd.N.</p></li>
+unit. Length <strong>must match sd.N</strong> even when some units are
+empty — <code class="docutils literal notranslate"><span class="pre">cluster_ids[i]</span></code> reserves the cluster identifier
+for unit <code class="docutils literal notranslate"><span class="pre">i</span></code> so the unit ordering is stable on reload.
+For empty units the <code class="docutils literal notranslate"><span class="pre">cluster_ids[i]</span></code> entry is consumed
+but contributes no rows to the output arrays. If None, uses
+sequential integers 0, 1, 2, …</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -611,7 +616,7 @@ must match sd.N.</p></li>
 across all units).</p></li>
 <li><p>Spike times are sorted by unit order, not chronologically.</p></li>
 <li><p>Empty units (no spikes) don’t contribute entries to the output
-arrays.</p></li>
+arrays, but their <code class="docutils literal notranslate"><span class="pre">cluster_ids[i]</span></code> slot is still consumed.</p></li>
 <li><p>The ‘samples’ time unit produces integer arrays suitable for
 KiloSort/Phy.</p></li>
 <li><p>Cluster IDs can be arbitrary integers and don’t need to be

@@ -411,6 +411,7 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/index.html#server">Server</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../../api/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/mcp_server.html#spikelab.mcp_server.server.MAX_INLINE_ARRAY_SIZE"><code class="docutils literal notranslate"><span class="pre">MAX_INLINE_ARRAY_SIZE</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
 </ul>
 </li>
@@ -491,7 +492,7 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">threading</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
@@ -664,6 +665,33 @@
     <span class="k">return</span> <span class="n">_callback</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_require_finite</span><span class="p">(</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">allow_none</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Reject NaN/Inf at the config-param boundary with a clear error.</span>
+
+<span class="sd">    Used by :func:`compute_inactivity_timeout_s` for config parameters</span>
+<span class="sd">    (``base_s``, ``per_min_s``, ``max_s``) where NaN almost always</span>
+<span class="sd">    indicates a configuration bug rather than legitimate degenerate</span>
+<span class="sd">    metadata. Asymmetric with the function&#39;s ``recording_duration_min``</span>
+<span class="sd">    parameter, which is runtime metadata read from a recording file —</span>
+<span class="sd">    NaN there is silently coerced to 0.0 because the upstream is messy</span>
+<span class="sd">    and the operator can&#39;t always control it.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">allow_none</span> <span class="ow">and</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> must be a finite number, got </span><span class="si">{</span><span class="n">value</span><span class="si">!r}</span><span class="s2"> &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">).&quot;</span>
+        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
+    <span class="k">if</span> <span class="n">math</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="ow">or</span> <span class="n">math</span><span class="o">.</span><span class="n">isinf</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> must be a finite number, got </span><span class="si">{</span><span class="n">value</span><span class="si">!r}</span><span class="s2">.&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">v</span>
+
+
 <span class="k">def</span><span class="w"> </span><span class="nf">compute_inactivity_timeout_s</span><span class="p">(</span>
     <span class="o">*</span><span class="p">,</span>
     <span class="n">recording_duration_min</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -675,30 +703,60 @@
 
 <span class="sd">    Parameters:</span>
 <span class="sd">        recording_duration_min (float): Recording length in minutes.</span>
-<span class="sd">            Negative or NaN values are clamped to zero.</span>
+<span class="sd">            **Runtime metadata** — defensively coerced: negative or</span>
+<span class="sd">            NaN values become 0.0, numpy scalars are accepted. A</span>
+<span class="sd">            malformed upstream never produces a NaN timeout.</span>
 <span class="sd">        base_s (float): Minimum tolerance applied even for tiny</span>
-<span class="sd">            recordings. Defaults to 600 (10 min).</span>
+<span class="sd">            recordings. Defaults to 600 (10 min). **Config parameter**</span>
+<span class="sd">            — rejected with :class:`ValueError` if NaN or Inf.</span>
 <span class="sd">        per_min_s (float): Extra seconds of tolerance per minute of</span>
-<span class="sd">            recording. Defaults to 30.</span>
+<span class="sd">            recording. Defaults to 30. **Config parameter** —</span>
+<span class="sd">            rejected with :class:`ValueError` if NaN or Inf.</span>
 <span class="sd">        max_s (float or None): Hard cap on the tolerance. ``None``</span>
-<span class="sd">            means no cap. Defaults to 7200 (2 h).</span>
+<span class="sd">            means no cap. Defaults to 7200 (2 h). **Config parameter**</span>
+<span class="sd">            — rejected with :class:`ValueError` if NaN or Inf (use</span>
+<span class="sd">            ``None`` for &quot;no cap&quot;; NaN-as-no-cap would overload the</span>
+<span class="sd">            sentinel and hide misconfig bugs).</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        timeout_s (float): Resolved inactivity tolerance in seconds.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ValueError: If ``base_s``, ``per_min_s``, or ``max_s`` is</span>
+<span class="sd">            NaN, Inf, or not coercible to ``float``.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="c1"># NaN is truthy in Python, so ``recording_duration_min or 0.0``</span>
-    <span class="c1"># leaves NaN intact. ``max(0.0, NaN)`` returns NaN on CPython.</span>
-    <span class="c1"># Coerce NaN/None to 0 before arithmetic so a malfunctioning</span>
-    <span class="c1"># upstream never produces a NaN timeout (NaN comparisons would</span>
-    <span class="c1"># silently disable the watchdog).</span>
+    <span class="c1"># Config params: strict boundary guard. NaN/Inf in these almost</span>
+    <span class="c1"># always indicates a config bug (typo, leaked computation,</span>
+    <span class="c1"># missing default); silently propagating produces a NaN timeout</span>
+    <span class="c1"># that disables the watchdog without any signal.</span>
+    <span class="n">base_s</span> <span class="o">=</span> <span class="n">_require_finite</span><span class="p">(</span><span class="s2">&quot;base_s&quot;</span><span class="p">,</span> <span class="n">base_s</span><span class="p">)</span>
+    <span class="n">per_min_s</span> <span class="o">=</span> <span class="n">_require_finite</span><span class="p">(</span><span class="s2">&quot;per_min_s&quot;</span><span class="p">,</span> <span class="n">per_min_s</span><span class="p">)</span>
+    <span class="n">max_s</span> <span class="o">=</span> <span class="n">_require_finite</span><span class="p">(</span><span class="s2">&quot;max_s&quot;</span><span class="p">,</span> <span class="n">max_s</span><span class="p">,</span> <span class="n">allow_none</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Runtime metadata: defensive coerce. NaN is truthy in Python, so</span>
+    <span class="c1"># ``recording_duration_min or 0.0`` leaves NaN intact. ``max(0.0,</span>
+    <span class="c1"># NaN)`` returns NaN on CPython. Coerce NaN/None to 0 before</span>
+    <span class="c1"># arithmetic so a malformed upstream never produces a NaN</span>
+    <span class="c1"># timeout. The previous ``isinstance(raw, float)`` check missed</span>
+    <span class="c1"># numpy scalars (``np.float64``, ``np.float32``) which are not</span>
+    <span class="c1"># Python ``float`` instances — NaN values coming from</span>
+    <span class="c1"># numpy-typed metadata could slip through. ``math.isnan``</span>
+    <span class="c1"># accepts any real-valued scalar, so guard ``isinstance`` widely</span>
+    <span class="c1"># against types ``math.isnan`` rejects (str, list, etc.).</span>
     <span class="n">raw</span> <span class="o">=</span> <span class="n">recording_duration_min</span>
-    <span class="k">if</span> <span class="n">raw</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span> <span class="ow">and</span> <span class="n">math</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">raw</span><span class="p">)):</span>
+    <span class="n">is_nan</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="k">if</span> <span class="n">raw</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">is_nan</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">raw</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
+            <span class="n">is_nan</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="k">if</span> <span class="n">raw</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">is_nan</span><span class="p">:</span>
         <span class="n">duration</span> <span class="o">=</span> <span class="mf">0.0</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">duration</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">raw</span><span class="p">))</span>
-    <span class="n">timeout</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">base_s</span><span class="p">)</span> <span class="o">+</span> <span class="nb">float</span><span class="p">(</span><span class="n">per_min_s</span><span class="p">)</span> <span class="o">*</span> <span class="n">duration</span>
+    <span class="n">timeout</span> <span class="o">=</span> <span class="n">base_s</span> <span class="o">+</span> <span class="n">per_min_s</span> <span class="o">*</span> <span class="n">duration</span>
     <span class="k">if</span> <span class="n">max_s</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">timeout</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">timeout</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">max_s</span><span class="p">))</span>
+        <span class="n">timeout</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">timeout</span><span class="p">,</span> <span class="n">max_s</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">timeout</span>
 
 
@@ -765,9 +823,13 @@
         <span class="n">kill_grace_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">5.0</span><span class="p">,</span>
         <span class="n">kill_callback</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[],</span> <span class="kc">None</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">inactivity_s</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">inactivity_s</span><span class="p">)</span> <span class="ow">or</span> <span class="n">inactivity_s</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">inactivity_s</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">inactivity_s</span><span class="p">)</span> <span class="ow">or</span> <span class="n">np</span><span class="o">.</span><span class="n">isinf</span><span class="p">(</span><span class="n">inactivity_s</span><span class="p">)</span> <span class="ow">or</span> <span class="n">inactivity_s</span> <span class="o">&lt;=</span> <span class="mf">0.0</span>
+        <span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;inactivity_s must be positive or None, got </span><span class="si">{</span><span class="n">inactivity_s</span><span class="si">}</span><span class="s2">.&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;inactivity_s must be a positive finite number or None, got &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">inactivity_s</span><span class="si">}</span><span class="s2">. An infinite tolerance would silently disable the &quot;</span>
+                <span class="s2">&quot;stall watchdog.&quot;</span>
             <span class="p">)</span>
         <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">poll_interval_s</span><span class="p">)</span> <span class="ow">or</span> <span class="n">poll_interval_s</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
@@ -788,6 +850,14 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_tripped</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_last_seen_mtime</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_last_seen_size</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># Track inode too so a log rotated via delete-and-recreate</span>
+        <span class="c1"># registers as progress even when the new file inherits the</span>
+        <span class="c1"># old file&#39;s mtime + size (e.g. ``touch -r`` after recreate,</span>
+        <span class="c1"># or external rotation that preserves both signals). On</span>
+        <span class="c1"># Windows + FAT/exFAT/some network shares ``st_ino`` is 0</span>
+        <span class="c1"># for every file; the change-check below tolerates that by</span>
+        <span class="c1"># falling back to mtime+size when both ino values are 0.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_last_seen_ino</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_inactivity_at_trip</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="c1"># Disabled when there is no timeout to enforce, or when there</span>
         <span class="c1"># is no kill target at all (neither a subprocess nor a</span>
@@ -842,14 +912,21 @@
     <span class="k">def</span><span class="w"> </span><span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;LogInactivityWatchdog&quot;</span><span class="p">:</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_enabled</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span>
-        <span class="c1"># Capture the pre-existing mtime + size so a stale log from</span>
-        <span class="c1"># a previous run does not register as a fresh trip.</span>
+        <span class="c1"># Capture the pre-existing mtime + size + inode so a stale</span>
+        <span class="c1"># log from a previous run does not register as a fresh trip,</span>
+        <span class="c1"># and a same-mtime-same-size recreate is still detected via</span>
+        <span class="c1"># the inode change.</span>
         <span class="n">signals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_read_signals</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">signals</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_last_seen_mtime</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_seen_size</span> <span class="o">=</span> <span class="n">signals</span>
+            <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_last_seen_mtime</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_last_seen_size</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_last_seen_ino</span><span class="p">,</span>
+            <span class="p">)</span> <span class="o">=</span> <span class="n">signals</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_last_seen_mtime</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_last_seen_size</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_last_seen_ino</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
             <span class="s2">&quot;active: sorter=</span><span class="si">%s</span><span class="s2"> tolerance=</span><span class="si">%.1f</span><span class="s2">s poll=</span><span class="si">%.1f</span><span class="s2">s log=</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">sorter</span><span class="p">,</span>
@@ -876,11 +953,19 @@
     <span class="c1"># Internals</span>
     <span class="c1"># ------------------------------------------------------------------</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_read_signals</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return ``(mtime, size)`` for the log file, or None if absent.&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_read_signals</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return ``(mtime, size, inode)`` for the log file, or None if absent.</span>
+
+<span class="sd">        The inode is included so external log replacement</span>
+<span class="sd">        (delete + recreate with the same mtime and size) registers</span>
+<span class="sd">        as progress. On Windows + FAT/exFAT/some network shares</span>
+<span class="sd">        ``st_ino`` is always 0; the change-check in the poll loop</span>
+<span class="sd">        falls back to mtime + size when both old and new inode are</span>
+<span class="sd">        0, so the loss of signal is silent on those platforms.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">st</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">stat</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">log_path</span><span class="p">)</span>
-            <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">st</span><span class="o">.</span><span class="n">st_mtime</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">st</span><span class="o">.</span><span class="n">st_size</span><span class="p">)</span>
+            <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">st</span><span class="o">.</span><span class="n">st_mtime</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">st</span><span class="o">.</span><span class="n">st_size</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">st</span><span class="o">.</span><span class="n">st_ino</span><span class="p">)</span>
         <span class="k">except</span> <span class="p">(</span><span class="ne">OSError</span><span class="p">,</span> <span class="ne">FileNotFoundError</span><span class="p">):</span>
             <span class="k">return</span> <span class="kc">None</span>
 
@@ -903,21 +988,38 @@
             <span class="n">now</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
 
             <span class="k">if</span> <span class="n">signals</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">cur_mtime</span><span class="p">,</span> <span class="n">cur_size</span> <span class="o">=</span> <span class="n">signals</span>
+                <span class="n">cur_mtime</span><span class="p">,</span> <span class="n">cur_size</span><span class="p">,</span> <span class="n">cur_ino</span> <span class="o">=</span> <span class="n">signals</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="n">seen_any</span><span class="p">:</span>
                     <span class="c1"># File just appeared.</span>
                     <span class="n">seen_any</span> <span class="o">=</span> <span class="kc">True</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_last_seen_mtime</span> <span class="o">=</span> <span class="n">cur_mtime</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_last_seen_size</span> <span class="o">=</span> <span class="n">cur_size</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_last_seen_ino</span> <span class="o">=</span> <span class="n">cur_ino</span>
                     <span class="n">last_progress_t</span> <span class="o">=</span> <span class="n">now</span>
-                <span class="k">elif</span> <span class="p">(</span>
-                    <span class="n">cur_mtime</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_seen_mtime</span>
-                    <span class="ow">or</span> <span class="n">cur_size</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_seen_size</span>
-                <span class="p">):</span>
-                    <span class="c1"># Either signal advanced — reset the inactivity clock.</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_last_seen_mtime</span> <span class="o">=</span> <span class="n">cur_mtime</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_last_seen_size</span> <span class="o">=</span> <span class="n">cur_size</span>
-                    <span class="n">last_progress_t</span> <span class="o">=</span> <span class="n">now</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># Inode change indicates the file was replaced</span>
+                    <span class="c1"># (delete+recreate, rotation, etc.) — count as</span>
+                    <span class="c1"># progress even when mtime + size happen to be</span>
+                    <span class="c1"># identical to the prior signal. The ``!= 0``</span>
+                    <span class="c1"># guard preserves the prior mtime+size-only</span>
+                    <span class="c1"># behaviour on platforms where ``st_ino`` is</span>
+                    <span class="c1"># always 0 (Windows + FAT/exFAT/some network</span>
+                    <span class="c1"># shares): if neither old nor new ino is</span>
+                    <span class="c1"># informative, the ino comparison contributes</span>
+                    <span class="c1"># nothing and mtime+size drive the decision.</span>
+                    <span class="n">ino_changed</span> <span class="o">=</span> <span class="n">cur_ino</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_seen_ino</span> <span class="ow">and</span> <span class="p">(</span>
+                        <span class="n">cur_ino</span> <span class="o">!=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_seen_ino</span> <span class="o">!=</span> <span class="mi">0</span>
+                    <span class="p">)</span>
+                    <span class="k">if</span> <span class="p">(</span>
+                        <span class="n">cur_mtime</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_seen_mtime</span>
+                        <span class="ow">or</span> <span class="n">cur_size</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_seen_size</span>
+                        <span class="ow">or</span> <span class="n">ino_changed</span>
+                    <span class="p">):</span>
+                        <span class="c1"># Any signal advanced — reset the inactivity clock.</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_last_seen_mtime</span> <span class="o">=</span> <span class="n">cur_mtime</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_last_seen_size</span> <span class="o">=</span> <span class="n">cur_size</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_last_seen_ino</span> <span class="o">=</span> <span class="n">cur_ino</span>
+                        <span class="n">last_progress_t</span> <span class="o">=</span> <span class="n">now</span>
                 <span class="c1"># Recovered after a previous lost-file episode.</span>
                 <span class="n">lost_warned</span> <span class="o">=</span> <span class="kc">False</span>
             <span class="k">elif</span> <span class="n">seen_any</span><span class="p">:</span>

@@ -411,6 +411,7 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/index.html#server">Server</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../../api/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/mcp_server.html#spikelab.mcp_server.server.MAX_INLINE_ARRAY_SIZE"><code class="docutils literal notranslate"><span class="pre">MAX_INLINE_ARRAY_SIZE</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
 </ul>
 </li>
@@ -2285,6 +2286,50 @@
                 <span class="p">),</span>
                 <span class="n">remediation</span><span class="o">=</span><span class="p">(</span>
                     <span class="s2">&quot;Pass one results folder per recording to the sort pipeline.&quot;</span>
+                <span class="p">),</span>
+                <span class="n">category</span><span class="o">=</span><span class="s2">&quot;environment&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="c1"># ---------- Parallel-sequence length check --------------------------</span>
+    <span class="c1"># ``intermediate_folders`` and ``results_folders`` are by convention</span>
+    <span class="c1"># parallel to ``recording_files`` (one entry per recording). The disk</span>
+    <span class="c1"># checks below iterate the folder sequences independently, so a</span>
+    <span class="c1"># mismatched length silently truncates work to the shortest list. A</span>
+    <span class="c1"># future ``zip(...)`` refactor in the disk-check loop would change</span>
+    <span class="c1"># semantics without any signal. Emit fail-level findings so the</span>
+    <span class="c1"># caller can escalate via ``preflight_strict``.</span>
+    <span class="n">n_rec</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">recording_files</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">intermediate_folders</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">intermediate_folders</span><span class="p">)</span> <span class="o">!=</span> <span class="n">n_rec</span><span class="p">:</span>
+        <span class="n">findings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="n">PreflightFinding</span><span class="p">(</span>
+                <span class="n">level</span><span class="o">=</span><span class="s2">&quot;fail&quot;</span><span class="p">,</span>
+                <span class="n">code</span><span class="o">=</span><span class="s2">&quot;folder_count_mismatch&quot;</span><span class="p">,</span>
+                <span class="n">message</span><span class="o">=</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;intermediate_folders has </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">intermediate_folders</span><span class="p">)</span><span class="si">}</span><span class="s2"> entries &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;but recording_files has </span><span class="si">{</span><span class="n">n_rec</span><span class="si">}</span><span class="s2">. The two sequences must be &quot;</span>
+                    <span class="s2">&quot;parallel: one folder per recording.&quot;</span>
+                <span class="p">),</span>
+                <span class="n">remediation</span><span class="o">=</span><span class="p">(</span>
+                    <span class="s2">&quot;Ensure the caller builds intermediate_folders in the same &quot;</span>
+                    <span class="s2">&quot;loop as recording_files, with matching length.&quot;</span>
+                <span class="p">),</span>
+                <span class="n">category</span><span class="o">=</span><span class="s2">&quot;environment&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">results_folders</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">results_folders</span><span class="p">)</span> <span class="o">!=</span> <span class="n">n_rec</span><span class="p">:</span>
+        <span class="n">findings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="n">PreflightFinding</span><span class="p">(</span>
+                <span class="n">level</span><span class="o">=</span><span class="s2">&quot;fail&quot;</span><span class="p">,</span>
+                <span class="n">code</span><span class="o">=</span><span class="s2">&quot;folder_count_mismatch&quot;</span><span class="p">,</span>
+                <span class="n">message</span><span class="o">=</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;results_folders has </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">results_folders</span><span class="p">)</span><span class="si">}</span><span class="s2"> entries but &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;recording_files has </span><span class="si">{</span><span class="n">n_rec</span><span class="si">}</span><span class="s2">. The two sequences must be &quot;</span>
+                    <span class="s2">&quot;parallel: one folder per recording.&quot;</span>
+                <span class="p">),</span>
+                <span class="n">remediation</span><span class="o">=</span><span class="p">(</span>
+                    <span class="s2">&quot;Ensure the caller builds results_folders in the same loop &quot;</span>
+                    <span class="s2">&quot;as recording_files, with matching length.&quot;</span>
                 <span class="p">),</span>
                 <span class="n">category</span><span class="o">=</span><span class="s2">&quot;environment&quot;</span><span class="p">,</span>
             <span class="p">)</span>

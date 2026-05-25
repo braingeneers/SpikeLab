@@ -413,6 +413,7 @@
 </li>
 <li class="toctree-l2 current"><a class="reference internal" href="index.html#server">Server</a><ul class="current">
 <li class="toctree-l3 current"><a class="current reference internal" href="#">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#spikelab.mcp_server.server.MAX_INLINE_ARRAY_SIZE"><code class="docutils literal notranslate"><span class="pre">MAX_INLINE_ARRAY_SIZE</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
 </ul>
 </li>
@@ -455,6 +456,21 @@ agents. It provides a JSON-based interface to load data, run analyses, and
 retrieve results.</p>
 <p id="module-spikelab.mcp_server.server">Main MCP server implementation for spike data analysis.</p>
 <p>Registers all tools and handles transport (stdio or SSE).</p>
+<dl class="py data">
+<dt class="sig sig-object py" id="spikelab.mcp_server.server.MAX_INLINE_ARRAY_SIZE">
+<span class="sig-prename descclassname"><span class="pre">spikelab.mcp_server.server.</span></span><span class="sig-name descname"><span class="pre">MAX_INLINE_ARRAY_SIZE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">10000</span></em><a class="headerlink" href="#spikelab.mcp_server.server.MAX_INLINE_ARRAY_SIZE" title="Link to this definition"></a></dt>
+<dd><p>Soft cap on the number of elements in a numpy array that the MCP
+result sanitiser will inline into the JSON response. Arrays whose
+<code class="docutils literal notranslate"><span class="pre">.size</span></code> exceeds this raise a <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ValueError</span></code></a> from
+<code class="xref py py-func docutils literal notranslate"><span class="pre">_sanitize_for_json()</span></code> rather than being silently materialised
+into a Python list (which can blow up the JSON payload and slow
+the protocol layer to a crawl). Adjustable at runtime by writing
+to <code class="docutils literal notranslate"><span class="pre">spikelab.mcp_server.server.MAX_INLINE_ARRAY_SIZE</span></code> after
+import — e.g. for embedded callers that know the protocol can
+handle larger payloads, or for tests that want to exercise the
+threshold branch with a small cap.</p>
+</dd></dl>
+
 <dl class="py function">
 <dt class="sig sig-object py" id="spikelab.mcp_server.server.main">
 <em class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">spikelab.mcp_server.server.</span></span><span class="sig-name descname"><span class="pre">main</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/mcp_server/server.html#main"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.mcp_server.server.main" title="Link to this definition"></a></dt>

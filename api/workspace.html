@@ -414,6 +414,7 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="index.html#server">Server</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="mcp_server.html#spikelab.mcp_server.server.MAX_INLINE_ARRAY_SIZE"><code class="docutils literal notranslate"><span class="pre">MAX_INLINE_ARRAY_SIZE</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
 </ul>
 </li>
@@ -1046,6 +1047,23 @@ rather than <code class="docutils literal notranslate"><span class="pre">foo.h5.
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.workspace.workspace.LazyAnalysisWorkspace.close">
+<span class="sig-name descname"><span class="pre">close</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/workspace/workspace.html#LazyAnalysisWorkspace.close"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.workspace.workspace.LazyAnalysisWorkspace.close" title="Link to this definition"></a></dt>
+<dd><p>Explicitly release the backing temp HDF5 file.</p>
+<p><code class="docutils literal notranslate"><span class="pre">__del__</span></code> is unreliable for cleanup (not called during
+interpreter shutdown, not called if the workspace is captured
+in a closure, not called for objects in reference cycles), so
+consumers that need deterministic cleanup — notably
+<a class="reference internal" href="#spikelab.workspace.workspace.WorkspaceManager.delete_workspace" title="spikelab.workspace.workspace.WorkspaceManager.delete_workspace"><code class="xref py py-meth docutils literal notranslate"><span class="pre">WorkspaceManager.delete_workspace()</span></code></a> — should call this
+method first. Safe to call multiple times.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></span></p>
 </dd>
 </dl>
 </dd></dl>

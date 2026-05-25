@@ -414,6 +414,7 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="index.html#server">Server</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="mcp_server.html#spikelab.mcp_server.server.MAX_INLINE_ARRAY_SIZE"><code class="docutils literal notranslate"><span class="pre">MAX_INLINE_ARRAY_SIZE</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
 </ul>
 </li>
@@ -552,14 +553,23 @@ if dict, pass to filter; if False, no filtering.</p></li>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="spikelab.data_loaders.data_loaders.load_spikedata_from_nwb">
-<span class="sig-prename descclassname"><span class="pre">spikelab.data_loaders.data_loaders.</span></span><span class="sig-name descname"><span class="pre">load_spikedata_from_nwb</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filepath</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prefer_pynwb</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">length_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/data_loaders/data_loaders.html#load_spikedata_from_nwb"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.data_loaders.data_loaders.load_spikedata_from_nwb" title="Link to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">spikelab.data_loaders.data_loaders.</span></span><span class="sig-name descname"><span class="pre">load_spikedata_from_nwb</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filepath</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prefer_pynwb</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">length_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_time_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/data_loaders/data_loaders.html#load_spikedata_from_nwb"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.data_loaders.data_loaders.load_spikedata_from_nwb" title="Link to this definition"></a></dt>
 <dd><p>Load spike trains from an NWB file’s Units table.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>filepath</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Path to the NWB file.</p></li>
 <li><p><strong>prefer_pynwb</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – If True, try pynwb first; if False, try h5py.</p></li>
-<li><p><strong>length_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> | </em><em>None</em>) – Recording duration in milliseconds.</p></li>
+<li><p><strong>length_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> | </em><em>None</em>) – Recording duration in milliseconds.
+When <code class="docutils literal notranslate"><span class="pre">None</span></code>, reads from the file-level <code class="docutils literal notranslate"><span class="pre">length_ms</span></code>
+attribute (written by <code class="docutils literal notranslate"><span class="pre">export_spikedata_to_nwb</span></code>); falls
+back to inferring from the latest spike time if the
+attribute is absent.</p></li>
+<li><p><strong>start_time_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> | </em><em>None</em>) – Recording start time in
+milliseconds. When <code class="docutils literal notranslate"><span class="pre">None</span></code>, reads from the file-level
+<code class="docutils literal notranslate"><span class="pre">start_time</span></code> attribute (written by
+<code class="docutils literal notranslate"><span class="pre">export_spikedata_to_nwb</span></code>); falls back to 0.0 if the
+attribute is absent. Mirrors the <code class="docutils literal notranslate"><span class="pre">length_ms</span></code> ladder.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -662,7 +672,7 @@ if dict, pass to filter; if False, no filtering.</p></li>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="spikelab.data_loaders.data_loaders.load_spikedata_from_pickle">
-<span class="sig-prename descclassname"><span class="pre">spikelab.data_loaders.data_loaders.</span></span><span class="sig-name descname"><span class="pre">load_spikedata_from_pickle</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filepath</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">aws_access_key_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">aws_secret_access_key</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">aws_session_token</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">region_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/data_loaders/data_loaders.html#load_spikedata_from_pickle"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.data_loaders.data_loaders.load_spikedata_from_pickle" title="Link to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">spikelab.data_loaders.data_loaders.</span></span><span class="sig-name descname"><span class="pre">load_spikedata_from_pickle</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filepath</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allow_remote</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">aws_access_key_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">aws_secret_access_key</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">aws_session_token</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">region_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/data_loaders/data_loaders.html#load_spikedata_from_pickle"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.data_loaders.data_loaders.load_spikedata_from_pickle" title="Link to this definition"></a></dt>
 <dd><p>Load a SpikeData object from a pickle file.</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
@@ -670,13 +680,19 @@ if dict, pass to filter; if False, no filtering.</p></li>
 deserialization can execute arbitrary code and should never be
 used with untrusted data. The file is deserialized before type
 checking — malicious payloads execute regardless of the
-subsequent isinstance check.</p>
+subsequent isinstance check. Remote (S3) loads require
+<code class="docutils literal notranslate"><span class="pre">allow_remote=True</span></code> so the caller has to opt in.</p>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>filepath</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Path to the pickle file, or an S3 URL
-(s3://bucket/key).</p></li>
+(s3://bucket/key). Remote URLs require <code class="docutils literal notranslate"><span class="pre">allow_remote=True</span></code>.</p></li>
+<li><p><strong>allow_remote</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – When <code class="docutils literal notranslate"><span class="pre">False</span></code> (default), S3 URLs are
+rejected with a <code class="docutils literal notranslate"><span class="pre">ValueError</span></code>. Pass <code class="docutils literal notranslate"><span class="pre">True</span></code> to opt in to
+loading a pickle from a remote bucket; a <code class="docutils literal notranslate"><span class="pre">UserWarning</span></code>
+is also emitted at the call site so the risk surfaces in
+batch-job logs.</p></li>
 <li><p><strong>aws_access_key_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – AWS access key ID for S3
 downloads.</p></li>
 <li><p><strong>aws_secret_access_key</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – AWS secret access key for

@@ -411,6 +411,7 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#server">Server</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/mcp_server.html#spikelab.mcp_server.server.MAX_INLINE_ARRAY_SIZE"><code class="docutils literal notranslate"><span class="pre">MAX_INLINE_ARRAY_SIZE</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
 </ul>
 </li>
@@ -646,6 +647,13 @@
 <span class="sd">        width.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
+    <span class="c1"># Empty times → empty rates. Matches the empty-friendly behaviour</span>
+    <span class="c1"># of the ``len(spikes) &lt;= 1`` branch below (``np.zeros_like([])``</span>
+    <span class="c1"># is empty). Without this guard the single-time fast path crashes</span>
+    <span class="c1"># at ``times[0]`` with a bare IndexError when 2+ spikes are present.</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">times</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">spikes</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">spikes</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
         <span class="c1"># Need at least 2 spikes to do get inter-spike interval</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">times</span><span class="p">)</span>
@@ -682,6 +690,21 @@
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
             <span class="s2">&quot;times array contains duplicate values. &quot;</span>
             <span class="s2">&quot;Provide an evenly-spaced grid with unique time points.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="c1"># Reject non-uniform time grids. The bin math below</span>
+    <span class="c1"># (``dt_ms = times[1] - times[0]``, ``n_bins = (t_end - t_start) /</span>
+    <span class="c1"># dt_ms + 1``) assumes uniform spacing — on a non-uniform grid the</span>
+    <span class="c1"># firing-rate output is silently wrong because all gaps are</span>
+    <span class="c1"># treated as if they equalled the first gap. Reject at the</span>
+    <span class="c1"># boundary rather than producing garbage.</span>
+    <span class="n">diffs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">times</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">diffs</span><span class="p">,</span> <span class="n">diffs</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;times array is not uniformly spaced. &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;First gap is </span><span class="si">{</span><span class="n">diffs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">.6g</span><span class="si">}</span><span class="s2">; got &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;min=</span><span class="si">{</span><span class="n">diffs</span><span class="o">.</span><span class="n">min</span><span class="p">()</span><span class="si">:</span><span class="s2">.6g</span><span class="si">}</span><span class="s2">, max=</span><span class="si">{</span><span class="n">diffs</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="si">:</span><span class="s2">.6g</span><span class="si">}</span><span class="s2">. &quot;</span>
+            <span class="s2">&quot;Provide an evenly-spaced grid.&quot;</span>
         <span class="p">)</span>
 
     <span class="c1"># Compute inter spike intervals (piece 1 logic)</span>
@@ -1090,8 +1113,17 @@
     <span class="n">search_end</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">r</span><span class="p">),</span> <span class="n">center</span> <span class="o">+</span> <span class="n">max_lag</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
     <span class="n">search_window</span> <span class="o">=</span> <span class="n">r</span><span class="p">[</span><span class="n">search_start</span><span class="p">:</span><span class="n">search_end</span><span class="p">]</span>
 
-    <span class="n">max_corr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">search_window</span><span class="p">)</span>
-    <span class="n">max_lag_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">search_window</span><span class="p">)</span> <span class="o">+</span> <span class="n">search_start</span> <span class="o">-</span> <span class="n">center</span>
+    <span class="c1"># NaN-safe peak detection. RateData allows NaN entries (caller-built</span>
+    <span class="c1"># rate matrices, e.g. from external sources), so the correlation</span>
+    <span class="c1"># output ``r`` can contain NaN. Plain ``np.max``/``argmax`` would</span>
+    <span class="c1"># silently propagate NaN into the pairwise matrices; the cosine</span>
+    <span class="c1"># sibling ``compute_cosine_similarity_with_lag`` already uses the</span>
+    <span class="c1"># nan-safe variants. Match that behaviour, with a sentinel return</span>
+    <span class="c1"># for the all-NaN edge case.</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">search_window</span><span class="p">)):</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="mi">0</span>
+    <span class="n">max_corr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmax</span><span class="p">(</span><span class="n">search_window</span><span class="p">)</span>
+    <span class="n">max_lag_idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nanargmax</span><span class="p">(</span><span class="n">search_window</span><span class="p">))</span> <span class="o">+</span> <span class="n">search_start</span> <span class="o">-</span> <span class="n">center</span>
 
     <span class="k">return</span> <span class="n">max_corr</span><span class="p">,</span> <span class="n">max_lag_idx</span>
 
@@ -1521,8 +1553,11 @@
     <span class="k">if</span> <span class="n">unit</span> <span class="o">==</span> <span class="s2">&quot;s&quot;</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">times_ms</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span> <span class="o">/</span> <span class="mf">1e3</span>
     <span class="k">if</span> <span class="n">unit</span> <span class="o">==</span> <span class="s2">&quot;samples&quot;</span><span class="p">:</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">fs_Hz</span> <span class="ow">or</span> <span class="n">fs_Hz</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;fs_Hz must be provided and &gt; 0 when unit=&#39;samples&#39;&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">fs_Hz</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">fs_Hz</span><span class="p">)</span> <span class="ow">or</span> <span class="n">fs_Hz</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;fs_Hz must be a positive finite number when unit=&#39;samples&#39;, &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;got </span><span class="si">{</span><span class="n">fs_Hz</span><span class="si">!r}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
         <span class="c1"># Use round-to-nearest to produce integer samples</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">rint</span><span class="p">(</span><span class="n">times_ms</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">fs_Hz</span> <span class="o">/</span> <span class="mf">1e3</span><span class="p">))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
     <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown time unit &#39;</span><span class="si">{</span><span class="n">unit</span><span class="si">}</span><span class="s2">&#39; (expected &#39;s&#39;,&#39;ms&#39;,&#39;samples&#39;)&quot;</span><span class="p">)</span></div>
@@ -1538,8 +1573,11 @@
     <span class="k">if</span> <span class="n">unit</span> <span class="o">==</span> <span class="s2">&quot;s&quot;</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">values</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span> <span class="o">*</span> <span class="mf">1e3</span>
     <span class="k">if</span> <span class="n">unit</span> <span class="o">==</span> <span class="s2">&quot;samples&quot;</span><span class="p">:</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">fs_Hz</span> <span class="ow">or</span> <span class="n">fs_Hz</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;fs_Hz must be provided and &gt; 0 when unit=&#39;samples&#39;&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">fs_Hz</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">fs_Hz</span><span class="p">)</span> <span class="ow">or</span> <span class="n">fs_Hz</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;fs_Hz must be a positive finite number when unit=&#39;samples&#39;, &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;got </span><span class="si">{</span><span class="n">fs_Hz</span><span class="si">!r}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
         <span class="k">return</span> <span class="n">values</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span> <span class="o">/</span> <span class="n">fs_Hz</span> <span class="o">*</span> <span class="mf">1e3</span>
     <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown time unit &#39;</span><span class="si">{</span><span class="n">unit</span><span class="si">}</span><span class="s2">&#39; (expected &#39;s&#39;,&#39;ms&#39;,&#39;samples&#39;)&quot;</span><span class="p">)</span></div>
 
@@ -2078,6 +2116,14 @@
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">times_start_to_end</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;times must be a list of tuples&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">recording_range</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">rec_start</span><span class="p">,</span> <span class="n">rec_end</span> <span class="o">=</span> <span class="n">recording_range</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">rec_start</span><span class="p">)</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">rec_end</span><span class="p">)):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;recording_range must contain finite values, got &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="n">rec_start</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">rec_end</span><span class="si">}</span><span class="s2">). NaN comparisons silently pass the &quot;</span>
+                <span class="s2">&quot;bounds check and corrupt downstream slicing.&quot;</span>
+            <span class="p">)</span>
     <span class="n">time_diff_check</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">valid_time_tuples</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">zero_duration_offenders</span> <span class="o">=</span> <span class="p">[]</span>
@@ -2316,8 +2362,26 @@
 <span class="sd">          freedom), which also propagates to NaN.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">shuffle_distribution</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">shuffle_distribution</span><span class="p">)</span>
-    <span class="n">mean</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">shuffle_distribution</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-    <span class="n">std</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanstd</span><span class="p">(</span><span class="n">shuffle_distribution</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">ddof</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="c1"># All-NaN slices along axis 0 are a documented degenerate case</span>
+    <span class="c1"># (caller wants NaN out). ``nanmean`` and ``nanstd`` produce the</span>
+    <span class="c1"># correct NaN but each emit one ``RuntimeWarning`` per call.</span>
+    <span class="c1"># Suppress only those two specific messages so unrelated warnings</span>
+    <span class="c1"># still propagate. Two narrow filters rather than one broad</span>
+    <span class="c1"># ``RuntimeWarning`` filter so we don&#39;t accidentally silence</span>
+    <span class="c1"># other numerical issues (overflow, invalid operations, etc.).</span>
+    <span class="k">with</span> <span class="n">warnings</span><span class="o">.</span><span class="n">catch_warnings</span><span class="p">():</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">filterwarnings</span><span class="p">(</span>
+            <span class="s2">&quot;ignore&quot;</span><span class="p">,</span>
+            <span class="n">category</span><span class="o">=</span><span class="ne">RuntimeWarning</span><span class="p">,</span>
+            <span class="n">message</span><span class="o">=</span><span class="s2">&quot;Mean of empty slice&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">filterwarnings</span><span class="p">(</span>
+            <span class="s2">&quot;ignore&quot;</span><span class="p">,</span>
+            <span class="n">category</span><span class="o">=</span><span class="ne">RuntimeWarning</span><span class="p">,</span>
+            <span class="n">message</span><span class="o">=</span><span class="s2">&quot;Degrees of freedom &lt;= 0&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">mean</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">shuffle_distribution</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">std</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanstd</span><span class="p">(</span><span class="n">shuffle_distribution</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">ddof</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
     <span class="n">safe_std</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">std</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">std</span><span class="p">)</span>
     <span class="n">z</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">observed</span><span class="p">)</span> <span class="o">-</span> <span class="n">mean</span><span class="p">)</span> <span class="o">/</span> <span class="n">safe_std</span>
     <span class="n">z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">std</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="n">z</span><span class="p">)</span>
@@ -2552,7 +2616,14 @@
     <span class="n">channel</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">neuron_attrs</span><span class="p">[</span><span class="s2">&quot;channel&quot;</span><span class="p">])</span>
     <span class="n">nb_channels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">neuron_attrs</span><span class="p">[</span><span class="s2">&quot;neighbor_channels&quot;</span><span class="p">])</span>
 
-    <span class="n">t_i</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">template</span><span class="p">))</span>
+    <span class="c1"># Locate the trough by largest absolute deflection so this works</span>
+    <span class="c1"># for both polarities. ``np.argmin(template)`` only worked for</span>
+    <span class="c1"># extracellular spikes with the conventional negative-going peak;</span>
+    <span class="c1"># sorters that emit positive-going templates (e.g. some calcium-</span>
+    <span class="c1"># imaging-style pipelines, or sorters with inverted polarity)</span>
+    <span class="c1"># produced a meaningless &quot;trough&quot; at the least-positive sample,</span>
+    <span class="c1"># which then silently misaligned the downstream footprint slice.</span>
+    <span class="n">t_i</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">template</span><span class="p">)))</span>
 
     <span class="n">sel_start</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">t_i</span> <span class="o">-</span> <span class="n">f_rel_to_trough</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
     <span class="n">sel_end</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">template</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">t_i</span> <span class="o">+</span> <span class="n">f_rel_to_trough</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>

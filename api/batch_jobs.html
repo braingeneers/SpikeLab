@@ -414,6 +414,7 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="index.html#server">Server</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="mcp_server.html#spikelab.mcp_server.server.MAX_INLINE_ARRAY_SIZE"><code class="docutils literal notranslate"><span class="pre">MAX_INLINE_ARRAY_SIZE</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
 </ul>
 </li>
@@ -906,10 +907,31 @@ bundle manifest.</p></li>
 <span class="sig-name descname"><span class="pre">submit_prepared_job</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">job_spec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">run_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allow_policy_risk</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/batch_jobs/session.html#RunSession.submit_prepared_job"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.batch_jobs.session.RunSession.submit_prepared_job" title="Link to this definition"></a></dt>
 <dd><p>Submit a job without generating bundle artifacts.</p>
 <dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>job_spec</strong> (<a class="reference internal" href="#spikelab.batch_jobs.models.JobSpec" title="spikelab.batch_jobs.models.JobSpec"><em>JobSpec</em></a>) – K8s job spec.</p></li>
+<li><p><strong>run_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – Optional explicit run identifier. Must
+be a single path component — no <code class="docutils literal notranslate"><span class="pre">/</span></code>, <code class="docutils literal notranslate"><span class="pre">\</span></code>, or
+<code class="docutils literal notranslate"><span class="pre">..</span></code> segments. Defaults to a random UUID hex when None.</p></li>
+<li><p><strong>allow_policy_risk</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Bypass policy preflight BLOCK
+findings.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The submitted job descriptor.</p>
+</dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference internal" href="#spikelab.batch_jobs.models.SubmitResult" title="spikelab.batch_jobs.models.SubmitResult"><code class="xref py py-class docutils literal notranslate"><span class="pre">SubmitResult</span></code></a></span></p>
+<dd class="field-odd"><p>result (<a class="reference internal" href="#spikelab.batch_jobs.models.SubmitResult" title="spikelab.batch_jobs.models.SubmitResult">SubmitResult</a>)</p>
 </dd>
 </dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>Unlike <code class="docutils literal notranslate"><span class="pre">submit_workspace_job</span></code> / <code class="docutils literal notranslate"><span class="pre">submit_sorting_job</span></code>,
+this path skips <code class="docutils literal notranslate"><span class="pre">package_analysis_bundle</span></code> (which has its
+own traversal guard on run_id). The same traversal check
+is applied here so an operator-supplied run_id like
+<code class="docutils literal notranslate"><span class="pre">&quot;../escape&quot;</span></code> cannot escape the storage prefix.</p></li>
+</ul>
 </dd></dl>
 
 <dl class="py method">
@@ -975,6 +997,18 @@ ensure the job has finished.</p></li>
 <dt class="sig sig-object py" id="spikelab.batch_jobs.backend_k8s.KubernetesBatchJobBackend.apply_manifest">
 <span class="sig-name descname"><span class="pre">apply_manifest</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">manifest_path_or_str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/batch_jobs/backend_k8s.html#KubernetesBatchJobBackend.apply_manifest"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.batch_jobs.backend_k8s.KubernetesBatchJobBackend.apply_manifest" title="Link to this definition"></a></dt>
 <dd><p>Apply a job manifest by YAML file path or raw YAML string.</p>
+<p>Returns the job’s <code class="docutils literal notranslate"><span class="pre">metadata.name</span></code> (consistent across both
+paths). Previously the kubectl-fallback path returned the
+raw stdout of <code class="docutils literal notranslate"><span class="pre">kubectl</span> <span class="pre">apply</span></code> (e.g. <code class="docutils literal notranslate"><span class="pre">&quot;job.batch/myjob</span>
+<span class="pre">created\n&quot;</span></code>) while the Python-client path returned the
+clean name — callers had no portable way to extract the
+identifier without sniffing the backend.</p>
+<p>Raises <code class="docutils literal notranslate"><span class="pre">ValueError</span></code> if the manifest’s <code class="docutils literal notranslate"><span class="pre">metadata.namespace</span></code>
+is set and disagrees with the backend’s <code class="docutils literal notranslate"><span class="pre">self.namespace</span></code> —
+this would otherwise silently deploy into the backend’s
+namespace, contrary to the rendered manifest. Manifests with
+no <code class="docutils literal notranslate"><span class="pre">metadata.namespace</span></code> are accepted and assigned the
+backend’s namespace as before.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></span></p>
@@ -985,7 +1019,12 @@ ensure the job has finished.</p></li>
 <dl class="py method">
 <dt class="sig sig-object py" id="spikelab.batch_jobs.backend_k8s.KubernetesBatchJobBackend.delete_job">
 <span class="sig-name descname"><span class="pre">delete_job</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/batch_jobs/backend_k8s.html#KubernetesBatchJobBackend.delete_job"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.batch_jobs.backend_k8s.KubernetesBatchJobBackend.delete_job" title="Link to this definition"></a></dt>
-<dd><p>Delete a job and its pods.</p>
+<dd><p>Delete a job and its pods. Idempotent: missing jobs are a no-op.</p>
+<p>Matches the <code class="docutils literal notranslate"><span class="pre">kubectl</span> <span class="pre">--ignore-not-found=true</span></code> semantic on
+the fallback path so the two delete paths behave the same
+way for the missing-job case. Previously the Python
+kubernetes-client path propagated <code class="docutils literal notranslate"><span class="pre">ApiException(404)</span></code>
+verbatim while the kubectl path exited cleanly.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></span></p>
@@ -1059,6 +1098,8 @@ ensure the job has finished.</p></li>
 <dt class="sig sig-object py" id="spikelab.batch_jobs.storage_s3.S3StorageClient.upload_file">
 <span class="sig-name descname"><span class="pre">upload_file</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">local_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s3_uri</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/batch_jobs/storage_s3.html#S3StorageClient.upload_file"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.batch_jobs.storage_s3.S3StorageClient.upload_file" title="Link to this definition"></a></dt>
 <dd><p>Upload a local file to S3 and return the URI.</p>
+<p>Raises <code class="docutils literal notranslate"><span class="pre">FileNotFoundError</span></code> if <code class="docutils literal notranslate"><span class="pre">local_path</span></code> does not exist
+rather than deferring to boto3’s less informative error.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></span></p>
@@ -1231,6 +1272,15 @@ outside <code class="docutils literal notranslate"><span class="pre">local_dir</
 <dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]</span></p>
 </dd>
 </dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>Keys are matched against word-boundary patterns for
+<code class="docutils literal notranslate"><span class="pre">SECRET</span></code>, <code class="docutils literal notranslate"><span class="pre">TOKEN</span></code>, and <code class="docutils literal notranslate"><span class="pre">PASSWORD</span></code>. Previously the
+substring check redacted <code class="docutils literal notranslate"><span class="pre">SECRETS_PATH</span></code> (and similar
+non-secret keys that happened to contain <code class="docutils literal notranslate"><span class="pre">SECRET</span></code>) as a
+false positive — the value of <code class="docutils literal notranslate"><span class="pre">SECRETS_PATH</span></code> is a
+filesystem path, not a credential.</p></li>
+</ul>
 </dd></dl>
 
 </section>

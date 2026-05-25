@@ -411,6 +411,7 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#server">Server</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/mcp_server.html#spikelab.mcp_server.server.MAX_INLINE_ARRAY_SIZE"><code class="docutils literal notranslate"><span class="pre">MAX_INLINE_ARRAY_SIZE</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
 </ul>
 </li>
@@ -618,7 +619,16 @@
     <span class="n">save_electrodes</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
     <span class="n">save_spike_times</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
     <span class="n">save_raw_pkl</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
-    <span class="n">save_dl_data</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span></div>
+    <span class="n">save_dl_data</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="c1"># When True, the compiler operates on the **pre-curation** SpikeData</span>
+    <span class="c1"># and uses ``curation_history`` to mark each unit&#39;s ``is_curated``</span>
+    <span class="c1"># flag. Failed units appear in the compiled output (``sorted.npz``/</span>
+    <span class="c1"># ``sorted.mat``) alongside curated units, and the per-unit</span>
+    <span class="c1"># templates figure styles them differently (``color_failed`` vs</span>
+    <span class="c1"># ``color_curated``). Default ``False`` preserves the historical</span>
+    <span class="c1"># behaviour where only curated units reach the compiled output.</span>
+    <span class="n">include_failed_units</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span></div>
 
 
 
@@ -1012,6 +1022,7 @@
             <span class="s2">&quot;save_spike_times&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;compilation&quot;</span><span class="p">,</span> <span class="s2">&quot;save_spike_times&quot;</span><span class="p">),</span>
             <span class="s2">&quot;save_raw_pkl&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;compilation&quot;</span><span class="p">,</span> <span class="s2">&quot;save_raw_pkl&quot;</span><span class="p">),</span>
             <span class="s2">&quot;save_dl_data&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;compilation&quot;</span><span class="p">,</span> <span class="s2">&quot;save_dl_data&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;include_failed_units&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;compilation&quot;</span><span class="p">,</span> <span class="s2">&quot;include_failed_units&quot;</span><span class="p">),</span>
             <span class="c1"># FigureConfig</span>
             <span class="s2">&quot;create_figures&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;figures&quot;</span><span class="p">,</span> <span class="s2">&quot;create_figures&quot;</span><span class="p">),</span>
             <span class="s2">&quot;create_unit_figures&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;figures&quot;</span><span class="p">,</span> <span class="s2">&quot;create_unit_figures&quot;</span><span class="p">),</span>

@@ -411,6 +411,7 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#server">Server</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/mcp_server.html#spikelab.mcp_server.server.MAX_INLINE_ARRAY_SIZE"><code class="docutils literal notranslate"><span class="pre">MAX_INLINE_ARRAY_SIZE</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
 </ul>
 </li>
@@ -523,12 +524,23 @@
         <span class="k">return</span> <span class="kc">True</span>
     <span class="k">if</span> <span class="n">lower</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;https://&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">lower</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;http://&quot;</span><span class="p">):</span>
         <span class="n">parsed</span> <span class="o">=</span> <span class="n">urlparse</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
-        <span class="c1"># Matches path-style and virtual-hosted-style S3 endpoints:</span>
-        <span class="c1"># - s3.amazonaws.com</span>
-        <span class="c1"># - s3.&lt;region&gt;.amazonaws.com</span>
-        <span class="c1"># - &lt;bucket&gt;.s3.amazonaws.com</span>
-        <span class="c1"># - &lt;bucket&gt;.s3.&lt;region&gt;.amazonaws.com</span>
-        <span class="k">return</span> <span class="s2">&quot;s3&quot;</span> <span class="ow">in</span> <span class="n">parsed</span><span class="o">.</span><span class="n">netloc</span> <span class="ow">and</span> <span class="s2">&quot;amazonaws.com&quot;</span> <span class="ow">in</span> <span class="n">parsed</span><span class="o">.</span><span class="n">netloc</span>
+        <span class="n">host</span> <span class="o">=</span> <span class="n">parsed</span><span class="o">.</span><span class="n">netloc</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="c1"># Anchor the host check to the right-hand side so a hostile</span>
+        <span class="c1"># host like ``s3.evil.amazonaws.com.attacker.example`` (which</span>
+        <span class="c1"># passes a naive ``in`` substring test) does not slip</span>
+        <span class="c1"># through. Accept any host that ENDS with ``.amazonaws.com``</span>
+        <span class="c1"># and either starts with ``s3`` (path-style endpoints like</span>
+        <span class="c1"># ``s3.amazonaws.com``, ``s3.us-west-2.amazonaws.com``) or</span>
+        <span class="c1"># contains ``.s3`` followed by either ``.amazonaws.com`` or</span>
+        <span class="c1"># ``.&lt;region&gt;.amazonaws.com`` (virtual-hosted-style like</span>
+        <span class="c1"># ``my-bucket.s3.amazonaws.com``).</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">host</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;.amazonaws.com&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">host</span> <span class="o">!=</span> <span class="s2">&quot;amazonaws.com&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="n">host</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;s3.&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">host</span> <span class="o">==</span> <span class="s2">&quot;s3.amazonaws.com&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">if</span> <span class="s2">&quot;.s3.&quot;</span> <span class="ow">in</span> <span class="n">host</span> <span class="ow">or</span> <span class="n">host</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;.s3.amazonaws.com&quot;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="kc">False</span>
     <span class="k">return</span> <span class="kc">False</span></div>
 
 
@@ -558,7 +570,12 @@
         <span class="n">parts</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
         <span class="n">bucket</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
         <span class="n">key</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">key</span> <span class="ow">or</span> <span class="n">key</span> <span class="o">==</span> <span class="s2">&quot;/&quot;</span><span class="p">:</span>
+        <span class="c1"># Strip a single trailing slash so ``s3://bucket/key/`` is</span>
+        <span class="c1"># treated the same as ``s3://bucket/key`` and reaches a real</span>
+        <span class="c1"># object instead of falling through to boto3 as an empty</span>
+        <span class="c1"># prefix (which produces a cryptic NoSuchKey).</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="n">key</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">key</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;S3 URL &#39;</span><span class="si">{</span><span class="n">url</span><span class="si">}</span><span class="s2">&#39; has no object key. &quot;</span>
                 <span class="s2">&quot;A bucket-only URL cannot identify a downloadable object.&quot;</span>
@@ -648,6 +665,11 @@
     <span class="p">)</span>
     <span class="n">s3_client</span> <span class="o">=</span> <span class="n">boto3</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;s3&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">s3_kwargs</span><span class="p">)</span>
 
+    <span class="c1"># Track whether we allocated the temp file ourselves so we can</span>
+    <span class="c1"># clean it up on failure (the previous path always left the empty</span>
+    <span class="c1"># NamedTemporaryFile on disk after a download exception, even when</span>
+    <span class="c1"># the caller never saw the path).</span>
+    <span class="n">created_temp</span> <span class="o">=</span> <span class="n">local_path</span> <span class="ow">is</span> <span class="kc">None</span>
     <span class="k">if</span> <span class="n">local_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">suffix</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">key</span><span class="p">)</span><span class="o">.</span><span class="n">suffix</span> <span class="k">if</span> <span class="n">key</span> <span class="k">else</span> <span class="s2">&quot;.tmp&quot;</span>
         <span class="n">temp_file</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">NamedTemporaryFile</span><span class="p">(</span><span class="n">delete</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">suffix</span><span class="o">=</span><span class="n">suffix</span><span class="p">)</span>
@@ -658,8 +680,10 @@
     <span class="k">if</span> <span class="n">dirpath</span><span class="p">:</span>
         <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">dirpath</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
+    <span class="n">download_succeeded</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="n">s3_client</span><span class="o">.</span><span class="n">download_file</span><span class="p">(</span><span class="n">bucket</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">local_path</span><span class="p">)</span>
+        <span class="n">download_succeeded</span> <span class="o">=</span> <span class="kc">True</span>
         <span class="k">return</span> <span class="n">local_path</span>
     <span class="k">except</span> <span class="n">ClientError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
         <span class="n">error_code</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="s2">&quot;response&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;Error&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;Code&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
@@ -674,7 +698,17 @@
         <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
             <span class="s2">&quot;AWS credentials not found. Set AWS_ACCESS_KEY_ID and &quot;</span>
             <span class="s2">&quot;AWS_SECRET_ACCESS_KEY environment variables or configure AWS credentials.&quot;</span>
-        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span></div>
+        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="c1"># Tidy up the auto-created temp file when download_file</span>
+        <span class="c1"># raised (ClientError, NoCredentialsError, or any other</span>
+        <span class="c1"># exception including KeyboardInterrupt). Caller-supplied</span>
+        <span class="c1"># ``local_path`` is left untouched — the caller owns it.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">download_succeeded</span> <span class="ow">and</span> <span class="n">created_temp</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">local_path</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
+                <span class="k">pass</span></div>
 
 
 

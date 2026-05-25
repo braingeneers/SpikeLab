@@ -411,6 +411,7 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#server">Server</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/mcp_server.html#spikelab.mcp_server.server.MAX_INLINE_ARRAY_SIZE"><code class="docutils literal notranslate"><span class="pre">MAX_INLINE_ARRAY_SIZE</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
 </ul>
 </li>
@@ -684,8 +685,11 @@
             <span class="n">types</span><span class="o">.</span><span class="n">Tool</span><span class="p">(</span>
                 <span class="n">name</span><span class="o">=</span><span class="s2">&quot;load_from_kilosort&quot;</span><span class="p">,</span>
                 <span class="n">description</span><span class="o">=</span><span class="p">(</span>
-                    <span class="s2">&quot;Load spike data from KiloSort/Phy output folder. Stores &quot;</span>
-                    <span class="s2">&quot;SpikeData at (namespace, &#39;spikedata&#39;) in the workspace.&quot;</span>
+                    <span class="s2">&quot;Load spike data from a LOCAL KiloSort/Phy output folder. &quot;</span>
+                    <span class="s2">&quot;Stores SpikeData at (namespace, &#39;spikedata&#39;) in the &quot;</span>
+                    <span class="s2">&quot;workspace. S3 folder paths are not yet supported and &quot;</span>
+                    <span class="s2">&quot;raise NotImplementedError — download the folder locally &quot;</span>
+                    <span class="s2">&quot;first.&quot;</span>
                 <span class="p">),</span>
                 <span class="n">inputSchema</span><span class="o">=</span><span class="p">{</span>
                     <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;object&quot;</span><span class="p">,</span>
@@ -1310,7 +1314,13 @@
                 <span class="n">description</span><span class="o">=</span><span class="p">(</span>
                     <span class="s2">&quot;Detect bursts from the population firing rate using thresholded &quot;</span>
                     <span class="s2">&quot;peak finding. Stores burst times at key_tburst, burst edges at &quot;</span>
-                    <span class="s2">&quot;key_edges (B, 2), and peak amplitudes at key_amp.&quot;</span>
+                    <span class="s2">&quot;key_edges (B, 2), and peak amplitudes at key_amp. &quot;</span>
+                    <span class="s2">&quot;To keep the rate consistent with a previously computed &quot;</span>
+                    <span class="s2">&quot;get_pop_rate, pass pop_rate_key (and pop_rate_acc_key for &quot;</span>
+                    <span class="s2">&quot;the edge-detection rate). When the keys are omitted the &quot;</span>
+                    <span class="s2">&quot;rates are recomputed internally from SpikeData using &quot;</span>
+                    <span class="s2">&quot;square_width/gauss_sigma — silently inconsistent with any &quot;</span>
+                    <span class="s2">&quot;rate plotted by a separate get_pop_rate call.&quot;</span>
                 <span class="p">),</span>
                 <span class="n">inputSchema</span><span class="o">=</span><span class="p">{</span>
                     <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;object&quot;</span><span class="p">,</span>
@@ -1340,15 +1350,51 @@
                             <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;number&quot;</span><span class="p">,</span>
                             <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;Multiplier for burst edge detection threshold&quot;</span><span class="p">,</span>
                         <span class="p">},</span>
-                        <span class="s2">&quot;square_width&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;integer&quot;</span><span class="p">,</span> <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="mi">20</span><span class="p">},</span>
-                        <span class="s2">&quot;gauss_sigma&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;integer&quot;</span><span class="p">,</span> <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="mi">100</span><span class="p">},</span>
-                        <span class="s2">&quot;acc_square_width&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;integer&quot;</span><span class="p">,</span> <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="mi">8</span><span class="p">},</span>
-                        <span class="s2">&quot;acc_gauss_sigma&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;integer&quot;</span><span class="p">,</span> <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="mi">8</span><span class="p">},</span>
+                        <span class="s2">&quot;square_width&quot;</span><span class="p">:</span> <span class="p">{</span>
+                            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;integer&quot;</span><span class="p">,</span>
+                            <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="mi">20</span><span class="p">,</span>
+                            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;Ignored when pop_rate_key is set.&quot;</span><span class="p">,</span>
+                        <span class="p">},</span>
+                        <span class="s2">&quot;gauss_sigma&quot;</span><span class="p">:</span> <span class="p">{</span>
+                            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;integer&quot;</span><span class="p">,</span>
+                            <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span>
+                            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;Ignored when pop_rate_key is set.&quot;</span><span class="p">,</span>
+                        <span class="p">},</span>
+                        <span class="s2">&quot;acc_square_width&quot;</span><span class="p">:</span> <span class="p">{</span>
+                            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;integer&quot;</span><span class="p">,</span>
+                            <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="mi">8</span><span class="p">,</span>
+                            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;Ignored when pop_rate_acc_key is set.&quot;</span><span class="p">,</span>
+                        <span class="p">},</span>
+                        <span class="s2">&quot;acc_gauss_sigma&quot;</span><span class="p">:</span> <span class="p">{</span>
+                            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;integer&quot;</span><span class="p">,</span>
+                            <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="mi">8</span><span class="p">,</span>
+                            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;Ignored when pop_rate_acc_key is set.&quot;</span><span class="p">,</span>
+                        <span class="p">},</span>
                         <span class="s2">&quot;raster_bin_size_ms&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;number&quot;</span><span class="p">,</span> <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">},</span>
                         <span class="s2">&quot;peak_to_trough&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;boolean&quot;</span><span class="p">,</span> <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">},</span>
                         <span class="s2">&quot;pop_rms_override&quot;</span><span class="p">:</span> <span class="p">{</span>
                             <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;number&quot;</span><span class="p">,</span>
                             <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;Override baseline RMS for cross-dataset normalization&quot;</span><span class="p">,</span>
+                        <span class="p">},</span>
+                        <span class="s2">&quot;pop_rate_key&quot;</span><span class="p">:</span> <span class="p">{</span>
+                            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;string&quot;</span><span class="p">,</span> <span class="s2">&quot;null&quot;</span><span class="p">],</span>
+                            <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+                            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="p">(</span>
+                                <span class="s2">&quot;Optional workspace key for a precomputed 1-D &quot;</span>
+                                <span class="s2">&quot;population rate (from get_pop_rate). When set, &quot;</span>
+                                <span class="s2">&quot;square_width/gauss_sigma are ignored and the &quot;</span>
+                                <span class="s2">&quot;stored rate is used directly — keeps the rate &quot;</span>
+                                <span class="s2">&quot;and burst edges mathematically consistent.&quot;</span>
+                            <span class="p">),</span>
+                        <span class="p">},</span>
+                        <span class="s2">&quot;pop_rate_acc_key&quot;</span><span class="p">:</span> <span class="p">{</span>
+                            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;string&quot;</span><span class="p">,</span> <span class="s2">&quot;null&quot;</span><span class="p">],</span>
+                            <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+                            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="p">(</span>
+                                <span class="s2">&quot;Optional workspace key for a precomputed 1-D &quot;</span>
+                                <span class="s2">&quot;edge-detection population rate. When set, &quot;</span>
+                                <span class="s2">&quot;acc_square_width/acc_gauss_sigma are ignored.&quot;</span>
+                            <span class="p">),</span>
                         <span class="p">},</span>
                     <span class="p">},</span>
                     <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="p">[</span>
@@ -1554,11 +1600,21 @@
                             <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;Attribute name to set&quot;</span><span class="p">,</span>
                         <span class="p">},</span>
                         <span class="s2">&quot;values&quot;</span><span class="p">:</span> <span class="p">{</span>
+                            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="p">[</span>
+                                <span class="s2">&quot;string&quot;</span><span class="p">,</span>
+                                <span class="s2">&quot;number&quot;</span><span class="p">,</span>
+                                <span class="s2">&quot;integer&quot;</span><span class="p">,</span>
+                                <span class="s2">&quot;boolean&quot;</span><span class="p">,</span>
+                                <span class="s2">&quot;array&quot;</span><span class="p">,</span>
+                                <span class="s2">&quot;object&quot;</span><span class="p">,</span>
+                                <span class="s2">&quot;null&quot;</span><span class="p">,</span>
+                            <span class="p">],</span>
                             <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;Single value (applied to all) or list matching neuron_indices length&quot;</span><span class="p">,</span>
                         <span class="p">},</span>
                         <span class="s2">&quot;neuron_indices&quot;</span><span class="p">:</span> <span class="p">{</span>
-                            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;array&quot;</span><span class="p">,</span>
+                            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;array&quot;</span><span class="p">,</span> <span class="s2">&quot;null&quot;</span><span class="p">],</span>
                             <span class="s2">&quot;items&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;integer&quot;</span><span class="p">},</span>
+                            <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
                             <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;Neuron indices to update. If null, updates all.&quot;</span><span class="p">,</span>
                         <span class="p">},</span>
                     <span class="p">},</span>
@@ -1597,7 +1653,12 @@
                     <span class="s2">&quot;Extract a time window from SpikeData. Loads from &quot;</span>
                     <span class="s2">&quot;(namespace, &#39;spikedata&#39;) and stores the result at &quot;</span>
                     <span class="s2">&quot;(out_namespace, &#39;spikedata&#39;). If out_namespace is empty, &quot;</span>
-                    <span class="s2">&quot;overwrites in place.&quot;</span>
+                    <span class="s2">&quot;overwrites in place. NOTE: by default the result&#39;s &quot;</span>
+                    <span class="s2">&quot;spike times are shifted so the new start_time is 0 &quot;</span>
+                    <span class="s2">&quot;(i.e. spikes in [start, end) become [0, end-start)). &quot;</span>
+                    <span class="s2">&quot;Pass shift_to=0 to preserve absolute times — useful &quot;</span>
+                    <span class="s2">&quot;when downstream tools (e.g. align_to_events) rely on &quot;</span>
+                    <span class="s2">&quot;the original time origin.&quot;</span>
                 <span class="p">),</span>
                 <span class="n">inputSchema</span><span class="o">=</span><span class="p">{</span>
                     <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;object&quot;</span><span class="p">,</span>
@@ -1605,6 +1666,17 @@
                         <span class="o">**</span><span class="n">_WS_PROPS</span><span class="p">,</span>
                         <span class="s2">&quot;start&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;number&quot;</span><span class="p">,</span> <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;Start time in ms&quot;</span><span class="p">},</span>
                         <span class="s2">&quot;end&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;number&quot;</span><span class="p">,</span> <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;End time in ms&quot;</span><span class="p">},</span>
+                        <span class="s2">&quot;shift_to&quot;</span><span class="p">:</span> <span class="p">{</span>
+                            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;number&quot;</span><span class="p">,</span> <span class="s2">&quot;null&quot;</span><span class="p">],</span>
+                            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="p">(</span>
+                                <span class="s2">&quot;Time value that becomes t=0 in the output. &quot;</span>
+                                <span class="s2">&quot;Null (default) maps to ``start``, i.e. spikes &quot;</span>
+                                <span class="s2">&quot;are shifted so the new start_time is 0. Pass &quot;</span>
+                                <span class="s2">&quot;0 to preserve absolute times; pass an event &quot;</span>
+                                <span class="s2">&quot;time for event-centered output.&quot;</span>
+                            <span class="p">),</span>
+                            <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+                        <span class="p">},</span>
                         <span class="s2">&quot;out_namespace&quot;</span><span class="p">:</span> <span class="p">{</span>
                             <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;string&quot;</span><span class="p">,</span>
                             <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;Namespace to store result. If empty, overwrites the input namespace.&quot;</span><span class="p">,</span>
@@ -1681,8 +1753,10 @@
                 <span class="n">name</span><span class="o">=</span><span class="s2">&quot;concatenate_units&quot;</span><span class="p">,</span>
                 <span class="n">description</span><span class="o">=</span><span class="p">(</span>
                     <span class="s2">&quot;Add all units from a second SpikeData into the first (both must &quot;</span>
-                    <span class="s2">&quot;have the same length). Modifies and re-stores (namespace_a, &#39;spikedata&#39;) &quot;</span>
-                    <span class="s2">&quot;in place.&quot;</span>
+                    <span class="s2">&quot;have the same length). By default re-stores the combined result &quot;</span>
+                    <span class="s2">&quot;at (namespace_a, &#39;spikedata&#39;), overwriting that slot. Pass &quot;</span>
+                    <span class="s2">&quot;``out_namespace`` to write the result to a separate namespace &quot;</span>
+                    <span class="s2">&quot;and preserve both inputs.&quot;</span>
                 <span class="p">),</span>
                 <span class="n">inputSchema</span><span class="o">=</span><span class="p">{</span>
                     <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;object&quot;</span><span class="p">,</span>
@@ -1690,11 +1764,24 @@
                         <span class="s2">&quot;workspace_id&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;string&quot;</span><span class="p">},</span>
                         <span class="s2">&quot;namespace_a&quot;</span><span class="p">:</span> <span class="p">{</span>
                             <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;string&quot;</span><span class="p">,</span>
-                            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;Namespace to add units into (modified in place)&quot;</span><span class="p">,</span>
+                            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="p">(</span>
+                                <span class="s2">&quot;Namespace of the first SpikeData. The combined &quot;</span>
+                                <span class="s2">&quot;result inherits its time range, raw_data, and &quot;</span>
+                                <span class="s2">&quot;(on metadata-key conflicts) metadata.&quot;</span>
+                            <span class="p">),</span>
                         <span class="p">},</span>
                         <span class="s2">&quot;namespace_b&quot;</span><span class="p">:</span> <span class="p">{</span>
                             <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;string&quot;</span><span class="p">,</span>
                             <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;Namespace whose units are added&quot;</span><span class="p">,</span>
+                        <span class="p">},</span>
+                        <span class="s2">&quot;out_namespace&quot;</span><span class="p">:</span> <span class="p">{</span>
+                            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;string&quot;</span><span class="p">,</span>
+                            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="p">(</span>
+                                <span class="s2">&quot;Namespace to write the combined SpikeData into. &quot;</span>
+                                <span class="s2">&quot;Default (omitted or null) overwrites namespace_a, &quot;</span>
+                                <span class="s2">&quot;matching legacy behaviour. Pass an explicit value &quot;</span>
+                                <span class="s2">&quot;to preserve both inputs.&quot;</span>
+                            <span class="p">),</span>
                         <span class="p">},</span>
                     <span class="p">},</span>
                     <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;workspace_id&quot;</span><span class="p">,</span> <span class="s2">&quot;namespace_a&quot;</span><span class="p">,</span> <span class="s2">&quot;namespace_b&quot;</span><span class="p">],</span>
@@ -2212,6 +2299,10 @@
                             <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;Output workspace key for the slice stack&quot;</span><span class="p">,</span>
                         <span class="p">},</span>
                         <span class="s2">&quot;events&quot;</span><span class="p">:</span> <span class="p">{</span>
+                            <span class="s2">&quot;oneOf&quot;</span><span class="p">:</span> <span class="p">[</span>
+                                <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;array&quot;</span><span class="p">,</span> <span class="s2">&quot;items&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;number&quot;</span><span class="p">}},</span>
+                                <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;string&quot;</span><span class="p">},</span>
+                            <span class="p">],</span>
                             <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;List of event times in ms, or a string metadata key (e.g. &#39;stim_on_times&#39;)&quot;</span><span class="p">,</span>
                         <span class="p">},</span>
                         <span class="s2">&quot;pre_ms&quot;</span><span class="p">:</span> <span class="p">{</span>
@@ -2387,6 +2478,7 @@
                         <span class="p">},</span>
                         <span class="s2">&quot;agg_func&quot;</span><span class="p">:</span> <span class="p">{</span>
                             <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;string&quot;</span><span class="p">,</span>
+                            <span class="s2">&quot;enum&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;median&quot;</span><span class="p">,</span> <span class="s2">&quot;mean&quot;</span><span class="p">],</span>
                             <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="s2">&quot;median&quot;</span><span class="p">,</span>
                             <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;Aggregation function across slices (&#39;median&#39; or &#39;mean&#39;)&quot;</span><span class="p">,</span>
                         <span class="p">},</span>
@@ -2696,6 +2788,7 @@
                         <span class="p">},</span>
                         <span class="s2">&quot;agg_func&quot;</span><span class="p">:</span> <span class="p">{</span>
                             <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;string&quot;</span><span class="p">,</span>
+                            <span class="s2">&quot;enum&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;median&quot;</span><span class="p">,</span> <span class="s2">&quot;mean&quot;</span><span class="p">],</span>
                             <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="s2">&quot;median&quot;</span><span class="p">,</span>
                             <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;Aggregation across slices: &#39;median&#39; or &#39;mean&#39;&quot;</span><span class="p">,</span>
                         <span class="p">},</span>
@@ -3741,6 +3834,17 @@
                             <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;Waveform extraction window after spike (ms)&quot;</span><span class="p">,</span>
                             <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="mf">2.0</span><span class="p">,</span>
                         <span class="p">},</span>
+                        <span class="s2">&quot;out_namespace&quot;</span><span class="p">:</span> <span class="p">{</span>
+                            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;string&quot;</span><span class="p">,</span>
+                            <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+                            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="p">(</span>
+                                <span class="s2">&quot;Optional target namespace. When empty, &quot;</span>
+                                <span class="s2">&quot;the enriched SpikeData overwrites the &quot;</span>
+                                <span class="s2">&quot;input at (namespace, &#39;spikedata&#39;). Set &quot;</span>
+                                <span class="s2">&quot;to a different name to keep the &quot;</span>
+                                <span class="s2">&quot;unaugmented SpikeData intact.&quot;</span>
+                            <span class="p">),</span>
+                        <span class="p">},</span>
                     <span class="p">},</span>
                     <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;workspace_id&quot;</span><span class="p">,</span> <span class="s2">&quot;namespace&quot;</span><span class="p">],</span>
                 <span class="p">},</span>
@@ -3999,7 +4103,11 @@
                 <span class="n">name</span><span class="o">=</span><span class="s2">&quot;pcm_stack_threshold&quot;</span><span class="p">,</span>
                 <span class="n">description</span><span class="o">=</span><span class="p">(</span>
                     <span class="s2">&quot;Apply a binary threshold to a PairwiseCompMatrixStack. &quot;</span>
-                    <span class="s2">&quot;Values become 1 where |v| &gt; threshold, else 0.&quot;</span>
+                    <span class="s2">&quot;Values become 1 where |v| &gt; threshold, else 0. By &quot;</span>
+                    <span class="s2">&quot;default (no out_key) the binary result OVERWRITES the &quot;</span>
+                    <span class="s2">&quot;original float-valued stack at (namespace, key); the &quot;</span>
+                    <span class="s2">&quot;original float values are unrecoverable. Pass an &quot;</span>
+                    <span class="s2">&quot;explicit out_key to preserve the source.&quot;</span>
                 <span class="p">),</span>
                 <span class="n">inputSchema</span><span class="o">=</span><span class="p">{</span>
                     <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;object&quot;</span><span class="p">,</span>
@@ -4015,7 +4123,23 @@
                         <span class="p">},</span>
                         <span class="s2">&quot;out_key&quot;</span><span class="p">:</span> <span class="p">{</span>
                             <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;string&quot;</span><span class="p">,</span>
-                            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;Output key. Defaults to input key.&quot;</span><span class="p">,</span>
+                            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="p">(</span>
+                                <span class="s2">&quot;Output key. Default (omitted or null) &quot;</span>
+                                <span class="s2">&quot;OVERWRITES the source stack with the &quot;</span>
+                                <span class="s2">&quot;binary thresholded result, destroying &quot;</span>
+                                <span class="s2">&quot;the float values. Pass an explicit value &quot;</span>
+                                <span class="s2">&quot;to preserve the source.&quot;</span>
+                            <span class="p">),</span>
+                        <span class="p">},</span>
+                        <span class="s2">&quot;preserve_nan&quot;</span><span class="p">:</span> <span class="p">{</span>
+                            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;boolean&quot;</span><span class="p">,</span>
+                            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="p">(</span>
+                                <span class="s2">&quot;When false (default), NaN values become &quot;</span>
+                                <span class="s2">&quot;0 in the binary output. When true, NaN &quot;</span>
+                                <span class="s2">&quot;propagates so &#39;missing&#39; stays &quot;</span>
+                                <span class="s2">&quot;distinguishable from &#39;below threshold&#39;.&quot;</span>
+                            <span class="p">),</span>
+                            <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
                         <span class="p">},</span>
                     <span class="p">},</span>
                     <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;workspace_id&quot;</span><span class="p">,</span> <span class="s2">&quot;namespace&quot;</span><span class="p">,</span> <span class="s2">&quot;key&quot;</span><span class="p">,</span> <span class="s2">&quot;threshold&quot;</span><span class="p">],</span>
@@ -4588,25 +4712,124 @@
     <span class="p">]</span>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_sanitize_for_json</span><span class="p">(</span><span class="n">obj</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Recursively replace NaN / Inf floats with None for RFC-8259 JSON.</span>
+<span class="c1">#: Soft cap on the number of elements in a numpy array that the MCP</span>
+<span class="c1">#: result sanitiser will inline into the JSON response. Arrays whose</span>
+<span class="c1">#: ``.size`` exceeds this raise a :class:`ValueError` from</span>
+<span class="c1">#: :func:`_sanitize_for_json` rather than being silently materialised</span>
+<span class="c1">#: into a Python list (which can blow up the JSON payload and slow</span>
+<span class="c1">#: the protocol layer to a crawl). Adjustable at runtime by writing</span>
+<span class="c1">#: to ``spikelab.mcp_server.server.MAX_INLINE_ARRAY_SIZE`` after</span>
+<span class="c1">#: import — e.g. for embedded callers that know the protocol can</span>
+<span class="c1">#: handle larger payloads, or for tests that want to exercise the</span>
+<span class="c1">#: threshold branch with a small cap.</span>
+<span class="n">MAX_INLINE_ARRAY_SIZE</span> <span class="o">=</span> <span class="mi">10_000</span>
 
-<span class="sd">    ``json.dumps(..., allow_nan=False)`` rejects non-finite floats — but those</span>
-<span class="sd">    floats arise legitimately from many statistical tools on degenerate input</span>
-<span class="sd">    (empty arrays, zero-variance signals, all-NaN slices). Replacing them with</span>
-<span class="sd">    ``None`` at the serialisation boundary lets clients distinguish &quot;no value&quot;</span>
-<span class="sd">    from a parse error.</span>
+<span class="n">MAX_SANITIZE_DEPTH</span> <span class="o">=</span> <span class="mi">64</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_sanitize_for_json</span><span class="p">(</span><span class="n">obj</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">_depth</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Recursively prepare an MCP tool result for ``json.dumps``.</span>
+
+<span class="sd">    Four responsibilities:</span>
+
+<span class="sd">      1. Replace non-finite floats (``NaN`` / ``Inf``) with ``None``</span>
+<span class="sd">         so ``json.dumps(..., allow_nan=False)`` succeeds. These</span>
+<span class="sd">         arise legitimately from statistical tools on degenerate</span>
+<span class="sd">         input (empty arrays, zero-variance signals, all-NaN</span>
+<span class="sd">         slices).</span>
+<span class="sd">      2. Coerce numpy scalars (``np.float32`` / ``np.int64`` /</span>
+<span class="sd">         ``np.bool_`` / etc.) to native Python types so</span>
+<span class="sd">         ``json.dumps`` doesn&#39;t reject them with</span>
+<span class="sd">         ``TypeError: Object of type np.float32 is not JSON</span>
+<span class="sd">         serializable``.</span>
+<span class="sd">      3. Inline small numpy arrays as nested Python lists; raise</span>
+<span class="sd">         :class:`ValueError` on arrays whose ``.size`` exceeds</span>
+<span class="sd">         :data:`MAX_INLINE_ARRAY_SIZE`, pointing the user at the</span>
+<span class="sd">         workspace-store-by-reference pattern (an MCP tool that</span>
+<span class="sd">         needs to return a large array should write it to the</span>
+<span class="sd">         workspace and return ``{&quot;namespace&quot;: ..., &quot;key&quot;: ...}``).</span>
+<span class="sd">      4. Reject pathologically nested inputs whose dict/list/tuple</span>
+<span class="sd">         nesting exceeds :data:`MAX_SANITIZE_DEPTH` rather than</span>
+<span class="sd">         blowing the Python recursion limit with a ``RecursionError``</span>
+<span class="sd">         deep inside the call stack.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        obj (Any): The MCP tool return value to sanitize.</span>
+<span class="sd">        _depth (int): Internal recursion-depth counter. Callers</span>
+<span class="sd">            should not pass this argument.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="kn">import</span><span class="w"> </span><span class="nn">math</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_math</span>
+
+    <span class="k">if</span> <span class="n">_depth</span> <span class="o">&gt;</span> <span class="n">MAX_SANITIZE_DEPTH</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;MCP tool result nesting depth exceeded &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;MAX_SANITIZE_DEPTH=</span><span class="si">{</span><span class="n">MAX_SANITIZE_DEPTH</span><span class="si">}</span><span class="s2">. Restructure the &quot;</span>
+            <span class="s2">&quot;result to be flatter, or store the deep object in the &quot;</span>
+            <span class="s2">&quot;workspace and return a (namespace, key) reference.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="c1"># Numpy branch first: ``np.float64`` happens to be a ``float``</span>
+    <span class="c1"># subclass on modern numpy and would route through the float</span>
+    <span class="c1"># branch below correctly, but ``np.float32`` is not — and</span>
+    <span class="c1"># ``np.ndarray`` / ``np.int64`` / ``np.bool_`` never were. Catch</span>
+    <span class="c1"># all of them up-front via the numpy hierarchy so the float</span>
+    <span class="c1"># branch only has to handle Python ``float``.</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_np</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">obj</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="n">MAX_INLINE_ARRAY_SIZE</span><span class="p">:</span>
+                <span class="c1"># Degrade gracefully instead of raising. Tools that</span>
+                <span class="c1"># store their actual result in the workspace and only</span>
+                <span class="c1"># *embed* the array in the response dict (e.g.</span>
+                <span class="c1"># fetch_workspace_item for a large slice-stack&#39;s</span>
+                <span class="c1"># ``times``) would otherwise propagate a ValueError</span>
+                <span class="c1"># after the workspace store had already succeeded —</span>
+                <span class="c1"># the agent sees an error and does not realise the</span>
+                <span class="c1"># result is queryable via fetch_workspace_item. By</span>
+                <span class="c1"># returning a summary marker instead, the response</span>
+                <span class="c1"># parses successfully and the agent can decide</span>
+                <span class="c1"># whether to fetch the array via a follow-up call.</span>
+                <span class="k">return</span> <span class="p">{</span>
+                    <span class="s2">&quot;__elided_ndarray__&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+                    <span class="s2">&quot;reason&quot;</span><span class="p">:</span> <span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;size </span><span class="si">{</span><span class="n">obj</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2"> exceeds inline JSON cap of &quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">MAX_INLINE_ARRAY_SIZE</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="p">),</span>
+                    <span class="s2">&quot;shape&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">shape</span><span class="p">),</span>
+                    <span class="s2">&quot;dtype&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">dtype</span><span class="p">),</span>
+                    <span class="s2">&quot;size&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">size</span><span class="p">),</span>
+                    <span class="s2">&quot;hint&quot;</span><span class="p">:</span> <span class="p">(</span>
+                        <span class="s2">&quot;Fetch via fetch_workspace_item if a workspace &quot;</span>
+                        <span class="s2">&quot;key was returned, or raise &quot;</span>
+                        <span class="s2">&quot;spikelab.mcp_server.server.MAX_INLINE_ARRAY_SIZE &quot;</span>
+                        <span class="s2">&quot;before invoking the tool.&quot;</span>
+                    <span class="p">),</span>
+                <span class="p">}</span>
+            <span class="k">if</span> <span class="n">obj</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="c1"># 0-D array: ``.tolist()`` returns a Python scalar (not</span>
+                <span class="c1"># a list), so the list comprehension below would raise</span>
+                <span class="c1"># ``TypeError: &#39;float&#39; object is not iterable``. Route</span>
+                <span class="c1"># through the scalar branch instead so NaN/Inf</span>
+                <span class="c1"># propagate to None and numpy-scalar types coerce.</span>
+                <span class="k">return</span> <span class="n">_sanitize_for_json</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span> <span class="n">_depth</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="k">return</span> <span class="p">[</span><span class="n">_sanitize_for_json</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">_depth</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">obj</span><span class="o">.</span><span class="n">tolist</span><span class="p">()]</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">_np</span><span class="o">.</span><span class="n">generic</span><span class="p">):</span>
+            <span class="c1"># Numpy scalar — convert to Python equivalent so the float</span>
+            <span class="c1"># NaN/Inf branch (or the dict/list/passthrough branches)</span>
+            <span class="c1"># below can take over uniformly.</span>
+            <span class="k">return</span> <span class="n">_sanitize_for_json</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span> <span class="n">_depth</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+        <span class="k">pass</span>  <span class="c1"># numpy not available — skip numpy-specific handling</span>
 
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="nb">float</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">_math</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span> <span class="ow">or</span> <span class="n">_math</span><span class="o">.</span><span class="n">isinf</span><span class="p">(</span><span class="n">obj</span><span class="p">):</span>
             <span class="k">return</span> <span class="kc">None</span>
         <span class="k">return</span> <span class="n">obj</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
-        <span class="k">return</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">_sanitize_for_json</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">obj</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+        <span class="k">return</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">_sanitize_for_json</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">_depth</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">obj</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
-        <span class="k">return</span> <span class="p">[</span><span class="n">_sanitize_for_json</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">obj</span><span class="p">]</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">_sanitize_for_json</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">_depth</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">obj</span><span class="p">]</span>
     <span class="k">return</span> <span class="n">obj</span>
 
 

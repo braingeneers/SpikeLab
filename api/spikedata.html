@@ -414,6 +414,7 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="index.html#server">Server</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="mcp_server.html#spikelab.mcp_server.server.MAX_INLINE_ARRAY_SIZE"><code class="docutils literal notranslate"><span class="pre">MAX_INLINE_ARRAY_SIZE</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
 </ul>
 </li>
@@ -680,7 +681,7 @@ constructor.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="spikelab.spikedata.SpikeData.from_thresholding">
-<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_thresholding</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs_Hz</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20000.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold_sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hysteresis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">direction</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'both'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikedata.html#SpikeData.from_thresholding"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.SpikeData.from_thresholding" title="Link to this definition"></a></dt>
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_thresholding</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs_Hz</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20000.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold_sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hysteresis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">direction</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'both'</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">length</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_time</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikedata.html#SpikeData.from_thresholding"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.SpikeData.from_thresholding" title="Link to this definition"></a></dt>
 <dd><p>Create a SpikeData object by filtering and thresholding raw electrophysiological data.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -695,6 +696,14 @@ passband 300 Hz to 6 kHz is used.</p></li>
 <li><p><strong>hysteresis</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Use hysteresis for thresholding.</p></li>
 <li><p><strong>direction</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Direction of thresholding (‘both’, ‘up’,
 ‘down’).</p></li>
+<li><p><strong>length</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Recording length in ms. When
+<code class="docutils literal notranslate"><span class="pre">None</span></code>, the length is inferred from <code class="docutils literal notranslate"><span class="pre">data.shape[1]</span></code>.
+Pass an explicit value to honour trailing silence
+recorded in a file-level <code class="docutils literal notranslate"><span class="pre">length_ms</span></code> attribute.</p></li>
+<li><p><strong>start_time</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Recording start time in ms.
+When <code class="docutils literal notranslate"><span class="pre">None</span></code>, defaults to 0.0. Pass an explicit value
+for event-centered data or to honour a file-level
+<code class="docutils literal notranslate"><span class="pre">start_time</span></code> attribute.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -1060,6 +1069,15 @@ list/array matching neuron_indices length for each neuron.</p></li>
 </ul>
 </dd>
 </dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>Generator / iterator inputs are materialised via <code class="docutils literal notranslate"><span class="pre">list()</span></code>
+so the per-neuron values are stored individually. Without
+this, the generator would be silently broadcast as a single
+object across every neuron.</p></li>
+<li><p>0-D numpy arrays (<code class="docutils literal notranslate"><span class="pre">np.array(5)</span></code>) are treated as scalars
+even though they have <code class="docutils literal notranslate"><span class="pre">__len__</span></code>-style attributes.</p></li>
+</ul>
 </dd></dl>
 
 <dl class="py method">
@@ -2527,6 +2545,22 @@ for serial execution, -1 for all cores.</p></li>
 <dd class="field-odd"><p>result (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>)</p>
 </dd>
 </dl>
+<p class="rubric">Notes</p>
+<p><strong>Channel numbering (``waveforms`` comparison only).</strong> Both
+<code class="docutils literal notranslate"><span class="pre">self</span></code> and <code class="docutils literal notranslate"><span class="pre">other</span></code> must use the same channel-ID scheme
+for <code class="docutils literal notranslate"><span class="pre">neuron_attributes[&quot;channel&quot;]</span></code> and
+<code class="docutils literal notranslate"><span class="pre">neuron_attributes[&quot;neighbor_channels&quot;]</span></code> (e.g. both
+positional indices into the recording’s channel list, OR
+both physical electrode IDs — mixing the two silently
+produces meaningless similarity values because footprints
+are aligned by channel-row).</p>
+<p>The footprint grid is auto-sized to
+<code class="docutils literal notranslate"><span class="pre">max(referenced_channels)</span> <span class="pre">+</span> <span class="pre">1</span></code> across both inputs. For
+sparse high-index layouts (e.g. Maxwell recordings where
+channel IDs are positions in a 26 400-electrode array)
+this can produce mostly-zero footprints with a large row
+count and corresponding memory cost. For dense probes
+(0..N-1 channel IDs) the grid is compact.</p>
 <p class="rubric">References</p>
 <p>Buccino et al., “SpikeInterface, a unified framework for spike
 sorting”, eLife (2020). <a class="reference external" href="https://doi.org/10.7554/eLife.61834">https://doi.org/10.7554/eLife.61834</a></p>

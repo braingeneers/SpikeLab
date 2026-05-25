@@ -411,6 +411,7 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#server">Server</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/mcp_server.html#spikelab.mcp_server.server.MAX_INLINE_ARRAY_SIZE"><code class="docutils literal notranslate"><span class="pre">MAX_INLINE_ARRAY_SIZE</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
 </ul>
 </li>
@@ -453,10 +454,17 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">zipfile</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Literal</span>
 
 <span class="n">SupportedFormat</span> <span class="o">=</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;workspace&quot;</span><span class="p">,</span> <span class="s2">&quot;sorting&quot;</span><span class="p">,</span> <span class="s2">&quot;custom&quot;</span><span class="p">]</span>
+
+<span class="c1">#: Bundle filename reserved for the generated manifest. User input files</span>
+<span class="c1">#: with this exact name would collide with the generated manifest and be</span>
+<span class="c1">#: silently overwritten at write time. ``package_analysis_bundle`` rejects</span>
+<span class="c1">#: this filename in ``input_paths``.</span>
+<span class="n">_RESERVED_BUNDLE_FILENAMES</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">&quot;manifest.json&quot;</span><span class="p">})</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_sha256</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
@@ -465,6 +473,48 @@
         <span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="nb">iter</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="mi">8192</span><span class="p">),</span> <span class="sa">b</span><span class="s2">&quot;&quot;</span><span class="p">):</span>
             <span class="n">digest</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">chunk</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">digest</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_safe_extractall</span><span class="p">(</span><span class="n">zf</span><span class="p">:</span> <span class="n">zipfile</span><span class="o">.</span><span class="n">ZipFile</span><span class="p">,</span> <span class="n">target_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Extract a zip file safely, rejecting path-traversal entries.</span>
+
+<span class="sd">    Python &lt;3.12 does not validate ZipInfo member paths against the</span>
+<span class="sd">    target directory, so a maliciously crafted bundle can write files</span>
+<span class="sd">    outside ``target_dir`` (full RCE inside a container). This helper</span>
+<span class="sd">    resolves each member path against the target and refuses to</span>
+<span class="sd">    extract if the result would escape.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        zf (zipfile.ZipFile): Open zip archive.</span>
+<span class="sd">        target_dir (Path): Directory to extract into.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ValueError: If any member&#39;s path would escape ``target_dir``,</span>
+<span class="sd">            or if the archive contains an absolute path or a Windows</span>
+<span class="sd">            drive letter.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">target_abs</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">target_dir</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
+    <span class="n">target_abs</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">member</span> <span class="ow">in</span> <span class="n">zf</span><span class="o">.</span><span class="n">infolist</span><span class="p">():</span>
+        <span class="c1"># Reject absolute paths and Windows drive letters upfront.</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="n">member</span><span class="o">.</span><span class="n">filename</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">name</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)</span>
+            <span class="ow">or</span> <span class="n">name</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\\</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="ow">or</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">2</span> <span class="ow">and</span> <span class="n">name</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;:&quot;</span><span class="p">)</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Refusing to extract bundle member with absolute path: </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+        <span class="n">dest</span> <span class="o">=</span> <span class="p">(</span><span class="n">target_abs</span> <span class="o">/</span> <span class="n">name</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">dest</span><span class="o">.</span><span class="n">relative_to</span><span class="p">(</span><span class="n">target_abs</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Refusing to extract bundle member outside target: </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;resolves to </span><span class="si">{</span><span class="n">dest</span><span class="si">}</span><span class="s2"> which is not under </span><span class="si">{</span><span class="n">target_abs</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
+    <span class="n">zf</span><span class="o">.</span><span class="n">extractall</span><span class="p">(</span><span class="n">target_abs</span><span class="p">)</span>
 
 
 <div class="viewcode-block" id="package_analysis_bundle">
@@ -496,12 +546,40 @@
     <span class="n">output_base</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">output_dir</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
     <span class="n">output_base</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
+    <span class="c1"># Reject duplicate basenames upfront. Two input paths with the</span>
+    <span class="c1"># same filename (e.g. ``/dir_a/rec.bin`` and ``/dir_b/rec.bin``)</span>
+    <span class="c1"># would silently overwrite each other in ``bundle_dir`` and the</span>
+    <span class="c1"># pod-side entrypoint would see only the second copy. Surface the</span>
+    <span class="c1"># collision before any I/O so the operator can rename inputs.</span>
+    <span class="n">seen_names</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">input_paths_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">input_paths</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">input_paths_list</span><span class="p">:</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">item</span><span class="p">)</span><span class="o">.</span><span class="n">name</span>
+        <span class="c1"># Reject any input whose basename collides with a filename the</span>
+        <span class="c1"># bundle writer generates itself (e.g. ``manifest.json``).</span>
+        <span class="c1"># Without this guard the generated manifest silently overwrites</span>
+        <span class="c1"># the user&#39;s file at write time.</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">_RESERVED_BUNDLE_FILENAMES</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Input file </span><span class="si">{</span><span class="n">item</span><span class="si">!r}</span><span class="s2"> has a reserved bundle filename &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2">). The bundle writer would overwrite it with &quot;</span>
+                <span class="s2">&quot;the generated manifest. Rename the input file.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">seen_names</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Duplicate basename in input_paths: </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> appears in &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;both </span><span class="si">{</span><span class="n">seen_names</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="si">!r}</span><span class="s2"> and </span><span class="si">{</span><span class="n">item</span><span class="si">!r}</span><span class="s2">. The bundle &quot;</span>
+                <span class="s2">&quot;layout cannot disambiguate them. Rename one of the &quot;</span>
+                <span class="s2">&quot;files (or pass them with distinct stems).&quot;</span>
+            <span class="p">)</span>
+        <span class="n">seen_names</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">item</span>
+
     <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">run_id</span><span class="si">}</span><span class="s2">-bundle-&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">temp_dir</span><span class="p">:</span>
         <span class="n">bundle_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">temp_dir</span><span class="p">)</span> <span class="o">/</span> <span class="n">run_id</span>
         <span class="n">bundle_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="n">payload_files</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
 
-        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">input_paths</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">input_paths_list</span><span class="p">:</span>
             <span class="n">src</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">src</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
                 <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Input file not found: </span><span class="si">{</span><span class="n">src</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>

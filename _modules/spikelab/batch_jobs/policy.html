@@ -411,6 +411,7 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#server">Server</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/mcp_server.html#spikelab.mcp_server.server.MAX_INLINE_ARRAY_SIZE"><code class="docutils literal notranslate"><span class="pre">MAX_INLINE_ARRAY_SIZE</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
 </ul>
 </li>
@@ -484,6 +485,18 @@
 <span class="sd">    constructs like ``while true; do sleep 60; done`` or obfuscated</span>
 <span class="sd">    variants. The goal is to flag accidental misuse, not to prevent</span>
 <span class="sd">    determined circumvention.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        - The bare-``sleep`` check fires only when ``sleep`` is the sole</span>
+<span class="sd">          token across ``command + args``. A trailing token that</span>
+<span class="sd">          happens to be the literal string ``&quot;sleep&quot;`` (e.g.</span>
+<span class="sd">          ``[&quot;python&quot;, &quot;-c&quot;, &quot;sleep&quot;]``, where ``&quot;sleep&quot;`` is a Python</span>
+<span class="sd">          snippet, not a shell command) is intentionally NOT flagged.</span>
+<span class="sd">          This avoids false positives on commands that legitimately</span>
+<span class="sd">          pass the string ``&quot;sleep&quot;`` as an argument. The downside is</span>
+<span class="sd">          that a determined operator can sneak in a real</span>
+<span class="sd">          ``exec(&quot;sleep infinity&quot;)``-style payload; this is documented</span>
+<span class="sd">          as out-of-scope for the heuristic.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="c1"># Flatten multi-word tokens (e.g., [&quot;sleep infinity&quot;] from sh -c)</span>
     <span class="c1"># into individual words for consistent token-pair matching.</span>
@@ -545,15 +558,31 @@
             <span class="p">)</span>
         <span class="p">)</span>
 
-    <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">block_sleep_infinity</span> <span class="ow">and</span> <span class="n">_contains_disallowed_sleep</span><span class="p">(</span>
+    <span class="n">sleep_present</span> <span class="o">=</span> <span class="n">_contains_disallowed_sleep</span><span class="p">(</span>
         <span class="n">job_spec</span><span class="o">.</span><span class="n">container</span><span class="o">.</span><span class="n">command</span><span class="p">,</span> <span class="n">job_spec</span><span class="o">.</span><span class="n">container</span><span class="o">.</span><span class="n">args</span>
-    <span class="p">):</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">block_sleep_infinity</span> <span class="ow">and</span> <span class="n">sleep_present</span><span class="p">:</span>
         <span class="n">findings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
             <span class="n">PolicyFinding</span><span class="p">(</span>
                 <span class="s2">&quot;sleep_in_batch_job&quot;</span><span class="p">,</span>
                 <span class="s2">&quot;BLOCK&quot;</span><span class="p">,</span>
                 <span class="s2">&quot;Batch jobs containing &#39;sleep infinity&#39; or trailing sleep &quot;</span>
                 <span class="s2">&quot;are disallowed.&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+    <span class="k">elif</span> <span class="n">sleep_present</span><span class="p">:</span>
+        <span class="c1"># ``block_sleep_infinity`` is disabled in the profile, but a</span>
+        <span class="c1"># sleep pattern *was* detected. Surfacing this as a WARN keeps</span>
+        <span class="c1"># the audit trail honest — the previous code emitted a PASS</span>
+        <span class="c1"># (&quot;No forbidden sleep patterns detected&quot;) even though the</span>
+        <span class="c1"># pattern was present, just not blocked.</span>
+        <span class="n">findings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="n">PolicyFinding</span><span class="p">(</span>
+                <span class="s2">&quot;sleep_in_batch_job&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;WARN&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Sleep pattern detected but block_sleep_infinity is &quot;</span>
+                <span class="s2">&quot;disabled in this profile; the job will be permitted &quot;</span>
+                <span class="s2">&quot;but the pattern is recorded for audit.&quot;</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
