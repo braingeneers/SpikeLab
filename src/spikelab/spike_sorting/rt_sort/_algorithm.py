@@ -1558,8 +1558,11 @@ def save_traces(
     if num_processes is None:
         # Conservative default — see _spawn_pool docstring for why
         # high process counts (the previous ``cpu_count() // 2``
-        # default) were OOM-killing tight cgroup runs.
-        num_processes = min(4, max(1, os.cpu_count() // 4))
+        # default) were OOM-killing tight cgroup runs. ``or 1`` guards
+        # the rare case where ``os.cpu_count()`` returns ``None`` (some
+        # container runtimes / Windows configs).
+        cpu_count = os.cpu_count() or 1
+        num_processes = min(4, max(1, cpu_count // 4))
 
     inter_path = Path(inter_path)
     inter_path.mkdir(exist_ok=True, parents=True)

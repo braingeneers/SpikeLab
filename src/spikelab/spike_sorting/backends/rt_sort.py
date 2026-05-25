@@ -306,7 +306,8 @@ class RTSortBackend(SorterBackend):
             try:
                 import os
 
-                current = max(1, round(os.cpu_count() * 2 / 3))
+                cpu_count = os.cpu_count() or 1
+                current = max(1, round(cpu_count * 2 / 3))
             except Exception:
                 current = 4
         if current <= 1:
