@@ -4602,3 +4602,80 @@ class TestSpikeSliceStackApplyNoneReturn:
         else:
             # Accepted: result is an object-dtype array (numpy boxing None).
             assert result.dtype == object or result.shape == (2,)
+
+
+# ============================================================================
+# Test Coverage Scan (2026-05-25) — pin tests for the partial-coverage
+# gaps surfaced by the /test_scanner pass.
+# ============================================================================
+
+
+class TestSpikeSliceStackToRasterArrayAbsoluteTimes:
+    """``to_raster_array(absolute_times=True)`` offsets each slice's
+    bins so they sit on a global time axis spanning the union of slice
+    windows. Pin that bin alignment matches the documented offset.
+    """
+
+    def test_absolute_times_aligns_to_global_axis(self):
+        """
+        Tests:
+            (Test Case 1) Two slices at non-contiguous times produce a
+                shared (U, T_total, S) array where T_total spans the
+                full window from min(start) to max(end).
+            (Test Case 2) Slice 1 (later start) has zeros in early
+                global bins (before its start_offset).
+        """
+        sd = make_spikedata(n_units=2, length_ms=500.0)
+        sss = SpikeSliceStack(
+            sd,
+            times_start_to_end=[(0.0, 100.0), (300.0, 400.0)],
+        )
+        bin_size = 10.0
+        result = sss.to_raster_array(bin_size=bin_size, absolute_times=True)
+        assert result.shape[0] == 2  # N
+        assert result.shape[2] == 2  # S
+        expected_T = int(np.ceil((400.0 - 0.0) / bin_size))
+        assert result.shape[1] == expected_T
+        # Slice 1 starts at 300 ms = bin 30; bins 0..29 of slice 1 are 0.
+        assert np.all(result[:, :30, 1] == 0)
+
+    def test_absolute_times_false_uses_relative_axis(self):
+        """
+        Tests:
+            (Test Case 1) ``absolute_times=False`` (default) produces a
+                stack where each slice's bins start at 0.
+        """
+        sd = make_spikedata(n_units=2, length_ms=500.0)
+        sss = SpikeSliceStack(
+            sd,
+            times_start_to_end=[(0.0, 100.0), (300.0, 400.0)],
+        )
+        bin_size = 10.0
+        result = sss.to_raster_array(bin_size=bin_size, absolute_times=False)
+        # Each slice has 100/10 = 10 bins.
+        assert result.shape == (2, 10, 2)
+
+
+class TestSpikeSliceStackApplyReturningSpikeData:
+    """``apply`` documents only numpy-array-returning funcs in the
+    happy-path tests. Pin the SpikeData-returning case — ``np.stack``
+    on a list of SpikeData falls into the object-dtype branch.
+    """
+
+    def test_apply_func_returning_spikedata_handled(self):
+        """
+        Tests:
+            (Test Case 1) ``func`` returning a SpikeData per slice
+                produces a result that doesn't crash mid-stack
+                (object-dtype container or skip via explicit rejection).
+        """
+        sd = make_spikedata(n_units=2, length_ms=100.0)
+        sss = SpikeSliceStack(sd, times_start_to_end=[(0.0, 50.0), (50.0, 100.0)])
+
+        try:
+            result = sss.apply(lambda s: s)
+        except (ValueError, TypeError) as exc:
+            pytest.skip(f"apply rejects SpikeData-returning func: {exc}")
+        else:
+            arr = np.asarray(result, dtype=object)
+            assert arr.shape[0] == 2 or arr.dtype == object

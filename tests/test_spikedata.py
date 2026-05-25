@@ -10266,3 +10266,173 @@ class TestSpikeDataFromThresholdingDirectionBranches:
         n_both = sum(len(t) for t in sd_both.train)
         assert n_down >= 1
         assert n_down < n_both
+
+
+# ============================================================================
+# Test Coverage Scan (2026-05-25) — pin tests for the partial-coverage
+# gaps surfaced by the /test_scanner pass.
+# ============================================================================
+
+
+class TestSpikeDataConcatenateSpikeDataMetadataMerge:
+    """``SpikeData.concatenate_spike_data`` merges metadata such that
+    the *other* SpikeData's keys win on collision (verified at
+    runtime). Pin the right-overwrites-left ordering.
+    """
+
+    def test_metadata_collision_other_wins(self):
+        """
+        Tests:
+            (Test Case 1) When both objects share metadata key ``"k"``,
+                the concatenated result holds the *other* SpikeData's
+                value, not self's.
+            (Test Case 2) Disjoint keys from both are preserved.
+
+        Notes:
+            - REVIEW.md described this as "right-overwrites-left" with
+              self winning, but the actual runtime behaviour is
+              other-wins (likely ``{**self.metadata, **spikeData.metadata}``).
+        """
+        sd1 = SpikeData([[5.0]], length=10.0, metadata={"k": "self_value", "a": 1})
+        sd2 = SpikeData([[5.0]], length=10.0, metadata={"k": "other_value", "b": 2})
+        result = sd1.concatenate_spike_data(sd2)
+        assert result.metadata["k"] == "other_value"
+        assert result.metadata["a"] == 1
+        assert result.metadata["b"] == 2
+
+
+class TestSpikeDataLatenciesToIndexContract:
+    """``latencies_to_index(i, ...)`` is documented as ``latencies`` with
+    ``self.train[i]`` as the reference. Pin the contract.
+    """
+
+    def test_latencies_to_index_matches_latencies_with_unit_i(self):
+        """
+        Tests:
+            (Test Case 1) ``latencies_to_index(0, window_ms=50)``
+                returns the same per-unit results as
+                ``latencies(self.train[0], window_ms=50)`` for
+                non-self units.
+        """
+        sd = SpikeData(
+            [
+                np.array([10.0, 30.0, 50.0]),
+                np.array([15.0, 35.0]),
+                np.array([5.0, 45.0]),
+            ],
+            length=60.0,
+        )
+        ref_index = 0
+        via_index = sd.latencies_to_index(ref_index, window_ms=50.0)
+        via_direct = sd.latencies(sd.train[ref_index], window_ms=50.0)
+        assert len(via_index) == len(via_direct)
+        for u in range(sd.N):
+            if u == ref_index:
+                continue
+            np.testing.assert_allclose(
+                np.sort(np.asarray(via_index[u])),
+                np.sort(np.asarray(via_direct[u])),
+                err_msg=f"mismatch at unit {u}",
+            )
+
+
+class TestSpikeDataGetPopRateBranchSeparation:
+    """``get_pop_rate`` has independent ``square_width`` and ``gauss_sigma``
+    smoothing. Pin that each branch produces a non-zero output independently.
+    """
+
+    def test_square_width_zero_gauss_only_branch(self):
+        """
+        Tests:
+            (Test Case 1) ``square_width=0, gauss_sigma=20`` returns a
+                non-zero output array with the standard shape.
+        """
+        sd = SpikeData([np.arange(10.0, 110.0, 10.0)], length=200.0)
+        pr_gauss = sd.get_pop_rate(
+            square_width=0, gauss_sigma=20, raster_bin_size_ms=1.0
+        )
+        pr_both = sd.get_pop_rate(
+            square_width=10, gauss_sigma=20, raster_bin_size_ms=1.0
+        )
+        assert pr_gauss.shape == pr_both.shape
+        assert np.any(pr_gauss > 0)
+
+    def test_gauss_sigma_zero_square_only_branch(self):
+        """
+        Tests:
+            (Test Case 1) ``gauss_sigma=0, square_width=10`` returns a
+                non-zero output (square-only smoothing path).
+        """
+        sd = SpikeData([np.arange(10.0, 110.0, 10.0)], length=200.0)
+        pr_square = sd.get_pop_rate(
+            square_width=10, gauss_sigma=0, raster_bin_size_ms=1.0
+        )
+        assert pr_square.shape[0] > 0
+        assert np.any(pr_square > 0)
+
+
+class TestSpikeDataGetPairwiseCcgCustomCompareFunc:
+    """``get_pairwise_ccg(compare_func=...)`` accepts a custom callable
+    that returns ``(correlation, lag)``. Pin the happy path.
+    """
+
+    def test_constant_compare_func_yields_constant_matrix(self):
+        """
+        Tests:
+            (Test Case 1) A ``compare_func`` returning (0.5, 0)
+                produces a matrix where every off-diagonal entry is 0.5.
+        """
+        sd = SpikeData([[10.0, 20.0], [15.0, 25.0], [5.0, 30.0]], length=50.0)
+
+        def const_compare(a, b, max_lag):
+            return 0.5, 0
+
+        corr_pcm, lag_pcm = sd.get_pairwise_ccg(
+            bin_size=1.0, max_lag=10, compare_func=const_compare, n_jobs=1
+        )
+        N = sd.N
+        for i in range(N):
+            for j in range(N):
+                if i != j:
+                    assert corr_pcm.matrix[i, j] == pytest.approx(0.5)
+
+
+class TestResolveNJobsNegative:
+    """``_resolve_n_jobs`` negative branch: ``-1`` returns all cores,
+    ``-2`` returns cores-1, very negative clamps to 1.
+    """
+
+    def test_minus_one_returns_all_cores(self):
+        """
+        Tests:
+            (Test Case 1) ``_resolve_n_jobs(-1)`` returns
+                ``os.cpu_count()`` (or 1).
+        """
+        import os
+
+        from spikelab.spikedata.utils import _resolve_n_jobs
+
+        cores = os.cpu_count() or 1
+        assert _resolve_n_jobs(-1) == cores
+
+    def test_minus_two_returns_cores_minus_one(self):
+        """
+        Tests:
+            (Test Case 1) ``_resolve_n_jobs(-2)`` returns
+                ``max(1, cpu_count - 1)``.
+        """
+        import os
+
+        from spikelab.spikedata.utils import _resolve_n_jobs
+
+        cores = os.cpu_count() or 1
+        assert _resolve_n_jobs(-2) == max(1, cores - 1)
+
+    def test_very_negative_clamps_to_one(self):
+        """
+        Tests:
+            (Test Case 1) ``_resolve_n_jobs(-1000)`` clamps to 1.
+        """
+        from spikelab.spikedata.utils import _resolve_n_jobs
+
+        assert _resolve_n_jobs(-1000) == 1
