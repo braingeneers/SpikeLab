@@ -1149,11 +1149,21 @@ async def _list_tools() -> list[types.Tool]:
                             "description": "Attribute name to set",
                         },
                         "values": {
+                            "type": [
+                                "string",
+                                "number",
+                                "integer",
+                                "boolean",
+                                "array",
+                                "object",
+                                "null",
+                            ],
                             "description": "Single value (applied to all) or list matching neuron_indices length",
                         },
                         "neuron_indices": {
-                            "type": "array",
+                            "type": ["array", "null"],
                             "items": {"type": "integer"},
+                            "default": None,
                             "description": "Neuron indices to update. If null, updates all.",
                         },
                     },
@@ -1838,6 +1848,10 @@ async def _list_tools() -> list[types.Tool]:
                             "description": "Output workspace key for the slice stack",
                         },
                         "events": {
+                            "oneOf": [
+                                {"type": "array", "items": {"type": "number"}},
+                                {"type": "string"},
+                            ],
                             "description": "List of event times in ms, or a string metadata key (e.g. 'stim_on_times')",
                         },
                         "pre_ms": {
@@ -2013,6 +2027,7 @@ async def _list_tools() -> list[types.Tool]:
                         },
                         "agg_func": {
                             "type": "string",
+                            "enum": ["median", "mean"],
                             "default": "median",
                             "description": "Aggregation function across slices ('median' or 'mean')",
                         },
@@ -2322,6 +2337,7 @@ async def _list_tools() -> list[types.Tool]:
                         },
                         "agg_func": {
                             "type": "string",
+                            "enum": ["median", "mean"],
                             "default": "median",
                             "description": "Aggregation across slices: 'median' or 'mean'",
                         },
@@ -3366,6 +3382,17 @@ async def _list_tools() -> list[types.Tool]:
                             "type": "number",
                             "description": "Waveform extraction window after spike (ms)",
                             "default": 2.0,
+                        },
+                        "out_namespace": {
+                            "type": "string",
+                            "default": "",
+                            "description": (
+                                "Optional target namespace. When empty, "
+                                "the enriched SpikeData overwrites the "
+                                "input at (namespace, 'spikedata'). Set "
+                                "to a different name to keep the "
+                                "unaugmented SpikeData intact."
+                            ),
                         },
                     },
                     "required": ["workspace_id", "namespace"],

@@ -2577,17 +2577,26 @@ async def compute_waveform_metrics(
     namespace: str,
     ms_before: float = 1.0,
     ms_after: float = 2.0,
+    out_namespace: str = "",
 ) -> Dict[str, Any]:
-    """Compute SNR and normalized STD from raw waveforms and store in neuron_attributes."""
+    """Compute SNR and normalized STD from raw waveforms and store in neuron_attributes.
+
+    When ``out_namespace`` is empty (default), the enriched SpikeData
+    overwrites the input at ``(namespace, 'spikedata')`` — matches the
+    in-place behaviour of the other ``compute_*`` tools that modify
+    SpikeData. Pass ``out_namespace`` to write to a separate namespace
+    when you want to keep the unaugmented SpikeData intact.
+    """
     ws = _get_workspace(workspace_id)
     sd = _get_spikedata(ws, namespace)
     sd_new, metrics = sd.compute_waveform_metrics(
         ms_before=ms_before, ms_after=ms_after
     )
-    ws.store(namespace, _SPIKEDATA_KEY, sd_new)
+    target_ns = out_namespace if out_namespace else namespace
+    ws.store(target_ns, _SPIKEDATA_KEY, sd_new)
     return {
         "workspace_id": workspace_id,
-        "namespace": namespace,
+        "namespace": target_ns,
         "workspace_key": _SPIKEDATA_KEY,
         "snr_summary": {
             "mean": float(np.nanmean(metrics["snr"])),
