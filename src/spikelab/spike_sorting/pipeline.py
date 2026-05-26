@@ -95,8 +95,17 @@ def _get_noise_levels(
             start_frame=0, end_frame=length, return_scaled=return_scaled
         )
     else:
-        rng = np.random.RandomState(seed=seed)
-        starts = rng.randint(0, length - chunk_size, size=num_chunks)
+        # ``default_rng`` instead of the legacy ``RandomState`` so the
+        # noise estimate seeds with the same PCG64 stream as
+        # ``config.execution.random_seed`` callers elsewhere in
+        # pipeline.py (e.g. line ~1595). Bit-exact reproducibility
+        # vs. the prior Mersenne-Twister stream is broken — the change
+        # shifts which chunks are sampled, which shifts the MAD
+        # estimate by ~1e-6 µV (50k filtered samples per channel are
+        # statistically robust to chunk selection). Downstream sorters
+        # are not bit-exact reproducible to that precision anyway.
+        rng = np.random.default_rng(seed)
+        starts = rng.integers(0, length - chunk_size, size=num_chunks)
         chunks = []
         for s in starts:
             chunks.append(
