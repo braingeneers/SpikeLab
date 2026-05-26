@@ -167,13 +167,27 @@ class _TeeWriter:
     Internal helper for :class:`Tee`. Encapsulates the dual-write
     behaviour as an explicit class with a public ``write`` method,
     replacing the prior ``types.MethodType`` monkey-patch on the
-    file object. Behaviour is identical:
+    file object.
 
-      - Every ``write(s)`` writes ``s`` to the underlying file.
-      - When ``mirror_to_stdout`` is True and ``s`` is more than a
-        single newline or space, ``s`` is also printed to the
-        original stdout (with the trailing newline that ``print``
-        appends).
+    Contract:
+      - Every ``write(s)`` writes ``s`` to the underlying file
+        verbatim.
+      - When ``mirror_to_stdout`` is True, ``s`` is also forwarded
+        verbatim to the original stdout via ``stdout.write(s)`` —
+        not via ``print``. Tier L-C3: the previous implementation
+        used ``print(s, file=self.stdout)`` which appended an extra
+        newline; that forced a whitespace-skip hack (``s != "\\n"
+        and s != " "``) to avoid double-newlines from ``print("x")``
+        (which calls ``write("x")`` then ``write("\\n")``). The
+        skip also dropped bare-space writes from ``print("a", "b")``
+        — so the mirror saw ``"ab"`` while the file saw ``"a b"``.
+        Writing verbatim removes both the double-newline AND the
+        a-vs-b-divergence bug.
+      - ``fileno()`` and ``isatty()`` delegate to ``self.stdout``.
+        Code that checks ``sys.stdout.isatty()`` (Click for colour
+        decisions) or ``sys.stdout.fileno()`` (IPython, subprocess
+        redirection) used to ``AttributeError`` while Tee was
+        active; the delegating methods restore compatibility.
 
     The ``mirror_to_stdout`` flag is toggled off by :class:`Tee`'s
     exit path so traceback writes go to the log file only, not to
@@ -189,8 +203,8 @@ class _TeeWriter:
 
     def write(self, s: str) -> None:
         self._file.write(s)
-        if self.mirror_to_stdout and s != "\n" and s != " ":
-            print(s, file=self.stdout)
+        if self.mirror_to_stdout:
+            self.stdout.write(s)
 
     def flush(self) -> None:
         self._file.flush()
@@ -199,6 +213,25 @@ class _TeeWriter:
 
     def close(self) -> None:
         self._file.close()
+
+    def fileno(self) -> int:
+        """Return the underlying stdout's file descriptor.
+
+        Click, IPython, and ``subprocess.run(..., stdout=...)`` all
+        expect file-like objects to expose ``fileno()``. Without
+        this delegating method, those callers ``AttributeError``
+        while Tee is active.
+        """
+        return self.stdout.fileno()
+
+    def isatty(self) -> bool:
+        """Return whether the underlying stdout is a TTY.
+
+        Click checks this to decide whether to emit ANSI colour
+        codes. Delegating to ``self.stdout`` preserves the host
+        terminal's tty-ness even when Tee is wrapping the output.
+        """
+        return self.stdout.isatty()
 
 
 class Tee:

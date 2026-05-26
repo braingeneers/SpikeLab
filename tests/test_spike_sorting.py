@@ -6730,8 +6730,17 @@ class TestTee:
                 raise RuntimeError("deliberate error")
         assert sys.stdout is original_stdout
 
-    def test_write_skips_newline_and_space(self, tmp_path):
-        """Tee._write does not echo newlines or spaces to stdout."""
+    def test_write_mirrors_verbatim(self, tmp_path):
+        """Tee.write forwards every write verbatim to stdout.
+
+        Tier L-C3: the previous implementation skipped bare ``\\n``
+        and ``" "`` writes to dedup the extra newline that
+        ``print(s, file=stdout)`` was emitting. Switching to
+        ``stdout.write(s)`` removes both the extra newline and the
+        skip — every character that hits the log file also hits the
+        mirror, fixing the ``print("a", "b")`` divergence where the
+        file got ``"a b"`` and the mirror got ``"ab"``.
+        """
         from spikelab.spike_sorting.sorting_utils import Tee
         from unittest.mock import MagicMock
 
@@ -6741,11 +6750,11 @@ class TestTee:
             f.stdout = mock_stdout
             f.write("\n")
             f.write(" ")
-            # Neither should be echoed to stdout (print calls .write)
-            mock_stdout.write.assert_not_called()
-            # But a real message should be echoed via print(s, file=stdout)
             f.write("hello")
-            mock_stdout.write.assert_called()
+            # Every write reaches the mirror — including the bare
+            # whitespace writes the old code dropped.
+            mirror_writes = [c.args[0] for c in mock_stdout.write.call_args_list]
+            assert mirror_writes == ["\n", " ", "hello"]
 
 
 # ===========================================================================
