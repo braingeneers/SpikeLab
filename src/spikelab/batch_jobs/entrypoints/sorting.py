@@ -157,18 +157,59 @@ def main() -> None:
         config = _reconstruct_config(config_dict)
 
         # --- Identify recording files ---
-        # Everything in the bundle that is not sorting_config.json or
-        # manifest.json is a recording file.
+        # Tier L-C2: read the declared recording whitelist from
+        # ``manifest.json["recording_files"]`` (set by
+        # ``package_analysis_bundle`` at submission time). The host
+        # already knows which input paths are recordings vs companion
+        # files (probe sidecars, metadata.csv, etc.); the manifest
+        # carries that knowledge into the pod so the entrypoint does
+        # not have to guess via a name blacklist. Companion files
+        # remain in the bundle (extracted under ``extract_dir``) and
+        # are simply not passed to ``sort_recording``.
+        manifest_path = extract_dir / "manifest.json"
+        if not manifest_path.exists():
+            raise FileNotFoundError(
+                "manifest.json not found at the bundle root. The sorting "
+                "entrypoint requires a manifest produced by "
+                "``package_analysis_bundle(output_format='sorting', "
+                "recording_files=...)``."
+            )
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            manifest = json.load(f)
+        declared_names = manifest.get("recording_files")
+        if not declared_names:
+            raise ValueError(
+                "manifest.json has no ``recording_files`` field (or it is "
+                "empty). The host's ``package_analysis_bundle`` must declare "
+                "the recording basenames when ``output_format='sorting'``."
+            )
+        # Map each declared basename back to its extracted path. The
+        # bundle layout is flat under ``extract_dir`` (the bundle
+        # writer ``shutil.copy2``s every input into one folder), so
+        # ``extract_dir / name`` is the canonical location. ``rglob``
+        # would only be needed if a future bundler restored nested
+        # paths; for now treat a missing extracted file as a bundle
+        # corruption error.
         recording_files = []
-        for path in sorted(extract_dir.rglob("*")):
-            if path.is_dir():
-                continue
-            if path.name in {"sorting_config.json", "manifest.json"}:
-                continue
-            recording_files.append(str(path))
-
-        if not recording_files:
-            raise FileNotFoundError("No recording files found in input bundle")
+        missing = []
+        for name in declared_names:
+            candidate = extract_dir / name
+            if not candidate.exists():
+                # Try a recursive search as a fallback in case the
+                # bundle layout changed.
+                candidates = list(extract_dir.rglob(name))
+                if not candidates:
+                    missing.append(name)
+                    continue
+                candidate = candidates[0]
+            recording_files.append(str(candidate))
+        if missing:
+            raise FileNotFoundError(
+                f"manifest declared recordings missing from the extracted "
+                f"bundle: {missing}. The bundle is corrupt or the "
+                "``recording_files`` list does not match the bundled "
+                "filenames."
+            )
 
         # Reject stem-level collisions across recording_files. Two
         # recordings with the same stem (e.g. ``rec.bin`` and

@@ -321,12 +321,19 @@ class RunSession:
                 *[str(p) for p in recording_paths],
             ]
 
+            # Tier L-C2: declare the recording basenames so the
+            # pod-side entrypoint (entrypoints/sorting.main) can
+            # distinguish recordings from companion files (probe
+            # sidecars, metadata.csv, etc.) via the manifest's
+            # ``recording_files`` whitelist instead of the prior
+            # name-blacklist heuristic.
             bundle_zip = package_analysis_bundle(
                 input_paths=input_files,
                 run_id=run_id,
                 output_dir=temp_dir,
                 output_format="sorting",
                 metadata=metadata,
+                recording_files=[Path(p).name for p in recording_paths],
             )
 
             uploaded_input_uri = self.storage.upload_bundle(

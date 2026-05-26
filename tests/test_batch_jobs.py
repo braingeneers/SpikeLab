@@ -709,12 +709,14 @@ class TestArtifactPackager:
         input_file = tmp_path / "result.h5"
         input_file.write_bytes(b"fake workspace content")
 
+        # Tier L-C2: sorting bundles must declare ``recording_files``.
         zip_path = package_analysis_bundle(
             input_paths=[str(input_file)],
             run_id="run-002",
             output_dir=str(tmp_path / "out"),
             output_format="sorting",
             metadata={"workspace_id": "ws-42"},
+            recording_files=["result.h5"],
         )
 
         import json
@@ -729,6 +731,7 @@ class TestArtifactPackager:
         assert len(manifest["files"]) == 1
         assert manifest["files"][0]["name"] == "result.h5"
         assert len(manifest["files"][0]["sha256"]) == 64  # hex SHA256
+        assert manifest["recording_files"] == ["result.h5"]
 
     def test_multiple_input_files(self, tmp_path):
         """Multiple input files are all included in the bundle."""
@@ -3647,9 +3650,13 @@ class TestSortingEntrypointMain:
         # A second .bin to verify multi-recording handling.
         rec_b = bundle_dir / "rec_b.bin"
         rec_b.write_bytes(b"second recording payload")
-        # Manifest is excluded by the entrypoint's recording-file
-        # discovery loop.
-        (bundle_dir / "manifest.json").write_text("{}", encoding="utf-8")
+        # Tier L-C2: manifest declares the recording basenames so the
+        # entrypoint can distinguish recordings from companion files
+        # via the declared whitelist (not a name blacklist).
+        (bundle_dir / "manifest.json").write_text(
+            json.dumps({"recording_files": ["rec_a.bin", "rec_b.bin"]}),
+            encoding="utf-8",
+        )
 
         zip_path = tmp_path / "bundle.zip"
         with zipfile.ZipFile(zip_path, "w") as zf:
@@ -3802,6 +3809,11 @@ class TestSortingEntrypointMain:
         )
         (bundle_dir / "rec_ok.bin").write_bytes(b"payload-a")
         (bundle_dir / "rec_bad.bin").write_bytes(b"payload-b")
+        # Tier L-C2: declare the recording basenames in the manifest.
+        (bundle_dir / "manifest.json").write_text(
+            json.dumps({"recording_files": ["rec_ok.bin", "rec_bad.bin"]}),
+            encoding="utf-8",
+        )
 
         zip_path = tmp_path / "bundle.zip"
         with zipfile.ZipFile(zip_path, "w") as zf:
@@ -3941,12 +3953,17 @@ class TestSortingEntrypointMain:
 
     def test_main_raises_on_no_recording_files(self, tmp_path, monkeypatch):
         """
-        ``main()`` raises FileNotFoundError when the bundle contains
-        ``sorting_config.json`` but no recording files. Documents the
-        ``"No recording files found in input bundle"`` branch.
+        Tier L-C2: ``main()`` raises ``ValueError`` when the manifest
+        has no ``recording_files`` declaration. Previously the
+        entrypoint guessed via a name blacklist and would raise
+        ``FileNotFoundError("No recording files found in input
+        bundle")``; the new declared-whitelist contract surfaces the
+        missing manifest field instead.
 
         Tests:
-            (Test Case 1) Config-only bundle raises FileNotFoundError.
+            (Test Case 1) Bundle with empty manifest.json (no
+                ``recording_files`` field) raises ValueError naming
+                the missing field.
         """
         import dataclasses
         import json
@@ -3984,7 +4001,7 @@ class TestSortingEntrypointMain:
         monkeypatch.setenv("INPUT_URI", "s3://bucket/input/bundle.zip")
         monkeypatch.setenv("OUTPUT_PREFIX", "s3://bucket/outputs/run-1/")
 
-        with pytest.raises(FileNotFoundError, match="recording files"):
+        with pytest.raises(ValueError, match="recording_files"):
             sorting_main()
 
 
