@@ -784,6 +784,25 @@ class TestWalkDiff:
         _walk_diff("", default, actual, out)
         assert out == [("section", {"x": 1}, 5)]
 
+    def test_identical_dicts_short_circuit_with_no_diffs(self):
+        """
+        ``_walk_diff`` short-circuits identical subtrees: when
+        ``default == actual`` the function returns immediately and
+        records no diff entries. This avoids re-recursing into
+        hundreds of identical leaves per call when ``diff_against_default``
+        passes whole sub-config dicts whose contents match.
+
+        Tests:
+            (Test Case 1) Two identical nested dicts (3 levels) produce
+                an empty ``out`` list.
+        """
+        from spikelab.spike_sorting.report import _walk_diff
+
+        identical = {"a": 1, "b": {"c": 2, "d": {"e": 3, "f": [1, 2, 3]}}}
+        out: list = []
+        _walk_diff("", identical, dict(identical), out)
+        assert out == []
+
     def test_equal_length_lists_recursed_element_wise(self):
         """
         Lists of equal length are walked element-wise: each differing

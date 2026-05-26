@@ -6629,3 +6629,59 @@ class TestNwbLoaderStartTimeMsBrittleness:
             assert sd.start_time == -200.0
         finally:
             os.unlink(path)
+
+
+class TestNaturalSortKeyTypeStable:
+    """``_natural_sort_key`` returns ``(kind, value)`` tuples so the
+    sort is type-stable on Python 3 — mixing numeric and string tokens
+    at the same position cannot raise ``TypeError`` from comparing
+    ``int`` against ``str``.
+    """
+
+    def test_mixed_numeric_string_token_first_position(self):
+        """
+        Tests:
+            (Test Case 1) ``sorted(["unit_5", "5_unit"], key=...)``
+                succeeds (no TypeError).
+            (Test Case 2) The numeric-token-first key (``"5_unit"``)
+                sorts before the string-token-first key (``"unit_5"``)
+                because every numeric tuple compares less than every
+                string tuple at the same position.
+        """
+        from spikelab.data_loaders.data_loaders import _natural_sort_key
+
+        out = sorted(["unit_5", "5_unit"], key=_natural_sort_key)
+        assert out == ["5_unit", "unit_5"]
+
+
+class TestLoadKilosortTimeUnitValidationBeforeIo:
+    """``load_spikedata_from_kilosort`` validates ``time_unit`` against
+    the (samples, s, ms) allow-list BEFORE any ``.npy`` I/O — a typo
+    fails fast without partial side effects (file handles, allocations).
+    """
+
+    def test_typo_time_unit_rejected_before_np_load(self, monkeypatch, tmp_path):
+        """
+        Tests:
+            (Test Case 1) ``time_unit="seconds"`` raises ValueError.
+            (Test Case 2) ``np.load`` is not called during the
+                validation path (verified via a monkeypatched
+                ``np.load`` that would fail-loud if invoked).
+        """
+        from spikelab.data_loaders import data_loaders as loaders_mod
+
+        np_load_calls: list = []
+
+        def fail_loud_np_load(*args, **kwargs):
+            np_load_calls.append((args, kwargs))
+            raise AssertionError(
+                "np.load should NOT have been called — time_unit "
+                "validation must fire first."
+            )
+
+        monkeypatch.setattr(loaders_mod.np, "load", fail_loud_np_load)
+        with pytest.raises(ValueError, match="time_unit"):
+            loaders_mod.load_spikedata_from_kilosort(
+                str(tmp_path), fs_Hz=20000.0, time_unit="seconds"
+            )
+        assert np_load_calls == []

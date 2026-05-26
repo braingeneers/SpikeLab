@@ -1169,6 +1169,39 @@ class TestSpikeDataSlicing:
         floats = sd.subset(units=[2.0, 0.0], preserve_order=True)
         assert [a["unit_id"] for a in floats.neuron_attributes] == [2, 0]
 
+    def test_subset_by_unknown_key_warns_with_known_keys(self):
+        """
+        ``subset(by="unitid", units=[...])`` (typo of canonical
+        ``"unit_id"``) emits a UserWarning naming both the typo and
+        the known attribute keys. Without the warning, typos silently
+        return empty SpikeData with no clue why.
+
+        Tests:
+            (Test Case 1) UserWarning is emitted.
+            (Test Case 2) The warning message contains the typoed key
+                ``"unitid"``.
+            (Test Case 3) The warning lists the known keys, including
+                the canonical ``"unit_id"``.
+        """
+        import warnings as _warnings
+
+        sd = SpikeData(
+            [[1.0], [2.0]],
+            length=50.0,
+            neuron_attributes=[{"unit_id": 0}, {"unit_id": 1}],
+        )
+        with _warnings.catch_warnings(record=True) as w:
+            _warnings.simplefilter("always")
+            sd.subset([0], by="unitid")
+
+        warn_msgs = [
+            str(rec.message) for rec in w if rec.category is UserWarning
+        ]
+        relevant = [m for m in warn_msgs if "subset" in m]
+        assert relevant, warn_msgs
+        assert "unitid" in relevant[0]
+        assert "unit_id" in relevant[0]
+
     def test_subset_preserve_order_with_by_warns(self):
         """
         ``subset(by=..., preserve_order=True)`` emits a UserWarning
@@ -10438,6 +10471,41 @@ class TestSpikeDataFromThresholdingDirectionBranches:
     and ``'both'`` (default). The existing tests cover ``'both'``;
     pin the ``'up'`` and ``'down'`` branches separately.
     """
+
+    def test_zero_spikes_detected_emits_warning_naming_threshold(self):
+        """
+        When ``from_thresholding`` finds zero spikes (signal has no
+        crossings or threshold is too aggressive), a ``UserWarning``
+        is emitted naming the threshold value so callers iterating
+        over ``threshold_sigma`` values have a clear signal that the
+        threshold itself was the problem.
+
+        Tests:
+            (Test Case 1) Flat-zero signal with ``threshold_sigma=5.0``
+                emits a UserWarning.
+            (Test Case 2) The warning message contains
+                ``"zero spikes detected"``.
+            (Test Case 3) The warning message references the threshold
+                value (5.0).
+        """
+        import warnings as _warnings
+
+        data = np.zeros((1, 100), dtype=float)
+        with _warnings.catch_warnings(record=True) as w:
+            _warnings.simplefilter("always")
+            SpikeData.from_thresholding(
+                data,
+                fs_Hz=1000.0,
+                threshold_sigma=5.0,
+                filter=False,
+                hysteresis=False,
+            )
+        warn_msgs = [
+            str(rec.message) for rec in w if rec.category is UserWarning
+        ]
+        relevant = [m for m in warn_msgs if "zero spikes detected" in m]
+        assert relevant, warn_msgs
+        assert "5.0" in relevant[0] or "5" in relevant[0]
 
     def test_direction_down_hysteresis_pins_crossing_at_correct_sample(self):
         """

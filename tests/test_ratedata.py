@@ -50,6 +50,25 @@ def make_ratedata(n_units=3, n_times=100, step=1.0, t0=0.0, seed=0):
     return RateData(data, times)
 
 
+class TestRateDataRepr:
+    """``RateData.__repr__`` surfaces ``rate_unit`` so operators can
+    tell a Hz-scaled RateData from a count-scaled one at a glance.
+    """
+
+    def test_repr_contains_rate_unit(self):
+        """
+        Tests:
+            (Test Case 1) Repr of a RateData with ``rate_unit="Hz"``
+                contains the substring ``"rate_unit='Hz'"``.
+        """
+        rd = RateData(
+            np.ones((2, 4), dtype=float),
+            np.array([0.0, 1.0, 2.0, 3.0]),
+            rate_unit="Hz",
+        )
+        assert "rate_unit='Hz'" in repr(rd)
+
+
 class TestRateDataConstructor:
     """Tests for the RateData constructor."""
 

@@ -2003,6 +2003,50 @@ class TestPairwiseCompMatrixNormalize:
     """Tests for PairwiseCompMatrix.normalize() and the helper functions
     _min_max_normalize and _z_score_normalize."""
 
+    def test_z_score_uniform_input_warns_and_returns_zeros(self):
+        """
+        ``_z_score_normalize`` on a uniform matrix has ``std=0`` so the
+        z-score is undefined; the function fills those positions with
+        0.0 and emits a ``RuntimeWarning`` mentioning "std is zero" so
+        the caller doesn't silently work with an identically-zero
+        "normalized" result.
+
+        Tests:
+            (Test Case 1) Uniform matrix triggers a RuntimeWarning
+                whose message contains "std is zero".
+            (Test Case 2) The result is all zeros (positions where
+                std=0 are filled with 0.0).
+            (Test Case 3) A non-uniform matrix does NOT emit the
+                warning.
+        """
+        import warnings as _warnings
+
+        uniform = np.full((2, 2), 3.0)
+        with _warnings.catch_warnings(record=True) as w:
+            _warnings.simplefilter("always")
+            result = _z_score_normalize(uniform)
+        warn_msgs = [
+            str(rec.message)
+            for rec in w
+            if rec.category is RuntimeWarning
+        ]
+        assert any("std is zero" in m for m in warn_msgs), warn_msgs
+        np.testing.assert_array_equal(result, np.zeros_like(uniform))
+
+        # Non-uniform input does not warn.
+        varied = np.array([[1.0, 2.0], [3.0, 4.0]])
+        with _warnings.catch_warnings(record=True) as w2:
+            _warnings.simplefilter("always")
+            _z_score_normalize(varied)
+        warn_msgs2 = [
+            str(rec.message)
+            for rec in w2
+            if rec.category is RuntimeWarning
+        ]
+        assert not any(
+            "std is zero" in m for m in warn_msgs2
+        ), warn_msgs2
+
     def test_min_max_basic(self):
         """Global min-max normalization scales values to [0, 1].
 

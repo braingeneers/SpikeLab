@@ -964,6 +964,23 @@ class TestMakeSummary:
         assert s["N"] == 5
         assert s["length_ms"] == pytest.approx(300.0)
 
+    def test_summary_spikedata_event_centered_start_time_present(self):
+        """
+        ``_make_summary`` records ``start_time`` for SpikeData so
+        event-centered slices are visible in ``describe()`` output —
+        the previous summary collapsed all SpikeData to the same
+        ``length_ms``-only shape and the event-centered window was
+        invisible.
+
+        Tests:
+            (Test Case 1) SpikeData with ``start_time=-200.0`` has
+                ``s["start_time"] == -200.0`` in the summary.
+        """
+        sd = SpikeData([[5.0]], length=500.0, start_time=-200.0)
+        s = _make_summary(sd)
+        assert s["type"] == "SpikeData"
+        assert s["start_time"] == pytest.approx(-200.0)
+
     def test_summary_ratedata(self):
         """
         Tests _make_summary() for a RateData object.
@@ -1006,6 +1023,39 @@ class TestMakeSummary:
         assert s["N_slices"] == 4
         assert s["N_units"] == 3
         assert s["length_ms"] == pytest.approx(50.0)
+
+    def test_summary_spikeslicestack_heterogeneous_durations_returns_range(
+        self,
+    ):
+        """
+        ``_make_summary`` reports the per-slice length range when a
+        ``SpikeSliceStack`` has heterogeneous-duration slices (allowed
+        by the ``time_peaks + time_bounds`` constructor variant) —
+        the prior summary collapsed everything to the first slice's
+        length and silently misrepresented mixed-duration stacks.
+
+        Tests:
+            (Test Case 1) Times ``[(0, 100), (100, 250)]`` → durations
+                ``[100.0, 150.0]`` → ``length_ms`` is a tuple
+                ``(100.0, 150.0)``.
+            (Test Case 2) A uniform-duration stack still returns a
+                single float for ``length_ms`` (round-trip with the
+                existing ``test_summary_spikeslicestack`` already
+                covered).
+        """
+        from spikelab.spikedata.spikeslicestack import SpikeSliceStack
+
+        # Build a heterogeneous-duration stack manually so the
+        # validator doesn't reject it.
+        sd1 = SpikeData([[10.0]], length=100.0)
+        sd2 = SpikeData([[50.0]], length=150.0)
+        sss = SpikeSliceStack(
+            spike_stack=[sd1, sd2],
+            times_start_to_end=[(0.0, 100.0), (100.0, 250.0)],
+        )
+        s = _make_summary(sss)
+        assert s["type"] == "SpikeSliceStack"
+        assert s["length_ms"] == (100.0, 150.0)
 
     def test_summary_pairwise_comp_matrix(self):
         """
@@ -4697,6 +4747,91 @@ class TestLoadWorkspaceFullSkipsDoubleUnderscoreGroups:
         assert "ns_a" in loaded._items
         assert "__history__" not in loaded._items
         assert "__history__" not in loaded._index
+
+
+class TestLoadWorkspaceFullBytesNameDecode:
+    """``load_workspace_full`` decodes ``__workspace_name__`` from
+    bytes when h5py returns the attribute that way (varies by h5py /
+    Python build). Without the explicit decode the reload would
+    surface the literal ``"b'...'"`` repr.
+    """
+
+    @pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py not installed")
+    def test_bytes_workspace_name_attr_decodes_to_str(self, tmp_path):
+        """
+        Tests:
+            (Test Case 1) A workspace .h5 with ``__workspace_name__``
+                written as bytes loads with ``ws.name`` equal to the
+                decoded UTF-8 string (not the bytes repr).
+        """
+        from spikelab.workspace.hdf5_io import load_workspace_full
+        from spikelab.workspace.workspace import AnalysisWorkspace
+
+        # Build a valid workspace .h5 via the real save path, then
+        # overwrite the name attribute with bytes form.
+        ws = AnalysisWorkspace(name="placeholder")
+        ws.store("ns", "key", np.array([1, 2, 3]))
+        base = str(tmp_path / "ws")
+        ws.save(base)
+
+        with h5py.File(base + ".h5", "a") as f:
+            del f.attrs["__workspace_name__"]
+            f.attrs.create(
+                "__workspace_name__", b"hello-bytes", dtype="S100"
+            )
+
+        loaded = load_workspace_full(base)
+        assert loaded.name == "hello-bytes"
+
+
+class TestWorkspaceManagerLoadWorkspaceDoubleLoadWarning:
+    """``WorkspaceManager.load_workspace`` warns when the same
+    workspace_id is reloaded twice — the second load overwrites the
+    in-memory instance and the warning surfaces any pending mutations
+    that would be lost.
+    """
+
+    @pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py not installed")
+    def test_double_load_warns_with_workspace_id(self, tmp_path):
+        """
+        Tests:
+            (Test Case 1) Calling ``load_workspace`` twice for the same
+                saved path emits a UserWarning on the second call.
+            (Test Case 2) The warning message contains the workspace
+                id.
+        """
+        import warnings as _warnings
+
+        from spikelab.workspace.workspace import (
+            AnalysisWorkspace,
+            WorkspaceManager,
+        )
+
+        manager = WorkspaceManager()
+        ws = AnalysisWorkspace(name="double-load")
+        ws.store("ns", "k", np.array([1.0]))
+        base = str(tmp_path / "ws")
+        ws.save(base)
+        ws_id = ws.workspace_id
+
+        # First load registers the workspace silently.
+        with _warnings.catch_warnings(record=True) as w1:
+            _warnings.simplefilter("always")
+            manager.load_workspace(base)
+        assert not any(
+            "already registered" in str(rec.message) for rec in w1
+        )
+
+        # Second load warns about the overwrite.
+        with _warnings.catch_warnings(record=True) as w2:
+            _warnings.simplefilter("always")
+            manager.load_workspace(base)
+        warn_msgs = [
+            str(rec.message) for rec in w2 if rec.category is UserWarning
+        ]
+        relevant = [m for m in warn_msgs if "already registered" in m]
+        assert relevant, warn_msgs
+        assert ws_id in relevant[0]
 
 
 class TestLoadWorkspaceFullValidation:
