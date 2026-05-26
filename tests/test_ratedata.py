@@ -859,18 +859,21 @@ class TestRateDataSubtimeByIndex:
         with pytest.raises(ValueError):
             rd.subtime_by_index(10, 10)
 
-    def test_subtime_by_index_zero_column(self):
+    def test_subtime_by_index_zero_column_raises_empty_times_error(self):
         """
-        subtime_by_index on zero-column RateData raises ValueError.
+        ``subtime_by_index`` on a zero-column RateData raises a
+        ValueError whose message mentions "empty times array" — the
+        same diagnostic as ``subtime`` so MCP callers see consistent
+        wording regardless of which path they hit.
 
         Tests:
-            (Test Case 1) (U, 0) shape means len(times)=0, so any start_idx
-                is out of range.
+            (Test Case 1) Empty ``times`` array raises ValueError with
+                "empty times array" in the message.
         """
         data = np.empty((2, 0))
         times = np.array([])
         rd = RateData(data, times)
-        with pytest.raises(ValueError, match="start_idx .* out of range"):
+        with pytest.raises(ValueError, match="empty times array"):
             rd.subtime_by_index(0, 1)
 
     def test_subtime_by_index_both_negative(self):

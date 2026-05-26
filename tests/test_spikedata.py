@@ -8744,6 +8744,41 @@ class TestSpikeDataSpikeTimeTilingsNumbaParity:
         # Shared (0,1) entry must match across paths.
         assert pcm2.matrix[0, 1] == pytest.approx(pcm3.matrix[0, 1], abs=1e-9)
 
+    def test_numba_path_matrix_symmetric_and_matches_slow_path(self):
+        """
+        The numba path (N >= 3) unpacks an upper-triangle vector into
+        the full symmetric matrix via ``triu_indices`` + a single
+        symmetric assignment. Pin that the result is exactly symmetric
+        and element-wise matches the slow (pure-numpy) reference.
+
+        Tests:
+            (Test Case 1) Matrix is symmetric (``M == M.T``).
+            (Test Case 2) Diagonal is exactly 1.0 (identity from
+                ``np.eye``).
+            (Test Case 3) Off-diagonal pair values agree with the
+                slow-path computation per-pair within numerical
+                tolerance.
+        """
+        rng = np.random.default_rng(0)
+        trains = [np.sort(rng.uniform(0, 1000, 50)) for _ in range(4)]
+        sd = SpikeData(trains, length=1000.0)
+        pcm = sd.spike_time_tilings(delt=10.0)
+        M = pcm.matrix
+
+        # Symmetric assignment must produce a literal-symmetric matrix.
+        np.testing.assert_array_equal(M, M.T)
+        np.testing.assert_array_equal(np.diag(M), np.ones(sd.N))
+
+        # Element-wise parity with the slow reference per pair (pairs
+        # are computed serially via ``get_sttc`` on N=2 SpikeData).
+        for i in range(sd.N):
+            for j in range(i + 1, sd.N):
+                ref = SpikeData(
+                    [trains[i], trains[j]], length=1000.0
+                ).spike_time_tilings(delt=10.0)
+                assert M[i, j] == pytest.approx(ref.matrix[0, 1], abs=1e-9)
+                assert M[j, i] == pytest.approx(ref.matrix[0, 1], abs=1e-9)
+
     def test_n_equals_1_returns_singleton_identity_matrix(self):
         """
         Single-unit ``SpikeData`` produces a (1,1) matrix with the
@@ -10403,6 +10438,37 @@ class TestSpikeDataFromThresholdingDirectionBranches:
     and ``'both'`` (default). The existing tests cover ``'both'``;
     pin the ``'up'`` and ``'down'`` branches separately.
     """
+
+    def test_direction_down_hysteresis_pins_crossing_at_correct_sample(self):
+        """
+        ``from_thresholding(direction="down", hysteresis=True)`` reports
+        the down-crossing at the sample where the signal first crosses
+        below ``-threshold``, not one sample earlier or later. The
+        prepended-False guard in the hysteresis path restores the
+        original (N, T) shape and keeps the crossing aligned to the
+        sample where the change actually occurred.
+
+        Tests:
+            (Test Case 1) A signal that crosses below ``-threshold``
+                at sample 5 produces a spike at ``5 * (1000/fs)`` ms
+                (5 ms here at ``fs_Hz=1000``), not at 4 ms or 6 ms.
+        """
+        # 1-channel signal: zeros, then a sharp dip below threshold at
+        # sample 5, then back to zeros.
+        data = np.zeros((1, 30), dtype=float)
+        data[0, 5:10] = -5.0  # down-crossing at sample 5
+        sd = SpikeData.from_thresholding(
+            data,
+            fs_Hz=1000.0,
+            threshold_sigma=1.0,
+            filter=False,
+            direction="down",
+            hysteresis=True,
+        )
+        assert sd.train[0].size >= 1
+        # Sample 5 at fs=1000 Hz → 5 ms.
+        first_spike_ms = float(sd.train[0][0])
+        assert first_spike_ms == pytest.approx(5.0, abs=0.51)
 
     def test_direction_up_detects_positive_crossings_only(self):
         """

@@ -3330,15 +3330,44 @@ class TestLazyAnalysisWorkspace:
         with pytest.raises(OSError):
             ws.get("ns", "arr")
 
-    def test_items_property_raises(self):
+    def test_items_property_raises_with_helpful_message(self):
         """
-        Accessing _items on a LazyAnalysisWorkspace raises NotImplementedError.
+        Accessing ``_items`` on a LazyAnalysisWorkspace raises
+        ``NotImplementedError`` whose message points the caller at the
+        proper public API (``list_namespaces`` / ``list_keys`` /
+        ``get``) since lazy workspaces don't materialise items in
+        memory.
 
         Tests:
-            (Test Case 1) Reading _items raises NotImplementedError.
+            (Test Case 1) Reading ``_items`` raises NotImplementedError.
+            (Test Case 2) The error message names ``list_namespaces``,
+                ``list_keys``, and ``get`` as the recovery API.
         """
         ws = LazyAnalysisWorkspace(name="test_items")
-        with pytest.raises(NotImplementedError, match="does not use _items"):
+        with pytest.raises(NotImplementedError) as excinfo:
+            _ = ws._items
+        msg = str(excinfo.value)
+        assert "list_namespaces" in msg
+        assert "list_keys" in msg
+        assert "get" in msg
+
+    def test_items_setter_is_noop_for_parent_init_compatibility(self):
+        """
+        ``LazyAnalysisWorkspace._items = {}`` (the assignment the parent
+        ``AnalysisWorkspace.__init__`` does) must NOT raise — the
+        setter is a no-op so the lazy subclass can reuse the parent
+        constructor without sub-classing around its init order.
+
+        Tests:
+            (Test Case 1) ``ws._items = {}`` does not raise.
+            (Test Case 2) Reading ``_items`` afterwards still raises
+                NotImplementedError (the setter discards the value).
+        """
+        ws = LazyAnalysisWorkspace(name="test_items_setter")
+        # Setter must not raise.
+        ws._items = {}
+        # Getter behaviour is unchanged after the no-op setter.
+        with pytest.raises(NotImplementedError):
             _ = ws._items
 
     def test_get_after_delete(self):

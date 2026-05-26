@@ -135,6 +135,130 @@ def test_namespace_hooks_no_match_leaves_manifest_unchanged():
     assert "/etc/test-creds" not in mount_paths
 
 
+def test_volume_mount_name_with_newline_is_sanitized():
+    """
+    ``VolumeMountSpec(name="bad\\nname", ...)`` flows through
+    ``build_template_context`` and the rendered YAML must keep its
+    structure: the newline is stripped from the mount name and the
+    document parses cleanly.
+
+    Tests:
+        (Test Case 1) The rendered ``volumeMounts[0].name`` contains
+            no newline (sanitized to ``"badname"``).
+        (Test Case 2) The full YAML round-trips through ``yaml.safe_load``.
+    """
+    payload = _example_payload()
+    payload["namespace"] = "test-ns"
+    payload["volume_mounts"] = [
+        {
+            "name": "bad\nname",
+            "mount_path": "/x",
+            "secret_name": "test-secret",
+        }
+    ]
+    job_spec = validate_job_spec(payload)
+    profile = ClusterProfile(name="vol-sanitize-test")
+    context = build_template_context(
+        job_name="vol-test",
+        job_spec=job_spec,
+        profile=profile,
+    )
+    manifest = render_job_manifest(context)
+    parsed = yaml.safe_load(manifest)
+    mounts = parsed["spec"]["template"]["spec"]["containers"][0].get(
+        "volumeMounts", []
+    )
+    assert mounts, "expected at least one volume mount"
+    names = [m.get("name") for m in mounts]
+    assert "badname" in names
+    # No mount name contains the embedded newline.
+    for name in names:
+        assert "\n" not in name
+
+
+def test_namespace_hook_env_defaults_are_sanitized():
+    """
+    Hook-supplied ``env_defaults`` flow through ``_sanitize_map`` before
+    they merge into the container env — newlines / quotes embedded in
+    a hook value cannot escape the rendered YAML structure.
+
+    Tests:
+        (Test Case 1) ``NamespaceHookSpec(env_defaults={"FOO":
+            "value\\nwith\\nnewlines"})`` produces a container.env
+            entry ``FOO`` with the newlines stripped.
+        (Test Case 2) The full YAML round-trips through ``yaml.safe_load``.
+    """
+    payload = _example_payload()
+    payload["namespace"] = "test-ns"
+    # No user-set FOO so the hook value wins.
+    payload["container"]["env"] = {"NORMAL": "value"}
+    job_spec = validate_job_spec(payload)
+    profile = ClusterProfile(
+        name="env-sanitize-test",
+        namespace_hooks={
+            "test-ns": NamespaceHookSpec(
+                env_defaults={"FOO": "value\nwith\nnewlines"},
+                required_volumes=[
+                    VolumeMountSpec(
+                        name="dummy",
+                        mount_path="/dummy",
+                        secret_name="dummy",
+                    ),
+                ],
+            )
+        },
+    )
+    context = build_template_context(
+        job_name="env-test",
+        job_spec=job_spec,
+        profile=profile,
+    )
+    manifest = render_job_manifest(context)
+    parsed = yaml.safe_load(manifest)
+    env_list = parsed["spec"]["template"]["spec"]["containers"][0]["env"]
+    env_by_name = {e["name"]: e["value"] for e in env_list}
+    assert "FOO" in env_by_name
+    assert "\n" not in env_by_name["FOO"]
+    assert env_by_name["FOO"] == "valuewithnewlines"
+
+
+def test_job_yaml_quoting_handles_special_characters():
+    """
+    ``job.yaml.j2`` quotes string fields so values with YAML-sensitive
+    characters (``:``) still parse cleanly.
+
+    Tests:
+        (Test Case 1) Volume name containing a colon (``"weird:name"``
+            via the unsafe-character sanitizer leaves the colon
+            intact, since ``:`` isn't in the YAML-unsafe set) parses
+            successfully through ``yaml.safe_load``.
+        (Test Case 2) ``metadata.name``, ``metadata.namespace`` and
+            container image round-trip via the parsed YAML.
+    """
+    payload = _example_payload()
+    payload["namespace"] = "ns"
+    payload["container"]["image"] = "img"
+    payload["volume_mounts"] = [
+        {
+            "name": "weird:name",
+            "mount_path": "/m",
+            "secret_name": "test-secret",
+        }
+    ]
+    job_spec = validate_job_spec(payload)
+    profile = ClusterProfile(name="quoting-test")
+    context = build_template_context(
+        job_name="job-x",
+        job_spec=job_spec,
+        profile=profile,
+    )
+    manifest = render_job_manifest(context)
+    parsed = yaml.safe_load(manifest)
+    assert parsed["metadata"]["name"] == "job-x"
+    assert parsed["metadata"]["namespace"] == "ns"
+    assert parsed["spec"]["template"]["spec"]["containers"][0]["image"] == "img"
+
+
 def test_namespace_hooks_preserve_user_affinity():
     """Namespace hooks do not override user-specified affinity."""
     payload = _example_payload()
@@ -841,6 +965,51 @@ class TestS3StorageClient:
             # Client-using operations raise the deferred ImportError.
             with pytest.raises(ImportError, match="boto3 is required"):
                 client.upload_file(local_path=__file__, s3_uri="s3://bucket/pfx/x.bin")
+
+    def test_list_output_files_caps_at_default_limit(self):
+        """
+        ``list_output_files`` raises ValueError when the paginator
+        yields more objects than ``max_keys`` (default
+        ``DEFAULT_LIST_OUTPUT_LIMIT = 10_000``). Pinning the cap as a
+        class attribute lets callers raise it explicitly without
+        editing the source.
+
+        Tests:
+            (Test Case 1) Mocked paginator yielding 10_001 keys raises
+                ValueError mentioning ``max_keys=10000``.
+            (Test Case 2) With ``max_keys=20_000`` the same fixture
+                returns the full list.
+            (Test Case 3) The cap is exposed as
+                ``S3StorageClient.DEFAULT_LIST_OUTPUT_LIMIT``.
+        """
+        # Class attribute is documented and stable.
+        assert S3StorageClient.DEFAULT_LIST_OUTPUT_LIMIT == 10_000
+
+        def make_pages(n_keys):
+            # Yield 1000 keys per page.
+            for start in range(0, n_keys, 1000):
+                stop = min(start + 1000, n_keys)
+                yield {
+                    "Contents": [{"Key": f"k{i}"} for i in range(start, stop)]
+                }
+
+        # 10_001 keys → exceeds the default cap.
+        with patch("spikelab.batch_jobs.storage_s3.boto3") as mock_boto3:
+            mock_s3 = MagicMock()
+            mock_boto3.client.return_value = mock_s3
+            client = S3StorageClient(prefix="s3://bucket/pfx/")
+
+        mock_paginator = MagicMock()
+        mock_paginator.paginate.return_value = make_pages(10_001)
+        mock_s3.get_paginator.return_value = mock_paginator
+
+        with pytest.raises(ValueError, match="max_keys=10000"):
+            client.list_output_files("run-1")
+
+        # With a larger cap, the same fixture returns all keys.
+        mock_paginator.paginate.return_value = make_pages(10_001)
+        keys = client.list_output_files("run-1", max_keys=20_000)
+        assert len(keys) == 10_001
 
     def test_boto3_not_installed_download_and_list_also_raise_deferred(self):
         """
@@ -3296,6 +3465,46 @@ class TestSortingEntrypoint:
         reconstructed = _reconstruct_config(config_dict)
         assert reconstructed.recording.freq_min == 200
 
+    def test_reconstruct_config_resolves_string_annotations(self, monkeypatch):
+        """
+        Under ``from __future__ import annotations`` (or other
+        deferred-evaluation modes), dataclass ``field.type`` carries
+        the annotation as a *string* rather than the actual class.
+        The reconstruction path resolves string annotations via
+        ``typing.get_type_hints`` so both modes work; without this,
+        ``f.type(**sub_dict)`` would raise
+        ``TypeError: 'str' object is not callable``.
+
+        Tests:
+            (Test Case 1) Setting ``SortingPipelineConfig.__annotations__[
+                "recording"] = "RecordingConfig"`` (string form) does
+                not break ``_reconstruct_config`` — it still produces a
+                valid SortingPipelineConfig.
+        """
+        import dataclasses
+
+        from spikelab.batch_jobs.entrypoints.sorting import _reconstruct_config
+        from spikelab.spike_sorting.config import (
+            SortingPipelineConfig,
+            RecordingConfig,
+        )
+
+        # Build a valid baseline config dict.
+        config_dict = dataclasses.asdict(SortingPipelineConfig())
+
+        # Monkeypatch one annotation to the string form. ``get_type_hints``
+        # resolves "RecordingConfig" against the class's module globals,
+        # which already imports the class.
+        original = dict(SortingPipelineConfig.__annotations__)
+        new_annotations = dict(original)
+        new_annotations["recording"] = "RecordingConfig"
+        monkeypatch.setattr(
+            SortingPipelineConfig, "__annotations__", new_annotations
+        )
+
+        reconstructed = _reconstruct_config(config_dict)
+        assert isinstance(reconstructed.recording, RecordingConfig)
+
 
 class TestSortingEntrypointMain:
     """
@@ -4209,6 +4418,99 @@ class TestK8sBackendConfigException:
                     backend = KubernetesBatchJobBackend(namespace="test")
                     assert backend._batch_api is None
                     assert backend._core_api is None
+
+    def test_apply_manifest_kubectl_fallback_unlinks_temp_on_write_failure(
+        self, tmp_path, monkeypatch
+    ):
+        """
+        The kubectl-fallback path writes the manifest YAML to a tempfile
+        via ``tempfile.mkstemp`` + ``os.fdopen``. If the inner write
+        raises, the ``finally`` branch must still unlink the temp
+        path — the previous pattern initialised ``temp_path = None``
+        before the write and skipped cleanup when the assignment never
+        happened.
+
+        Tests:
+            (Test Case 1) When ``os.fdopen`` raises after
+                ``mkstemp`` succeeded, the temp file path is unlinked
+                in the cleanup branch.
+            (Test Case 2) The original exception propagates to the
+                caller.
+        """
+        import os
+        import tempfile as _tempfile
+
+        backend = KubernetesBatchJobBackend(namespace="test-ns")
+        backend._batch_api = None  # force fallback
+        backend.use_kubectl_fallback = True
+
+        captured_temp_path: list[str] = []
+        real_mkstemp = _tempfile.mkstemp
+
+        def tracking_mkstemp(*args, **kwargs):
+            fd, path = real_mkstemp(*args, **kwargs)
+            captured_temp_path.append(path)
+            return fd, path
+
+        def failing_fdopen(*args, **kwargs):
+            raise OSError("simulated write failure")
+
+        monkeypatch.setattr(
+            "spikelab.batch_jobs.backend_k8s.tempfile.mkstemp", tracking_mkstemp
+        )
+        monkeypatch.setattr(
+            "spikelab.batch_jobs.backend_k8s.os.fdopen", failing_fdopen
+        )
+
+        manifest = "apiVersion: batch/v1\nkind: Job\nmetadata:\n  name: my-job\n"
+        with pytest.raises(OSError, match="simulated write failure"):
+            backend.apply_manifest(manifest)
+
+        assert captured_temp_path, "mkstemp was never called"
+        assert not os.path.exists(captured_temp_path[0])
+
+    def test_non_config_exception_during_api_discovery_logs_and_falls_back(
+        self, caplog
+    ):
+        """
+        Non-ConfigException errors raised during ``client.BatchV1Api()``
+        / ``client.CoreV1Api()`` (network blip, urllib3 quirks, API
+        version mismatch) leave the backend in the partially-initialised
+        kubectl-fallback state — ``_batch_api is None`` — and emit a
+        DEBUG-level log record so operators can still see what went
+        wrong.
+
+        Tests:
+            (Test Case 1) Constructor returns successfully despite the
+                non-ConfigException error.
+            (Test Case 2) ``_batch_api`` and ``_core_api`` are both
+                None (kubectl fallback engaged).
+            (Test Case 3) A DEBUG-level log record was emitted to the
+                module's logger.
+        """
+        import logging
+
+        mock_client = MagicMock()
+        # ``BatchV1Api()`` raises a non-ConfigException-type error.
+        mock_client.BatchV1Api.side_effect = RuntimeError(
+            "simulated urllib3 MaxRetryError"
+        )
+        mock_config = MagicMock()
+        mock_config.ConfigException = type("ConfigException", (Exception,), {})
+
+        with caplog.at_level(
+            logging.DEBUG, logger="spikelab.batch_jobs.backend_k8s"
+        ):
+            with patch("spikelab.batch_jobs.backend_k8s.client", mock_client):
+                with patch("spikelab.batch_jobs.backend_k8s.config", mock_config):
+                    backend = KubernetesBatchJobBackend(namespace="test")
+
+        assert backend._batch_api is None
+        assert backend._core_api is None
+        debug_records = [
+            r for r in caplog.records if r.levelno == logging.DEBUG
+        ]
+        assert debug_records, "expected a DEBUG-level log record on fallback"
 
 
 class TestCli:
