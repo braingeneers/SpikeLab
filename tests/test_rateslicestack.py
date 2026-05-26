@@ -860,6 +860,45 @@ class TestSliceCorrelations:
             unit_mat = pcm_stack.stack[:, :, u]
             np.testing.assert_array_almost_equal(unit_mat, unit_mat.T)
 
+    def test_slice_to_slice_unit_corr_matmul_mask_invalidates_low_rate_unit(self):
+        """
+        The matmul-mask path (``max_lag=0``) masks per-unit slice
+        correlations to NaN when the unit's mean rate is below
+        ``MIN_RATE_THRESHOLD`` in more than ``MIN_FRAC`` of the slices.
+        Pin that the masking actually fires when the build-then-mask
+        pattern runs.
+
+        Tests:
+            (Test Case 1) A unit whose mean rate is below threshold in
+                MORE than ``MIN_FRAC`` of the slices ends up with an
+                all-NaN row in its slice-correlation matrix.
+        """
+        # 2 units, 10 time bins, 4 slices.
+        # Unit 0: well above threshold in every slice (clean signal).
+        # Unit 1: well above threshold in 1 slice, well below in 3.
+        # With MIN_FRAC=0.3 (default), unit 1 has 3/4 = 75% invalid >
+        # 30% → masked.
+        mat = np.zeros((2, 10, 4), dtype=float)
+        # Unit 0 — all slices well above the 0.1 threshold.
+        mat[0, :, :] = 1.0
+        # Unit 1 — only slice 0 is above the threshold; slices 1..3
+        # are well below.
+        mat[1, :, 0] = 1.0
+        mat[1, :, 1:] = 0.0  # mean = 0 < 0.1
+
+        rss = RateSliceStack(event_matrix=mat)
+        pcm_stack, _ = rss.get_slice_to_slice_unit_corr_from_stack(
+            max_lag=0,
+            MIN_RATE_THRESHOLD=0.1,
+            MIN_FRAC=0.3,
+        )
+        # Unit 1's slice-correlation matrix is all-NaN.
+        unit1_mat = pcm_stack.stack[:, :, 1]
+        assert np.all(np.isnan(unit1_mat))
+        # Unit 0 retains finite values (sanity).
+        unit0_mat = pcm_stack.stack[:, :, 0]
+        assert np.any(np.isfinite(unit0_mat))
+
     def test_slice_to_slice_time_corr_shape(self):
         """
         Tests get_slice_to_slice_time_corr_from_stack output shapes.

@@ -149,7 +149,7 @@ def test_volume_mount_name_with_newline_is_sanitized():
     """
     payload = _example_payload()
     payload["namespace"] = "test-ns"
-    payload["volume_mounts"] = [
+    payload["volumes"] = [
         {
             "name": "bad\nname",
             "mount_path": "/x",
@@ -238,7 +238,7 @@ def test_job_yaml_quoting_handles_special_characters():
     payload = _example_payload()
     payload["namespace"] = "ns"
     payload["container"]["image"] = "img"
-    payload["volume_mounts"] = [
+    payload["volumes"] = [
         {
             "name": "weird:name",
             "mount_path": "/m",
@@ -404,6 +404,64 @@ class TestSleepDetection:
 
     def test_normal_command_allowed(self):
         assert not _contains_disallowed_sleep(["python"], ["-m", "my_script"])
+
+    def test_threshold_s_parameter_controls_cutoff(self):
+        """
+        The ``threshold_s`` kwarg sets the cap above which a bare
+        ``sleep <number>`` is considered idle. Lowering it flags
+        durations that the default cap permits.
+
+        Tests:
+            (Test Case 1) ``sleep 100`` with ``threshold_s=50`` → True.
+            (Test Case 2) ``sleep 100`` with ``threshold_s=200`` → False.
+        """
+        assert _contains_disallowed_sleep(["sleep"], ["100"], threshold_s=50)
+        assert not _contains_disallowed_sleep(
+            ["sleep"], ["100"], threshold_s=200
+        )
+
+    def test_evaluate_policy_propagates_sleep_duration_threshold(self):
+        """
+        ``evaluate_policy`` forwards ``cfg.sleep_duration_threshold_s``
+        to ``_contains_disallowed_sleep`` so users can tighten or
+        loosen the policy without editing the heuristic itself.
+
+        Tests:
+            (Test Case 1) ``PolicyConfig(sleep_duration_threshold_s=50)``
+                + ``sleep 100`` produces a sleep-related finding (the
+                stricter threshold flags it).
+            (Test Case 2) The default threshold (24h) allows the same
+                ``sleep 100`` without flagging it.
+        """
+        from spikelab.batch_jobs.policy import PolicyConfig, evaluate_policy
+
+        payload = _example_payload()
+        payload["container"]["command"] = ["sleep"]
+        payload["container"]["args"] = ["100"]
+        job_spec = validate_job_spec(payload)
+
+        # Strict profile: 50 s threshold flags ``sleep 100``.
+        strict_profile = ClusterProfile(
+            name="strict",
+            policy=PolicyConfig(sleep_duration_threshold_s=50),
+        )
+        findings_strict = evaluate_policy(job_spec, strict_profile)
+        levels_strict = {(f.code, f.level) for f in findings_strict}
+        # A BLOCK-level sleep finding fires because the duration
+        # exceeds the strict threshold.
+        assert any(
+            "sleep" in code and level == "BLOCK"
+            for code, level in levels_strict
+        )
+
+        # Default profile: 24 h threshold lets ``sleep 100`` through.
+        default_profile = ClusterProfile(name="default")
+        findings_default = evaluate_policy(job_spec, default_profile)
+        levels_default = {(f.code, f.level) for f in findings_default}
+        assert not any(
+            "sleep" in code and level == "BLOCK"
+            for code, level in levels_default
+        )
 
     def test_sleep_as_substring_allowed(self):
         """'sleep' appearing as part of another word is not flagged."""
@@ -1752,11 +1810,29 @@ class TestCredential:
         assert creds.aws_secret_access_key is None
         assert creds.kubeconfig is None
 
-    def test_redact_none_values(self):
-        """redact_sensitive_map converts None values to empty strings."""
+    def test_redact_none_values_renders_unset_sentinel(self):
+        """
+        ``None`` inputs render as the literal ``"<unset>"`` so the
+        audit log can distinguish "credential is not configured" from
+        "credential is configured but empty" (the prior implementation
+        collapsed both into ``""``).
+
+        Tests:
+            (Test Case 1) ``{"FIELD": None}`` produces
+                ``{"FIELD": "<unset>"}``.
+            (Test Case 2) Non-None values still pass through.
+            (Test Case 3) ``None`` short-circuits before the redaction
+                pattern check — a None-valued sensitive key (e.g.
+                ``SECRET_TOKEN``) also renders as ``"<unset>"``, not
+                ``"***REDACTED***"``.
+        """
         redacted = redact_sensitive_map({"FIELD": None, "OTHER": "ok"})
-        assert redacted["FIELD"] == ""
+        assert redacted["FIELD"] == "<unset>"
         assert redacted["OTHER"] == "ok"
+
+        # None short-circuits the sensitive-key redaction branch.
+        secret = redact_sensitive_map({"SECRET_TOKEN": None})
+        assert secret["SECRET_TOKEN"] == "<unset>"
 
 
 # ---------------------------------------------------------------------------
@@ -4452,7 +4528,14 @@ class TestK8sBackendConfigException:
             captured_temp_path.append(path)
             return fd, path
 
-        def failing_fdopen(*args, **kwargs):
+        def failing_fdopen(fd, *args, **kwargs):
+            # Close the fd before raising so the finally branch's
+            # ``Path(temp_path).unlink(missing_ok=True)`` can actually
+            # delete the file on Windows (where holding the fd blocks
+            # unlink). This mirrors what a real ``os.fdopen`` failure
+            # looks like for a properly-implemented file wrapper that
+            # closed the fd before propagating the error.
+            os.close(fd)
             raise OSError("simulated write failure")
 
         monkeypatch.setattr(
@@ -5993,6 +6076,120 @@ class TestCliCmdRenderNamespaceBackfill:
         cli_mod._cmd_render(args)
         captured = capsys.readouterr().out
         assert "yaml-from-stub" in captured
+
+
+class TestCliCmdDeployInvalidConfigMessages:
+    """``cli._cmd_deploy`` produces ``SystemExit("Invalid job config: …")``
+    for both pydantic ``ValidationError`` (uses the summariser) and
+    plain exceptions (uses ``str(exc)``). The split exists so unrelated
+    exceptions with an ``errors`` attribute don't accidentally route
+    through the pydantic summariser.
+    """
+
+    def test_validation_error_routes_through_summariser(
+        self, tmp_path, monkeypatch
+    ):
+        """
+        Tests:
+            (Test Case 1) An invalid job_config payload (e.g. empty
+                container.image) raises SystemExit whose message
+                starts with ``"Invalid job config:"``.
+            (Test Case 2) The summariser output is a non-empty
+                follow-on string after the prefix.
+        """
+        import json
+        from spikelab.batch_jobs import cli as cli_mod
+
+        payload = _example_payload()
+        # Drop a required field that the profile fallback cannot fill in.
+        payload["container"]["image"] = ""
+        del payload["container"]["command"]
+        # Make name_prefix empty so the validator must reject it.
+        payload["name_prefix"] = ""
+        config_path = tmp_path / "job.json"
+        config_path.write_text(json.dumps(payload), encoding="utf-8")
+
+        monkeypatch.setattr(
+            cli_mod,
+            "_load_profile",
+            lambda name, path: ClusterProfile(
+                name="t", default_images={"cpu": "ghcr.io/example/cpu:latest"}
+            ),
+        )
+        monkeypatch.setattr(
+            cli_mod, "_build_session", lambda profile, kubeconfig: MagicMock()
+        )
+
+        args = argparse.Namespace(
+            profile=None,
+            profile_file=None,
+            kubeconfig=None,
+            job_config=str(config_path),
+            image_profile="cpu",
+            image=None,
+            render_only=True,
+            wait=False,
+            follow_logs=False,
+            max_wait_seconds=1,
+            allow_policy_risk=False,
+            output_manifest=None,
+        )
+        with pytest.raises(SystemExit) as excinfo:
+            cli_mod._cmd_deploy(args)
+        msg = str(excinfo.value)
+        assert msg.startswith("Invalid job config:")
+        # Summariser produces some follow-on text.
+        assert len(msg) > len("Invalid job config:")
+
+    def test_non_validation_error_routes_through_str(self, tmp_path, monkeypatch):
+        """
+        Tests:
+            (Test Case 1) A plain ``RuntimeError("x")`` raised from
+                ``validate_job_spec`` produces SystemExit with the
+                message ``"Invalid job config: x"`` (the raw
+                ``str(exc)`` rather than the pydantic summariser).
+        """
+        import json
+        from spikelab.batch_jobs import cli as cli_mod
+
+        config_path = tmp_path / "job.json"
+        config_path.write_text(
+            json.dumps(_example_payload()), encoding="utf-8"
+        )
+
+        monkeypatch.setattr(
+            cli_mod,
+            "_load_profile",
+            lambda name, path: ClusterProfile(
+                name="t", default_images={"cpu": "ghcr.io/example/cpu:latest"}
+            ),
+        )
+        monkeypatch.setattr(
+            cli_mod, "_build_session", lambda profile, kubeconfig: MagicMock()
+        )
+
+        def raise_runtime_error(payload):
+            raise RuntimeError("x")
+
+        monkeypatch.setattr(cli_mod, "validate_job_spec", raise_runtime_error)
+
+        args = argparse.Namespace(
+            profile=None,
+            profile_file=None,
+            kubeconfig=None,
+            job_config=str(config_path),
+            image_profile="cpu",
+            image=None,
+            render_only=True,
+            wait=False,
+            follow_logs=False,
+            max_wait_seconds=1,
+            allow_policy_risk=False,
+            output_manifest=None,
+        )
+        with pytest.raises(SystemExit) as excinfo:
+            cli_mod._cmd_deploy(args)
+        assert str(excinfo.value) == "Invalid job config: x"
 
 
 class TestCliCmdDeployRenderOnlyCreatesParentDirs:

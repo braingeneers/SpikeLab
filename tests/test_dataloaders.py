@@ -4789,6 +4789,32 @@ class TestPickleLoader2:
             loaders.load_spikedata_from_pickle(path)
 
 
+class TestSpikeInterfaceLoaderDocstring:
+    """Public docstring contract for ``load_spikedata_from_spikeinterface``.
+    The unit-order convention (``sorting.get_unit_ids()`` order is
+    backend-dependent — KS sequential vs SpikeInterface-reordered)
+    matters for cross-backend comparisons and is documented in the
+    function's docstring along with the ``unit_ids`` override knob.
+    """
+
+    def test_docstring_documents_backend_dependent_order_and_unit_ids(self):
+        """
+        Tests:
+            (Test Case 1) ``__doc__`` contains the substring
+                ``"backend-dependent"``.
+            (Test Case 2) ``__doc__`` names ``unit_ids`` as the
+                override knob callers rely on.
+        """
+        from spikelab.data_loaders.data_loaders import (
+            load_spikedata_from_spikeinterface,
+        )
+
+        doc = load_spikedata_from_spikeinterface.__doc__
+        assert doc is not None
+        assert "backend-dependent" in doc
+        assert "unit_ids" in doc
+
+
 class TestSpikeInterfaceLoader:
     """Edge case tests for load_spikedata_from_spikeinterface."""
 

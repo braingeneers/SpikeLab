@@ -1294,6 +1294,22 @@ from spikelab.spikedata.utils import (
 class TestResampledIsi:
     """Edge-case tests for _resampled_isi."""
 
+    def test_docstring_pins_int_round_bin_assignment(self):
+        """
+        ``_resampled_isi`` documents that bin assignment uses
+        ``int(round(...))`` rather than ``floor``. The docstring is
+        the only place this contract is spelled out for users
+        building parallel grids by hand. Pin the substring so a
+        future API/comment rewrite that drops the rounding language
+        surfaces as a test failure.
+
+        Tests:
+            (Test Case 1) ``_resampled_isi.__doc__`` contains the
+                substring ``"int(round"``.
+        """
+        assert _resampled_isi.__doc__ is not None
+        assert "int(round" in _resampled_isi.__doc__
+
     def test_resampled_isi_identical_spike_times(self):
         """
         Identical spike times are deduplicated with a RuntimeWarning.
