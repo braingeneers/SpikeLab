@@ -137,6 +137,117 @@ def test_namespace_hooks_no_match_leaves_manifest_unchanged():
     assert "/etc/test-creds" not in mount_paths
 
 
+def test_image_pull_secrets_default_omits_field_from_manifest():
+    """
+    Tier L-F7: when the active ``ClusterProfile`` has no
+    ``image_pull_secrets`` configured (the default for public-registry
+    workflows), the rendered manifest contains no ``imagePullSecrets``
+    key — preserving the prior behaviour for clusters relying on the
+    default ServiceAccount's pull secrets.
+
+    Tests:
+        (Test Case 1) ``ClusterProfile(name=...)`` with default
+            ``image_pull_secrets=[]`` renders a manifest whose pod
+            spec does NOT include ``imagePullSecrets``.
+    """
+    job_spec = validate_job_spec(_example_payload())
+    profile = ClusterProfile(name="public-cluster")
+    context = build_template_context(
+        job_name="lf7-default",
+        job_spec=job_spec,
+        profile=profile,
+    )
+    manifest = render_job_manifest(context)
+    parsed = yaml.safe_load(manifest)
+    pod_spec = parsed["spec"]["template"]["spec"]
+    assert "imagePullSecrets" not in pod_spec
+    # ``imagePullSecrets`` should not appear textually either —
+    # commented-out renderings would still confuse downstream tools.
+    assert "imagePullSecrets" not in manifest
+
+
+def test_image_pull_secrets_single_secret_renders_into_manifest():
+    """
+    Tier L-F7: a single pull secret on the profile renders as a
+    one-element ``imagePullSecrets:`` list under the pod spec,
+    exactly as Kubernetes expects.
+
+    Tests:
+        (Test Case 1) ``ClusterProfile(image_pull_secrets=["regcred"])``
+            renders ``imagePullSecrets: [{"name": "regcred"}]`` on
+            the pod spec.
+    """
+    job_spec = validate_job_spec(_example_payload())
+    profile = ClusterProfile(name="private-cluster", image_pull_secrets=["regcred"])
+    context = build_template_context(
+        job_name="lf7-single",
+        job_spec=job_spec,
+        profile=profile,
+    )
+    manifest = render_job_manifest(context)
+    parsed = yaml.safe_load(manifest)
+    pod_spec = parsed["spec"]["template"]["spec"]
+    assert pod_spec["imagePullSecrets"] == [{"name": "regcred"}]
+
+
+def test_image_pull_secrets_multiple_secrets_render_in_order():
+    """
+    Tier L-F7: multiple pull secrets render in the order given on the
+    profile. K8s does not document an evaluation order for multiple
+    pull secrets, but preserving caller order keeps the manifest
+    diff-stable across runs.
+
+    Tests:
+        (Test Case 1) Two secrets render as a two-element list in
+            the same order as the profile's
+            ``image_pull_secrets`` list.
+    """
+    job_spec = validate_job_spec(_example_payload())
+    profile = ClusterProfile(
+        name="multi-registry-cluster",
+        image_pull_secrets=["ghcr-cred", "ecr-cred"],
+    )
+    context = build_template_context(
+        job_name="lf7-multi",
+        job_spec=job_spec,
+        profile=profile,
+    )
+    manifest = render_job_manifest(context)
+    parsed = yaml.safe_load(manifest)
+    pod_spec = parsed["spec"]["template"]["spec"]
+    assert pod_spec["imagePullSecrets"] == [
+        {"name": "ghcr-cred"},
+        {"name": "ecr-cred"},
+    ]
+
+
+def test_image_pull_secrets_yaml_unsafe_name_raises():
+    """
+    Tier L-F7: a pull-secret name containing YAML-unsafe characters
+    (newline, etc.) is rejected by ``build_template_context`` rather
+    than silently stripped — same fail-fast policy as labels /
+    volume names elsewhere in the templating path (Tier L-C1).
+
+    Tests:
+        (Test Case 1) ``image_pull_secrets=["bad\\nname"]`` causes
+            ``build_template_context`` to raise ValueError mentioning
+            the offending field.
+    """
+    import pytest
+
+    job_spec = validate_job_spec(_example_payload())
+    profile = ClusterProfile(
+        name="bad-secret-cluster",
+        image_pull_secrets=["bad\nname"],
+    )
+    with pytest.raises(ValueError, match="YAML-unsafe character"):
+        build_template_context(
+            job_name="lf7-bad",
+            job_spec=job_spec,
+            profile=profile,
+        )
+
+
 def test_volume_mount_name_with_newline_raises():
     """
     Tier L-C1: ``VolumeMountSpec(name="bad\\nname", ...)`` flowing

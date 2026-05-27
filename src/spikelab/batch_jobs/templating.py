@@ -311,6 +311,10 @@ def build_template_context(
         "ttl_seconds_after_finished": job_spec.ttl_seconds_after_finished,
         "backoff_limit": job_spec.backoff_limit,
         "active_deadline_seconds": job_spec.active_deadline_seconds,
+        "image_pull_secrets": [
+            _sanitize_yaml_value(s, field="image_pull_secrets")
+            for s in profile.image_pull_secrets
+        ],
     }
 
 

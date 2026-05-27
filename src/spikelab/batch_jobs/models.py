@@ -185,6 +185,15 @@ class ClusterProfile(BaseModel):
     resources: ResourceSpec = Field(default_factory=ResourceSpec)
     endpoint_url: Optional[str] = None
     region_name: Optional[str] = None
+    #: Tier L-F7: Kubernetes ``imagePullSecrets`` to attach to the pod
+    #: spec. Each entry is the name of a ``kubernetes.io/dockerconfigjson``
+    #: secret that already exists in the target namespace. Empty (the
+    #: default) means no pull secrets are rendered — appropriate for
+    #: public registries and clusters whose default ServiceAccount
+    #: already carries the necessary secrets. Cluster-level rather
+    #: than per-job because the same registry is typically reused
+    #: across every job submitted to the cluster.
+    image_pull_secrets: List[str] = Field(default_factory=list)
 
 
 class SubmitResult(BaseModel):

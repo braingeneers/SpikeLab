@@ -29,6 +29,12 @@ spec:
       tolerations:
 {{ tolerations_yaml | indent(8, true) }}
 {% endif %}
+{% if image_pull_secrets %}
+      imagePullSecrets:
+{% for secret_name in image_pull_secrets %}
+      - name: "{{ secret_name }}"
+{% endfor %}
+{% endif %}
       containers:
       - name: analysis
         image: "{{ container.image }}"
