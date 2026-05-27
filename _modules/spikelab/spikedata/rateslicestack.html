@@ -929,6 +929,16 @@
             <span class="c1"># --- Vectorized fast path (no lag search) -------------------------</span>
             <span class="c1"># For each unit, compute the full S x S normalised dot-product</span>
             <span class="c1"># matrix in one matrix multiply instead of an O(S^2) Python loop.</span>
+            <span class="c1"># The build-then-mask pattern (compute corr_matrix over ALL</span>
+            <span class="c1"># slices, then assign only into valid-vs-valid pairs of</span>
+            <span class="c1"># ``unit_corr``) is mathematically equivalent to slicing by</span>
+            <span class="c1"># ``valid_idx`` before the matmul — the invalid columns</span>
+            <span class="c1"># contribute to ``corr_matrix`` but are never read.</span>
+            <span class="c1"># Mask-after-matmul is preferred because (a) BLAS matmul on</span>
+            <span class="c1"># a contiguous (T, S) array beats two non-contiguous</span>
+            <span class="c1"># ``rates[:, valid_idx]`` slices, and (b) the S&lt;2 short-</span>
+            <span class="c1"># circuit above already guarantees that the matmul has</span>
+            <span class="c1"># work to do.</span>
             <span class="k">for</span> <span class="n">unit</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_units</span><span class="p">):</span>
                 <span class="n">rates</span> <span class="o">=</span> <span class="n">event_stack</span><span class="p">[</span><span class="n">unit</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span>  <span class="c1"># (T, S)</span>
                 <span class="n">slice_means</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">rates</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>  <span class="c1"># (S,)</span>
@@ -1119,14 +1129,18 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">output</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="c1"># U x T x S</span>
+        <span class="c1"># Pre-compute the relative-time vector ONCE outside the loop;</span>
+        <span class="c1"># ``np.arange(T) * self.step_size`` is identical for every slice</span>
+        <span class="c1"># (only the per-slice ``start`` offset changes), so the in-loop</span>
+        <span class="c1"># allocation was redundant work proportional to S.</span>
+        <span class="n">rel_times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">event_stack</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">step_size</span>
         <span class="k">for</span> <span class="n">s_idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">event_stack</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]):</span>
             <span class="n">matrix</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">event_stack</span><span class="p">[:,</span> <span class="p">:,</span> <span class="n">s_idx</span><span class="p">]</span>
             <span class="n">start</span><span class="p">,</span> <span class="n">end</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">times</span><span class="p">[</span><span class="n">s_idx</span><span class="p">]</span>
-            <span class="n">time</span> <span class="o">=</span> <span class="n">start</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">matrix</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">step_size</span>
+            <span class="n">time</span> <span class="o">=</span> <span class="n">start</span> <span class="o">+</span> <span class="n">rel_times</span>
             <span class="k">if</span> <span class="n">time</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">end</span><span class="p">:</span>
                 <span class="c1"># Extremely rare edge case with floating point calculation. Should never happen but just in case</span>
                 <span class="n">time</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">finfo</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span><span class="o">.</span><span class="n">eps</span><span class="p">)</span>
-            <span class="c1"># time = np.arange(start, end, self.step_size)</span>
             <span class="n">rate_obj</span> <span class="o">=</span> <span class="n">RateData</span><span class="p">(</span><span class="n">matrix</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span> <span class="n">neuron_attributes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">)</span>
             <span class="n">output</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">rate_obj</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">output</span></div>
@@ -1295,6 +1309,15 @@
             <span class="c1"># to unit indices.</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;can&#39;t use `by` without `neuron_attributes`&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">preserve_order</span><span class="p">:</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                    <span class="s2">&quot;preserve_order=True has no effect when by= is set; &quot;</span>
+                    <span class="s2">&quot;the by-path returns matching units in index order. &quot;</span>
+                    <span class="s2">&quot;Drop preserve_order=True or use index-based subset() &quot;</span>
+                    <span class="s2">&quot;to silence this warning.&quot;</span><span class="p">,</span>
+                    <span class="ne">UserWarning</span><span class="p">,</span>
+                    <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+                <span class="p">)</span>
             <span class="n">_missing</span> <span class="o">=</span> <span class="nb">object</span><span class="p">()</span>
             <span class="n">wanted</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">units</span><span class="p">)</span>
             <span class="n">selected</span> <span class="o">=</span> <span class="p">[</span>
@@ -1394,29 +1417,50 @@
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            slices (int or list): Slice index or list of slice indices to</span>
-<span class="sd">                extract.</span>
+<span class="sd">                extract. Indices are kept in **caller order**;</span>
+<span class="sd">                duplicates are deduplicated (first occurrence wins).</span>
+<span class="sd">                Negative indices are accepted and resolved against</span>
+<span class="sd">                the current ``S`` dimension.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            result (RateSliceStack): New RateSliceStack containing only the</span>
-<span class="sd">                specified slices. Shape changes from (U, T, S) to</span>
-<span class="sd">                (U, T, S_trimmed).</span>
+<span class="sd">                specified slices in caller-supplied order. Shape changes</span>
+<span class="sd">                from (U, T, S) to (U, T, S_trimmed).</span>
 
 <span class="sd">        Notes:</span>
 <span class="sd">            - All units, neuron_attributes, and step_size are carried over</span>
 <span class="sd">              from the original.</span>
+<span class="sd">            - Previously the input was silently sorted ascending, so</span>
+<span class="sd">              ``subslice([2, 0, 1])`` returned ``[0, 1, 2]`` and any</span>
+<span class="sd">              caller that intended a reordering for plotting or</span>
+<span class="sd">              concatenation got the wrong layout. The caller-order +</span>
+<span class="sd">              dedupe behaviour is consistent with the ``subset(...,</span>
+<span class="sd">              preserve_order=True)`` design family.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">length</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">event_stack</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">slices</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
             <span class="n">slices</span> <span class="o">=</span> <span class="p">[</span><span class="n">slices</span><span class="p">]</span>
         <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">slices</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">)):</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Slice indices must be integers, got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">s</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">s</span><span class="si">!r}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
             <span class="k">if</span> <span class="n">s</span> <span class="o">&gt;=</span> <span class="n">length</span> <span class="ow">or</span> <span class="n">s</span> <span class="o">&lt;</span> <span class="o">-</span><span class="n">length</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                     <span class="sa">f</span><span class="s2">&quot;One or more slice indices out of range for S=</span><span class="si">{</span><span class="n">length</span><span class="si">}</span><span class="s2">&quot;</span>
                 <span class="p">)</span>
-        <span class="n">slices</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">slices</span><span class="p">)</span>
-        <span class="n">new_times</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="c1"># Preserve caller order and deduplicate (first occurrence wins).</span>
+        <span class="c1"># Negative indices are normalised against the current S so that</span>
+        <span class="c1"># ``[2, -1]`` against S=3 collapses to ``[2]``.</span>
+        <span class="n">seen</span><span class="p">:</span> <span class="nb">set</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="n">ordered</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">slices</span><span class="p">:</span>
-            <span class="n">new_times</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">times</span><span class="p">[</span><span class="n">s</span><span class="p">])</span>
+            <span class="n">si</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="o">%</span> <span class="n">length</span> <span class="k">if</span> <span class="n">length</span> <span class="k">else</span> <span class="nb">int</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">si</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">seen</span><span class="p">:</span>
+                <span class="n">seen</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">si</span><span class="p">)</span>
+                <span class="n">ordered</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">si</span><span class="p">)</span>
+        <span class="n">slices</span> <span class="o">=</span> <span class="n">ordered</span>
+        <span class="n">new_times</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">times</span><span class="p">[</span><span class="n">s</span><span class="p">]</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">slices</span><span class="p">]</span>
         <span class="n">new_stack</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">event_stack</span><span class="p">[:,</span> <span class="p">:,</span> <span class="n">slices</span><span class="p">]</span>
         <span class="k">return</span> <span class="n">RateSliceStack</span><span class="p">(</span>
             <span class="n">event_matrix</span><span class="o">=</span><span class="n">new_stack</span><span class="p">,</span>

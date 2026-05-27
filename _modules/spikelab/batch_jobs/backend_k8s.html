@@ -450,6 +450,8 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
@@ -463,6 +465,8 @@
     <span class="n">client</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">config</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">watch</span> <span class="o">=</span> <span class="kc">None</span>
+
+<span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
 
 <div class="viewcode-block" id="KubernetesBatchJobBackend">
@@ -489,7 +493,21 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">_batch_api</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">BatchV1Api</span><span class="p">()</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_core_api</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">CoreV1Api</span><span class="p">()</span>
             <span class="k">except</span> <span class="n">config</span><span class="o">.</span><span class="n">ConfigException</span><span class="p">:</span>
-                <span class="k">pass</span>  <span class="c1"># No valid kubeconfig — fall back to kubectl</span></div>
+                <span class="c1"># No valid kubeconfig — fall back to kubectl silently.</span>
+                <span class="k">pass</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                <span class="c1"># ``client.BatchV1Api()`` / ``client.CoreV1Api()`` can</span>
+                <span class="c1"># raise non-``ConfigException`` errors during async API</span>
+                <span class="c1"># discovery (network blip, urllib3 quirks, version</span>
+                <span class="c1"># mismatch). Without this branch the partially-initialised</span>
+                <span class="c1"># state (``_batch_api=None``) escaped silently and the</span>
+                <span class="c1"># caller saw an unhelpful traceback from a later</span>
+                <span class="c1"># ``self._batch_api.create_namespaced_job`` call.</span>
+                <span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                    <span class="s2">&quot;KubernetesBatchJobBackend: client initialisation &quot;</span>
+                    <span class="s2">&quot;failed (</span><span class="si">%r</span><span class="s2">); falling back to kubectl.&quot;</span><span class="p">,</span>
+                    <span class="n">exc</span><span class="p">,</span>
+                <span class="p">)</span></div>
 
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_run_kubectl</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
@@ -577,20 +595,24 @@
                     <span class="p">[</span><span class="s2">&quot;apply&quot;</span><span class="p">,</span> <span class="s2">&quot;-f&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">),</span> <span class="s2">&quot;-n&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">namespace</span><span class="p">]</span>
                 <span class="p">)</span>
                 <span class="k">return</span> <span class="n">fallback_job_name</span> <span class="ow">or</span> <span class="n">stdout</span>
-            <span class="n">temp_path</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">NamedTemporaryFile</span><span class="p">(</span>
-                <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">suffix</span><span class="o">=</span><span class="s2">&quot;.yaml&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">,</span> <span class="n">delete</span><span class="o">=</span><span class="kc">False</span>
-            <span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">manifest_path_or_str</span><span class="p">)</span>
-                <span class="n">temp_path</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">name</span>
+            <span class="c1"># ``mkstemp`` is used in place of ``NamedTemporaryFile +</span>
+            <span class="c1"># try/finally`` so the path is known BEFORE the write — the</span>
+            <span class="c1"># previous pattern initialised ``temp_path = None`` and</span>
+            <span class="c1"># assigned only after ``f.name`` was created; if the write</span>
+            <span class="c1"># raised before that assignment, ``finally`` would see</span>
+            <span class="c1"># ``temp_path is None`` and silently skip cleanup. The</span>
+            <span class="c1"># current form guarantees the cleanup branch knows the</span>
+            <span class="c1"># path even when ``os.write`` itself raises.</span>
+            <span class="n">fd</span><span class="p">,</span> <span class="n">temp_path</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">mkstemp</span><span class="p">(</span><span class="n">suffix</span><span class="o">=</span><span class="s2">&quot;.yaml&quot;</span><span class="p">)</span>
             <span class="k">try</span><span class="p">:</span>
+                <span class="k">with</span> <span class="n">os</span><span class="o">.</span><span class="n">fdopen</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">manifest_path_or_str</span><span class="p">)</span>
                 <span class="n">stdout</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_kubectl</span><span class="p">(</span>
                     <span class="p">[</span><span class="s2">&quot;apply&quot;</span><span class="p">,</span> <span class="s2">&quot;-f&quot;</span><span class="p">,</span> <span class="n">temp_path</span><span class="p">,</span> <span class="s2">&quot;-n&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">namespace</span><span class="p">]</span>
                 <span class="p">)</span>
                 <span class="k">return</span> <span class="n">fallback_job_name</span> <span class="ow">or</span> <span class="n">stdout</span>
             <span class="k">finally</span><span class="p">:</span>
-                <span class="k">if</span> <span class="n">temp_path</span><span class="p">:</span>
-                    <span class="n">Path</span><span class="p">(</span><span class="n">temp_path</span><span class="p">)</span><span class="o">.</span><span class="n">unlink</span><span class="p">(</span><span class="n">missing_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="n">Path</span><span class="p">(</span><span class="n">temp_path</span><span class="p">)</span><span class="o">.</span><span class="n">unlink</span><span class="p">(</span><span class="n">missing_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
         <span class="c1"># Python-client path: parse strictly. ``create_namespaced_job``</span>
         <span class="c1"># requires a structured payload with metadata.name, so we raise</span>

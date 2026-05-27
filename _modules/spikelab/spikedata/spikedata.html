@@ -487,8 +487,23 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">concurrent.futures</span><span class="w"> </span><span class="kn">import</span> <span class="n">ThreadPoolExecutor</span>
 
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="c1"># Primary class</span>
     <span class="s2">&quot;SpikeData&quot;</span><span class="p">,</span>
+    <span class="c1"># Re-exports from utils — kept on this module&#39;s public surface</span>
+    <span class="c1"># because they are the documented entry points for spike-train</span>
+    <span class="c1"># analysis (the ``utils`` module is treated as internal). Tier</span>
+    <span class="c1"># L-E4: expand the previous minimal ``[SpikeData, get_sttc]``</span>
+    <span class="c1"># list to cover the comparison / similarity helpers and the</span>
+    <span class="c1"># shuffle / threshold-crossing utilities that callers reach for</span>
+    <span class="c1"># directly. ``plot_utils.py`` is intentionally NOT listed —</span>
+    <span class="c1"># matplotlib helpers are not part of the data-class API.</span>
     <span class="s2">&quot;get_sttc&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;swap&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;randomize&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;trough_between&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;extract_unit_waveforms&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;compute_cross_correlation_with_lag&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;compute_cosine_similarity_with_lag&quot;</span><span class="p">,</span>
 <span class="p">]</span>
 
 
@@ -541,6 +556,18 @@
 <span class="sd">              range (&gt;= N).</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">idces</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">idces</span><span class="p">)</span>
+        <span class="n">times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">times</span><span class="p">)</span>
+        <span class="c1"># Reject length mismatch up-front. ``_train_from_i_t_list``</span>
+        <span class="c1"># uses ``times[idces == i]`` boolean indexing internally; on</span>
+        <span class="c1"># ``len(idces) != len(times)`` numpy silently broadcasts or</span>
+        <span class="c1"># truncates instead of erroring, silently producing wrong</span>
+        <span class="c1"># per-unit trains. Surface the mismatch at the input boundary.</span>
+        <span class="k">if</span> <span class="n">idces</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">times</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;idces and times must have equal length and shape; got &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;len(idces)=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">idces</span><span class="p">)</span><span class="si">}</span><span class="s2"> (shape </span><span class="si">{</span><span class="n">idces</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">), &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;len(times)=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">times</span><span class="p">)</span><span class="si">}</span><span class="s2"> (shape </span><span class="si">{</span><span class="n">times</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">).&quot;</span>
+            <span class="p">)</span>
         <span class="k">if</span> <span class="n">idces</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">kwargs</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;length&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
             <span class="n">N</span> <span class="o">=</span> <span class="mi">0</span> <span class="k">if</span> <span class="n">N</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">N</span>
@@ -726,11 +753,32 @@
             <span class="c1"># bin earlier than its actual crossing time (since diff</span>
             <span class="c1"># shifts everything left by one). Prepend a False column to</span>
             <span class="c1"># restore both: the raster regains its original (N, T)</span>
-            <span class="c1"># shape, and a rising edge at original sample t+1 maps</span>
-            <span class="c1"># back to raster bin t+1. The prepended column is a true</span>
-            <span class="c1"># statement — a rising edge cannot occur at sample 0.</span>
+            <span class="c1"># shape, and a fresh threshold crossing at original sample</span>
+            <span class="c1"># t+1 maps back to raster bin t+1. The prepended column is</span>
+            <span class="c1"># a true statement under all directions: a crossing</span>
+            <span class="c1"># (up-cross, down-cross, or either-direction) cannot occur</span>
+            <span class="c1"># at sample 0 because there is no preceding sample to</span>
+            <span class="c1"># compare against.</span>
             <span class="n">diff</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span>
             <span class="n">raster</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">diff</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">1</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">),</span> <span class="n">diff</span><span class="p">])</span>
+
+        <span class="c1"># Warn when the threshold produced zero detections anywhere in</span>
+        <span class="c1"># the raster. The most common cause is an over-aggressive</span>
+        <span class="c1"># ``threshold_sigma`` for the recording&#39;s noise profile —</span>
+        <span class="c1"># callers iterating over ``threshold_sigma`` values used to</span>
+        <span class="c1"># see an empty SpikeData and have no signal that the</span>
+        <span class="c1"># threshold itself was the problem.</span>
+        <span class="n">n_spikes</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">raster</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">n_spikes</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;from_thresholding: zero spikes detected at &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;threshold_sigma=</span><span class="si">{</span><span class="n">threshold_sigma</span><span class="si">}</span><span class="s2">, direction=</span><span class="si">{</span><span class="n">direction</span><span class="si">!r}</span><span class="s2">. &quot;</span>
+                <span class="s2">&quot;Threshold may be too aggressive for the input noise &quot;</span>
+                <span class="s2">&quot;profile; lower threshold_sigma or verify the signal &quot;</span>
+                <span class="s2">&quot;has events to detect.&quot;</span><span class="p">,</span>
+                <span class="ne">UserWarning</span><span class="p">,</span>
+                <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+            <span class="p">)</span>
 
         <span class="n">kwargs</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;raw_data&quot;</span><span class="p">:</span> <span class="n">data</span><span class="p">,</span> <span class="s2">&quot;raw_time&quot;</span><span class="p">:</span> <span class="n">fs_Hz</span> <span class="o">/</span> <span class="mf">1e3</span><span class="p">}</span>
         <span class="k">if</span> <span class="n">length</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -909,11 +957,20 @@
 <span class="sd">            - This method is not a property unlike ``times`` and ``events``</span>
 <span class="sd">              because the lists must actually be constructed in memory.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">idces</span><span class="p">,</span> <span class="n">times</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">events</span><span class="p">:</span>
-            <span class="n">idces</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
-            <span class="n">times</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">idces</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">times</span><span class="p">)</span></div>
+        <span class="c1"># Pre-allocate from the known total-spike count rather than</span>
+        <span class="c1"># appending to Python lists and converting at the end. For</span>
+        <span class="c1"># recordings with millions of spikes the append loop allocates</span>
+        <span class="c1"># a new Python int object per spike and rebuilds the list</span>
+        <span class="c1"># capacity multiple times; np.repeat + np.concatenate runs</span>
+        <span class="c1"># entirely in NumPy C.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="n">counts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+        <span class="n">idces</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">),</span> <span class="n">counts</span><span class="p">)</span>
+        <span class="n">times</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">)</span> <span class="k">if</span> <span class="n">counts</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">idces</span><span class="p">,</span> <span class="n">times</span></div>
 
 
     <span class="nd">@property</span>
@@ -1002,25 +1059,20 @@
 <span class="sd">              stride.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">.spikeslicestack</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpikeSliceStack</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">_frame_window_starts</span>
 
-        <span class="k">if</span> <span class="n">overlap</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;overlap must be non-negative, got </span><span class="si">{</span><span class="n">overlap</span><span class="si">}</span><span class="s2">. The parameter &quot;</span>
-                <span class="s2">&quot;represents an overlap, not a stride; use a smaller `length` &quot;</span>
-                <span class="s2">&quot;and post-filter slices for gapped windows.&quot;</span>
-            <span class="p">)</span>
-        <span class="n">step</span> <span class="o">=</span> <span class="n">length</span> <span class="o">-</span> <span class="n">overlap</span>
-        <span class="k">if</span> <span class="n">step</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;overlap must be less than length&quot;</span><span class="p">)</span>
-        <span class="n">end_time</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_time</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span>
-        <span class="n">times</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">start</span><span class="p">),</span> <span class="nb">float</span><span class="p">(</span><span class="n">start</span><span class="p">)</span> <span class="o">+</span> <span class="n">length</span><span class="p">)</span>
-            <span class="k">for</span> <span class="n">start</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">start_time</span><span class="p">,</span> <span class="n">end_time</span> <span class="o">-</span> <span class="n">length</span> <span class="o">+</span> <span class="mf">1e-9</span><span class="p">,</span> <span class="n">step</span><span class="p">)</span>
-        <span class="p">]</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">times</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Recording length (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="si">}</span><span class="s2"> ms) is shorter than frame length (</span><span class="si">{</span><span class="n">length</span><span class="si">}</span><span class="s2"> ms)&quot;</span>
-            <span class="p">)</span>
+        <span class="c1"># Tier L-E5: window-generation logic factored out to</span>
+        <span class="c1"># ``_frame_window_starts`` and shared with ``RateData.frames``.</span>
+        <span class="c1"># Behaviour preserved: ``effective_end = self.start_time +</span>
+        <span class="c1"># self.length`` (one past the last raster bin), windows that</span>
+        <span class="c1"># extend past it are excluded, frame count is deterministic</span>
+        <span class="c1"># via ``floor(slot_span / step) + 1`` (no ULP-padding magic).</span>
+        <span class="n">times</span> <span class="o">=</span> <span class="n">_frame_window_starts</span><span class="p">(</span>
+            <span class="n">t0</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">start_time</span><span class="p">,</span>
+            <span class="n">effective_end</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">start_time</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">,</span>
+            <span class="n">length</span><span class="o">=</span><span class="n">length</span><span class="p">,</span>
+            <span class="n">overlap</span><span class="o">=</span><span class="n">overlap</span><span class="p">,</span>
+        <span class="p">)</span>
         <span class="k">return</span> <span class="n">SpikeSliceStack</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">times_start_to_end</span><span class="o">=</span><span class="n">times</span><span class="p">)</span></div>
 
 
@@ -1163,6 +1215,16 @@
 <span class="sd">            binned_raster (numpy.ndarray): Array of the number of events in</span>
 <span class="sd">                each bin.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Short-circuit the zero-units case explicitly rather than</span>
+        <span class="c1"># relying on ``scipy.sparse.csr_matrix.sum(axis=0)`` returning</span>
+        <span class="c1"># a ``(1, T)`` row vector for ``(0, T)`` inputs — that</span>
+        <span class="c1"># behaviour is undocumented and has varied across scipy</span>
+        <span class="c1"># versions. ``binned_meanrate`` (line ~720) already has the</span>
+        <span class="c1"># explicit guard; mirror it here so both helpers are</span>
+        <span class="c1"># symmetric.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">N</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">n_bins</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">/</span> <span class="n">bin_size</span><span class="p">))</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mi">0</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_bins</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
         <span class="c1"># sum(0) on CSR returns a (1, T) matrix in older SciPy; flatten to 1D array</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sparse_raster</span><span class="p">(</span><span class="n">bin_size</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>  <span class="c1"># type: ignore</span></div>
 
@@ -1481,17 +1543,53 @@
         <span class="k">if</span> <span class="n">by</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;can&#39;t use `by` without `neuron_attributes`&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">preserve_order</span><span class="p">:</span>
+                <span class="c1"># ``by`` resolves to whichever units carry the matching</span>
+                <span class="c1"># attribute, in self.train order — caller-supplied</span>
+                <span class="c1"># order cannot be honoured because there&#39;s no</span>
+                <span class="c1"># positional correspondence between the attribute-value</span>
+                <span class="c1"># list and unit indices. Surface the no-op to the</span>
+                <span class="c1"># caller so the silent ineffectiveness is visible.</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                    <span class="s2">&quot;preserve_order=True has no effect when by= is set; &quot;</span>
+                    <span class="s2">&quot;the by-path returns matching units in self.train &quot;</span>
+                    <span class="s2">&quot;order (attribute values have no positional &quot;</span>
+                    <span class="s2">&quot;correspondence to unit indices). Drop &quot;</span>
+                    <span class="s2">&quot;preserve_order=True or use index-based subset() &quot;</span>
+                    <span class="s2">&quot;to silence this warning.&quot;</span><span class="p">,</span>
+                    <span class="ne">UserWarning</span><span class="p">,</span>
+                    <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+                <span class="p">)</span>
             <span class="n">_missing</span> <span class="o">=</span> <span class="nb">object</span><span class="p">()</span>
+            <span class="c1"># Warn when ``by`` references an attribute key that NO unit</span>
+            <span class="c1"># actually carries. Typos like ``by=&quot;unit_idx&quot;`` (vs the</span>
+            <span class="c1"># canonical ``&quot;unit_id&quot;``) used to silently produce empty</span>
+            <span class="c1"># subsets — caller saw an empty SpikeData with no clue why.</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span>
+                <span class="n">_get_attr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">by</span><span class="p">,</span> <span class="n">_missing</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">_missing</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">)</span>
+            <span class="p">):</span>
+                <span class="n">known_keys</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
+                    <span class="p">{</span>
+                        <span class="n">k</span>
+                        <span class="k">for</span> <span class="n">attrs</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span>
+                        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">attrs</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span>
+                        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">attrs</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+                    <span class="p">}</span>
+                <span class="p">)</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;subset(by=</span><span class="si">{</span><span class="n">by</span><span class="si">!r}</span><span class="s2">): no unit&#39;s neuron_attributes carries &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;this key; returning an empty SpikeData. Known keys &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;across neuron_attributes: </span><span class="si">{</span><span class="n">known_keys</span><span class="si">}</span><span class="s2">. Check for typos.&quot;</span><span class="p">,</span>
+                    <span class="ne">UserWarning</span><span class="p">,</span>
+                    <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+                <span class="p">)</span>
             <span class="n">wanted</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">units</span><span class="p">)</span>
             <span class="n">matched</span> <span class="o">=</span> <span class="p">[</span>
                 <span class="n">i</span>
                 <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">_get_attr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">by</span><span class="p">,</span> <span class="n">_missing</span><span class="p">)</span> <span class="ow">in</span> <span class="n">wanted</span>
             <span class="p">]</span>
-            <span class="c1"># ``by`` resolves to whichever units carry the matching</span>
-            <span class="c1"># attribute, in self.train order — caller-supplied order</span>
-            <span class="c1"># cannot be honoured because there&#39;s no positional</span>
-            <span class="c1"># correspondence between the value list and unit indices.</span>
             <span class="n">selected</span> <span class="o">=</span> <span class="n">matched</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="c1"># Match historical semantics: only integer-typed entries</span>
@@ -1529,12 +1627,19 @@
 
         <span class="c1"># raw_data/raw_time are not propagated to subsets — they remain</span>
         <span class="c1"># on the original SpikeData object and can be accessed there.</span>
+        <span class="c1"># ``neuron_attributes`` is passed through as-is (consistent with</span>
+        <span class="c1"># ``RateData.subset``); an empty list survives as ``[]`` rather</span>
+        <span class="c1"># than being silently collapsed to ``None`` via the prior</span>
+        <span class="c1"># ``or None`` shortcut. ``[]`` is the more honest answer when</span>
+        <span class="c1"># the input had attrs that all got filtered out — downstream</span>
+        <span class="c1"># ``isinstance(neuron_attributes, list)`` checks now behave</span>
+        <span class="c1"># symmetrically across data classes.</span>
         <span class="k">return</span> <span class="n">SpikeData</span><span class="p">(</span>
             <span class="n">train</span><span class="p">,</span>
             <span class="n">length</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">,</span>
             <span class="n">start_time</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">start_time</span><span class="p">,</span>
             <span class="n">N</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">train</span><span class="p">),</span>
-            <span class="n">neuron_attributes</span><span class="o">=</span><span class="n">neuron_attributes</span> <span class="ow">or</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">neuron_attributes</span><span class="o">=</span><span class="n">neuron_attributes</span><span class="p">,</span>
             <span class="n">metadata</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span>
         <span class="p">)</span></div>
 
@@ -1756,6 +1861,19 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">N</span> <span class="o">!=</span> <span class="n">spikeData</span><span class="o">.</span><span class="n">N</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot concatenate SpikeData with different N&quot;</span><span class="p">)</span>
+        <span class="c1"># Reject negative offsets up-front. A negative ``offset`` shifts</span>
+        <span class="c1"># the concatenation point *backwards* into self&#39;s recording</span>
+        <span class="c1"># window, silently interleaving the appended spikes with</span>
+        <span class="c1"># self&#39;s instead of appending them. The result&#39;s ``length``</span>
+        <span class="c1"># then computes incorrectly. If someone genuinely wants to</span>
+        <span class="c1"># overlay two recordings they should use a different API.</span>
+        <span class="k">if</span> <span class="n">offset</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;offset must be non-negative, got </span><span class="si">{</span><span class="n">offset</span><span class="si">}</span><span class="s2">. A negative &quot;</span>
+                <span class="s2">&quot;offset would shift the concatenation point backwards &quot;</span>
+                <span class="s2">&quot;into self&#39;s recording window, silently interleaving &quot;</span>
+                <span class="s2">&quot;the appended spikes with self&#39;s.&quot;</span>
+            <span class="p">)</span>
         <span class="c1"># Shift appended spikes from their own time base to follow self&#39;s time range.</span>
         <span class="c1"># Subtract spikeData.start_time to normalize to 0-based, then add the</span>
         <span class="c1"># concatenation point (self&#39;s end time + gap).</span>
@@ -2187,6 +2305,12 @@
                 <span class="n">ratio</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">den</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">num</span> <span class="o">/</span> <span class="n">den</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">ratio</span><span class="p">)):</span>
                 <span class="k">continue</span>
+            <span class="c1"># Degenerate-mean note: at the N=3-spike boundary the unit</span>
+            <span class="c1"># has exactly 2 ISIs and therefore one adjacent ISI pair —</span>
+            <span class="c1"># ``np.nanmean(ratio)`` here is the mean of a single value</span>
+            <span class="c1"># (technically valid, statistically not an average).</span>
+            <span class="c1"># Callers should treat per-unit CV2 with caution when the</span>
+            <span class="c1"># spike count is at or near 3.</span>
             <span class="n">out</span><span class="p">[</span><span class="n">u</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">ratio</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">out</span></div>
 
@@ -2273,13 +2397,15 @@
             <span class="k">if</span> <span class="n">length</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">length</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">flat</span><span class="p">))</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">flat</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span>
             <span class="n">upper</span> <span class="o">=</span> <span class="n">nb_sttc_all_pairs</span><span class="p">(</span><span class="n">flat</span><span class="p">,</span> <span class="n">offsets</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">,</span> <span class="n">delt</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span>
-            <span class="c1"># Unpack upper-triangle vector into symmetric matrix</span>
+            <span class="c1"># Unpack upper-triangle vector into symmetric matrix. The</span>
+            <span class="c1"># earlier Python double-loop ran ~N^2/2 iterations at</span>
+            <span class="c1"># interpreter speed — for N=1000 that is ~500k iterations</span>
+            <span class="c1"># purely to copy floats. ``triu_indices`` + a single</span>
+            <span class="c1"># symmetric assignment runs entirely in NumPy C.</span>
             <span class="n">ret</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">)</span>
-            <span class="n">k</span> <span class="o">=</span> <span class="mi">0</span>
-            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">):</span>
-                <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">):</span>
-                    <span class="n">ret</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">ret</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">upper</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
-                    <span class="n">k</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">triu_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">triu_indices</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">ret</span><span class="p">[</span><span class="n">triu_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">upper</span>
+            <span class="n">ret</span><span class="p">[(</span><span class="n">triu_idx</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">triu_idx</span><span class="p">[</span><span class="mi">0</span><span class="p">])]</span> <span class="o">=</span> <span class="n">upper</span>
             <span class="k">return</span> <span class="n">PairwiseCompMatrix</span><span class="p">(</span><span class="n">matrix</span><span class="o">=</span><span class="n">ret</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;delt&quot;</span><span class="p">:</span> <span class="n">delt</span><span class="p">})</span>
 
         <span class="n">ret</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">)</span>
@@ -2429,39 +2555,72 @@
 <div class="viewcode-block" id="SpikeData.latencies">
 <a class="viewcode-back" href="../../../api/spikedata.html#spikelab.spikedata.SpikeData.latencies">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">latencies</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">times</span><span class="p">,</span> <span class="n">window_ms</span><span class="o">=</span><span class="mf">100.0</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute latencies from each time to the nearest spike per unit.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute latencies from each query time to the nearest spike per unit.</span>
+
+<span class="sd">        Tier L-F1: rewrote from the previous O(N_units * N_times *</span>
+<span class="sd">        N_train) inner loop (per-iteration ``np.argmin(np.abs(train -</span>
+<span class="sd">        time))`` + redundant ``np.array(train)`` allocation) to a</span>
+<span class="sd">        ``np.searchsorted``-based vectorisation that is</span>
+<span class="sd">        O(N_units * (N_times + N_train * log N_train)) — orders of</span>
+<span class="sd">        magnitude faster on long trains. The return shape also</span>
+<span class="sd">        changed: a NaN-padded ``(U, len(times))`` ndarray instead</span>
+<span class="sd">        of the previous nested ``list[list[float]]``. The new shape</span>
+<span class="sd">        is information-preserving — ``arr[u, i]`` is the signed</span>
+<span class="sd">        latency from ``times[i]`` to the nearest spike in unit ``u``,</span>
+<span class="sd">        or ``NaN`` if that nearest spike is more than ``window_ms``</span>
+<span class="sd">        away. The previous nested-list shape silently dropped the</span>
+<span class="sd">        time-index correspondence (collapsing out-of-window entries</span>
+<span class="sd">        produced ``[lat_t2, lat_t3]`` with no way to tell which</span>
+<span class="sd">        query times those corresponded to).</span>
 
 <span class="sd">        Parameters:</span>
-<span class="sd">            times (list): List of times.</span>
-<span class="sd">            window_ms (float): Window in milliseconds (default: 100.0).</span>
+<span class="sd">            times (array-like): Query times in milliseconds.</span>
+<span class="sd">            window_ms (float): Latency window in milliseconds; entries</span>
+<span class="sd">                whose nearest-spike distance exceeds the window are</span>
+<span class="sd">                returned as ``NaN`` (default: 100.0).</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            latencies (list): 2D list, each row is a list of latencies from</span>
-<span class="sd">                a time to the nearest spike in the train.</span>
+<span class="sd">            latencies (np.ndarray): Shape ``(N_units, len(times))``</span>
+<span class="sd">                ndarray of signed latencies (``spike_time - query_time``)</span>
+<span class="sd">                or NaN for out-of-window entries. Empty ``times`` →</span>
+<span class="sd">                returns an ``(N_units, 0)`` array.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">latencies</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">times</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">latencies</span>
+        <span class="n">times_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="n">n_times</span> <span class="o">=</span> <span class="n">times_arr</span><span class="o">.</span><span class="n">size</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">,</span> <span class="n">n_times</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">n_times</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">out</span>
 
-        <span class="k">for</span> <span class="n">train</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">:</span>
-            <span class="n">cur_latencies</span> <span class="o">=</span> <span class="p">[]</span>
-            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">train</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="n">latencies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cur_latencies</span><span class="p">)</span>
-                <span class="k">continue</span>
-            <span class="k">for</span> <span class="n">time</span> <span class="ow">in</span> <span class="n">times</span><span class="p">:</span>
-                <span class="c1"># Subtract time from all spikes in the train</span>
-                <span class="c1"># and take the absolute value</span>
-                <span class="n">abs_diff_ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">train</span> <span class="o">-</span> <span class="n">time</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">u</span><span class="p">,</span> <span class="n">train</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">):</span>
+            <span class="n">train_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">train</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">train_arr</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">continue</span>  <span class="c1"># row stays all-NaN</span>
 
-                <span class="c1"># Calculate the actual latency</span>
-                <span class="n">latency</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">train</span><span class="p">)</span> <span class="o">-</span> <span class="n">time</span>
-                <span class="n">latency</span> <span class="o">=</span> <span class="n">latency</span><span class="p">[</span><span class="n">abs_diff_ind</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">train_arr</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="c1"># Single-spike train: no nearest-vs-predecessor choice.</span>
+                <span class="n">latencies</span> <span class="o">=</span> <span class="n">train_arr</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">times_arr</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># ``searchsorted`` returns the insertion index per</span>
+                <span class="c1"># query time. The nearest spike is either the spike</span>
+                <span class="c1"># AT that index (just-after) or the one just before.</span>
+                <span class="c1"># Clip the index to ``[1, len(train) - 1]`` so both</span>
+                <span class="c1"># candidates always exist; the comparison below picks</span>
+                <span class="c1"># the closer.</span>
+                <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="n">train_arr</span><span class="p">,</span> <span class="n">times_arr</span><span class="p">)</span>
+                <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">idx</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">train_arr</span><span class="o">.</span><span class="n">size</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+                <span class="n">left</span> <span class="o">=</span> <span class="n">train_arr</span><span class="p">[</span><span class="n">idx</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">times_arr</span>
+                <span class="n">right</span> <span class="o">=</span> <span class="n">train_arr</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">-</span> <span class="n">times_arr</span>
+                <span class="c1"># Pick whichever spike is closer in absolute distance</span>
+                <span class="c1"># to the query time. Ties go to the predecessor (left)</span>
+                <span class="c1"># — matches the previous ``argmin`` behaviour, which</span>
+                <span class="c1"># also returned the first equal index.</span>
+                <span class="n">use_right</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">right</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">left</span><span class="p">)</span>
+                <span class="n">latencies</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">use_right</span><span class="p">,</span> <span class="n">right</span><span class="p">,</span> <span class="n">left</span><span class="p">)</span>
 
-                <span class="n">abs_diff</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">latency</span><span class="p">)</span>
-                <span class="k">if</span> <span class="n">abs_diff</span> <span class="o">&lt;=</span> <span class="n">window_ms</span><span class="p">:</span>
-                    <span class="n">cur_latencies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">latency</span><span class="p">)</span>
-            <span class="n">latencies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cur_latencies</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">latencies</span></div>
+            <span class="c1"># NaN out entries outside the window.</span>
+            <span class="n">in_window</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">latencies</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">window_ms</span>
+            <span class="n">out</span><span class="p">[</span><span class="n">u</span><span class="p">,</span> <span class="n">in_window</span><span class="p">]</span> <span class="o">=</span> <span class="n">latencies</span><span class="p">[</span><span class="n">in_window</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">out</span></div>
 
 
 <div class="viewcode-block" id="SpikeData.get_pairwise_latencies">
@@ -2581,13 +2740,21 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">latencies_to_index</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">window_ms</span><span class="o">=</span><span class="mf">100.0</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute the latency from one unit to all other units.</span>
 
+<span class="sd">        Thin wrapper around :meth:`latencies` that uses unit ``i``&#39;s</span>
+<span class="sd">        spike train as the query times.</span>
+
 <span class="sd">        Parameters:</span>
-<span class="sd">            i (int): Index of the unit.</span>
+<span class="sd">            i (int): Index of the reference unit.</span>
 <span class="sd">            window_ms (float): Window in milliseconds (default: 100.0).</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            latencies (list): 2D list, each row is a list of latencies per</span>
-<span class="sd">                neuron.</span>
+<span class="sd">            latencies (np.ndarray): Shape ``(N_units, len(self.train[i]))``</span>
+<span class="sd">                float64 ndarray. Entry ``[u, k]`` is the signed latency</span>
+<span class="sd">                from the ``k``-th spike of unit ``i`` to the nearest</span>
+<span class="sd">                spike of unit ``u`` (within ``window_ms``), or ``NaN``</span>
+<span class="sd">                when no spike of unit ``u`` falls within the window.</span>
+<span class="sd">                Row ``i`` contains zeros where self-latencies match</span>
+<span class="sd">                exactly.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">latencies</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">window_ms</span><span class="p">)</span></div>
 
@@ -2805,8 +2972,13 @@
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            n_shuffles (int): Number of shuffled datasets to generate.</span>
-<span class="sd">            seed (int or None): Base random seed. Each shuffle uses</span>
-<span class="sd">                ``seed + i`` for reproducibility. None means no seed.</span>
+<span class="sd">            seed (int or None): Base random seed. When set, the n</span>
+<span class="sd">                child seeds are derived via</span>
+<span class="sd">                ``np.random.SeedSequence(seed).spawn(n_shuffles)`` so</span>
+<span class="sd">                that each shuffle gets an entropy-mixed independent</span>
+<span class="sd">                stream — the same idiomatic pattern</span>
+<span class="sd">                ``_rank_order_correlation_from_timing`` uses. None</span>
+<span class="sd">                means no seed (shuffles non-reproducible).</span>
 <span class="sd">            swap_per_spike (int): Forwarded to ``spike_shuffle``</span>
 <span class="sd">                (default: 5).</span>
 <span class="sd">            bin_size (int): Forwarded to ``spike_shuffle`` (default: 1).</span>
@@ -2814,18 +2986,38 @@
 <span class="sd">        Returns:</span>
 <span class="sd">            stack (SpikeSliceStack): Stack of n_shuffles shuffled SpikeData</span>
 <span class="sd">                objects. All slices share the same time bounds.</span>
+
+<span class="sd">        Notes:</span>
+<span class="sd">            - Reproducibility: ``spike_shuffle_stack(seed=42)`` produces</span>
+<span class="sd">              identical output across calls. Different seeds produce</span>
+<span class="sd">              different outputs.</span>
+<span class="sd">            - Pre-Tier-L the child seeds were ``seed + i``. Switching</span>
+<span class="sd">              to ``SeedSequence.spawn`` produces a different (but</span>
+<span class="sd">              still deterministic) sequence per seed value — exact</span>
+<span class="sd">              shuffle values from analysis snapshots pinned to the</span>
+<span class="sd">              old ``seed + i`` mapping will not bit-exact match the</span>
+<span class="sd">              new output. Null-distribution properties (the use case)</span>
+<span class="sd">              are statistically unaffected.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">n_shuffles</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;n_shuffles must be at least 1.&quot;</span><span class="p">)</span>
 
         <span class="kn">from</span><span class="w"> </span><span class="nn">.spikeslicestack</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpikeSliceStack</span>
 
+        <span class="k">if</span> <span class="n">seed</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">child_seeds</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">n_shuffles</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># SeedSequence.spawn produces ``n_shuffles`` independent</span>
+            <span class="c1"># child SeedSequence objects. ``np.random.default_rng``</span>
+            <span class="c1"># (called inside ``randomize``) accepts SeedSequence</span>
+            <span class="c1"># directly — no extra conversion needed.</span>
+            <span class="n">child_seeds</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">SeedSequence</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span><span class="o">.</span><span class="n">spawn</span><span class="p">(</span><span class="n">n_shuffles</span><span class="p">))</span>
+
         <span class="n">shuffled</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_shuffles</span><span class="p">):</span>
-            <span class="n">s</span> <span class="o">=</span> <span class="n">seed</span> <span class="o">+</span> <span class="n">i</span> <span class="k">if</span> <span class="n">seed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">child_seeds</span><span class="p">:</span>
             <span class="n">shuffled</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">spike_shuffle</span><span class="p">(</span>
-                    <span class="n">swap_per_spike</span><span class="o">=</span><span class="n">swap_per_spike</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="n">s</span><span class="p">,</span> <span class="n">bin_size</span><span class="o">=</span><span class="n">bin_size</span>
+                    <span class="n">swap_per_spike</span><span class="o">=</span><span class="n">swap_per_spike</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="n">child</span><span class="p">,</span> <span class="n">bin_size</span><span class="o">=</span><span class="n">bin_size</span>
                 <span class="p">)</span>
             <span class="p">)</span>
 

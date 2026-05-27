@@ -484,31 +484,85 @@
         <span class="n">aws_secret_access_key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">aws_session_token</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">prefix</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="p">(</span><span class="n">prefix</span> <span class="k">if</span> <span class="n">prefix</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">/&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">prefix</span> <span class="k">else</span> <span class="kc">None</span>
-        <span class="p">)</span>
+        <span class="c1"># ``prefix`` normalisation: ``None`` or empty string stays</span>
+        <span class="c1"># ``None`` (no bucket-level base configured); a non-empty</span>
+        <span class="c1"># string gets a trailing ``/`` appended if missing so</span>
+        <span class="c1"># downstream ``prefix + filename`` concatenation produces</span>
+        <span class="c1"># a valid S3 URI. Spelt out as three branches instead of a</span>
+        <span class="c1"># nested ternary for readability. The ``not prefix`` check</span>
+        <span class="c1"># (rather than ``is None``) is intentional — empty string</span>
+        <span class="c1"># is a documented synonym for &quot;no prefix&quot;.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">prefix</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">prefix</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">elif</span> <span class="n">prefix</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">prefix</span> <span class="o">=</span> <span class="n">prefix</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">prefix</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">/&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">endpoint_url</span> <span class="o">=</span> <span class="n">endpoint_url</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">region_name</span> <span class="o">=</span> <span class="n">region_name</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_templates</span> <span class="o">=</span> <span class="n">path_templates</span> <span class="ow">or</span> <span class="n">StoragePathTemplates</span><span class="p">()</span>
-        <span class="k">if</span> <span class="n">boto3</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="s2">&quot;boto3 is required for S3 storage: pip install boto3&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_client</span> <span class="o">=</span> <span class="n">boto3</span><span class="o">.</span><span class="n">client</span><span class="p">(</span>
-            <span class="s2">&quot;s3&quot;</span><span class="p">,</span>
-            <span class="n">endpoint_url</span><span class="o">=</span><span class="n">endpoint_url</span><span class="p">,</span>
-            <span class="n">region_name</span><span class="o">=</span><span class="n">region_name</span><span class="p">,</span>
-            <span class="n">aws_access_key_id</span><span class="o">=</span><span class="n">aws_access_key_id</span><span class="p">,</span>
-            <span class="n">aws_secret_access_key</span><span class="o">=</span><span class="n">aws_secret_access_key</span><span class="p">,</span>
-            <span class="n">aws_session_token</span><span class="o">=</span><span class="n">aws_session_token</span><span class="p">,</span>
-        <span class="p">)</span></div>
+        <span class="c1"># When boto3 is available, eagerly construct the client so</span>
+        <span class="c1"># tests that patch ``spikelab.batch_jobs.storage_s3.boto3``</span>
+        <span class="c1"># for the duration of the constructor get the patched client</span>
+        <span class="c1"># (the original behaviour). When boto3 is None, defer the</span>
+        <span class="c1"># ImportError until a method that actually needs the client</span>
+        <span class="c1"># is called — this lets pure-string operations</span>
+        <span class="c1"># (``build_uri``, ``output_prefix_for_run``,</span>
+        <span class="c1"># ``logs_prefix_for_run``) succeed on hosts without the</span>
+        <span class="c1"># optional dependency installed, e.g. ``cli._cmd_render`` →</span>
+        <span class="c1"># ``_build_session`` → here.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_boto3_kwargs</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;endpoint_url&quot;</span><span class="p">:</span> <span class="n">endpoint_url</span><span class="p">,</span>
+            <span class="s2">&quot;region_name&quot;</span><span class="p">:</span> <span class="n">region_name</span><span class="p">,</span>
+            <span class="s2">&quot;aws_access_key_id&quot;</span><span class="p">:</span> <span class="n">aws_access_key_id</span><span class="p">,</span>
+            <span class="s2">&quot;aws_secret_access_key&quot;</span><span class="p">:</span> <span class="n">aws_secret_access_key</span><span class="p">,</span>
+            <span class="s2">&quot;aws_session_token&quot;</span><span class="p">:</span> <span class="n">aws_session_token</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="k">if</span> <span class="n">boto3</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_client_instance</span> <span class="o">=</span> <span class="n">boto3</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;s3&quot;</span><span class="p">,</span> <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_boto3_kwargs</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_client_instance</span> <span class="o">=</span> <span class="kc">None</span></div>
 
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_client</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the boto3 S3 client, deferring the ImportError to</span>
+<span class="sd">        first use when boto3 was not available at construction time.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client_instance</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">boto3</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="s2">&quot;boto3 is required for S3 storage: pip install boto3&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_client_instance</span> <span class="o">=</span> <span class="n">boto3</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;s3&quot;</span><span class="p">,</span> <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_boto3_kwargs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client_instance</span>
 
 <div class="viewcode-block" id="S3StorageClient.build_uri">
 <a class="viewcode-back" href="../../../api/batch_jobs.html#spikelab.batch_jobs.storage_s3.S3StorageClient.build_uri">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">build_uri</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">run_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">filename</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">category</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;inputs&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Build an S3 URI for a file using the active path templates.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Build an S3 URI for a file using the active path templates.</span>
+
+<span class="sd">        ``category`` should be one of the keys defined on</span>
+<span class="sd">        ``StoragePathTemplates`` (``&quot;inputs&quot;``, ``&quot;outputs&quot;``,</span>
+<span class="sd">        ``&quot;logs&quot;``). An unknown category silently falls back to the</span>
+<span class="sd">        ``inputs`` template and emits a ``UserWarning`` so typos</span>
+<span class="sd">        (&quot;input&quot;, &quot;logs/&quot;, etc.) don&#39;t quietly land in the wrong S3</span>
+<span class="sd">        prefix.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">prefix</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="s2">&quot;S3 prefix is not configured. Set it in the profile or command.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_templates</span><span class="p">,</span> <span class="n">category</span><span class="p">):</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+
+            <span class="n">known</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
+                <span class="n">k</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">vars</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_templates</span><span class="p">)</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">k</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;build_uri: unknown category=</span><span class="si">{</span><span class="n">category</span><span class="si">!r}</span><span class="s2">; falling back &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;to the ``inputs`` template. Known categories: </span><span class="si">{</span><span class="n">known</span><span class="si">}</span><span class="s2">. &quot;</span>
+                <span class="s2">&quot;Check for typos.&quot;</span><span class="p">,</span>
+                <span class="ne">UserWarning</span><span class="p">,</span>
+                <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="n">template</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_templates</span><span class="p">,</span> <span class="n">category</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_templates</span><span class="o">.</span><span class="n">inputs</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">template</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">prefix</span><span class="p">,</span> <span class="n">run_id</span><span class="o">=</span><span class="n">run_id</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="n">filename</span><span class="p">)</span></div>
@@ -615,26 +669,47 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">download_file</span><span class="p">(</span><span class="n">s3_uri</span><span class="o">=</span><span class="n">s3_uri</span><span class="p">,</span> <span class="n">local_path</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">target</span><span class="p">))</span></div>
 
 
+    <span class="n">DEFAULT_LIST_OUTPUT_LIMIT</span> <span class="o">=</span> <span class="mi">10_000</span>
+
 <div class="viewcode-block" id="S3StorageClient.list_output_files">
 <a class="viewcode-back" href="../../../api/batch_jobs.html#spikelab.batch_jobs.storage_s3.S3StorageClient.list_output_files">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">list_output_files</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">run_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">list_output_files</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">run_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">max_keys</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;List object keys under the output prefix of a run.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            run_id (str): Run identifier.</span>
+<span class="sd">            max_keys (int | None): Cap on the number of keys returned.</span>
+<span class="sd">                Defaults to ``DEFAULT_LIST_OUTPUT_LIMIT`` (10000) to</span>
+<span class="sd">                guard against unbounded memory use on long-running jobs</span>
+<span class="sd">                that produced thousands of intermediate files (QC</span>
+<span class="sd">                figures, per-recording reports, etc.). Pass an explicit</span>
+<span class="sd">                larger value if the caller really needs the full list;</span>
+<span class="sd">                exceeding the cap raises ``ValueError`` rather than</span>
+<span class="sd">                silently truncating.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            keys (list[str]): S3 object keys found under the output prefix.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            ValueError: When more than ``max_keys`` objects exist under</span>
+<span class="sd">                the prefix.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">prefix</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_prefix_for_run</span><span class="p">(</span><span class="n">run_id</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">prefix</span><span class="p">:</span>
             <span class="k">return</span> <span class="p">[]</span>
+        <span class="n">cap</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">DEFAULT_LIST_OUTPUT_LIMIT</span> <span class="k">if</span> <span class="n">max_keys</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">max_keys</span>
         <span class="n">bucket</span><span class="p">,</span> <span class="n">key_prefix</span> <span class="o">=</span> <span class="n">parse_s3_url</span><span class="p">(</span><span class="n">prefix</span><span class="p">)</span>
         <span class="n">paginator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client</span><span class="o">.</span><span class="n">get_paginator</span><span class="p">(</span><span class="s2">&quot;list_objects_v2&quot;</span><span class="p">)</span>
-        <span class="n">keys</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">keys</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">page</span> <span class="ow">in</span> <span class="n">paginator</span><span class="o">.</span><span class="n">paginate</span><span class="p">(</span><span class="n">Bucket</span><span class="o">=</span><span class="n">bucket</span><span class="p">,</span> <span class="n">Prefix</span><span class="o">=</span><span class="n">key_prefix</span><span class="p">):</span>
             <span class="k">for</span> <span class="n">obj</span> <span class="ow">in</span> <span class="n">page</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;Contents&quot;</span><span class="p">,</span> <span class="p">[]):</span>
                 <span class="n">keys</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">obj</span><span class="p">[</span><span class="s2">&quot;Key&quot;</span><span class="p">])</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">keys</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">cap</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;list_output_files: more than max_keys=</span><span class="si">{</span><span class="n">cap</span><span class="si">}</span><span class="s2"> objects &quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;under prefix=</span><span class="si">{</span><span class="n">prefix</span><span class="si">!r}</span><span class="s2">. Pass a larger ``max_keys`` &quot;</span>
+                        <span class="s2">&quot;if this is expected; otherwise narrow the run_id.&quot;</span>
+                    <span class="p">)</span>
         <span class="k">return</span> <span class="n">keys</span></div>
 </div>
 

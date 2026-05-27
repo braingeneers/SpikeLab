@@ -635,13 +635,24 @@
                         <span class="s2">&quot;would silently mis-align downstream raster outputs.&quot;</span>
                     <span class="p">)</span>
 
-            <span class="c1"># Validate that spike times are consistent with the slice</span>
-            <span class="c1"># duration. Spike times must be relative to the slice (0-based</span>
-            <span class="c1"># or event-centered), not absolute recording times.</span>
+            <span class="c1"># Validate that spike times are consistent with the slice&#39;s</span>
+            <span class="c1"># *intrinsic* length. Spike times must be relative to the</span>
+            <span class="c1"># slice (0-based or event-centered), not absolute recording</span>
+            <span class="c1"># times.</span>
+            <span class="c1">#</span>
+            <span class="c1"># Use ``sd.length`` (the SpikeData&#39;s own length) rather than</span>
+            <span class="c1"># ``end - start`` (the user-supplied tuple duration). The</span>
+            <span class="c1"># spike-time validity contract is determined by the SpikeData</span>
+            <span class="c1"># object itself; the absolute ``(start, end)`` tuple is a</span>
+            <span class="c1"># bookkeeping label that may legitimately differ from</span>
+            <span class="c1"># ``sd.length`` for hand-built stacks (e.g. a 1-second slice</span>
+            <span class="c1"># tagged with absolute timestamps `(120000, 121000)`).</span>
+            <span class="c1"># Driving the bounds check off the tuple duration silently</span>
+            <span class="c1"># misclassified in-range spikes as out-of-range whenever</span>
+            <span class="c1"># the two diverged.</span>
             <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">))</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spike_stack</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">times</span><span class="p">)):</span>
-                <span class="n">duration</span> <span class="o">=</span> <span class="n">end</span> <span class="o">-</span> <span class="n">start</span>
                 <span class="n">expected_start</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">start_time</span>
-                <span class="n">expected_end</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">start_time</span> <span class="o">+</span> <span class="n">duration</span>
+                <span class="n">expected_end</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">start_time</span> <span class="o">+</span> <span class="n">sd</span><span class="o">.</span><span class="n">length</span>
                 <span class="k">for</span> <span class="n">u</span><span class="p">,</span> <span class="n">train</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">train</span><span class="p">):</span>
                     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">train</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                         <span class="k">continue</span>
@@ -650,7 +661,8 @@
                             <span class="sa">f</span><span class="s2">&quot;Slice </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">, unit </span><span class="si">{</span><span class="n">u</span><span class="si">}</span><span class="s2">: spike times &quot;</span>
                             <span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="n">train</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">train</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">] ms fall outside &quot;</span>
                             <span class="sa">f</span><span class="s2">&quot;expected range [</span><span class="si">{</span><span class="n">expected_start</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">, &quot;</span>
-                            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">expected_end</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">] ms. &quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">expected_end</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">] ms &quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot;(sd.start_time=</span><span class="si">{</span><span class="n">sd</span><span class="o">.</span><span class="n">start_time</span><span class="si">}</span><span class="s2">, sd.length=</span><span class="si">{</span><span class="n">sd</span><span class="o">.</span><span class="n">length</span><span class="si">}</span><span class="s2">). &quot;</span>
                             <span class="s2">&quot;Spike times must be relative to the slice (0-based &quot;</span>
                             <span class="s2">&quot;or event-centered), not absolute recording times.&quot;</span>
                         <span class="p">)</span>
@@ -690,25 +702,46 @@
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            slices (int or list): Slice index or list of slice indices to</span>
-<span class="sd">                extract.</span>
+<span class="sd">                extract. Indices are kept in **caller order**;</span>
+<span class="sd">                duplicates are deduplicated (first occurrence wins).</span>
+<span class="sd">                Negative indices are accepted and resolved against</span>
+<span class="sd">                the current ``S`` dimension.</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            result (SpikeSliceStack): New SpikeSliceStack containing only the</span>
-<span class="sd">                specified slices. Shape changes from S to S_trimmed. All</span>
-<span class="sd">                units and neuron_attributes are carried over.</span>
+<span class="sd">            result (SpikeSliceStack): New SpikeSliceStack containing only</span>
+<span class="sd">                the specified slices in caller-supplied order. Shape</span>
+<span class="sd">                changes from S to S_trimmed. All units and</span>
+<span class="sd">                neuron_attributes are carried over.</span>
+
+<span class="sd">        Notes:</span>
+<span class="sd">            - Previously the input was silently sorted ascending, so</span>
+<span class="sd">              ``subslice([2, 0, 1])`` returned ``[0, 1, 2]`` and any</span>
+<span class="sd">              caller that intended a reordering for plotting or</span>
+<span class="sd">              concatenation got the wrong layout. The caller-order +</span>
+<span class="sd">              dedupe behaviour is consistent with the ``subset(...,</span>
+<span class="sd">              preserve_order=True)`` design family.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">S</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spike_stack</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">slices</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
             <span class="n">slices</span> <span class="o">=</span> <span class="p">[</span><span class="n">slices</span><span class="p">]</span>
         <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">slices</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">)):</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Slice indices must be integers, got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">s</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">s</span><span class="si">!r}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
             <span class="k">if</span> <span class="n">s</span> <span class="o">&gt;=</span> <span class="n">S</span> <span class="ow">or</span> <span class="n">s</span> <span class="o">&lt;</span> <span class="o">-</span><span class="n">S</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;One or more slice indices out of range for S=</span><span class="si">{</span><span class="n">S</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-        <span class="n">slices</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">slices</span><span class="p">)</span>
-        <span class="n">new_spike_stack</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">new_times</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="c1"># Preserve caller order and deduplicate (first occurrence wins).</span>
+        <span class="n">seen</span><span class="p">:</span> <span class="nb">set</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="n">ordered</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">slices</span><span class="p">:</span>
-            <span class="n">new_spike_stack</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spike_stack</span><span class="p">[</span><span class="n">s</span><span class="p">])</span>
-            <span class="n">new_times</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">times</span><span class="p">[</span><span class="n">s</span><span class="p">])</span>
+            <span class="n">si</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="o">%</span> <span class="n">S</span> <span class="k">if</span> <span class="n">S</span> <span class="k">else</span> <span class="nb">int</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">si</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">seen</span><span class="p">:</span>
+                <span class="n">seen</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">si</span><span class="p">)</span>
+                <span class="n">ordered</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">si</span><span class="p">)</span>
+        <span class="n">slices</span> <span class="o">=</span> <span class="n">ordered</span>
+        <span class="n">new_spike_stack</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">spike_stack</span><span class="p">[</span><span class="n">s</span><span class="p">]</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">slices</span><span class="p">]</span>
+        <span class="n">new_times</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">times</span><span class="p">[</span><span class="n">s</span><span class="p">]</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">slices</span><span class="p">]</span>
         <span class="k">return</span> <span class="n">SpikeSliceStack</span><span class="p">(</span>
             <span class="n">spike_stack</span><span class="o">=</span><span class="n">new_spike_stack</span><span class="p">,</span>
             <span class="n">times_start_to_end</span><span class="o">=</span><span class="n">new_times</span><span class="p">,</span>
@@ -753,6 +786,15 @@
             <span class="c1"># positional correspondence to unit indices.</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;can&#39;t use `by` without `neuron_attributes`&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">preserve_order</span><span class="p">:</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                    <span class="s2">&quot;preserve_order=True has no effect when by= is set; &quot;</span>
+                    <span class="s2">&quot;the by-path returns matching units in index order. &quot;</span>
+                    <span class="s2">&quot;Drop preserve_order=True or use index-based subset() &quot;</span>
+                    <span class="s2">&quot;to silence this warning.&quot;</span><span class="p">,</span>
+                    <span class="ne">UserWarning</span><span class="p">,</span>
+                    <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+                <span class="p">)</span>
             <span class="n">_missing</span> <span class="o">=</span> <span class="nb">object</span><span class="p">()</span>
             <span class="n">unit_set</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">units</span><span class="p">)</span>
             <span class="n">kept_indices</span> <span class="o">=</span> <span class="p">[]</span>

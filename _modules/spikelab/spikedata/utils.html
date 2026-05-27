@@ -458,6 +458,12 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">scipy</span><span class="w"> </span><span class="kn">import</span> <span class="n">ndimage</span><span class="p">,</span> <span class="n">signal</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.stats</span><span class="w"> </span><span class="kn">import</span> <span class="n">norm</span>
 
+<span class="c1">#: Milliseconds per second. Used by the ISI/firing-rate helpers to</span>
+<span class="c1">#: convert ``1.0 / isi_ms`` (Hz-per-ms input) into Hz (per-second</span>
+<span class="c1">#: output). The literal ``1000`` appeared at several sites; the</span>
+<span class="c1">#: named constant makes the unit-conversion intent explicit.</span>
+<span class="n">_MS_PER_S</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1000.0</span>
+
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
     <span class="s2">&quot;get_sttc&quot;</span><span class="p">,</span>
     <span class="s2">&quot;swap&quot;</span><span class="p">,</span>
@@ -645,6 +651,14 @@
 <span class="sd">        Assumed to have been sampled halfway between any two given spikes,</span>
 <span class="sd">        interpolated, and then smoothed by a Gaussian kernel with the given</span>
 <span class="sd">        width.</span>
+
+<span class="sd">        Bin assignment uses ``int(round(...))`` rather than ``floor``,</span>
+<span class="sd">        which means a spike landing at exactly ``0.5 * dt_ms`` past a</span>
+<span class="sd">        bin boundary can fall into either the lower or upper bin (a</span>
+<span class="sd">        known sub-ms precision limitation). For typical ``dt_ms`` of</span>
+<span class="sd">        1ms+ this introduces at most a one-bin shift; for sub-ms</span>
+<span class="sd">        ``dt_ms`` the caller should be aware that pinning the exact</span>
+<span class="sd">        bin of a boundary-spike requires a separate convention.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="c1"># Empty times → empty rates. Matches the empty-friendly behaviour</span>
@@ -668,7 +682,7 @@
         <span class="n">isi</span> <span class="o">=</span> <span class="n">spikes</span><span class="p">[</span><span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">spikes</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">isi</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">isi</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">isi</span> <span class="o">*</span> <span class="n">_MS_PER_S</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
 
     <span class="n">spikes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">spikes</span><span class="p">)</span>
     <span class="n">times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">times</span><span class="p">)</span>
@@ -713,7 +727,7 @@
 
     <span class="c1"># Compute instantaneous firing rates (1/isi, in Hz assuming ms units)</span>
     <span class="n">isi_rate</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">isi</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-    <span class="n">isi_rate</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">isi</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">*</span> <span class="mi">1000</span>
+    <span class="n">isi_rate</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">isi</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">*</span> <span class="n">_MS_PER_S</span>
 
     <span class="c1"># Create temporary result array matching times resolution</span>
     <span class="n">t_start</span><span class="p">,</span> <span class="n">t_end</span> <span class="o">=</span> <span class="n">times</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">times</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
@@ -973,6 +987,60 @@
 
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_frame_window_starts</span><span class="p">(</span>
+    <span class="n">t0</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">effective_end</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">length</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">overlap</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">tuple</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute the (start, end) tuples for fixed-length framing windows.</span>
+
+<span class="sd">    Shared helper for ``SpikeData.frames`` and ``RateData.frames``</span>
+<span class="sd">    (Tier L-E5). Both methods consume a uniform recording timeline</span>
+<span class="sd">    and partition it into ``length``-wide windows with the given</span>
+<span class="sd">    ``overlap``. Windows that would extend past ``effective_end``</span>
+<span class="sd">    are excluded; the frame count is derived as ``floor(slot_span /</span>
+<span class="sd">    step) + 1`` from the slot span ``effective_end - length - t0``,</span>
+<span class="sd">    deterministic in float arithmetic (no ULP-padding magic).</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        t0 (float): Start of the recording timeline (ms).</span>
+<span class="sd">        effective_end (float): One past the last sample of the</span>
+<span class="sd">            timeline. For ``SpikeData`` this is</span>
+<span class="sd">            ``start_time + length``; for ``RateData`` this is</span>
+<span class="sd">            ``times[-1] + step_size`` (one bin past the last</span>
+<span class="sd">            sample).</span>
+<span class="sd">        length (float): Window length (ms).</span>
+<span class="sd">        overlap (float): Overlap between consecutive windows (ms).</span>
+<span class="sd">            Must satisfy ``0 &lt;= overlap &lt; length``.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        windows (list[tuple[float, float]]): Sorted list of</span>
+<span class="sd">            ``(start, start + length)`` tuples ready to pass to</span>
+<span class="sd">            ``SpikeSliceStack`` / ``RateSliceStack``.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ValueError: If ``overlap`` is negative, ``length - overlap``</span>
+<span class="sd">            is non-positive, or the timeline is shorter than one</span>
+<span class="sd">            window.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">overlap</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;overlap must be non-negative, got </span><span class="si">{</span><span class="n">overlap</span><span class="si">}</span><span class="s2">. The parameter &quot;</span>
+            <span class="s2">&quot;represents an overlap, not a stride; use a smaller `length` &quot;</span>
+            <span class="s2">&quot;and post-filter slices for gapped windows.&quot;</span>
+        <span class="p">)</span>
+    <span class="n">step</span> <span class="o">=</span> <span class="n">length</span> <span class="o">-</span> <span class="n">overlap</span>
+    <span class="k">if</span> <span class="n">step</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;overlap must be less than length&quot;</span><span class="p">)</span>
+    <span class="n">slot_span</span> <span class="o">=</span> <span class="n">effective_end</span> <span class="o">-</span> <span class="n">length</span> <span class="o">-</span> <span class="n">t0</span>
+    <span class="k">if</span> <span class="n">slot_span</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Recording length (</span><span class="si">{</span><span class="n">effective_end</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">t0</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> ms) is shorter &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;than frame length (</span><span class="si">{</span><span class="n">length</span><span class="si">}</span><span class="s2"> ms)&quot;</span>
+        <span class="p">)</span>
+    <span class="n">n_frames</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">slot_span</span> <span class="o">/</span> <span class="n">step</span><span class="p">))</span> <span class="o">+</span> <span class="mi">1</span>
+    <span class="n">starts</span> <span class="o">=</span> <span class="n">t0</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n_frames</span><span class="p">)</span> <span class="o">*</span> <span class="n">step</span>
+    <span class="k">return</span> <span class="p">[(</span><span class="nb">float</span><span class="p">(</span><span class="n">s</span><span class="p">),</span> <span class="nb">float</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="o">+</span> <span class="n">length</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">starts</span><span class="p">]</span>
+
+
 <div class="viewcode-block" id="randomize">
 <a class="viewcode-back" href="../../../api/utilities.html#spikelab.spikedata.utils.randomize">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">randomize</span><span class="p">(</span><span class="n">ar</span><span class="p">,</span> <span class="n">swap_per_spike</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
@@ -1094,28 +1162,40 @@
     <span class="k">if</span> <span class="n">max_lag</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
         <span class="n">max_corr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">ref_rate</span> <span class="o">*</span> <span class="n">comp_rate</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">norm_product</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">max_corr</span><span class="p">,</span> <span class="mi">0</span>
-    <span class="c1"># General path: use scipy.signal.correlate and normalise by the</span>
-    <span class="c1"># L2-norm product — the same denominator as the max_lag==0 fast</span>
-    <span class="c1"># path, so the two paths agree numerically regardless of max_lag.</span>
-    <span class="c1"># The previous denominator went through</span>
-    <span class="c1"># ``correlate(ref, ref, &#39;same&#39;)[len(ref)//2]``, which equals</span>
-    <span class="c1"># ref_norm in theory but can pick up a half-sample offset for</span>
-    <span class="c1"># even-length signals under &#39;same&#39; mode — making max_lag=0 and</span>
-    <span class="c1"># max_lag&gt;0 disagree by a few ULPs on the same inputs.</span>
-    <span class="c1"># norm_product is guaranteed &gt; 0 after the ref_norm/comp_norm</span>
-    <span class="c1"># zero-checks above.</span>
-    <span class="n">r</span> <span class="o">=</span> <span class="n">signal</span><span class="o">.</span><span class="n">correlate</span><span class="p">(</span><span class="n">ref_rate</span><span class="p">,</span> <span class="n">comp_rate</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;same&quot;</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">norm_product</span><span class="p">)</span>
+    <span class="c1"># General path: ``mode=&#39;full&#39;`` cross-correlation, then symmetric</span>
+    <span class="c1"># slice around the lag-0 centre. ``mode=&#39;same&#39;`` was the previous</span>
+    <span class="c1"># default but it returns an asymmetric lag window for even-length</span>
+    <span class="c1"># inputs (``len(r) = N``, range ``[-N/2, +N/2 - 1]``). Three</span>
+    <span class="c1"># downstream sites mirror via ``lag_matrix[n2, n1] = -lag``</span>
+    <span class="c1"># (``SpikeData.get_pairwise_ccg``,</span>
+    <span class="c1"># ``RateData.get_pairwise_fr_corr``,</span>
+    <span class="c1"># ``SpikeSliceStack.get_slice_to_slice_unit_comparison``) and rely</span>
+    <span class="c1"># on ``argmax(correlate(a, b))`` being exactly</span>
+    <span class="c1"># ``-argmax(correlate(b, a))``. That identity only holds when the</span>
+    <span class="c1"># lag axis is symmetric — which is guaranteed by ``mode=&#39;full&#39;``</span>
+    <span class="c1"># (length ``2N-1``, always odd for equal-length inputs), and</span>
+    <span class="c1"># then by the symmetric ``[-max_lag, +max_lag]`` slice below.</span>
+    <span class="c1"># As a side benefit, the work is bounded by ``2*max_lag + 1``</span>
+    <span class="c1"># samples (typically ≪ N) instead of the full N-length ``same``</span>
+    <span class="c1"># output.</span>
+    <span class="c1"># Normalises by sqrt(sum(ref^2) * sum(comp^2)) — the L2-norm</span>
+    <span class="c1"># product, identical to the max_lag==0 fast path so both branches</span>
+    <span class="c1"># agree numerically regardless of max_lag.</span>
+    <span class="n">full</span> <span class="o">=</span> <span class="n">signal</span><span class="o">.</span><span class="n">correlate</span><span class="p">(</span><span class="n">ref_rate</span><span class="p">,</span> <span class="n">comp_rate</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;full&quot;</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">norm_product</span><span class="p">)</span>
 
-    <span class="n">center</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="o">//</span> <span class="mi">2</span>
-
-    <span class="c1"># Search within max_lag window</span>
-    <span class="n">search_start</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">center</span> <span class="o">-</span> <span class="n">max_lag</span><span class="p">)</span>
-    <span class="n">search_end</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">r</span><span class="p">),</span> <span class="n">center</span> <span class="o">+</span> <span class="n">max_lag</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
-    <span class="n">search_window</span> <span class="o">=</span> <span class="n">r</span><span class="p">[</span><span class="n">search_start</span><span class="p">:</span><span class="n">search_end</span><span class="p">]</span>
+    <span class="c1"># In ``mode=&#39;full&#39;`` for equal-length inputs of length N, lag 0</span>
+    <span class="c1"># sits at index ``N - 1``. Slice symmetrically around that centre</span>
+    <span class="c1"># to the requested lag window. ``np.clip`` guards the case where</span>
+    <span class="c1"># ``max_lag &gt;= N`` so the slice does not over-run the ends.</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ref_rate</span><span class="p">)</span>
+    <span class="n">centre</span> <span class="o">=</span> <span class="n">n</span> <span class="o">-</span> <span class="mi">1</span>
+    <span class="n">lo</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">centre</span> <span class="o">-</span> <span class="n">max_lag</span><span class="p">)</span>
+    <span class="n">hi</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">full</span><span class="p">),</span> <span class="n">centre</span> <span class="o">+</span> <span class="n">max_lag</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">search_window</span> <span class="o">=</span> <span class="n">full</span><span class="p">[</span><span class="n">lo</span><span class="p">:</span><span class="n">hi</span><span class="p">]</span>
 
     <span class="c1"># NaN-safe peak detection. RateData allows NaN entries (caller-built</span>
     <span class="c1"># rate matrices, e.g. from external sources), so the correlation</span>
-    <span class="c1"># output ``r`` can contain NaN. Plain ``np.max``/``argmax`` would</span>
+    <span class="c1"># output can contain NaN. Plain ``np.max``/``argmax`` would</span>
     <span class="c1"># silently propagate NaN into the pairwise matrices; the cosine</span>
     <span class="c1"># sibling ``compute_cosine_similarity_with_lag`` already uses the</span>
     <span class="c1"># nan-safe variants. Match that behaviour, with a sentinel return</span>
@@ -1123,7 +1203,7 @@
     <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">search_window</span><span class="p">)):</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="mi">0</span>
     <span class="n">max_corr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmax</span><span class="p">(</span><span class="n">search_window</span><span class="p">)</span>
-    <span class="n">max_lag_idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nanargmax</span><span class="p">(</span><span class="n">search_window</span><span class="p">))</span> <span class="o">+</span> <span class="n">search_start</span> <span class="o">-</span> <span class="n">center</span>
+    <span class="n">max_lag_idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nanargmax</span><span class="p">(</span><span class="n">search_window</span><span class="p">))</span> <span class="o">+</span> <span class="n">lo</span> <span class="o">-</span> <span class="n">centre</span>
 
     <span class="k">return</span> <span class="n">max_corr</span><span class="p">,</span> <span class="n">max_lag_idx</span>
 
@@ -2111,8 +2191,19 @@
 <span class="sd">            ``ValueError``. If None (default), no range check is performed.</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">        valid_time_tuples (list): Sorted list of valid ``(start, end)``</span>
-<span class="sd">            tuples. Negative-start windows are preserved.</span>
+<span class="sd">        valid_time_tuples (list): The input tuples in ascending-by-start</span>
+<span class="sd">            order. Negative-start windows are preserved.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        - The returned list is **always sorted by start time**, even</span>
+<span class="sd">          if the input was not. Callers that pair this list with an</span>
+<span class="sd">          externally-supplied parallel array (e.g.</span>
+<span class="sd">          ``SpikeSliceStack(spike_stack=..., times_start_to_end=...)``)</span>
+<span class="sd">          must therefore re-sort the parallel array using the same</span>
+<span class="sd">          key, or pass ``times_start_to_end`` already-sorted. A</span>
+<span class="sd">          ``UserWarning`` is emitted at the call site when the sort</span>
+<span class="sd">          actually changed the order, so this re-ordering is not</span>
+<span class="sd">          silent.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">times_start_to_end</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;times must be a list of tuples&quot;</span><span class="p">)</span>
@@ -2128,7 +2219,24 @@
     <span class="n">valid_time_tuples</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">zero_duration_offenders</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">negative_start_offenders</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="n">times_start_to_end</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">times_start_to_end</span><span class="p">)</span>
+    <span class="n">sorted_times</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">times_start_to_end</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">times_start_to_end</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="nb">list</span><span class="p">(</span><span class="n">times_start_to_end</span><span class="p">)</span> <span class="o">!=</span> <span class="n">sorted_times</span><span class="p">:</span>
+        <span class="c1"># The sort decouples the returned slice order from the</span>
+        <span class="c1"># caller&#39;s input order. That&#39;s fine if no parallel array is</span>
+        <span class="c1"># bound to the input positions, but it silently breaks</span>
+        <span class="c1"># callers like ``SpikeSliceStack(spike_stack=..., times_start_to_end=...)``</span>
+        <span class="c1"># who relied on positional alignment. Warn so the rewrite is</span>
+        <span class="c1"># visible.</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+            <span class="s2">&quot;times_start_to_end was not sorted ascending by start time &quot;</span>
+            <span class="s2">&quot;and has been reordered. Any parallel array indexed by the &quot;</span>
+            <span class="s2">&quot;same positions (e.g. ``spike_stack`` in SpikeSliceStack) &quot;</span>
+            <span class="s2">&quot;will now be misaligned. Pre-sort the input to silence &quot;</span>
+            <span class="s2">&quot;this warning.&quot;</span><span class="p">,</span>
+            <span class="ne">UserWarning</span><span class="p">,</span>
+            <span class="n">stacklevel</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="n">times_start_to_end</span> <span class="o">=</span> <span class="n">sorted_times</span>
     <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">time_window</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">times_start_to_end</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">time_window</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Element </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2"> of times is not a tuple: </span><span class="si">{</span><span class="n">time_window</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
@@ -2163,6 +2271,21 @@
         <span class="n">time_diff_check</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">time_window</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">time_window</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
         <span class="n">valid_time_tuples</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">time_window</span><span class="p">)</span>
 
+    <span class="c1"># Run the uniformity check first. When durations mix zero-with-</span>
+    <span class="c1"># non-zero, the ValueError below is the actionable signal — emit</span>
+    <span class="c1"># the zero-duration warning ONLY when the uniformity check passes</span>
+    <span class="c1"># (i.e. all windows are uniformly zero), so the caller doesn&#39;t</span>
+    <span class="c1"># see both a warning and an error for the same root cause.</span>
+    <span class="n">uniformity_ok</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">time_diff_check</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">diffs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">time_diff_check</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">diffs</span><span class="p">,</span> <span class="n">diffs</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+            <span class="n">uniformity_ok</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">uniformity_ok</span><span class="p">:</span>
+        <span class="c1"># Mixed durations — error only, no zero-duration warn noise.</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;All time windows must have the same length&quot;</span><span class="p">)</span>
+
     <span class="k">if</span> <span class="n">zero_duration_offenders</span><span class="p">:</span>
         <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">zero_duration_offenders</span><span class="p">)</span>
         <span class="n">head</span> <span class="o">=</span> <span class="n">zero_duration_offenders</span><span class="p">[:</span><span class="mi">10</span><span class="p">]</span>
@@ -2191,10 +2314,6 @@
             <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
         <span class="p">)</span>
 
-    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">time_diff_check</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="n">diffs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">time_diff_check</span><span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">diffs</span><span class="p">,</span> <span class="n">diffs</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;All time windows must have the same length&quot;</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">valid_time_tuples</span>
 
 
@@ -2569,6 +2688,15 @@
 <span class="sd">            ``n_matches / (n1 + n2 - n_matches)``.</span>
 <span class="sd">        frac_1 (float): Fraction of train1 spikes that were matched.</span>
 <span class="sd">        frac_2 (float): Fraction of train2 spikes that were matched.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        Empty inputs are treated as &quot;no overlap possible&quot; and return</span>
+<span class="sd">        ``(0.0, 0.0, 0.0)``. This differs from</span>
+<span class="sd">        ``_compute_footprint_similarity``, which returns ``NaN`` for</span>
+<span class="sd">        degenerate inputs because cosine similarity has no natural</span>
+<span class="sd">        zero. Callers comparing both helpers should be aware of the</span>
+<span class="sd">        asymmetric &quot;undefined&quot; sentinel: ``0.0`` here vs ``NaN`` for</span>
+<span class="sd">        footprint similarity.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">n1</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">train1</span><span class="p">)</span>
     <span class="n">n2</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">train2</span><span class="p">)</span>
@@ -2681,7 +2809,14 @@
         <span class="p">)</span>
 
     <span class="n">n_samples</span> <span class="o">=</span> <span class="n">fp1</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-    <span class="n">best</span> <span class="o">=</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+    <span class="c1"># Track &quot;any finite sim seen&quot; with an explicit flag rather than</span>
+    <span class="c1"># comparing the running best against ``-np.inf``. If</span>
+    <span class="c1"># ``_cosine_sim`` ever returns ``-inf`` (e.g. via a future refactor</span>
+    <span class="c1"># that propagates a degenerate denominator) the sentinel</span>
+    <span class="c1"># comparison would silently return ``-inf`` as a real similarity;</span>
+    <span class="c1"># the flag makes the &quot;no finite value seen&quot; contract unambiguous.</span>
+    <span class="n">best</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="n">seen_finite</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="k">for</span> <span class="n">lag</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="o">-</span><span class="n">max_lag</span><span class="p">,</span> <span class="n">max_lag</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">lag</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">vec1</span> <span class="o">=</span> <span class="n">fp1</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
@@ -2695,10 +2830,13 @@
             <span class="n">vec1</span> <span class="o">=</span> <span class="n">fp1</span><span class="p">[:,</span> <span class="p">:</span> <span class="n">n_samples</span> <span class="o">+</span> <span class="n">lag</span><span class="p">]</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
             <span class="n">vec2</span> <span class="o">=</span> <span class="n">fp2</span><span class="p">[:,</span> <span class="o">-</span><span class="n">lag</span><span class="p">:]</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
         <span class="n">sim</span> <span class="o">=</span> <span class="n">_cosine_sim</span><span class="p">(</span><span class="n">vec1</span><span class="p">,</span> <span class="n">vec2</span><span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">sim</span><span class="p">)</span> <span class="ow">and</span> <span class="n">sim</span> <span class="o">&gt;</span> <span class="n">best</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">sim</span><span class="p">):</span>
+            <span class="k">continue</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">seen_finite</span> <span class="ow">or</span> <span class="n">sim</span> <span class="o">&gt;</span> <span class="n">best</span><span class="p">:</span>
             <span class="n">best</span> <span class="o">=</span> <span class="n">sim</span>
+            <span class="n">seen_finite</span> <span class="o">=</span> <span class="kc">True</span>
 
-    <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">best</span><span class="p">)</span> <span class="k">if</span> <span class="n">best</span> <span class="o">&gt;</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+    <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">best</span><span class="p">)</span> <span class="k">if</span> <span class="n">seen_finite</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
 </pre></div>
 
            </div>

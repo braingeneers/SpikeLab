@@ -454,7 +454,7 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">ValidationError</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">JobSpec</span><span class="p">,</span> <span class="n">RunConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">JobSpec</span>
 
 
 <div class="viewcode-block" id="validate_job_spec">
@@ -462,14 +462,6 @@
 <span class="k">def</span><span class="w"> </span><span class="nf">validate_job_spec</span><span class="p">(</span><span class="n">payload</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">JobSpec</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Parse and validate a raw job spec payload.&quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="n">JobSpec</span><span class="o">.</span><span class="n">model_validate</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span></div>
-
-
-
-<div class="viewcode-block" id="validate_run_config">
-<a class="viewcode-back" href="../../../api/batch_jobs.html#spikelab.batch_jobs.validation.validate_run_config">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">validate_run_config</span><span class="p">(</span><span class="n">payload</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">RunConfig</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Parse and validate a run config payload.&quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="n">RunConfig</span><span class="o">.</span><span class="n">model_validate</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span></div>
 
 
 

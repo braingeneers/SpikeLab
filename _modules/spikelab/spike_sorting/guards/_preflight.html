@@ -928,10 +928,23 @@
     <span class="n">findings</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">PreflightFinding</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">entry</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">recording_files</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">entry</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;recording_inputs[</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">] is None (caller bug — pass a path, &quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;BaseRecording, or omit the entry)&quot;</span>
+            <span class="n">findings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">PreflightFinding</span><span class="p">(</span>
+                    <span class="n">level</span><span class="o">=</span><span class="s2">&quot;fail&quot;</span><span class="p">,</span>
+                    <span class="n">code</span><span class="o">=</span><span class="s2">&quot;recording_input_none&quot;</span><span class="p">,</span>
+                    <span class="n">category</span><span class="o">=</span><span class="s2">&quot;environment&quot;</span><span class="p">,</span>
+                    <span class="n">message</span><span class="o">=</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;recording_inputs[</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">] is None — expected a path &quot;</span>
+                        <span class="s2">&quot;or BaseRecording.&quot;</span>
+                    <span class="p">),</span>
+                    <span class="n">remediation</span><span class="o">=</span><span class="p">(</span>
+                        <span class="s2">&quot;Drop the None entry from recording_inputs, or &quot;</span>
+                        <span class="s2">&quot;pass a path / pre-loaded BaseRecording in its &quot;</span>
+                        <span class="s2">&quot;place.&quot;</span>
+                    <span class="p">),</span>
+                <span class="p">)</span>
             <span class="p">)</span>
+            <span class="k">continue</span>
         <span class="n">rec</span> <span class="o">=</span> <span class="n">entry</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">rec</span><span class="p">,</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">)):</span>
             <span class="c1"># Pre-loaded recording object — skip.</span>
@@ -1256,7 +1269,7 @@
         <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
             <span class="p">[</span><span class="s2">&quot;docker&quot;</span><span class="p">,</span> <span class="s2">&quot;info&quot;</span><span class="p">],</span>
             <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-            <span class="n">timeout</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+            <span class="n">timeout</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span>
             <span class="n">capture_output</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">None</span>
@@ -1292,7 +1305,15 @@
         <span class="kn">import</span><span class="w"> </span><span class="nn">docker</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_docker</span>  <span class="c1"># type: ignore[import-not-found]</span>
 
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">_docker</span><span class="o">.</span><span class="n">from_env</span><span class="p">()</span><span class="o">.</span><span class="n">images</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">image_tag</span><span class="p">)</span>
+            <span class="c1"># ``timeout=5`` caps the underlying HTTP client&#39;s wait so</span>
+            <span class="c1"># a half-frozen Docker daemon (Desktop hung, snap-installed</span>
+            <span class="c1"># daemon stuck) cannot block preflight indefinitely. Older</span>
+            <span class="c1"># docker-py versions that don&#39;t accept the ``timeout``</span>
+            <span class="c1"># kwarg raise ``TypeError`` here — caught by the broad</span>
+            <span class="c1"># ``except Exception`` below, which returns False; the</span>
+            <span class="c1"># caller treats &quot;uncertain → assume not cached → pull&quot; as</span>
+            <span class="c1"># the conservative answer.</span>
+            <span class="n">_docker</span><span class="o">.</span><span class="n">from_env</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span><span class="o">.</span><span class="n">images</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">image_tag</span><span class="p">)</span>
             <span class="k">return</span> <span class="kc">True</span>
         <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">False</span>

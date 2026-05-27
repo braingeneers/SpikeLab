@@ -568,6 +568,13 @@ validation).</p></li>
 array.</p></li>
 <li><p>This is compatible with the load_spikedata_from_nwb function
 when prefer_pynwb=False.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">spike_times_index</span></code> dataset uses the NWB-spec-compliant
+cumulative-end convention: <code class="docutils literal notranslate"><span class="pre">index</span> <span class="pre">=</span> <span class="pre">np.cumsum(counts)</span></code> of
+length <code class="docutils literal notranslate"><span class="pre">N</span></code> (one entry per unit, pointing at the slot AFTER
+the unit’s last spike). The loader
+<code class="docutils literal notranslate"><span class="pre">load_spikedata_from_nwb</span></code> accepts both this convention and
+the alternative leading-zero (length <code class="docutils literal notranslate"><span class="pre">N+1</span></code>) variant — see
+its docstring for the disambiguation rules.</p></li>
 </ul>
 </dd></dl>
 

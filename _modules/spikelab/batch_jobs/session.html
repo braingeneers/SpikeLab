@@ -452,8 +452,10 @@
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">dataclasses</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">pickle</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
@@ -469,8 +471,17 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">.storage_s3</span><span class="w"> </span><span class="kn">import</span> <span class="n">S3StorageClient</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">.templating</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_template_context</span><span class="p">,</span> <span class="n">render_job_manifest</span>
 
+<span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
 <span class="c1"># Workspace path convention: save(base) produces base.h5 + base.json</span>
 <span class="n">_WORKSPACE_BASE_NAME</span> <span class="o">=</span> <span class="s2">&quot;workspace&quot;</span>
+
+<span class="c1"># Kubernetes job-name budget. RFC 1123 caps DNS subdomain labels at 63</span>
+<span class="c1"># characters; we reserve 8 of those for the UUID-based suffix plus 1</span>
+<span class="c1"># for the &#39;-&#39; separator. The remaining 54 are available for the</span>
+<span class="c1"># user-supplied name_prefix.</span>
+<span class="n">_JOB_NAME_MAX_LENGTH</span> <span class="o">=</span> <span class="mi">63</span>
+<span class="n">_JOB_NAME_TOKEN_LENGTH</span> <span class="o">=</span> <span class="mi">8</span>
 
 
 <div class="viewcode-block" id="RunSession">
@@ -500,8 +511,9 @@
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_build_job_name</span><span class="p">(</span><span class="n">prefix</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="n">token</span> <span class="o">=</span> <span class="n">uuid4</span><span class="p">()</span><span class="o">.</span><span class="n">hex</span><span class="p">[:</span><span class="mi">8</span><span class="p">]</span>
-        <span class="n">max_prefix</span> <span class="o">=</span> <span class="mi">63</span> <span class="o">-</span> <span class="mi">1</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">token</span><span class="p">)</span>  <span class="c1"># 54</span>
+        <span class="n">token</span> <span class="o">=</span> <span class="n">uuid4</span><span class="p">()</span><span class="o">.</span><span class="n">hex</span><span class="p">[:</span><span class="n">_JOB_NAME_TOKEN_LENGTH</span><span class="p">]</span>
+        <span class="c1"># Reserve room for the ``-`` separator and the suffix token.</span>
+        <span class="n">max_prefix</span> <span class="o">=</span> <span class="n">_JOB_NAME_MAX_LENGTH</span> <span class="o">-</span> <span class="mi">1</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">token</span><span class="p">)</span>
         <span class="n">truncated</span> <span class="o">=</span> <span class="n">prefix</span><span class="p">[:</span><span class="n">max_prefix</span><span class="p">]</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s2">&quot;-&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">truncated</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
@@ -559,19 +571,12 @@
         <span class="n">manifest_text</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">render_manifest</span><span class="p">(</span>
             <span class="n">job_name</span><span class="o">=</span><span class="n">job_name</span><span class="p">,</span> <span class="n">job_spec</span><span class="o">=</span><span class="n">job_spec</span><span class="p">,</span> <span class="n">run_id</span><span class="o">=</span><span class="n">run_id</span>
         <span class="p">)</span>
-        <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">NamedTemporaryFile</span><span class="p">(</span>
-            <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;w&quot;</span><span class="p">,</span>
-            <span class="n">suffix</span><span class="o">=</span><span class="s2">&quot;.yaml&quot;</span><span class="p">,</span>
-            <span class="n">prefix</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">job_name</span><span class="si">}</span><span class="s2">-&quot;</span><span class="p">,</span>
-            <span class="n">delete</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-            <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">,</span>
-        <span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">manifest_text</span><span class="p">)</span>
-            <span class="n">manifest_path</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">name</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">backend</span><span class="o">.</span><span class="n">apply_manifest</span><span class="p">(</span><span class="n">manifest_path</span><span class="p">)</span>
-        <span class="k">finally</span><span class="p">:</span>
-            <span class="n">os</span><span class="o">.</span><span class="n">unlink</span><span class="p">(</span><span class="n">manifest_path</span><span class="p">)</span>
+        <span class="c1"># ``apply_manifest`` accepts a raw YAML string (it does</span>
+        <span class="c1"># ``Path(arg).exists()`` to disambiguate a path argument from</span>
+        <span class="c1"># an inline YAML payload). Pass the rendered text directly</span>
+        <span class="c1"># instead of writing it to a tempfile only to read it back —</span>
+        <span class="c1"># avoids the round-trip to disk and the unlink cleanup.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">backend</span><span class="o">.</span><span class="n">apply_manifest</span><span class="p">(</span><span class="n">manifest_text</span><span class="p">)</span>
 
         <span class="c1"># Render a second manifest with sensitive env values redacted</span>
         <span class="c1"># for the SubmitResult surface. The redaction policy lives in</span>
@@ -770,12 +775,19 @@
                 <span class="o">*</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">recording_paths</span><span class="p">],</span>
             <span class="p">]</span>
 
+            <span class="c1"># Tier L-C2: declare the recording basenames so the</span>
+            <span class="c1"># pod-side entrypoint (entrypoints/sorting.main) can</span>
+            <span class="c1"># distinguish recordings from companion files (probe</span>
+            <span class="c1"># sidecars, metadata.csv, etc.) via the manifest&#39;s</span>
+            <span class="c1"># ``recording_files`` whitelist instead of the prior</span>
+            <span class="c1"># name-blacklist heuristic.</span>
             <span class="n">bundle_zip</span> <span class="o">=</span> <span class="n">package_analysis_bundle</span><span class="p">(</span>
                 <span class="n">input_paths</span><span class="o">=</span><span class="n">input_files</span><span class="p">,</span>
                 <span class="n">run_id</span><span class="o">=</span><span class="n">run_id</span><span class="p">,</span>
                 <span class="n">output_dir</span><span class="o">=</span><span class="n">temp_dir</span><span class="p">,</span>
                 <span class="n">output_format</span><span class="o">=</span><span class="s2">&quot;sorting&quot;</span><span class="p">,</span>
                 <span class="n">metadata</span><span class="o">=</span><span class="n">metadata</span><span class="p">,</span>
+                <span class="n">recording_files</span><span class="o">=</span><span class="p">[</span><span class="n">Path</span><span class="p">(</span><span class="n">p</span><span class="p">)</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">recording_paths</span><span class="p">],</span>
             <span class="p">)</span>
 
             <span class="n">uploaded_input_uri</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">upload_bundle</span><span class="p">(</span>
@@ -1039,14 +1051,104 @@
         <span class="n">job_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">max_wait_seconds</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3600</span><span class="p">,</span>
         <span class="n">poll_interval_seconds</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
+        <span class="n">max_consecutive_failures</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
+        <span class="n">max_backoff_seconds</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">300</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Poll until completion/failure or timeout and return final state.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Poll until completion/failure or timeout and return final state.</span>
+
+<span class="sd">        Transient backend errors (kubectl network blips, K8s API</span>
+<span class="sd">        server restarts, urllib3 timeouts) no longer abort the wait.</span>
+<span class="sd">        The poll is wrapped in try/except; consecutive failures</span>
+<span class="sd">        accumulate, sleep doubles per failure (exponential backoff</span>
+<span class="sd">        capped at ``max_backoff_seconds``), and the loop gives up</span>
+<span class="sd">        only when either:</span>
+
+<span class="sd">          * ``max_consecutive_failures`` polls in a row raise — the</span>
+<span class="sd">            backend is considered unavailable; return</span>
+<span class="sd">            ``&quot;Backend unavailable&quot;``;</span>
+<span class="sd">          * the kubernetes-client path raises ``ApiException(404)``</span>
+<span class="sd">            — the job was deleted out-of-band, no completion can be</span>
+<span class="sd">            confirmed; return ``&quot;Failed&quot;``;</span>
+<span class="sd">          * ``max_wait_seconds`` elapses — return ``&quot;Timeout&quot;``.</span>
+
+<span class="sd">        A successful poll resets both the consecutive-failure counter</span>
+<span class="sd">        and the backoff sleep to ``poll_interval_seconds``.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            job_name (str): K8s job identifier.</span>
+<span class="sd">            max_wait_seconds (int): Overall wall-clock budget.</span>
+<span class="sd">            poll_interval_seconds (int): Base sleep between polls.</span>
+<span class="sd">            max_consecutive_failures (int): How many polls may fail</span>
+<span class="sd">                back-to-back before declaring the backend unavailable.</span>
+<span class="sd">            max_backoff_seconds (int): Cap on the exponential-backoff</span>
+<span class="sd">                sleep so a long blip doesn&#39;t extend the next poll</span>
+<span class="sd">                arbitrarily.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            state (str): One of ``&quot;Complete&quot;``, ``&quot;Failed&quot;``,</span>
+<span class="sd">                ``&quot;Timeout&quot;``, ``&quot;Backend unavailable&quot;``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Optional kubernetes import — kubectl-only deployments don&#39;t</span>
+        <span class="c1"># need this. Empty tuple in the except clause never matches,</span>
+        <span class="c1"># so the kubectl/OSError branch covers all errors when the</span>
+        <span class="c1"># kubernetes client is absent.</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">kubernetes.client.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ApiException</span>
+        <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+            <span class="n">ApiException</span> <span class="o">=</span> <span class="p">()</span>  <span class="c1"># type: ignore[assignment, misc]</span>
+
         <span class="n">deadline</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">+</span> <span class="n">max_wait_seconds</span>
+        <span class="n">consecutive_failures</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">current_sleep</span> <span class="o">=</span> <span class="n">poll_interval_seconds</span>
         <span class="k">while</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">&lt;</span> <span class="n">deadline</span><span class="p">:</span>
-            <span class="n">state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">backend</span><span class="o">.</span><span class="n">job_status</span><span class="p">(</span><span class="n">job_name</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">state</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;Complete&quot;</span><span class="p">,</span> <span class="s2">&quot;Failed&quot;</span><span class="p">}:</span>
-                <span class="k">return</span> <span class="n">state</span>
-            <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">poll_interval_seconds</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">backend</span><span class="o">.</span><span class="n">job_status</span><span class="p">(</span><span class="n">job_name</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">ApiException</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>  <span class="c1"># type: ignore[misc]</span>
+                <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">exc</span><span class="p">,</span> <span class="s2">&quot;status&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="o">==</span> <span class="mi">404</span><span class="p">:</span>
+                    <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                        <span class="s2">&quot;wait_for_completion: job </span><span class="si">%s</span><span class="s2"> reports 404 — deleted &quot;</span>
+                        <span class="s2">&quot;out-of-band; returning Failed.&quot;</span><span class="p">,</span>
+                        <span class="n">job_name</span><span class="p">,</span>
+                    <span class="p">)</span>
+                    <span class="k">return</span> <span class="s2">&quot;Failed&quot;</span>
+                <span class="n">consecutive_failures</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="s2">&quot;wait_for_completion: ApiException polling job </span><span class="si">%s</span><span class="s2"> &quot;</span>
+                    <span class="s2">&quot;(consecutive_failures=</span><span class="si">%d</span><span class="s2">): </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span>
+                    <span class="n">job_name</span><span class="p">,</span>
+                    <span class="n">consecutive_failures</span><span class="p">,</span>
+                    <span class="n">exc</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">except</span> <span class="p">(</span><span class="n">subprocess</span><span class="o">.</span><span class="n">CalledProcessError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                <span class="n">consecutive_failures</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="s2">&quot;wait_for_completion: transient backend error polling &quot;</span>
+                    <span class="s2">&quot;job </span><span class="si">%s</span><span class="s2"> (consecutive_failures=</span><span class="si">%d</span><span class="s2">): </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span>
+                    <span class="n">job_name</span><span class="p">,</span>
+                    <span class="n">consecutive_failures</span><span class="p">,</span>
+                    <span class="n">exc</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Successful poll — reset failure counter AND backoff</span>
+                <span class="c1"># so the next failure starts at the base interval again.</span>
+                <span class="n">consecutive_failures</span> <span class="o">=</span> <span class="mi">0</span>
+                <span class="n">current_sleep</span> <span class="o">=</span> <span class="n">poll_interval_seconds</span>
+                <span class="k">if</span> <span class="n">state</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;Complete&quot;</span><span class="p">,</span> <span class="s2">&quot;Failed&quot;</span><span class="p">}:</span>
+                    <span class="k">return</span> <span class="n">state</span>
+            <span class="k">if</span> <span class="n">consecutive_failures</span> <span class="o">&gt;=</span> <span class="n">max_consecutive_failures</span><span class="p">:</span>
+                <span class="n">_logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                    <span class="s2">&quot;wait_for_completion: </span><span class="si">%d</span><span class="s2"> consecutive polling failures &quot;</span>
+                    <span class="s2">&quot;for job </span><span class="si">%s</span><span class="s2"> — declaring backend unavailable.&quot;</span><span class="p">,</span>
+                    <span class="n">consecutive_failures</span><span class="p">,</span>
+                    <span class="n">job_name</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="k">return</span> <span class="s2">&quot;Backend unavailable&quot;</span>
+            <span class="k">if</span> <span class="n">consecutive_failures</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">current_sleep</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">current_sleep</span> <span class="o">*</span> <span class="mi">2</span><span class="p">,</span> <span class="n">max_backoff_seconds</span><span class="p">)</span>
+            <span class="n">remaining</span> <span class="o">=</span> <span class="n">deadline</span> <span class="o">-</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">remaining</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">break</span>
+            <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="nb">min</span><span class="p">(</span><span class="n">current_sleep</span><span class="p">,</span> <span class="n">remaining</span><span class="p">))</span>
         <span class="k">return</span> <span class="s2">&quot;Timeout&quot;</span></div>
 
 

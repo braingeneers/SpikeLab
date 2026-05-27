@@ -2486,7 +2486,14 @@
     <span class="n">raster_T</span> <span class="o">=</span> <span class="n">spk_mat</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_rescaled_range</span><span class="p">(</span><span class="n">arr_len</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert raster-resolution [start, end) to indices for an array of length arr_len.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert raster-resolution [start, end) to indices for an array of length arr_len.</span>
+
+<span class="sd">        The ``int(round(...))`` rescale is exact to ±half a bin in</span>
+<span class="sd">        the rendered output. For typical recording-length plots the</span>
+<span class="sd">        rounding is sub-pixel; for very short windows the crop can</span>
+<span class="sd">        differ from the raster-resolution original by up to one bin</span>
+<span class="sd">        on each edge.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">arr_len</span> <span class="o">==</span> <span class="n">raster_T</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span>
         <span class="n">scale</span> <span class="o">=</span> <span class="n">arr_len</span> <span class="o">/</span> <span class="n">raster_T</span>

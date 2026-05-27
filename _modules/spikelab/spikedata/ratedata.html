@@ -568,7 +568,10 @@
     <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="n">t0</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">times</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">times</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span>
         <span class="n">t1</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">times</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">times</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span>
-        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;RateData(shape=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">inst_Frate_data</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">, time_range=[</span><span class="si">{</span><span class="n">t0</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">t1</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">])&quot;</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;RateData(shape=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">inst_Frate_data</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;time_range=[</span><span class="si">{</span><span class="n">t0</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">t1</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">], rate_unit=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">rate_unit</span><span class="si">!r}</span><span class="s2">)&quot;</span>
+        <span class="p">)</span>
 
 <div class="viewcode-block" id="RateData.subset">
 <a class="viewcode-back" href="../../../api/ratedata.html#spikelab.spikedata.ratedata.RateData.subset">[docs]</a>
@@ -607,6 +610,15 @@
             <span class="c1"># positional correspondence to unit indices.</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;can&#39;t use `by` without `neuron_attributes`&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">preserve_order</span><span class="p">:</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                    <span class="s2">&quot;preserve_order=True has no effect when by= is set; &quot;</span>
+                    <span class="s2">&quot;the by-path returns matching units in self.train &quot;</span>
+                    <span class="s2">&quot;order. Drop preserve_order=True or use index-based &quot;</span>
+                    <span class="s2">&quot;subset() to silence this warning.&quot;</span><span class="p">,</span>
+                    <span class="ne">UserWarning</span><span class="p">,</span>
+                    <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+                <span class="p">)</span>
             <span class="n">_missing</span> <span class="o">=</span> <span class="nb">object</span><span class="p">()</span>
             <span class="n">wanted</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">units</span><span class="p">)</span>
             <span class="n">selected</span> <span class="o">=</span> <span class="p">[</span>
@@ -733,6 +745,15 @@
 <span class="sd">            - To slice by time values instead of array indices, use</span>
 <span class="sd">              ``subtime(start, end)``.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Empty-times guard. ``subtime`` raises a clear &quot;cannot apply</span>
+        <span class="c1"># subtime to RateData with empty times array&quot; — match that</span>
+        <span class="c1"># contract here so callers from MCP (``ratedata_subtime``) see</span>
+        <span class="c1"># the same diagnostic regardless of which path they hit.</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">times</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;cannot apply subtime_by_index to RateData with empty &quot;</span>
+                <span class="s2">&quot;times array (no time points to slice).&quot;</span>
+            <span class="p">)</span>
         <span class="k">if</span> <span class="n">start_idx</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">start_idx</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">times</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">end_idx</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
@@ -776,16 +797,7 @@
 <span class="sd">              stride.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">.rateslicestack</span><span class="w"> </span><span class="kn">import</span> <span class="n">RateSliceStack</span>
-
-        <span class="k">if</span> <span class="n">overlap</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;overlap must be non-negative, got </span><span class="si">{</span><span class="n">overlap</span><span class="si">}</span><span class="s2">. The parameter &quot;</span>
-                <span class="s2">&quot;represents an overlap, not a stride; use a smaller `length` &quot;</span>
-                <span class="s2">&quot;and post-filter slices for gapped windows.&quot;</span>
-            <span class="p">)</span>
-        <span class="n">step</span> <span class="o">=</span> <span class="n">length</span> <span class="o">-</span> <span class="n">overlap</span>
-        <span class="k">if</span> <span class="n">step</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;overlap must be less than length&quot;</span><span class="p">)</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">_frame_window_starts</span>
 
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">times</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
@@ -794,18 +806,16 @@
                 <span class="s2">&quot;required to infer the bin step_size.&quot;</span>
             <span class="p">)</span>
 
-        <span class="n">t0</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">times</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
-        <span class="n">t_end</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">times</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
-
-        <span class="c1"># frames() places windows on the uniform grid implied by</span>
-        <span class="c1"># ``np.median(np.diff(times))``. Using the median (rather than</span>
-        <span class="c1"># ``times[1] - times[0]``) is robust to a single anomalous</span>
-        <span class="c1"># gap or duplicate-time pair at the start that</span>
-        <span class="c1"># ``RateData.__init__`` allows under its monotonically-</span>
-        <span class="c1"># non-decreasing contract — without this, the first-pair</span>
-        <span class="c1"># step could poison the uniformity check below for an</span>
-        <span class="c1"># otherwise-uniform grid.</span>
+        <span class="c1"># Tier L-E5: window-generation logic factored out to</span>
+        <span class="c1"># ``_frame_window_starts`` and shared with ``SpikeData.frames``.</span>
+        <span class="c1"># Uniform-grid validation stays here because it&#39;s</span>
+        <span class="c1"># RateData-specific — the helper consumes pre-validated</span>
+        <span class="c1"># ``effective_end`` (one bin past the last sample).</span>
         <span class="n">diffs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">times</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span>
+        <span class="c1"># ``np.median`` (not ``times[1] - times[0]``) is robust to a</span>
+        <span class="c1"># single anomalous gap or duplicate-time pair at the start</span>
+        <span class="c1"># that ``RateData.__init__`` allows under its monotonically-</span>
+        <span class="c1"># non-decreasing contract.</span>
         <span class="n">step_size</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">diffs</span><span class="p">))</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">diffs</span><span class="p">,</span> <span class="n">step_size</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-9</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
@@ -815,16 +825,12 @@
                 <span class="s2">&quot;uniform grid before framing.&quot;</span>
             <span class="p">)</span>
 
-        <span class="n">upper</span> <span class="o">=</span> <span class="n">t_end</span> <span class="o">-</span> <span class="n">length</span> <span class="o">+</span> <span class="n">step_size</span> <span class="o">+</span> <span class="mf">1e-9</span>
-        <span class="n">times</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">start</span><span class="p">),</span> <span class="nb">float</span><span class="p">(</span><span class="n">start</span><span class="p">)</span> <span class="o">+</span> <span class="n">length</span><span class="p">)</span>
-            <span class="k">for</span> <span class="n">start</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">t0</span><span class="p">,</span> <span class="n">upper</span><span class="p">,</span> <span class="n">step</span><span class="p">)</span>
-        <span class="p">]</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">times</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Recording length (</span><span class="si">{</span><span class="n">t_end</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">t0</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">step_size</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> ms) is shorter &quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;than frame length (</span><span class="si">{</span><span class="n">length</span><span class="si">}</span><span class="s2"> ms)&quot;</span>
-            <span class="p">)</span>
+        <span class="n">times</span> <span class="o">=</span> <span class="n">_frame_window_starts</span><span class="p">(</span>
+            <span class="n">t0</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">times</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
+            <span class="n">effective_end</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">times</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">+</span> <span class="n">step_size</span><span class="p">,</span>
+            <span class="n">length</span><span class="o">=</span><span class="n">length</span><span class="p">,</span>
+            <span class="n">overlap</span><span class="o">=</span><span class="n">overlap</span><span class="p">,</span>
+        <span class="p">)</span>
         <span class="k">return</span> <span class="n">RateSliceStack</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">times_start_to_end</span><span class="o">=</span><span class="n">times</span><span class="p">)</span></div>
 
 
@@ -881,6 +887,12 @@
             <span class="n">corr_matrix_this_event</span><span class="p">[</span><span class="n">n1</span><span class="p">,</span> <span class="n">n2</span><span class="p">]</span> <span class="o">=</span> <span class="n">max_corr</span>
             <span class="n">lag_matrix_this_event</span><span class="p">[</span><span class="n">n1</span><span class="p">,</span> <span class="n">n2</span><span class="p">]</span> <span class="o">=</span> <span class="n">max_lag_idx</span>
             <span class="n">corr_matrix_this_event</span><span class="p">[</span><span class="n">n2</span><span class="p">,</span> <span class="n">n1</span><span class="p">]</span> <span class="o">=</span> <span class="n">max_corr</span>
+            <span class="c1"># Diagonal note: when n1 == n2 (self-correlation), the</span>
+            <span class="c1"># symmetric overwrite assigns ``-max_lag_idx`` over the</span>
+            <span class="c1"># same diagonal cell. This is benign because a unit&#39;s</span>
+            <span class="c1"># auto-correlation peaks at lag 0 (``-0 == 0``); the cell</span>
+            <span class="c1"># is therefore self-consistent regardless of which copy</span>
+            <span class="c1"># writes last.</span>
             <span class="n">lag_matrix_this_event</span><span class="p">[</span><span class="n">n2</span><span class="p">,</span> <span class="n">n1</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="n">max_lag_idx</span>
 
         <span class="c1"># Output is UxU, wrapped in PairwiseCompMatrix for API consistency</span>

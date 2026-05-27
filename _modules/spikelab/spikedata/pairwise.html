@@ -762,7 +762,7 @@
 
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">_is_diverging</span><span class="p">(</span><span class="n">matrix</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_should_use_diverging_cmap</span><span class="p">(</span><span class="n">matrix</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Check whether a matrix has both meaningful negative and positive values.&quot;&quot;&quot;</span>
         <span class="n">finite</span> <span class="o">=</span> <span class="n">matrix</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">matrix</span><span class="p">)]</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">finite</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
@@ -806,7 +806,9 @@
         <span class="kn">from</span><span class="w"> </span><span class="nn">.plot_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot_heatmap</span>
 
         <span class="k">if</span> <span class="n">cmap</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">cmap</span> <span class="o">=</span> <span class="s2">&quot;RdBu_r&quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_diverging</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">matrix</span><span class="p">)</span> <span class="k">else</span> <span class="s2">&quot;viridis&quot;</span>
+            <span class="n">cmap</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="s2">&quot;RdBu_r&quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_should_use_diverging_cmap</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">matrix</span><span class="p">)</span> <span class="k">else</span> <span class="s2">&quot;viridis&quot;</span>
+            <span class="p">)</span>
 
         <span class="k">if</span> <span class="n">tick_labels</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">tick_labels</span> <span class="o">=</span> <span class="p">(</span>
@@ -1482,6 +1484,10 @@
 <span class="k">def</span><span class="w"> </span><span class="nf">_min_max_normalize</span><span class="p">(</span><span class="n">mat</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">axis</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Min-max normalize a 2-D matrix to [0, 1].</span>
 
+<span class="sd">    See also:</span>
+<span class="sd">        ``_z_score_normalize`` — companion helper that shares the same</span>
+<span class="sd">        ``axis`` semantics (``&quot;row&quot;`` / ``&quot;col&quot;`` / ``None``).</span>
+
 <span class="sd">    Parameters:</span>
 <span class="sd">        mat (np.ndarray): ``(N, N)`` input matrix.</span>
 <span class="sd">        axis (str or None): ``&quot;row&quot;``, ``&quot;col&quot;``, or None (global).</span>
@@ -1520,6 +1526,10 @@
 <span class="k">def</span><span class="w"> </span><span class="nf">_z_score_normalize</span><span class="p">(</span><span class="n">mat</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">axis</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Z-score normalize a 2-D matrix (mean=0, std=1).</span>
 
+<span class="sd">    See also:</span>
+<span class="sd">        ``_min_max_normalize`` — companion helper that shares the same</span>
+<span class="sd">        ``axis`` semantics (``&quot;row&quot;`` / ``&quot;col&quot;`` / ``None``).</span>
+
 <span class="sd">    Parameters:</span>
 <span class="sd">        mat (np.ndarray): ``(N, N)`` input matrix.</span>
 <span class="sd">        axis (str or None): ``&quot;row&quot;``, ``&quot;col&quot;``, or None (global).</span>
@@ -1551,6 +1561,27 @@
     <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">invalid</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">):</span>
         <span class="n">result</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">sd</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">,</span> <span class="p">(</span><span class="n">mat</span> <span class="o">-</span> <span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="n">sd</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
     <span class="n">result</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">mat</span><span class="p">)]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+    <span class="c1"># Warn when the std reduction yielded zero anywhere — the</span>
+    <span class="c1"># downstream ``np.where`` fills those positions with 0.0 (no</span>
+    <span class="c1"># division by zero), but a uniform input is almost always a</span>
+    <span class="c1"># caller mistake (e.g. forgot to filter NaNs, or fed an all-equal</span>
+    <span class="c1"># matrix). The caller&#39;s &quot;z-scored&quot; output is identically zero</span>
+    <span class="c1"># without this signal.</span>
+    <span class="n">sd_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">sd</span><span class="p">))</span>
+    <span class="n">zero_sd</span> <span class="o">=</span> <span class="n">sd_arr</span> <span class="o">==</span> <span class="mi">0</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">zero_sd</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">axis</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">scope</span> <span class="o">=</span> <span class="s2">&quot;the entire matrix&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">scope</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">zero_sd</span><span class="p">))</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">axis</span><span class="si">}</span><span class="s2">(s)&quot;</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;_z_score_normalize: std is zero across </span><span class="si">{</span><span class="n">scope</span><span class="si">}</span><span class="s2">; those &quot;</span>
+            <span class="s2">&quot;positions are filled with 0.0 (no division by zero). The &quot;</span>
+            <span class="s2">&quot;input is uniform — z-score is undefined and the result is &quot;</span>
+            <span class="s2">&quot;identically zero.&quot;</span><span class="p">,</span>
+            <span class="ne">RuntimeWarning</span><span class="p">,</span>
+            <span class="n">stacklevel</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+        <span class="p">)</span>
     <span class="k">return</span> <span class="n">result</span>
 </pre></div>
 

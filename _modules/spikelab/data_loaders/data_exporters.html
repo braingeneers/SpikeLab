@@ -739,6 +739,13 @@
 <span class="sd">          array.</span>
 <span class="sd">        - This is compatible with the load_spikedata_from_nwb function</span>
 <span class="sd">          when prefer_pynwb=False.</span>
+<span class="sd">        - The ``spike_times_index`` dataset uses the NWB-spec-compliant</span>
+<span class="sd">          cumulative-end convention: ``index = np.cumsum(counts)`` of</span>
+<span class="sd">          length ``N`` (one entry per unit, pointing at the slot AFTER</span>
+<span class="sd">          the unit&#39;s last spike). The loader</span>
+<span class="sd">          ``load_spikedata_from_nwb`` accepts both this convention and</span>
+<span class="sd">          the alternative leading-zero (length ``N+1``) variant — see</span>
+<span class="sd">          its docstring for the disambiguation rules.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">ensure_h5py</span><span class="p">()</span>
     <span class="n">counts</span> <span class="o">=</span> <span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">sd</span><span class="o">.</span><span class="n">train</span><span class="p">]</span>

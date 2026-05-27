@@ -603,13 +603,11 @@
         <li><a href="api/workspace.html#spikelab.workspace.workspace.LazyAnalysisWorkspace.add_note">(spikelab.workspace.workspace.LazyAnalysisWorkspace method)</a>
 </li>
       </ul></li>
-      <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.align_to_events">align_to_events() (spikelab.spikedata.SpikeData method)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.pipeline.SortRunReport.all_succeeded">all_succeeded (spikelab.spike_sorting.pipeline.SortRunReport property)</a>
+      <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.align_to_events">align_to_events() (spikelab.spikedata.SpikeData method)</a>
 </li>
-      <li><a href="api/batch_jobs.html#spikelab.batch_jobs.models.RunConfig.allow_policy_risk">allow_policy_risk (spikelab.batch_jobs.models.RunConfig attribute)</a>
+      <li><a href="api/spike_sorting.html#spikelab.spike_sorting.pipeline.SortRunReport.all_succeeded">all_succeeded (spikelab.spike_sorting.pipeline.SortRunReport property)</a>
 </li>
       <li><a href="api/workspace.html#spikelab.workspace.workspace.AnalysisWorkspace">AnalysisWorkspace (class in spikelab.workspace.workspace)</a>
 </li>
@@ -825,6 +823,8 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack.decode_slice_labels">decode_slice_labels() (spikelab.spikedata.spikeslicestack.SpikeSliceStack method)</a>
 </li>
+      <li><a href="api/batch_jobs.html#spikelab.batch_jobs.storage_s3.S3StorageClient.DEFAULT_LIST_OUTPUT_LIMIT">DEFAULT_LIST_OUTPUT_LIMIT (spikelab.batch_jobs.storage_s3.S3StorageClient attribute)</a>
+</li>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.models.ClusterProfile.default_s3_prefix">default_s3_prefix (spikelab.batch_jobs.models.ClusterProfile attribute)</a>
 </li>
       <li><a href="api/workspace.html#spikelab.workspace.workspace.AnalysisWorkspace.delete">delete() (spikelab.workspace.workspace.AnalysisWorkspace method)</a>
@@ -973,8 +973,6 @@
         <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.DiskExhaustionReport.folder">(spikelab.spike_sorting.guards.DiskExhaustionReport attribute)</a>
 </li>
       </ul></li>
-      <li><a href="api/batch_jobs.html#spikelab.batch_jobs.models.RunConfig.follow_logs">follow_logs (spikelab.batch_jobs.models.RunConfig attribute)</a>
-</li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.FigureConfig.font_size">font_size (spikelab.spike_sorting.config.FigureConfig attribute)</a>
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.CurationConfig.fr_min">fr_min (spikelab.spike_sorting.config.CurationConfig attribute)</a>
@@ -1150,8 +1148,6 @@
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting._exceptions.SorterTimeoutError.inactivity_s">inactivity_s (spikelab.spike_sorting._exceptions.SorterTimeoutError attribute)</a>
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.CompilationConfig.include_failed_units">include_failed_units (spikelab.spike_sorting.config.CompilationConfig attribute)</a>
-</li>
-      <li><a href="api/batch_jobs.html#spikelab.batch_jobs.models.RunConfig.input_path">input_path (spikelab.batch_jobs.models.RunConfig attribute)</a>
 </li>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.models.StoragePathTemplates.inputs">inputs (spikelab.batch_jobs.models.StoragePathTemplates attribute)</a>
 </li>
@@ -1481,8 +1477,6 @@
       <ul>
         <li><a href="api/batch_jobs.html#spikelab.batch_jobs.models.JobSpec.namespace">(spikelab.batch_jobs.models.JobSpec attribute)</a>
 </li>
-        <li><a href="api/batch_jobs.html#spikelab.batch_jobs.models.RunConfig.namespace">(spikelab.batch_jobs.models.RunConfig attribute)</a>
-</li>
       </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
@@ -1536,12 +1530,8 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.out_file">out_file (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
 </li>
-      <li><a href="api/batch_jobs.html#spikelab.batch_jobs.models.RunConfig.output_prefix">output_prefix (spikelab.batch_jobs.models.RunConfig attribute)</a>
-
-      <ul>
-        <li><a href="api/batch_jobs.html#spikelab.batch_jobs.models.SubmitResult.output_prefix">(spikelab.batch_jobs.models.SubmitResult attribute)</a>
+      <li><a href="api/batch_jobs.html#spikelab.batch_jobs.models.SubmitResult.output_prefix">output_prefix (spikelab.batch_jobs.models.SubmitResult attribute)</a>
 </li>
-      </ul></li>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.storage_s3.S3StorageClient.output_prefix_for_run">output_prefix_for_run() (spikelab.batch_jobs.storage_s3.S3StorageClient method)</a>
 </li>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.models.StoragePathTemplates.outputs">outputs (spikelab.batch_jobs.models.StoragePathTemplates attribute)</a>
@@ -1610,10 +1600,10 @@
 </li>
       <li><a href="api/plot_utils.html#spikelab.spikedata.plot_utils.plot_percentile_bands">plot_percentile_bands() (in module spikelab.spikedata.plot_utils)</a>
 </li>
-      <li><a href="api/plot_utils.html#spikelab.spikedata.plot_utils.plot_prediction_probability_heatmap">plot_prediction_probability_heatmap() (in module spikelab.spikedata.plot_utils)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/plot_utils.html#spikelab.spikedata.plot_utils.plot_prediction_probability_heatmap">plot_prediction_probability_heatmap() (in module spikelab.spikedata.plot_utils)</a>
+</li>
       <li><a href="api/plot_utils.html#spikelab.spikedata.plot_utils.plot_pvalue_matrix">plot_pvalue_matrix() (in module spikelab.spikedata.plot_utils)</a>
 </li>
       <li><a href="api/plot_utils.html#spikelab.spikedata.plot_utils.plot_recording">plot_recording() (in module spikelab.spikedata.plot_utils)</a>
@@ -1665,8 +1655,6 @@
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig.prevent_system_sleep">prevent_system_sleep (spikelab.spike_sorting.config.ExecutionConfig attribute)</a>
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.RTSortConfig.probe">probe (spikelab.spike_sorting.config.RTSortConfig attribute)</a>
-</li>
-      <li><a href="api/batch_jobs.html#spikelab.batch_jobs.models.RunConfig.profile_name">profile_name (spikelab.batch_jobs.models.RunConfig attribute)</a>
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.DiskExhaustionReport.projected_need_gb">projected_need_gb (spikelab.spike_sorting.guards.DiskExhaustionReport attribute)</a>
 </li>
@@ -1831,8 +1819,6 @@
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.models.SubmitResult.run_id">run_id (spikelab.batch_jobs.models.SubmitResult attribute)</a>
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.guards.run_preflight">run_preflight() (in module spikelab.spike_sorting.guards)</a>
-</li>
-      <li><a href="api/batch_jobs.html#spikelab.batch_jobs.models.RunConfig">RunConfig (class in spikelab.batch_jobs.models)</a>
 </li>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.session.RunSession">RunSession (class in spikelab.batch_jobs.session)</a>
 </li>
@@ -2379,8 +2365,6 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.validation.validate_job_spec">validate_job_spec() (in module spikelab.batch_jobs.validation)</a>
 </li>
-      <li><a href="api/batch_jobs.html#spikelab.batch_jobs.validation.validate_run_config">validate_run_config() (in module spikelab.batch_jobs.validation)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.config.RTSortConfig.verbose">verbose (spikelab.spike_sorting.config.RTSortConfig attribute)</a>
@@ -2393,8 +2377,6 @@
 <h2 id="W">W</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="api/batch_jobs.html#spikelab.batch_jobs.models.RunConfig.wait_for_completion">wait_for_completion (spikelab.batch_jobs.models.RunConfig attribute)</a>
-</li>
       <li><a href="api/batch_jobs.html#spikelab.batch_jobs.session.RunSession.wait_for_completion">wait_for_completion() (spikelab.batch_jobs.session.RunSession method)</a>
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.pipeline.RecordingResult.wall_time_s">wall_time_s (spikelab.spike_sorting.pipeline.RecordingResult attribute)</a>
@@ -2409,12 +2391,8 @@
 </li>
       <li><a href="api/utilities.html#spikelab.spikedata.utils.waveforms_by_channel">waveforms_by_channel() (in module spikelab.spikedata.utils)</a>
 </li>
-      <li><a href="api/batch_jobs.html#spikelab.batch_jobs.models.RunConfig.workspace_id">workspace_id (spikelab.batch_jobs.models.RunConfig attribute)</a>
-
-      <ul>
-        <li><a href="api/workspace.html#spikelab.workspace.workspace.AnalysisWorkspace.workspace_id">(spikelab.workspace.workspace.AnalysisWorkspace attribute)</a>
+      <li><a href="api/workspace.html#spikelab.workspace.workspace.AnalysisWorkspace.workspace_id">workspace_id (spikelab.workspace.workspace.AnalysisWorkspace attribute)</a>
 </li>
-      </ul></li>
       <li><a href="api/workspace.html#spikelab.workspace.workspace.WorkspaceManager">WorkspaceManager (class in spikelab.workspace.workspace)</a>
 </li>
       <li><a href="api/spike_sorting.html#spikelab.spike_sorting.backends.base.SorterBackend.write_recording">write_recording() (spikelab.spike_sorting.backends.base.SorterBackend method)</a>

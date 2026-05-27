@@ -508,7 +508,12 @@
         <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;ndarray&quot;</span><span class="p">,</span> <span class="s2">&quot;shape&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">shape</span><span class="p">),</span> <span class="s2">&quot;dtype&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">dtype</span><span class="p">)}</span>
 
     <span class="k">if</span> <span class="n">SpikeData</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">SpikeData</span><span class="p">):</span>
-        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;SpikeData&quot;</span><span class="p">,</span> <span class="s2">&quot;N&quot;</span><span class="p">:</span> <span class="n">obj</span><span class="o">.</span><span class="n">N</span><span class="p">,</span> <span class="s2">&quot;length_ms&quot;</span><span class="p">:</span> <span class="n">obj</span><span class="o">.</span><span class="n">length</span><span class="p">}</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;SpikeData&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;N&quot;</span><span class="p">:</span> <span class="n">obj</span><span class="o">.</span><span class="n">N</span><span class="p">,</span>
+            <span class="s2">&quot;length_ms&quot;</span><span class="p">:</span> <span class="n">obj</span><span class="o">.</span><span class="n">length</span><span class="p">,</span>
+            <span class="s2">&quot;start_time&quot;</span><span class="p">:</span> <span class="n">obj</span><span class="o">.</span><span class="n">start_time</span><span class="p">,</span>
+        <span class="p">}</span>
 
     <span class="k">if</span> <span class="n">RateData</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">RateData</span><span class="p">):</span>
         <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;RateData&quot;</span><span class="p">,</span> <span class="s2">&quot;shape&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">inst_Frate_data</span><span class="o">.</span><span class="n">shape</span><span class="p">)}</span>
@@ -517,9 +522,20 @@
         <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;RateSliceStack&quot;</span><span class="p">,</span> <span class="s2">&quot;shape&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">event_stack</span><span class="o">.</span><span class="n">shape</span><span class="p">)}</span>
 
     <span class="k">if</span> <span class="n">SpikeSliceStack</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">SpikeSliceStack</span><span class="p">):</span>
-        <span class="n">length_ms</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="nb">float</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">times</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">obj</span><span class="o">.</span><span class="n">times</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">times</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="kc">None</span>
-        <span class="p">)</span>
+        <span class="c1"># Report the per-slice length range so heterogeneous-duration</span>
+        <span class="c1"># stacks (allowed by the time_peaks + time_bounds constructor)</span>
+        <span class="c1"># are visible from ``describe()`` rather than misrepresented</span>
+        <span class="c1"># by the first slice. For uniform-duration stacks the min/max</span>
+        <span class="c1"># collapse to a single value.</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">times</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">durations</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">t1</span> <span class="o">-</span> <span class="n">t0</span><span class="p">)</span> <span class="k">for</span> <span class="p">(</span><span class="n">t0</span><span class="p">,</span> <span class="n">t1</span><span class="p">)</span> <span class="ow">in</span> <span class="n">obj</span><span class="o">.</span><span class="n">times</span><span class="p">]</span>
+            <span class="n">length_ms</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">durations</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="k">if</span> <span class="nb">min</span><span class="p">(</span><span class="n">durations</span><span class="p">)</span> <span class="o">==</span> <span class="nb">max</span><span class="p">(</span><span class="n">durations</span><span class="p">)</span>
+                <span class="k">else</span> <span class="p">(</span><span class="nb">min</span><span class="p">(</span><span class="n">durations</span><span class="p">),</span> <span class="nb">max</span><span class="p">(</span><span class="n">durations</span><span class="p">))</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">length_ms</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="n">n_units</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">spike_stack</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">N</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">spike_stack</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mi">0</span>
         <span class="k">return</span> <span class="p">{</span>
             <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;SpikeSliceStack&quot;</span><span class="p">,</span>
@@ -1011,8 +1027,13 @@
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_items</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
-            <span class="s2">&quot;LazyAnalysisWorkspace does not use _items. &quot;</span>
-            <span class="s2">&quot;Override the parent method to use _index and the HDF5 file instead.&quot;</span>
+            <span class="s2">&quot;LazyAnalysisWorkspace does not expose ``_items``; objects &quot;</span>
+            <span class="s2">&quot;are deserialised from the temp HDF5 file on each ``get()`` &quot;</span>
+            <span class="s2">&quot;call. Use ``list_namespaces()`` / ``list_keys(namespace)`` &quot;</span>
+            <span class="s2">&quot;/ ``get(namespace, key)`` instead. (Note: ``dump_workspace`` &quot;</span>
+            <span class="s2">&quot;iterates ``ws._items.items()`` and therefore cannot be &quot;</span>
+            <span class="s2">&quot;called on a LazyAnalysisWorkspace — use ``save(path)`` &quot;</span>
+            <span class="s2">&quot;which copies the temp file directly.)&quot;</span>
         <span class="p">)</span>
 
     <span class="nd">@_items</span><span class="o">.</span><span class="n">setter</span>
@@ -1314,11 +1335,24 @@
 
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__del__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="c1"># Best-effort fallback; explicit ``close()`` is preferred.</span>
+        <span class="c1"># Best-effort fallback; explicit ``close()`` is preferred. Log</span>
+        <span class="c1"># the failure rather than swallowing it so a bug in temp-file</span>
+        <span class="c1"># cleanup (read-only filesystem, open handle on Windows) leaves</span>
+        <span class="c1"># a trace in the audit log rather than vanishing silently.</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-            <span class="k">pass</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+
+                <span class="nb">print</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;[LazyAnalysisWorkspace.__del__] cleanup failed: </span><span class="si">{</span><span class="n">exc</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">,</span>
+                    <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">__stderr__</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="c1"># ``sys`` may already be torn down during interpreter</span>
+                <span class="c1"># shutdown — give up silently in that case.</span>
+                <span class="k">pass</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="n">ns_count</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_index</span><span class="p">)</span>
@@ -1477,10 +1511,22 @@
 
 <span class="sd">        Notes:</span>
 <span class="sd">            - If a workspace with the same ID is already registered, it</span>
-<span class="sd">              will be overwritten by the loaded version.</span>
+<span class="sd">              will be overwritten by the loaded version. A UserWarning</span>
+<span class="sd">              is emitted so callers do not silently lose in-memory</span>
+<span class="sd">              mutations when they reload a saved snapshot of the same</span>
+<span class="sd">              workspace.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">ws</span> <span class="o">=</span> <span class="n">AnalysisWorkspace</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
         <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">ws</span><span class="o">.</span><span class="n">workspace_id</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_workspaces</span><span class="p">:</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;load_workspace: workspace_id=</span><span class="si">{</span><span class="n">ws</span><span class="o">.</span><span class="n">workspace_id</span><span class="si">!r}</span><span class="s2"> is &quot;</span>
+                    <span class="s2">&quot;already registered; the in-memory workspace will be &quot;</span>
+                    <span class="s2">&quot;overwritten by the loaded version. Any pending &quot;</span>
+                    <span class="s2">&quot;mutations on the in-memory instance are lost.&quot;</span><span class="p">,</span>
+                    <span class="ne">UserWarning</span><span class="p">,</span>
+                    <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+                <span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_workspaces</span><span class="p">[</span><span class="n">ws</span><span class="o">.</span><span class="n">workspace_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">ws</span>
         <span class="k">return</span> <span class="n">ws</span><span class="o">.</span><span class="n">workspace_id</span></div>
 

@@ -1206,7 +1206,10 @@ that was passed to <code class="docutils literal notranslate"><span class="pre">
 <p class="rubric">Notes</p>
 <ul class="simple">
 <li><p>If a workspace with the same ID is already registered, it
-will be overwritten by the loaded version.</p></li>
+will be overwritten by the loaded version. A UserWarning
+is emitted so callers do not silently lose in-memory
+mutations when they reload a saved snapshot of the same
+workspace.</p></li>
 </ul>
 </dd></dl>
 

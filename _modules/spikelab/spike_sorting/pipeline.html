@@ -458,12 +458,16 @@
 <span class="sd">``process_recording``.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">hashlib</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">pickle</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">traceback</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">contextlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">nullcontext</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
@@ -482,6 +486,8 @@
     <span class="n">delete_folder</span><span class="p">,</span>
     <span class="n">get_paths</span><span class="p">,</span>
 <span class="p">)</span>
+
+<span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
 <span class="c1"># Display names for the source_format metadata field.</span>
 <span class="n">_SORTER_DISPLAY_NAMES</span> <span class="o">=</span> <span class="p">{</span>
@@ -542,8 +548,17 @@
             <span class="n">start_frame</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">end_frame</span><span class="o">=</span><span class="n">length</span><span class="p">,</span> <span class="n">return_scaled</span><span class="o">=</span><span class="n">return_scaled</span>
         <span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">RandomState</span><span class="p">(</span><span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">)</span>
-        <span class="n">starts</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">length</span> <span class="o">-</span> <span class="n">chunk_size</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">num_chunks</span><span class="p">)</span>
+        <span class="c1"># ``default_rng`` instead of the legacy ``RandomState`` so the</span>
+        <span class="c1"># noise estimate seeds with the same PCG64 stream as</span>
+        <span class="c1"># ``config.execution.random_seed`` callers elsewhere in</span>
+        <span class="c1"># pipeline.py (e.g. line ~1595). Bit-exact reproducibility</span>
+        <span class="c1"># vs. the prior Mersenne-Twister stream is broken — the change</span>
+        <span class="c1"># shifts which chunks are sampled, which shifts the MAD</span>
+        <span class="c1"># estimate by ~1e-6 µV (50k filtered samples per channel are</span>
+        <span class="c1"># statistically robust to chunk selection). Downstream sorters</span>
+        <span class="c1"># are not bit-exact reproducible to that precision anyway.</span>
+        <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+        <span class="n">starts</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">length</span> <span class="o">-</span> <span class="n">chunk_size</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">num_chunks</span><span class="p">)</span>
         <span class="n">chunks</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">starts</span><span class="p">:</span>
             <span class="n">chunks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
@@ -742,6 +757,31 @@
 <span class="c1"># ---------------------------------------------------------------------------</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_curation_cache_key</span><span class="p">(</span><span class="n">sd</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">curate_kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Content fingerprint for the curate_spikedata cache.</span>
+
+<span class="sd">    Combines the source SpikeData&#39;s unit-id set with the resolved</span>
+<span class="sd">    ``curate_kwargs`` into a deterministic SHA256 string. The cache</span>
+<span class="sd">    files (``unit_ids.npy`` + ``curation_history.json``) are valid</span>
+<span class="sd">    only when this fingerprint matches — a re-sort that produces</span>
+<span class="sd">    different unit ids OR a config change that produces different</span>
+<span class="sd">    thresholds both flip the fingerprint, so the read-side falls</span>
+<span class="sd">    through to fresh curation rather than returning a stale result.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">unit_ids</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
+            <span class="nb">int</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;unit_id&quot;</span><span class="p">,</span> <span class="n">i</span><span class="p">))</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="p">)</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">unit_ids</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="p">))</span>
+    <span class="n">canonical</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span>
+        <span class="p">{</span><span class="s2">&quot;unit_ids&quot;</span><span class="p">:</span> <span class="n">unit_ids</span><span class="p">,</span> <span class="s2">&quot;kwargs&quot;</span><span class="p">:</span> <span class="n">curate_kwargs</span><span class="p">},</span>
+        <span class="n">sort_keys</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">(</span><span class="n">canonical</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">))</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span>
+
+
 <span class="k">def</span><span class="w"> </span><span class="nf">curate_spikedata</span><span class="p">(</span>
     <span class="n">sd</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">curation_folder</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">recurate</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]:</span>
@@ -786,23 +826,39 @@
     <span class="n">unit_ids_path</span> <span class="o">=</span> <span class="n">curation_folder</span> <span class="o">/</span> <span class="s2">&quot;unit_ids.npy&quot;</span>
     <span class="n">history_path</span> <span class="o">=</span> <span class="n">curation_folder</span> <span class="o">/</span> <span class="s2">&quot;curation_history.json&quot;</span>
 
-    <span class="c1"># Check cache</span>
+    <span class="n">expected_cache_key</span> <span class="o">=</span> <span class="n">_curation_cache_key</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">curate_kwargs</span><span class="p">)</span>
+
+    <span class="c1"># Check cache. A stale cache (source unit_ids changed since the</span>
+    <span class="c1"># cache was written, OR curate_kwargs changed) is silently</span>
+    <span class="c1"># invalidated by the fingerprint mismatch — fall through to fresh</span>
+    <span class="c1"># curation rather than return wrong results. Legacy caches written</span>
+    <span class="c1"># before the __cache_key__ field existed are treated as a miss for</span>
+    <span class="c1"># the same reason; recuration is cheap (it&#39;s thresholding on the</span>
+    <span class="c1"># already-loaded SpikeData, not re-running the sorter).</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">recurate</span> <span class="ow">and</span> <span class="n">unit_ids_path</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span> <span class="ow">and</span> <span class="n">history_path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
-        <span class="n">cached_ids</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">unit_ids_path</span><span class="p">)))</span>
-        <span class="n">passing</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="n">i</span>
-            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-            <span class="ow">and</span> <span class="nb">int</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;unit_id&quot;</span><span class="p">,</span> <span class="n">i</span><span class="p">))</span> <span class="ow">in</span> <span class="n">cached_ids</span>
-        <span class="p">]</span>
-        <span class="n">sd_curated</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">subset</span><span class="p">(</span><span class="n">passing</span><span class="p">)</span>
-        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">history_path</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-            <span class="n">history</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">sd_curated</span><span class="p">,</span> <span class="n">history</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">history_path</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">cached_history</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">OSError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+            <span class="n">cached_history</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">cached_history</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="n">cached_history</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;__cache_key__&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="n">expected_cache_key</span>
+        <span class="p">):</span>
+            <span class="n">cached_ids</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">unit_ids_path</span><span class="p">)))</span>
+            <span class="n">passing</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">i</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                <span class="ow">and</span> <span class="nb">int</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;unit_id&quot;</span><span class="p">,</span> <span class="n">i</span><span class="p">))</span> <span class="ow">in</span> <span class="n">cached_ids</span>
+            <span class="p">]</span>
+            <span class="n">sd_curated</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">subset</span><span class="p">(</span><span class="n">passing</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">sd_curated</span><span class="p">,</span> <span class="n">cached_history</span>
 
     <span class="c1"># Run curation</span>
     <span class="n">sd_curated</span><span class="p">,</span> <span class="n">results</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">curate</span><span class="p">(</span><span class="o">**</span><span class="n">curate_kwargs</span><span class="p">)</span>
     <span class="n">history</span> <span class="o">=</span> <span class="n">build_curation_history</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">sd_curated</span><span class="p">,</span> <span class="n">results</span><span class="p">,</span> <span class="n">parameters</span><span class="o">=</span><span class="n">curate_kwargs</span><span class="p">)</span>
+    <span class="n">history</span><span class="p">[</span><span class="s2">&quot;__cache_key__&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">expected_cache_key</span>
 
     <span class="c1"># Save to disk</span>
     <span class="n">curation_folder</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -919,7 +975,7 @@
         <span class="n">fig_fs_Hz</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="k">for</span> <span class="n">rec_name</span><span class="p">,</span> <span class="n">sd</span><span class="p">,</span> <span class="n">curation_history</span><span class="p">,</span> <span class="n">include_failed_units</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">recs_cache</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Adding recording: </span><span class="si">{</span><span class="n">rec_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Adding recording: </span><span class="si">{</span><span class="n">rec_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
             <span class="n">fs_Hz</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;fs_Hz&quot;</span><span class="p">,</span> <span class="mf">30000.0</span><span class="p">)</span>
             <span class="n">rec_metadata</span><span class="p">[</span><span class="n">rec_name</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
@@ -984,16 +1040,25 @@
         <span class="n">neg_units</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;amplitude&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)),</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="n">pos_units</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;amplitude&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)),</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
+        <span class="c1"># Build a per-recording compile_dict. Each recording gets its</span>
+        <span class="c1"># own ``units`` list / ``locations`` / ``fs`` so multi-recording</span>
+        <span class="c1"># sorts produce a non-empty output (the previous code left</span>
+        <span class="c1"># compile_dict=None on multi-recording requests, silently</span>
+        <span class="c1"># dropping the user&#39;s compile_to_mat/compile_to_npz flag).</span>
+        <span class="c1"># For single-recording sorts the on-disk layout is unchanged</span>
+        <span class="c1"># (one ``sorted.{mat,npz}`` with the legacy top-level layout);</span>
+        <span class="c1"># multi-recording sorts write one file per recording named</span>
+        <span class="c1"># after the (sanitised) rec_name.</span>
         <span class="n">compile_dict</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">compile_to_mat</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">compile_to_npz</span><span class="p">:</span>
-            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">rec_metadata</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-                <span class="n">rec</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">rec_metadata</span><span class="o">.</span><span class="n">keys</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
-                <span class="n">meta</span> <span class="o">=</span> <span class="n">rec_metadata</span><span class="p">[</span><span class="n">rec</span><span class="p">]</span>
-                <span class="n">compile_dict</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">compile_dict</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="n">rec_name</span><span class="p">:</span> <span class="p">{</span>
                     <span class="s2">&quot;units&quot;</span><span class="p">:</span> <span class="p">[],</span>
                     <span class="s2">&quot;locations&quot;</span><span class="p">:</span> <span class="n">meta</span><span class="p">[</span><span class="s2">&quot;locations&quot;</span><span class="p">],</span>
                     <span class="s2">&quot;fs&quot;</span><span class="p">:</span> <span class="n">meta</span><span class="p">[</span><span class="s2">&quot;fs&quot;</span><span class="p">],</span>
                 <span class="p">}</span>
+                <span class="k">for</span> <span class="n">rec_name</span><span class="p">,</span> <span class="n">meta</span> <span class="ow">in</span> <span class="n">rec_metadata</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="p">}</span>
 
         <span class="k">if</span> <span class="n">comp</span><span class="o">.</span><span class="n">compile_waveforms</span><span class="p">:</span>
             <span class="n">create_folder</span><span class="p">(</span><span class="n">folder</span> <span class="o">/</span> <span class="s2">&quot;negative_peaks&quot;</span><span class="p">)</span>
@@ -1010,7 +1075,7 @@
             <span class="p">(</span><span class="s2">&quot;positive&quot;</span><span class="p">,</span> <span class="n">pos_units</span><span class="p">),</span>
         <span class="p">]:</span>
             <span class="n">has_pos</span> <span class="o">=</span> <span class="n">group_label</span> <span class="o">==</span> <span class="s2">&quot;positive&quot;</span>
-            <span class="nb">print</span><span class="p">(</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Iterating through </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">units_group</span><span class="p">)</span><span class="si">}</span><span class="s2"> units with &quot;</span>
                 <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">group_label</span><span class="si">}</span><span class="s2"> peaks&quot;</span>
             <span class="p">)</span>
@@ -1043,24 +1108,41 @@
                             <span class="p">}</span>
                         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">save_electrodes</span><span class="p">:</span>
                             <span class="n">unit_dict</span><span class="p">[</span><span class="s2">&quot;electrode&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;electrode&quot;</span><span class="p">)</span>
-                        <span class="n">compile_dict</span><span class="p">[</span><span class="s2">&quot;units&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">unit_dict</span><span class="p">)</span>
+                        <span class="n">compile_dict</span><span class="p">[</span><span class="n">rec_name</span><span class="p">][</span><span class="s2">&quot;units&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">unit_dict</span><span class="p">)</span>
 
                     <span class="k">if</span> <span class="n">comp</span><span class="o">.</span><span class="n">compile_waveforms</span><span class="p">:</span>
                         <span class="n">wf_path</span> <span class="o">=</span> <span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;_waveforms_path&quot;</span><span class="p">)</span>
                         <span class="n">wf_window</span> <span class="o">=</span> <span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;_waveforms_window&quot;</span><span class="p">)</span>
                         <span class="k">if</span> <span class="n">wf_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                            <span class="n">waveforms</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">wf_path</span><span class="p">,</span> <span class="n">mmap_mode</span><span class="o">=</span><span class="s2">&quot;r&quot;</span><span class="p">)</span>
-                            <span class="k">if</span> <span class="n">wf_window</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                                <span class="n">waveforms</span> <span class="o">=</span> <span class="n">waveforms</span><span class="p">[:,</span> <span class="n">wf_window</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="p">:</span> <span class="n">wf_window</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="p">:]</span>
                             <span class="n">wf_folder</span> <span class="o">=</span> <span class="p">(</span>
                                 <span class="n">folder</span> <span class="o">/</span> <span class="s2">&quot;positive_peaks&quot;</span>
                                 <span class="k">if</span> <span class="n">has_pos</span>
                                 <span class="k">else</span> <span class="n">folder</span> <span class="o">/</span> <span class="s2">&quot;negative_peaks&quot;</span>
                             <span class="p">)</span>
-                            <span class="n">np</span><span class="o">.</span><span class="n">save</span><span class="p">(</span>
-                                <span class="n">wf_folder</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;waveforms_</span><span class="si">{</span><span class="n">sorted_index</span><span class="si">}</span><span class="s2">.npy&quot;</span><span class="p">,</span>
-                                <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">waveforms</span><span class="p">),</span>
-                            <span class="p">)</span>
+                            <span class="n">dest</span> <span class="o">=</span> <span class="n">wf_folder</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;waveforms_</span><span class="si">{</span><span class="n">sorted_index</span><span class="si">}</span><span class="s2">.npy&quot;</span>
+                            <span class="k">if</span> <span class="n">wf_window</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                                <span class="c1"># No window slice → straight file copy</span>
+                                <span class="c1"># avoids materializing a multi-GB mmap</span>
+                                <span class="c1"># into RAM via ``np.array(waveforms)``.</span>
+                                <span class="n">shutil</span><span class="o">.</span><span class="n">copyfile</span><span class="p">(</span><span class="n">wf_path</span><span class="p">,</span> <span class="n">dest</span><span class="p">)</span>
+                            <span class="k">else</span><span class="p">:</span>
+                                <span class="c1"># Windowed: write the sliced view in</span>
+                                <span class="c1"># chunks so we don&#39;t materialize the</span>
+                                <span class="c1"># full mmap. ``np.lib.format.open_memmap``</span>
+                                <span class="c1"># gives a memmap-backed sink we can</span>
+                                <span class="c1"># copy into per-spike.</span>
+                                <span class="n">src</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">wf_path</span><span class="p">,</span> <span class="n">mmap_mode</span><span class="o">=</span><span class="s2">&quot;r&quot;</span><span class="p">)</span>
+                                <span class="n">sliced</span> <span class="o">=</span> <span class="n">src</span><span class="p">[:,</span> <span class="n">wf_window</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="p">:</span> <span class="n">wf_window</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="p">:]</span>
+                                <span class="n">sink</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">lib</span><span class="o">.</span><span class="n">format</span><span class="o">.</span><span class="n">open_memmap</span><span class="p">(</span>
+                                    <span class="nb">str</span><span class="p">(</span><span class="n">dest</span><span class="p">),</span>
+                                    <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;w+&quot;</span><span class="p">,</span>
+                                    <span class="n">dtype</span><span class="o">=</span><span class="n">sliced</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
+                                    <span class="n">shape</span><span class="o">=</span><span class="n">sliced</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span>
+                                <span class="p">)</span>
+                                <span class="n">chunk</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1024</span><span class="p">)</span>
+                                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">sliced</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">chunk</span><span class="p">):</span>
+                                    <span class="n">sink</span><span class="p">[</span><span class="n">i</span> <span class="p">:</span> <span class="n">i</span> <span class="o">+</span> <span class="n">chunk</span><span class="p">]</span> <span class="o">=</span> <span class="n">sliced</span><span class="p">[</span><span class="n">i</span> <span class="p">:</span> <span class="n">i</span> <span class="o">+</span> <span class="n">chunk</span><span class="p">]</span>
+                                <span class="k">del</span> <span class="n">sink</span><span class="p">,</span> <span class="n">sliced</span><span class="p">,</span> <span class="n">src</span>
 
                     <span class="n">sorted_index</span> <span class="o">+=</span> <span class="mi">1</span>
 
@@ -1071,18 +1153,31 @@
                     <span class="n">fig_has_pos_peak</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">has_pos</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">compile_dict</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">compile_to_mat</span> <span class="ow">and</span> <span class="n">savemat</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">savemat</span><span class="p">(</span><span class="n">folder</span> <span class="o">/</span> <span class="s2">&quot;sorted.mat&quot;</span><span class="p">,</span> <span class="n">compile_dict</span><span class="p">)</span>
-                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Compiled results to .mat&quot;</span><span class="p">)</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">compile_to_npz</span><span class="p">:</span>
-                <span class="n">np</span><span class="o">.</span><span class="n">savez</span><span class="p">(</span><span class="n">folder</span> <span class="o">/</span> <span class="s2">&quot;sorted.npz&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">compile_dict</span><span class="p">)</span>
-                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Compiled results to .npz&quot;</span><span class="p">)</span>
+            <span class="c1"># Single-recording: keep the legacy ``sorted.{mat,npz}``</span>
+            <span class="c1"># filename so existing readers don&#39;t break.</span>
+            <span class="c1"># Multi-recording: write one file per recording named</span>
+            <span class="c1"># after the rec_name, sanitised for filesystem safety.</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">compile_dict</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">only_rec</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">compile_dict</span><span class="p">))</span>
+                <span class="n">outputs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;sorted&quot;</span><span class="p">:</span> <span class="n">compile_dict</span><span class="p">[</span><span class="n">only_rec</span><span class="p">]}</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">outputs</span> <span class="o">=</span> <span class="p">{</span>
+                    <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;[^A-Za-z0-9._-]&quot;</span><span class="p">,</span> <span class="s2">&quot;_&quot;</span><span class="p">,</span> <span class="n">rec_name</span><span class="p">):</span> <span class="n">per_rec</span>
+                    <span class="k">for</span> <span class="n">rec_name</span><span class="p">,</span> <span class="n">per_rec</span> <span class="ow">in</span> <span class="n">compile_dict</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                <span class="p">}</span>
+            <span class="k">for</span> <span class="n">out_stem</span><span class="p">,</span> <span class="n">per_rec_dict</span> <span class="ow">in</span> <span class="n">outputs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">compile_to_mat</span> <span class="ow">and</span> <span class="n">savemat</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">savemat</span><span class="p">(</span><span class="n">folder</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">out_stem</span><span class="si">}</span><span class="s2">.mat&quot;</span><span class="p">,</span> <span class="n">per_rec_dict</span><span class="p">)</span>
+                    <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Compiled results to </span><span class="si">{</span><span class="n">out_stem</span><span class="si">}</span><span class="s2">.mat&quot;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">compile_to_npz</span><span class="p">:</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">savez</span><span class="p">(</span><span class="n">folder</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">out_stem</span><span class="si">}</span><span class="s2">.npz&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">per_rec_dict</span><span class="p">)</span>
+                    <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Compiled results to </span><span class="si">{</span><span class="n">out_stem</span><span class="si">}</span><span class="s2">.npz&quot;</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_figures</span><span class="p">:</span>
             <span class="kn">from</span><span class="w"> </span><span class="nn">.figures</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot_curation_bar</span><span class="p">,</span> <span class="n">plot_std_scatter</span><span class="p">,</span> <span class="n">plot_templates</span>
 
             <span class="n">figures_path</span> <span class="o">=</span> <span class="n">folder</span> <span class="o">/</span> <span class="s2">&quot;figures&quot;</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Saving figures&quot;</span><span class="p">)</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Saving figures&quot;</span><span class="p">)</span>
             <span class="n">create_folder</span><span class="p">(</span><span class="n">figures_path</span><span class="p">)</span>
 
             <span class="n">plot_curation_bar</span><span class="p">(</span>
@@ -1096,7 +1191,7 @@
                 <span class="n">label_rotation</span><span class="o">=</span><span class="n">fig</span><span class="o">.</span><span class="n">bar_label_rotation</span><span class="p">,</span>
                 <span class="n">save_path</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">figures_path</span> <span class="o">/</span> <span class="s2">&quot;curation_bar_plot.png&quot;</span><span class="p">),</span>
             <span class="p">)</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Curation bar plot has been saved&quot;</span><span class="p">)</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Curation bar plot has been saved&quot;</span><span class="p">)</span>
 
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_std_scatter_plot</span> <span class="ow">and</span> <span class="n">scatter_n_spikes</span><span class="p">:</span>
                 <span class="n">plot_std_scatter</span><span class="p">(</span>
@@ -1112,7 +1207,7 @@
                     <span class="n">y_max_buffer</span><span class="o">=</span><span class="n">fig</span><span class="o">.</span><span class="n">scatter_y_max_buffer</span><span class="p">,</span>
                     <span class="n">save_path</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">figures_path</span> <span class="o">/</span> <span class="s2">&quot;std_scatter_plot.png&quot;</span><span class="p">),</span>
                 <span class="p">)</span>
-                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Std scatter plot has been saved&quot;</span><span class="p">)</span>
+                <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Std scatter plot has been saved&quot;</span><span class="p">)</span>
 
             <span class="k">if</span> <span class="n">fig_templates</span> <span class="ow">and</span> <span class="n">fig_fs_Hz</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">plot_templates</span><span class="p">(</span>
@@ -1133,7 +1228,7 @@
                     <span class="n">x_label</span><span class="o">=</span><span class="n">fig</span><span class="o">.</span><span class="n">templates_x_label</span><span class="p">,</span>
                     <span class="n">save_path</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">figures_path</span> <span class="o">/</span> <span class="s2">&quot;all_templates_plot.png&quot;</span><span class="p">),</span>
                 <span class="p">)</span>
-                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;All templates plot has been saved&quot;</span><span class="p">)</span>
+                <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;All templates plot has been saved&quot;</span><span class="p">)</span>
 
 
 <span class="c1"># ---------------------------------------------------------------------------</span>
@@ -1196,8 +1291,8 @@
     <span class="k">try</span><span class="p">:</span>
         <span class="n">sort_lock_cm</span><span class="o">.</span><span class="fm">__enter__</span><span class="p">()</span>
     <span class="k">except</span> <span class="n">ConcurrentSortError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Concurrent sort detected: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Moving on to next recording&quot;</span><span class="p">)</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Concurrent sort detected: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Moving on to next recording&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">exc</span>
 
     <span class="k">try</span><span class="p">:</span>
@@ -1261,8 +1356,8 @@
                 <span class="n">rec_path</span> <span class="k">if</span> <span class="n">rec_loaded</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">rec_loaded</span>
             <span class="p">)</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not open the recording file because of </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Moving on to next recording&quot;</span><span class="p">)</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not open the recording file because of </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Moving on to next recording&quot;</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">e</span>
 
         <span class="c1"># Everything past this point is wrapped so that a failure in</span>
@@ -1318,7 +1413,7 @@
             <span class="p">}</span>
 
             <span class="k">if</span> <span class="ow">not</span> <span class="n">config</span><span class="o">.</span><span class="n">figures</span><span class="o">.</span><span class="n">create_figures</span><span class="p">:</span>
-                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Skipping figure generation (create_figures=False)&quot;</span><span class="p">)</span>
+                <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Skipping figure generation (create_figures=False)&quot;</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">unit_figures_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
                 <span class="n">figures_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -1362,7 +1457,9 @@
                         <span class="n">w_e_raw</span><span class="o">=</span><span class="n">w_e_raw</span><span class="p">,</span>
                     <span class="p">)</span>
                 <span class="k">elif</span> <span class="ow">not</span> <span class="n">config</span><span class="o">.</span><span class="n">figures</span><span class="o">.</span><span class="n">create_unit_figures</span><span class="p">:</span>
-                    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Skipping per-unit figures (create_unit_figures=False)&quot;</span><span class="p">)</span>
+                    <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                        <span class="s2">&quot;Skipping per-unit figures (create_unit_figures=False)&quot;</span>
+                    <span class="p">)</span>
 
                 <span class="k">if</span> <span class="n">_fig</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;generate_quality_distributions&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                     <span class="n">print_stage</span><span class="p">(</span><span class="s2">&quot;GENERATING QUALITY DISTRIBUTIONS (ALL UNITS)&quot;</span><span class="p">)</span>
@@ -1383,7 +1480,7 @@
                         <span class="sa">f</span><span class="s2">&quot;(recording has </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">epoch_sds</span><span class="p">)</span><span class="si">}</span><span class="s2"> epochs, 0-indexed).&quot;</span>
                     <span class="p">)</span>
                 <span class="n">sd_for_curation</span> <span class="o">=</span> <span class="n">epoch_sds</span><span class="p">[</span><span class="n">cur</span><span class="o">.</span><span class="n">curation_epoch</span><span class="p">]</span>
-                <span class="nb">print</span><span class="p">(</span>
+                <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
                     <span class="sa">f</span><span class="s2">&quot;Curating based on epoch </span><span class="si">{</span><span class="n">cur</span><span class="o">.</span><span class="n">curation_epoch</span><span class="si">}</span><span class="s2"> &quot;</span>
                     <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="n">sd_for_curation</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;source_file&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">)&quot;</span>
                 <span class="p">)</span>
@@ -1417,7 +1514,7 @@
 
             <span class="n">n_before</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">N</span>
             <span class="n">n_after</span> <span class="o">=</span> <span class="n">sd_curated</span><span class="o">.</span><span class="n">N</span>
-            <span class="nb">print</span><span class="p">(</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;Curation: </span><span class="si">{</span><span class="n">n_before</span><span class="si">}</span><span class="s2"> -&gt; </span><span class="si">{</span><span class="n">n_after</span><span class="si">}</span><span class="s2"> units &quot;</span>
                 <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="n">n_before</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">n_after</span><span class="si">}</span><span class="s2"> removed)&quot;</span>
             <span class="p">)</span>
@@ -1446,7 +1543,7 @@
 
                 <span class="n">n_curated_figs</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">curated_dir</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">&quot;*.png&quot;</span><span class="p">)))</span>
                 <span class="n">n_failed_figs</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">failed_dir</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">&quot;*.png&quot;</span><span class="p">)))</span>
-                <span class="nb">print</span><span class="p">(</span>
+                <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
                     <span class="sa">f</span><span class="s2">&quot;Per-unit figures sorted: </span><span class="si">{</span><span class="n">n_curated_figs</span><span class="si">}</span><span class="s2"> curated, &quot;</span>
                     <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">n_failed_figs</span><span class="si">}</span><span class="s2"> failed&quot;</span>
                 <span class="p">)</span>
@@ -1476,7 +1573,7 @@
             <span class="p">)</span>
 
             <span class="n">print_stage</span><span class="p">(</span><span class="s2">&quot;DONE WITH RECORDING&quot;</span><span class="p">)</span>
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Recording: </span><span class="si">{</span><span class="n">rec_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Recording: </span><span class="si">{</span><span class="n">rec_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
             <span class="n">stopwatch</span><span class="o">.</span><span class="n">log_time</span><span class="p">(</span><span class="s2">&quot;Total&quot;</span><span class="p">)</span>
 
             <span class="k">if</span> <span class="n">comp</span><span class="o">.</span><span class="n">save_raw_pkl</span><span class="p">:</span>
@@ -1493,7 +1590,7 @@
             <span class="n">wd</span> <span class="o">=</span> <span class="n">find_tripped_global_watchdog</span><span class="p">()</span>
             <span class="k">if</span> <span class="n">wd</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">err</span> <span class="o">=</span> <span class="n">wd</span><span class="o">.</span><span class="n">make_error</span><span class="p">()</span>
-                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Recording aborted by watchdog: </span><span class="si">{</span><span class="n">err</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Recording aborted by watchdog: </span><span class="si">{</span><span class="n">err</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
                 <span class="k">return</span> <span class="n">err</span>
             <span class="k">raise</span>
         <span class="k">except</span> <span class="ne">MemoryError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
@@ -1503,10 +1600,10 @@
             <span class="n">wd</span> <span class="o">=</span> <span class="n">find_tripped_global_watchdog</span><span class="p">()</span>
             <span class="k">if</span> <span class="n">wd</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">err</span> <span class="o">=</span> <span class="n">wd</span><span class="o">.</span><span class="n">make_error</span><span class="p">()</span>
-                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Recording aborted by watchdog: </span><span class="si">{</span><span class="n">err</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Recording aborted by watchdog: </span><span class="si">{</span><span class="n">err</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
                 <span class="k">return</span> <span class="n">err</span>
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Recording aborted due to MemoryError: </span><span class="si">{</span><span class="n">e</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Moving on to next recording&quot;</span><span class="p">)</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Recording aborted due to MemoryError: </span><span class="si">{</span><span class="n">e</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Moving on to next recording&quot;</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">e</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="c1"># Misclassification guard: if a watchdog tripped but</span>
@@ -1520,22 +1617,22 @@
             <span class="n">wd</span> <span class="o">=</span> <span class="n">find_tripped_global_watchdog</span><span class="p">()</span>
             <span class="k">if</span> <span class="n">wd</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">wd</span><span class="o">.</span><span class="n">interrupt_delivery_failed</span><span class="p">():</span>
                 <span class="n">err</span> <span class="o">=</span> <span class="n">wd</span><span class="o">.</span><span class="n">make_error</span><span class="p">()</span>
-                <span class="nb">print</span><span class="p">(</span>
+                <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
                     <span class="sa">f</span><span class="s2">&quot;Recording aborted by watchdog &quot;</span>
                     <span class="sa">f</span><span class="s2">&quot;(interrupt_main failed; reclassified &quot;</span>
                     <span class="sa">f</span><span class="s2">&quot;from </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">): </span><span class="si">{</span><span class="n">err</span><span class="si">}</span><span class="s2">&quot;</span>
                 <span class="p">)</span>
                 <span class="k">return</span> <span class="n">err</span>
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Recording failed in post-sort pipeline: </span><span class="si">{</span><span class="n">e</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
-            <span class="c1"># Print the full traceback so the originating call site is</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Recording failed in post-sort pipeline: </span><span class="si">{</span><span class="n">e</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="c1"># Log the full traceback so the originating call site is</span>
             <span class="c1"># diagnosable from the batch log. The previous handler only</span>
             <span class="c1"># printed ``repr(e)`` — for a deeply-nested failure (typical</span>
             <span class="c1"># for waveform extraction / curation errors) that leaves the</span>
             <span class="c1"># operator with no way to find which call raised. The</span>
             <span class="c1"># behaviour (return the error rather than re-raising so the</span>
             <span class="c1"># batch loop continues) is preserved.</span>
-            <span class="nb">print</span><span class="p">(</span><span class="n">traceback</span><span class="o">.</span><span class="n">format_exc</span><span class="p">())</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Moving on to next recording&quot;</span><span class="p">)</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">traceback</span><span class="o">.</span><span class="n">format_exc</span><span class="p">())</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Moving on to next recording&quot;</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">e</span>
 
 
@@ -1563,23 +1660,34 @@
 <span class="sd">            is True.</span>
 <span class="sd">        curation_history (dict or None): Curation history dict.</span>
 <span class="sd">        rec_chunks (list or None): Epoch frame boundaries.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        When ``rec_chunks`` describes a multi-epoch recording, each</span>
+<span class="sd">        epoch chunk gets a fresh ``Compiler`` because each chunk</span>
+<span class="sd">        writes to its own ``chunk{c}/`` output folder. ``Compiler``</span>
+<span class="sd">        merges all of its queued recordings into one output in</span>
+<span class="sd">        ``save_results``, so a single instance cannot serve</span>
+<span class="sd">        multiple distinct destinations — re-instantiating per chunk</span>
+<span class="sd">        is the correct shape, not wasted work. ``Compiler.__init__``</span>
+<span class="sd">        reads a handful of config attrs and allocates an empty list;</span>
+<span class="sd">        the cost is negligible.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">comp</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">compilation</span>
     <span class="n">exe</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">execution</span>
     <span class="n">include_failed_units</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">comp</span><span class="p">,</span> <span class="s2">&quot;include_failed_units&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">))</span>
 
     <span class="n">compile_stopwatch</span> <span class="o">=</span> <span class="n">Stopwatch</span><span class="p">(</span><span class="s2">&quot;COMPILING RESULTS&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;For recording: </span><span class="si">{</span><span class="n">rec_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;For recording: </span><span class="si">{</span><span class="n">rec_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">comp</span><span class="o">.</span><span class="n">compile_single_recording</span><span class="p">:</span>
         <span class="k">if</span> <span class="p">(</span>
             <span class="ow">not</span> <span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">results_path</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;parameters.json&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span>
             <span class="ow">or</span> <span class="n">exe</span><span class="o">.</span><span class="n">recompile_single_recording</span>
         <span class="p">):</span>
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Saving to path: </span><span class="si">{</span><span class="n">results_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Saving to path: </span><span class="si">{</span><span class="n">results_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">rec_chunks</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">rec_chunks</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
                 <span class="n">epoch_sds</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">split_epochs</span><span class="p">()</span>
                 <span class="k">for</span> <span class="n">c</span><span class="p">,</span> <span class="n">sd_chunk</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">epoch_sds</span><span class="p">):</span>
-                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Compiling chunk </span><span class="si">{</span><span class="n">c</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                    <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Compiling chunk </span><span class="si">{</span><span class="n">c</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
                     <span class="n">compiler</span> <span class="o">=</span> <span class="n">Compiler</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
                     <span class="n">compiler</span><span class="o">.</span><span class="n">add_recording</span><span class="p">(</span>
                         <span class="n">rec_name</span><span class="p">,</span>
@@ -1599,12 +1707,12 @@
                 <span class="n">compiler</span><span class="o">.</span><span class="n">save_results</span><span class="p">(</span><span class="n">results_path</span><span class="p">)</span>
                 <span class="n">compile_stopwatch</span><span class="o">.</span><span class="n">log_time</span><span class="p">(</span><span class="s2">&quot;Done compiling results.&quot;</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
                 <span class="s2">&quot;Skipping compiling results because &#39;recompile_single_recording&#39; &quot;</span>
                 <span class="s2">&quot;is set to False and already compiled&quot;</span>
             <span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
             <span class="s2">&quot;Skipping compiling results because &#39;compile_single_recording&#39; &quot;</span>
             <span class="s2">&quot;is set to False&quot;</span>
         <span class="p">)</span>
@@ -1649,7 +1757,7 @@
     <span class="k">try</span><span class="p">:</span>
         <span class="kn">import</span><span class="w"> </span><span class="nn">resource</span>
     <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
             <span class="s2">&quot;[host memory cap] Windows detected — RLIMIT_DATA unavailable. &quot;</span>
             <span class="s2">&quot;Local sorting is not protected from host OOM. &quot;</span>
             <span class="s2">&quot;Use Docker, or monitor RAM manually.&quot;</span>
@@ -1661,7 +1769,7 @@
 
     <span class="n">ram_bytes</span> <span class="o">=</span> <span class="n">get_system_ram_bytes</span><span class="p">()</span>
     <span class="k">if</span> <span class="n">ram_bytes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;[host memory cap] Could not detect system RAM; cap not enforced.&quot;</span><span class="p">)</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;[host memory cap] Could not detect system RAM; cap not enforced.&quot;</span><span class="p">)</span>
         <span class="k">yield</span>
         <span class="k">return</span>
 
@@ -1673,7 +1781,9 @@
     <span class="k">try</span><span class="p">:</span>
         <span class="n">resource</span><span class="o">.</span><span class="n">setrlimit</span><span class="p">(</span><span class="n">resource</span><span class="o">.</span><span class="n">RLIMIT_DATA</span><span class="p">,</span> <span class="p">(</span><span class="n">new_soft</span><span class="p">,</span> <span class="n">hard_orig</span><span class="p">))</span>
     <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[host memory cap] Failed to set RLIMIT_DATA: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">; cap not enforced.&quot;</span><span class="p">)</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;[host memory cap] Failed to set RLIMIT_DATA: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">; cap not enforced.&quot;</span>
+        <span class="p">)</span>
         <span class="k">yield</span>
         <span class="k">return</span>
 
@@ -1684,6 +1794,38 @@
             <span class="n">resource</span><span class="o">.</span><span class="n">setrlimit</span><span class="p">(</span><span class="n">resource</span><span class="o">.</span><span class="n">RLIMIT_DATA</span><span class="p">,</span> <span class="p">(</span><span class="n">soft_orig</span><span class="p">,</span> <span class="n">hard_orig</span><span class="p">))</span>
         <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">):</span>
             <span class="k">pass</span>
+
+
+<span class="n">_GPU_BANNER_CACHE</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_cached_gpu_banner_info</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the cached nvidia-smi banner line.</span>
+
+<span class="sd">    The GPU inventory is static for the life of the process. Running</span>
+<span class="sd">    nvidia-smi once per recording on a multi-recording batch wastes</span>
+<span class="sd">    a subprocess invocation per recording. First call populates the</span>
+<span class="sd">    cache; subsequent calls return the cached string immediately.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_subprocess</span>
+
+    <span class="k">global</span> <span class="n">_GPU_BANNER_CACHE</span>
+    <span class="k">if</span> <span class="n">_GPU_BANNER_CACHE</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_GPU_BANNER_CACHE</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">gpu_info</span> <span class="o">=</span> <span class="n">_subprocess</span><span class="o">.</span><span class="n">check_output</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="s2">&quot;nvidia-smi&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;--query-gpu=name,driver_version,memory.total&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;--format=csv,noheader&quot;</span><span class="p">,</span>
+            <span class="p">],</span>
+            <span class="n">text</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">timeout</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+    <span class="k">except</span> <span class="p">(</span><span class="n">_subprocess</span><span class="o">.</span><span class="n">SubprocessError</span><span class="p">,</span> <span class="ne">FileNotFoundError</span><span class="p">):</span>
+        <span class="n">gpu_info</span> <span class="o">=</span> <span class="s2">&quot;(nvidia-smi unavailable)&quot;</span>
+    <span class="n">_GPU_BANNER_CACHE</span> <span class="o">=</span> <span class="n">gpu_info</span>
+    <span class="k">return</span> <span class="n">gpu_info</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_print_pipeline_banner</span><span class="p">(</span>
@@ -1725,17 +1867,17 @@
     <span class="kn">from</span><span class="w"> </span><span class="nn">.sorting_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_system_ram_bytes</span><span class="p">,</span> <span class="n">print_stage</span>
 
     <span class="n">print_stage</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;SPIKE SORTING — </span><span class="si">{</span><span class="n">sorter</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">()</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;-- Environment --&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Started:        </span><span class="si">{</span><span class="n">_dt</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">isoformat</span><span class="p">(</span><span class="n">timespec</span><span class="o">=</span><span class="s1">&#39;seconds&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Host:           </span><span class="si">{</span><span class="n">socket</span><span class="o">.</span><span class="n">gethostname</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Platform:       </span><span class="si">{</span><span class="n">platform</span><span class="o">.</span><span class="n">platform</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Python:         </span><span class="si">{</span><span class="n">sys</span><span class="o">.</span><span class="n">version</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+    <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;-- Environment --&quot;</span><span class="p">)</span>
+    <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Started:        </span><span class="si">{</span><span class="n">_dt</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">isoformat</span><span class="p">(</span><span class="n">timespec</span><span class="o">=</span><span class="s1">&#39;seconds&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Host:           </span><span class="si">{</span><span class="n">socket</span><span class="o">.</span><span class="n">gethostname</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Platform:       </span><span class="si">{</span><span class="n">platform</span><span class="o">.</span><span class="n">platform</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Python:         </span><span class="si">{</span><span class="n">sys</span><span class="o">.</span><span class="n">version</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
     <span class="k">try</span><span class="p">:</span>
         <span class="kn">import</span><span class="w"> </span><span class="nn">spikeinterface</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_si</span>
 
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;SpikeInterface: </span><span class="si">{</span><span class="n">_si</span><span class="o">.</span><span class="n">__version__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;SpikeInterface: </span><span class="si">{</span><span class="n">_si</span><span class="o">.</span><span class="n">__version__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
         <span class="k">pass</span>
 
@@ -1743,60 +1885,52 @@
         <span class="kn">import</span><span class="w"> </span><span class="nn">spikelab</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_sl</span>
 
         <span class="n">version</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">_sl</span><span class="p">,</span> <span class="s2">&quot;__version__&quot;</span><span class="p">,</span> <span class="s2">&quot;unknown&quot;</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;SpikeLab:       </span><span class="si">{</span><span class="n">version</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;SpikeLab:       </span><span class="si">{</span><span class="n">version</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
         <span class="k">pass</span>
 
-    <span class="nb">print</span><span class="p">()</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;-- System Resources --&quot;</span><span class="p">)</span>
+    <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+    <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;-- System Resources --&quot;</span><span class="p">)</span>
     <span class="n">cpu_count</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">cpu_count</span><span class="p">()</span>
     <span class="k">if</span> <span class="n">cpu_count</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;CPU cores:      </span><span class="si">{</span><span class="n">cpu_count</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;CPU cores:      </span><span class="si">{</span><span class="n">cpu_count</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
     <span class="n">ram_bytes</span> <span class="o">=</span> <span class="n">get_system_ram_bytes</span><span class="p">()</span>
     <span class="k">if</span> <span class="n">ram_bytes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;RAM total:      </span><span class="si">{</span><span class="n">ram_bytes</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mf">1e9</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> GB&quot;</span><span class="p">)</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;RAM total:      </span><span class="si">{</span><span class="n">ram_bytes</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mf">1e9</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> GB&quot;</span><span class="p">)</span>
 
     <span class="k">try</span><span class="p">:</span>
         <span class="kn">import</span><span class="w"> </span><span class="nn">resource</span>
 
         <span class="n">soft</span><span class="p">,</span> <span class="n">_hard</span> <span class="o">=</span> <span class="n">resource</span><span class="o">.</span><span class="n">getrlimit</span><span class="p">(</span><span class="n">resource</span><span class="o">.</span><span class="n">RLIMIT_DATA</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">soft</span> <span class="o">==</span> <span class="n">resource</span><span class="o">.</span><span class="n">RLIM_INFINITY</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Heap cap:       (unlimited)&quot;</span><span class="p">)</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Heap cap:       (unlimited)&quot;</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Heap cap:       </span><span class="si">{</span><span class="n">soft</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mf">1e9</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> GB (RLIMIT_DATA)&quot;</span><span class="p">)</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Heap cap:       </span><span class="si">{</span><span class="n">soft</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mf">1e9</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> GB (RLIMIT_DATA)&quot;</span><span class="p">)</span>
     <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Heap cap:       (Windows — not enforced)&quot;</span><span class="p">)</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Heap cap:       (Windows — not enforced)&quot;</span><span class="p">)</span>
 
-    <span class="k">try</span><span class="p">:</span>
-        <span class="n">gpu_info</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">check_output</span><span class="p">(</span>
-            <span class="p">[</span>
-                <span class="s2">&quot;nvidia-smi&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;--query-gpu=name,driver_version,memory.total&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;--format=csv,noheader&quot;</span><span class="p">,</span>
-            <span class="p">],</span>
-            <span class="n">text</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-            <span class="n">timeout</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
-        <span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;GPU:            </span><span class="si">{</span><span class="n">gpu_info</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="k">except</span> <span class="p">(</span><span class="n">subprocess</span><span class="o">.</span><span class="n">SubprocessError</span><span class="p">,</span> <span class="ne">FileNotFoundError</span><span class="p">):</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;GPU:            (nvidia-smi unavailable)&quot;</span><span class="p">)</span>
+    <span class="c1"># Cache the GPU banner output. ``_print_pipeline_banner`` runs</span>
+    <span class="c1"># once per recording, but the GPU inventory is static for the</span>
+    <span class="c1"># life of the process — re-running nvidia-smi each time wastes a</span>
+    <span class="c1"># subprocess invocation per recording on multi-recording batches.</span>
+    <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;GPU:            </span><span class="si">{</span><span class="n">_cached_gpu_banner_info</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">sorter</span><span class="o">.</span><span class="n">use_docker</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">docker_image_tag</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Docker image:   </span><span class="si">{</span><span class="n">docker_image_tag</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Docker image:   </span><span class="si">{</span><span class="n">docker_image_tag</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">docker_image_digest</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Docker image digest: </span><span class="si">{</span><span class="n">docker_image_digest</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Docker image digest: </span><span class="si">{</span><span class="n">docker_image_digest</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
-    <span class="nb">print</span><span class="p">()</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;-- Run --&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Sorter:         </span><span class="si">{</span><span class="n">sorter</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Use Docker:     </span><span class="si">{</span><span class="n">config</span><span class="o">.</span><span class="n">sorter</span><span class="o">.</span><span class="n">use_docker</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Recording:      </span><span class="si">{</span><span class="n">rec_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Log file:       </span><span class="si">{</span><span class="n">log_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+    <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;-- Run --&quot;</span><span class="p">)</span>
+    <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Sorter:         </span><span class="si">{</span><span class="n">sorter</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Use Docker:     </span><span class="si">{</span><span class="n">config</span><span class="o">.</span><span class="n">sorter</span><span class="o">.</span><span class="n">use_docker</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Recording:      </span><span class="si">{</span><span class="n">rec_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Log file:       </span><span class="si">{</span><span class="n">log_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
     <span class="c1"># RT-Sort projects a sizeable on-disk footprint per recording</span>
-    <span class="c1"># (scaled traces + model traces + model outputs). Print it here</span>
+    <span class="c1"># (scaled traces + model traces + model outputs). Log it here</span>
     <span class="c1"># so the user sees the requirement before the sort starts —</span>
     <span class="c1"># complements the ``low_disk_inter`` preflight check.</span>
     <span class="k">if</span> <span class="n">sorter</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;rt_sort&quot;</span> <span class="ow">and</span> <span class="n">recording</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -1808,11 +1942,13 @@
             <span class="n">projected_gb</span> <span class="o">=</span> <span class="n">estimate_rt_sort_intermediate_gb</span><span class="p">(</span>
                 <span class="n">n_channels</span><span class="o">=</span><span class="n">n_ch</span><span class="p">,</span> <span class="n">n_samples</span><span class="o">=</span><span class="n">n_smp</span>
             <span class="p">)</span>
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;RT-Sort disk:   ~</span><span class="si">{</span><span class="n">projected_gb</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> GB intermediates projected&quot;</span><span class="p">)</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;RT-Sort disk:   ~</span><span class="si">{</span><span class="n">projected_gb</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> GB intermediates projected&quot;</span>
+            <span class="p">)</span>
         <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
             <span class="k">pass</span>
 
-    <span class="nb">print</span><span class="p">()</span>
+    <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_print_pipeline_summary</span><span class="p">(</span>
@@ -1826,19 +1962,31 @@
 
     <span class="kn">from</span><span class="w"> </span><span class="nn">.sorting_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_system_ram_bytes</span><span class="p">,</span> <span class="n">print_stage</span>
 
-    <span class="nb">print</span><span class="p">()</span>
+    <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
     <span class="n">print_stage</span><span class="p">(</span><span class="s2">&quot;SUMMARY&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">()</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Status:         </span><span class="si">{</span><span class="n">status</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+    <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Status:         </span><span class="si">{</span><span class="n">status</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">error</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error:          </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">error</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error:          </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">error</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="c1"># Surface classified-error attached attributes (sorter,</span>
+        <span class="c1"># log_path, model_path, reason, ...) when present so the</span>
+        <span class="c1"># operator does not need to grep pod logs for actionable</span>
+        <span class="c1"># detail. ``SpikeSortingClassifiedError`` instances carry</span>
+        <span class="c1"># these on the exception object itself.</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">._exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpikeSortingClassifiedError</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">error</span><span class="p">,</span> <span class="n">SpikeSortingClassifiedError</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">attr</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;sorter&quot;</span><span class="p">,</span> <span class="s2">&quot;log_path&quot;</span><span class="p">,</span> <span class="s2">&quot;model_path&quot;</span><span class="p">,</span> <span class="s2">&quot;reason&quot;</span><span class="p">):</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">error</span><span class="p">,</span> <span class="n">attr</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">attr</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="s1">&#39; &#39;</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">13</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="n">attr</span><span class="p">))</span><span class="si">}{</span><span class="n">value</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
     <span class="n">minutes</span><span class="p">,</span> <span class="n">seconds</span> <span class="o">=</span> <span class="nb">divmod</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">elapsed_s</span><span class="p">),</span> <span class="mi">60</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Wall time:      </span><span class="si">{</span><span class="n">minutes</span><span class="si">}</span><span class="s2">m </span><span class="si">{</span><span class="n">seconds</span><span class="si">}</span><span class="s2">s&quot;</span><span class="p">)</span>
+    <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Wall time:      </span><span class="si">{</span><span class="n">minutes</span><span class="si">}</span><span class="s2">m </span><span class="si">{</span><span class="n">seconds</span><span class="si">}</span><span class="s2">s&quot;</span><span class="p">)</span>
 
     <span class="n">ram_bytes</span> <span class="o">=</span> <span class="n">get_system_ram_bytes</span><span class="p">()</span>
     <span class="k">if</span> <span class="n">ram_bytes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;RAM total:      </span><span class="si">{</span><span class="n">ram_bytes</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mf">1e9</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> GB&quot;</span><span class="p">)</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;RAM total:      </span><span class="si">{</span><span class="n">ram_bytes</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mf">1e9</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> GB&quot;</span><span class="p">)</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="n">gpu_mem</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">check_output</span><span class="p">(</span>
             <span class="p">[</span>
@@ -1849,11 +1997,11 @@
             <span class="n">text</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
             <span class="n">timeout</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
         <span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;GPU memory:     </span><span class="si">{</span><span class="n">gpu_mem</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;GPU memory:     </span><span class="si">{</span><span class="n">gpu_mem</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="k">except</span> <span class="p">(</span><span class="n">subprocess</span><span class="o">.</span><span class="n">SubprocessError</span><span class="p">,</span> <span class="ne">FileNotFoundError</span><span class="p">):</span>
         <span class="k">pass</span>
 
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Finished:       </span><span class="si">{</span><span class="n">_dt</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">isoformat</span><span class="p">(</span><span class="n">timespec</span><span class="o">=</span><span class="s1">&#39;seconds&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Finished:       </span><span class="si">{</span><span class="n">_dt</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">isoformat</span><span class="p">(</span><span class="n">timespec</span><span class="o">=</span><span class="s1">&#39;seconds&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
 
 <div class="viewcode-block" id="sort_recording">
@@ -2005,7 +2153,7 @@
             <span class="p">)</span>
             <span class="n">report_findings</span><span class="p">(</span><span class="n">findings</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">execution</span><span class="o">.</span><span class="n">preflight_strict</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Preflight aborted the run: </span><span class="si">{</span><span class="n">exc</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Preflight aborted the run: </span><span class="si">{</span><span class="n">exc</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
             <span class="k">raise</span>
 
     <span class="c1"># Main loop — wrap in a host heap cap (Linux-only), a live host</span>
@@ -2014,7 +2162,6 @@
     <span class="c1"># workstation into swap or fragment GPU VRAM into a hard failure.</span>
     <span class="c1"># The host-memory watchdog is the primary protection on Windows,</span>
     <span class="c1"># where ``_bounded_host_memory`` is a no-op.</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">contextlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">nullcontext</span>
 
     <span class="kn">from</span><span class="w"> </span><span class="nn">.guards</span><span class="w"> </span><span class="kn">import</span> <span class="n">GpuMemoryWatchdog</span><span class="p">,</span> <span class="n">HostMemoryWatchdog</span><span class="p">,</span> <span class="n">resolve_active_device</span>
 
@@ -2146,7 +2293,7 @@
                     <span class="n">docker_image_tag</span> <span class="o">=</span> <span class="n">get_docker_image</span><span class="p">(</span><span class="n">sorter</span><span class="p">)</span>
                     <span class="n">docker_image_digest</span> <span class="o">=</span> <span class="n">get_local_image_digest</span><span class="p">(</span><span class="n">docker_image_tag</span><span class="p">)</span>
                 <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[docker digest] resolution failed: </span><span class="si">{</span><span class="n">exc</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+                    <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[docker digest] resolution failed: </span><span class="si">{</span><span class="n">exc</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
 
             <span class="c1"># Persist a JSON snapshot of the config so the</span>
             <span class="c1"># post-sorting Markdown report can list non-default</span>
@@ -2166,7 +2313,7 @@
                     <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">snapshot</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
                 <span class="n">os</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">tmp</span><span class="p">,</span> <span class="n">config_used_path</span><span class="p">)</span>
             <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[config snapshot] failed: </span><span class="si">{</span><span class="n">exc</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[config snapshot] failed: </span><span class="si">{</span><span class="n">exc</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
 
             <span class="n">sd_raw</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="n">sd_curated</span> <span class="o">=</span> <span class="kc">None</span>
@@ -2194,8 +2341,8 @@
                     <span class="ow">and</span> <span class="n">docker_image_digest</span>
                     <span class="ow">and</span> <span class="n">expected_digest</span> <span class="o">!=</span> <span class="n">docker_image_digest</span>
                 <span class="p">):</span>
-                    <span class="nb">print</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;WARNING: Docker image digest mismatch — &quot;</span>
+                    <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Docker image digest mismatch — &quot;</span>
                         <span class="sa">f</span><span class="s2">&quot;expected </span><span class="si">{</span><span class="n">expected_digest</span><span class="si">!r}</span><span class="s2">, found &quot;</span>
                         <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">docker_image_digest</span><span class="si">!r}</span><span class="s2">. The image tag has &quot;</span>
                         <span class="s2">&quot;been re-pushed to the registry since the &quot;</span>
@@ -2241,7 +2388,6 @@
                 <span class="c1"># network mounts or unresponsive storage that the</span>
                 <span class="c1"># log-inactivity watchdog can miss when the sorter</span>
                 <span class="c1"># keeps logging while waiting on kernel I/O).</span>
-                <span class="kn">from</span><span class="w"> </span><span class="nn">contextlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">nullcontext</span>
 
                 <span class="kn">from</span><span class="w"> </span><span class="nn">.guards</span><span class="w"> </span><span class="kn">import</span> <span class="n">IOStallWatchdog</span>
 
@@ -2339,7 +2485,9 @@
                                     <span class="sa">f</span><span class="s2">&quot;value&quot;</span>
                                 <span class="p">)</span>
                         <span class="k">if</span> <span class="n">skip_reason</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[canary] skipping </span><span class="si">{</span><span class="n">rec_name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">skip_reason</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+                            <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                                <span class="sa">f</span><span class="s2">&quot;[canary] skipping </span><span class="si">{</span><span class="n">rec_name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">skip_reason</span><span class="si">}</span><span class="s2">.&quot;</span>
+                            <span class="p">)</span>
                         <span class="k">else</span><span class="p">:</span>
                             <span class="kn">from</span><span class="w"> </span><span class="nn">.canary</span><span class="w"> </span><span class="kn">import</span> <span class="n">run_canary</span>
 
@@ -2386,12 +2534,12 @@
                                 <span class="n">attempt</span> <span class="o">+=</span> <span class="mi">1</span>
                                 <span class="n">scaled</span> <span class="o">=</span> <span class="n">backend</span><span class="o">.</span><span class="n">scale_oom_params</span><span class="p">(</span><span class="n">oom_factor</span><span class="p">)</span>
                                 <span class="k">if</span> <span class="ow">not</span> <span class="n">scaled</span><span class="p">:</span>
-                                    <span class="nb">print</span><span class="p">(</span>
+                                    <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
                                         <span class="s2">&quot;[oom retry] backend declined to scale &quot;</span>
                                         <span class="s2">&quot;memory-bound params; surrendering.&quot;</span>
                                     <span class="p">)</span>
                                     <span class="k">break</span>
-                                <span class="nb">print</span><span class="p">(</span>
+                                <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
                                     <span class="sa">f</span><span class="s2">&quot;[oom retry] retrying recording &quot;</span>
                                     <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="n">attempt</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">oom_max</span><span class="si">}</span><span class="s2">) after GPU OOM &quot;</span>
                                     <span class="sa">f</span><span class="s2">&quot;with reduced batch.&quot;</span>
@@ -2447,11 +2595,11 @@
                     <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">compilation</span><span class="o">.</span><span class="n">save_raw_pkl</span><span class="p">:</span>
                         <span class="n">raw_pkl</span> <span class="o">=</span> <span class="n">res_path</span> <span class="o">/</span> <span class="s2">&quot;sorted_spikedata.pkl&quot;</span>
                         <span class="n">_atomic_write_pickle</span><span class="p">(</span><span class="n">sd_raw</span><span class="p">,</span> <span class="n">raw_pkl</span><span class="p">)</span>
-                        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Saved </span><span class="si">{</span><span class="n">sd_raw</span><span class="o">.</span><span class="n">N</span><span class="si">}</span><span class="s2"> raw units to </span><span class="si">{</span><span class="n">raw_pkl</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Saved </span><span class="si">{</span><span class="n">sd_raw</span><span class="o">.</span><span class="n">N</span><span class="si">}</span><span class="s2"> raw units to </span><span class="si">{</span><span class="n">raw_pkl</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
                     <span class="n">curated_pkl</span> <span class="o">=</span> <span class="n">res_path</span> <span class="o">/</span> <span class="s2">&quot;sorted_spikedata_curated.pkl&quot;</span>
                     <span class="n">_atomic_write_pickle</span><span class="p">(</span><span class="n">sd_curated</span><span class="p">,</span> <span class="n">curated_pkl</span><span class="p">)</span>
-                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Saved </span><span class="si">{</span><span class="n">sd_curated</span><span class="o">.</span><span class="n">N</span><span class="si">}</span><span class="s2"> curated units to </span><span class="si">{</span><span class="n">curated_pkl</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                    <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Saved </span><span class="si">{</span><span class="n">sd_curated</span><span class="o">.</span><span class="n">N</span><span class="si">}</span><span class="s2"> curated units to </span><span class="si">{</span><span class="n">curated_pkl</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
                     <span class="c1"># Epoch splitting</span>
                     <span class="k">if</span> <span class="n">sd_curated</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;rec_chunks_ms&quot;</span><span class="p">):</span>
@@ -2552,7 +2700,9 @@
                                 <span class="n">log_path</span><span class="o">=</span><span class="n">log_path</span><span class="p">,</span>
                             <span class="p">)</span>
                         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-                            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[sorting report] generation raised: </span><span class="si">{</span><span class="n">exc</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+                            <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                                <span class="sa">f</span><span class="s2">&quot;[sorting report] generation raised: </span><span class="si">{</span><span class="n">exc</span><span class="si">!r}</span><span class="s2">&quot;</span>
+                            <span class="p">)</span>
 
                         <span class="c1"># Apply tee_log_policy ONLY when the report</span>
                         <span class="c1"># write succeeded AND the recording was a</span>
@@ -2876,11 +3026,11 @@
                 <span class="k">pass</span>
         <span class="n">os</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">tmp</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
     <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[recording report] failed to write </span><span class="si">{</span><span class="n">target</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">exc</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[recording report] failed to write </span><span class="si">{</span><span class="n">target</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">exc</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_print_batch_summary</span><span class="p">(</span><span class="n">report</span><span class="p">:</span> <span class="s2">&quot;SortRunReport&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Print a final summary table for a sort_recording batch.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Log a final summary table for a sort_recording batch.</span>
 
 <span class="sd">    Surfaces enough detail per failed recording (status, error</span>
 <span class="sd">    class+message, wall time, retry count, log file path, links to</span>
@@ -2891,17 +3041,17 @@
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">print_stage</span><span class="p">(</span><span class="s2">&quot;BATCH SUMMARY&quot;</span><span class="p">)</span>
     <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">report</span><span class="o">.</span><span class="n">records</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Total recordings:  </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Succeeded:         </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">report</span><span class="o">.</span><span class="n">succeeded</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Total recordings:  </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Succeeded:         </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">report</span><span class="o">.</span><span class="n">succeeded</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="n">failed</span> <span class="o">=</span> <span class="n">report</span><span class="o">.</span><span class="n">failed</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed:            </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">failed</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed:            </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">failed</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">report</span><span class="o">.</span><span class="n">succeeded</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">()</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Successful recordings:&quot;</span><span class="p">)</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Successful recordings:&quot;</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">rec</span> <span class="ow">in</span> <span class="n">report</span><span class="o">.</span><span class="n">succeeded</span><span class="p">:</span>
             <span class="n">units</span> <span class="o">=</span> <span class="n">rec</span><span class="o">.</span><span class="n">n_curated_units</span> <span class="k">if</span> <span class="n">rec</span><span class="o">.</span><span class="n">n_curated_units</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s2">&quot;?&quot;</span>
-            <span class="nb">print</span><span class="p">(</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;  - </span><span class="si">{</span><span class="n">rec</span><span class="o">.</span><span class="n">rec_name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">units</span><span class="si">}</span><span class="s2"> curated units, &quot;</span>
                 <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">rec</span><span class="o">.</span><span class="n">wall_time_s</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">s wall time&quot;</span>
             <span class="p">)</span>
@@ -2915,10 +3065,10 @@
         <span class="ow">or</span> <span class="n">rec</span><span class="o">.</span><span class="n">min_disk_free_gb</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
         <span class="k">for</span> <span class="n">rec</span> <span class="ow">in</span> <span class="n">report</span><span class="o">.</span><span class="n">records</span>
     <span class="p">):</span>
-        <span class="nb">print</span><span class="p">()</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Resource trends (only recordings that hit a warn threshold):&quot;</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;| Recording | Peak host RAM % | Peak GPU % | Min disk free GB |&quot;</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;|---|---|---|---|&quot;</span><span class="p">)</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Resource trends (only recordings that hit a warn threshold):&quot;</span><span class="p">)</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;| Recording | Peak host RAM % | Peak GPU % | Min disk free GB |&quot;</span><span class="p">)</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;|---|---|---|---|&quot;</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">rec</span> <span class="ow">in</span> <span class="n">report</span><span class="o">.</span><span class="n">records</span><span class="p">:</span>
             <span class="k">if</span> <span class="p">(</span>
                 <span class="n">rec</span><span class="o">.</span><span class="n">peak_host_ram_pct</span> <span class="ow">is</span> <span class="kc">None</span>
@@ -2941,11 +3091,11 @@
                 <span class="k">if</span> <span class="n">rec</span><span class="o">.</span><span class="n">min_disk_free_gb</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
                 <span class="k">else</span> <span class="s2">&quot;—&quot;</span>
             <span class="p">)</span>
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;| </span><span class="si">{</span><span class="n">rec</span><span class="o">.</span><span class="n">rec_name</span><span class="si">}</span><span class="s2"> | </span><span class="si">{</span><span class="n">ram</span><span class="si">}</span><span class="s2"> | </span><span class="si">{</span><span class="n">gpu</span><span class="si">}</span><span class="s2"> | </span><span class="si">{</span><span class="n">disk</span><span class="si">}</span><span class="s2"> |&quot;</span><span class="p">)</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;| </span><span class="si">{</span><span class="n">rec</span><span class="o">.</span><span class="n">rec_name</span><span class="si">}</span><span class="s2"> | </span><span class="si">{</span><span class="n">ram</span><span class="si">}</span><span class="s2"> | </span><span class="si">{</span><span class="n">gpu</span><span class="si">}</span><span class="s2"> | </span><span class="si">{</span><span class="n">disk</span><span class="si">}</span><span class="s2"> |&quot;</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">failed</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">()</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Failures:&quot;</span><span class="p">)</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Failures:&quot;</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">rec</span> <span class="ow">in</span> <span class="n">failed</span><span class="p">:</span>
             <span class="n">err_kind</span> <span class="o">=</span> <span class="n">rec</span><span class="o">.</span><span class="n">error_class</span> <span class="ow">or</span> <span class="s2">&quot;?&quot;</span>
             <span class="n">err_msg</span> <span class="o">=</span> <span class="p">(</span>
@@ -2954,21 +3104,21 @@
             <span class="n">retries</span> <span class="o">=</span> <span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;, </span><span class="si">{</span><span class="n">rec</span><span class="o">.</span><span class="n">retries_used</span><span class="si">}</span><span class="s2"> retry/retries used&quot;</span> <span class="k">if</span> <span class="n">rec</span><span class="o">.</span><span class="n">retries_used</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
             <span class="p">)</span>
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  - </span><span class="si">{</span><span class="n">rec</span><span class="o">.</span><span class="n">rec_name</span><span class="si">}</span><span class="s2">  [</span><span class="si">{</span><span class="n">rec</span><span class="o">.</span><span class="n">status</span><span class="si">}</span><span class="s2">]  </span><span class="si">{</span><span class="n">err_kind</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">err_msg</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;      wall time: </span><span class="si">{</span><span class="n">rec</span><span class="o">.</span><span class="n">wall_time_s</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">s</span><span class="si">{</span><span class="n">retries</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  - </span><span class="si">{</span><span class="n">rec</span><span class="o">.</span><span class="n">rec_name</span><span class="si">}</span><span class="s2">  [</span><span class="si">{</span><span class="n">rec</span><span class="o">.</span><span class="n">status</span><span class="si">}</span><span class="s2">]  </span><span class="si">{</span><span class="n">err_kind</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">err_msg</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;      wall time: </span><span class="si">{</span><span class="n">rec</span><span class="o">.</span><span class="n">wall_time_s</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">s</span><span class="si">{</span><span class="n">retries</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">rec</span><span class="o">.</span><span class="n">log_path</span><span class="p">:</span>
-                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;      log: </span><span class="si">{</span><span class="n">rec</span><span class="o">.</span><span class="n">log_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;      log: </span><span class="si">{</span><span class="n">rec</span><span class="o">.</span><span class="n">log_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
             <span class="n">results_folder</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">rec</span><span class="o">.</span><span class="n">results_folder</span><span class="p">)</span> <span class="k">if</span> <span class="n">rec</span><span class="o">.</span><span class="n">results_folder</span> <span class="k">else</span> <span class="kc">None</span>
             <span class="k">if</span> <span class="n">results_folder</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">rec_report</span> <span class="o">=</span> <span class="n">results_folder</span> <span class="o">/</span> <span class="s2">&quot;recording_report.json&quot;</span>
                 <span class="k">if</span> <span class="n">rec_report</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
-                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;      report: </span><span class="si">{</span><span class="n">rec_report</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                    <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;      report: </span><span class="si">{</span><span class="n">rec_report</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
                 <span class="n">disk_report</span> <span class="o">=</span> <span class="n">results_folder</span> <span class="o">/</span> <span class="s2">&quot;disk_exhaustion_report.json&quot;</span>
                 <span class="k">if</span> <span class="n">disk_report</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
-                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;      disk report: </span><span class="si">{</span><span class="n">disk_report</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                    <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;      disk report: </span><span class="si">{</span><span class="n">disk_report</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
                 <span class="n">gpu_snap</span> <span class="o">=</span> <span class="n">results_folder</span> <span class="o">/</span> <span class="s2">&quot;gpu_snapshot_at_trip.txt&quot;</span>
                 <span class="k">if</span> <span class="n">gpu_snap</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
-                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;      gpu snapshot: </span><span class="si">{</span><span class="n">gpu_snap</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                    <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;      gpu snapshot: </span><span class="si">{</span><span class="n">gpu_snap</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_make_disk_watchdog</span><span class="p">(</span>
@@ -3060,9 +3210,9 @@
             <span class="k">except</span> <span class="p">(</span><span class="ne">OSError</span><span class="p">,</span> <span class="ne">AttributeError</span><span class="p">):</span>
                 <span class="k">pass</span>
         <span class="n">os</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">tmp</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[disk watchdog] wrote disk-exhaustion report: </span><span class="si">{</span><span class="n">target</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[disk watchdog] wrote disk-exhaustion report: </span><span class="si">{</span><span class="n">target</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[disk exhaustion report] failed to write </span><span class="si">{</span><span class="n">target</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">exc</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[disk exhaustion report] failed to write </span><span class="si">{</span><span class="n">target</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">exc</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_atomic_write_pickle</span><span class="p">(</span>
@@ -3078,6 +3228,30 @@
 <span class="sd">    Important when the in-process inactivity watchdog is active —</span>
 <span class="sd">    that watchdog can call ``os._exit`` mid-write, and a non-atomic</span>
 <span class="sd">    write would leave the result file unreadable.</span>
+
+<span class="sd">    .. warning::</span>
+<span class="sd">        ``os.fsync`` can block indefinitely on a hung network mount</span>
+<span class="sd">        (NFS server unresponsive, SMB share down). It is a syscall</span>
+<span class="sd">        that does not release the GIL in a way Python can interrupt,</span>
+<span class="sd">        so ``_thread.interrupt_main`` from the inactivity watchdog</span>
+<span class="sd">        queues a ``KeyboardInterrupt`` that does not deliver until</span>
+<span class="sd">        the next bytecode boundary — which is never reached while</span>
+<span class="sd">        fsync is blocked. The pipeline&#39;s escape hatch is the</span>
+<span class="sd">        watchdog&#39;s grace-then-``os._exit`` sequence (typically</span>
+<span class="sd">        bounded by ``sorter_inactivity_in_process_grace_s``,</span>
+<span class="sd">        default ~10 s): the process exits hard, the half-written</span>
+<span class="sd">        ``.tmp`` file is removed by the ``except BaseException``</span>
+<span class="sd">        cleanup below the next time the path is visited, and the</span>
+<span class="sd">        run is reported as a sorter-inactivity failure.</span>
+
+<span class="sd">        Callers OUTSIDE the watchdog-wrapped ``sort_recording``</span>
+<span class="sd">        path (e.g. notebooks that import this private function</span>
+<span class="sd">        directly) get no such protection — on a hung mount the</span>
+<span class="sd">        process will block until SIGKILL or the OS NFS timeout</span>
+<span class="sd">        (typically minutes). The function is ``_``-prefixed</span>
+<span class="sd">        because the canonical caller is the watchdog-wrapped</span>
+<span class="sd">        pipeline; bare callers are responsible for their own</span>
+<span class="sd">        timeout discipline.</span>
 
 <span class="sd">    Parameters:</span>
 <span class="sd">        obj: Any picklable object.</span>

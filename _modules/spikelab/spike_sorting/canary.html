@@ -788,9 +788,26 @@
     <span class="n">n</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">candidate</span><span class="p">,</span> <span class="s2">&quot;N&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
     <span class="c1"># Accept numpy integer types (np.int64, etc.) as well as Python int.</span>
     <span class="c1"># SpikeData.N is sometimes assigned from numpy operations such as</span>
-    <span class="c1"># np.unique(...).size, which returns a numpy scalar.</span>
-    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">)):</span>
+    <span class="c1"># np.unique(...).size, which returns a numpy scalar. Reject bool</span>
+    <span class="c1"># — it subclasses int and would silently report ``N=1`` for a</span>
+    <span class="c1"># truthy flag accidentally returned in place of a SpikeData.</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">))</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
         <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+    <span class="c1"># Log a hint when the helper falls back to None — the caller emits</span>
+    <span class="c1"># a unit-count-less log line and operators need a signal that the</span>
+    <span class="c1"># candidate just lacked a usable ``N`` attribute, not that the</span>
+    <span class="c1"># sort itself failed silently.</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_logging</span>
+
+        <span class="n">_logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+            <span class="s2">&quot;_extract_unit_count: candidate </span><span class="si">%r</span><span class="s2"> has no usable N attribute &quot;</span>
+            <span class="s2">&quot;(N=</span><span class="si">%r</span><span class="s2">); returning None.&quot;</span><span class="p">,</span>
+            <span class="nb">type</span><span class="p">(</span><span class="n">candidate</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+            <span class="n">n</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+        <span class="k">pass</span>
     <span class="k">return</span> <span class="kc">None</span>
 </pre></div>
 

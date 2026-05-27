@@ -456,7 +456,7 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">zipfile</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Literal</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">Optional</span>
 
 <span class="n">SupportedFormat</span> <span class="o">=</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;workspace&quot;</span><span class="p">,</span> <span class="s2">&quot;sorting&quot;</span><span class="p">,</span> <span class="s2">&quot;custom&quot;</span><span class="p">]</span>
 
@@ -467,10 +467,17 @@
 <span class="n">_RESERVED_BUNDLE_FILENAMES</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">&quot;manifest.json&quot;</span><span class="p">})</span>
 
 
+<span class="n">_SHA256_CHUNK_BYTES</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="mi">20</span>  <span class="c1"># 1 MiB</span>
+
+
 <span class="k">def</span><span class="w"> </span><span class="nf">_sha256</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="c1"># 1 MiB chunks instead of 8 KiB. Modern disks deliver hundreds of</span>
+    <span class="c1"># MB/s; at 8 KiB the read syscall overhead dominated. 1 MiB keeps</span>
+    <span class="c1"># the working set within L2 cache while amortising the syscall</span>
+    <span class="c1"># rate to a small fraction of total wall time.</span>
     <span class="n">digest</span> <span class="o">=</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">()</span>
     <span class="k">with</span> <span class="n">path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-        <span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="nb">iter</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="mi">8192</span><span class="p">),</span> <span class="sa">b</span><span class="s2">&quot;&quot;</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="nb">iter</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">_SHA256_CHUNK_BYTES</span><span class="p">),</span> <span class="sa">b</span><span class="s2">&quot;&quot;</span><span class="p">):</span>
             <span class="n">digest</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">chunk</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">digest</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span>
 
@@ -526,10 +533,39 @@
     <span class="n">output_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">output_format</span><span class="p">:</span> <span class="n">SupportedFormat</span><span class="p">,</span>
     <span class="n">metadata</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">recording_files</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a run zip bundle and return its absolute path.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a run zip bundle and return its absolute path.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        input_paths (Iterable[str]): Paths to copy into the bundle.</span>
+<span class="sd">        run_id (str): RFC-1123-style identifier for the bundle.</span>
+<span class="sd">        output_dir (str): Directory the zip is written into.</span>
+<span class="sd">        output_format (str): One of ``&quot;workspace&quot;``, ``&quot;sorting&quot;``,</span>
+<span class="sd">            ``&quot;custom&quot;``. Controls which entrypoint the container</span>
+<span class="sd">            will dispatch to.</span>
+<span class="sd">        metadata (dict, optional): Arbitrary JSON-serialisable</span>
+<span class="sd">            metadata included in the manifest.</span>
+<span class="sd">        recording_files (Iterable[str], optional): When</span>
+<span class="sd">            ``output_format=&#39;sorting&#39;``, the basenames of the input</span>
+<span class="sd">            files that the pod-side entrypoint should treat as</span>
+<span class="sd">            recordings. Tier L-C2: replaces the name-blacklist</span>
+<span class="sd">            heuristic in ``entrypoints/sorting.main`` with a</span>
+<span class="sd">            declared whitelist. Ignored for ``&quot;workspace&quot;`` and</span>
+<span class="sd">            ``&quot;custom&quot;`` formats. Required for ``&quot;sorting&quot;`` —</span>
+<span class="sd">            omitting it raises ``ValueError``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">output_format</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;workspace&quot;</span><span class="p">,</span> <span class="s2">&quot;sorting&quot;</span><span class="p">,</span> <span class="s2">&quot;custom&quot;</span><span class="p">}:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;output_format must be one of: workspace, sorting, custom&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">output_format</span> <span class="o">==</span> <span class="s2">&quot;sorting&quot;</span> <span class="ow">and</span> <span class="n">recording_files</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;package_analysis_bundle: recording_files must be provided &quot;</span>
+            <span class="s2">&quot;when output_format=&#39;sorting&#39;. The sorting entrypoint reads &quot;</span>
+            <span class="s2">&quot;the declared recording list from manifest.json so it can &quot;</span>
+            <span class="s2">&quot;distinguish recordings from companion files (probe sidecars, &quot;</span>
+            <span class="s2">&quot;metadata.csv, etc.) without guessing. Pass the basenames of &quot;</span>
+            <span class="s2">&quot;the recording inputs explicitly.&quot;</span>
+        <span class="p">)</span>
 
     <span class="c1"># Path-traversal guard: ``run_id`` flows directly into ``bundle_dir``</span>
     <span class="c1"># and the output zip filename. A run_id like ``&quot;../etc/passwd&quot;`` would</span>
@@ -545,6 +581,22 @@
 
     <span class="n">output_base</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">output_dir</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
     <span class="n">output_base</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Pre-validate that metadata is JSON-serializable. Without this</span>
+    <span class="c1"># guard we&#39;d hash every input, copy every file, then crash on</span>
+    <span class="c1"># ``json.dumps`` at the very end — wasting the I/O. Catch it</span>
+    <span class="c1"># before any work happens.</span>
+    <span class="k">if</span> <span class="n">metadata</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">metadata</span><span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;metadata is not JSON-serializable: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">. The bundle &quot;</span>
+                <span class="s2">&quot;manifest is written via ``json.dumps``; convert any &quot;</span>
+                <span class="s2">&quot;non-serializable values (Path, datetime, ndarray, etc.) &quot;</span>
+                <span class="s2">&quot;to plain JSON types before passing to &quot;</span>
+                <span class="s2">&quot;package_analysis_bundle.&quot;</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
 
     <span class="c1"># Reject duplicate basenames upfront. Two input paths with the</span>
     <span class="c1"># same filename (e.g. ``/dir_a/rec.bin`` and ``/dir_b/rec.bin``)</span>
@@ -589,7 +641,11 @@
                 <span class="p">{</span>
                     <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">dest</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
                     <span class="s2">&quot;sha256&quot;</span><span class="p">:</span> <span class="n">_sha256</span><span class="p">(</span><span class="n">dest</span><span class="p">),</span>
-                    <span class="s2">&quot;size_bytes&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">dest</span><span class="o">.</span><span class="n">stat</span><span class="p">()</span><span class="o">.</span><span class="n">st_size</span><span class="p">),</span>
+                    <span class="c1"># size_bytes was previously stringified, which made</span>
+                    <span class="c1"># the manifest awkward to consume (downstream</span>
+                    <span class="c1"># readers had to ``int(entry[&quot;size_bytes&quot;])`` every</span>
+                    <span class="c1"># time). Store as int for natural JSON typing.</span>
+                    <span class="s2">&quot;size_bytes&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">dest</span><span class="o">.</span><span class="n">stat</span><span class="p">()</span><span class="o">.</span><span class="n">st_size</span><span class="p">),</span>
                 <span class="p">}</span>
             <span class="p">)</span>
 
@@ -599,6 +655,11 @@
             <span class="s2">&quot;files&quot;</span><span class="p">:</span> <span class="n">payload_files</span><span class="p">,</span>
             <span class="s2">&quot;metadata&quot;</span><span class="p">:</span> <span class="n">metadata</span> <span class="ow">or</span> <span class="p">{},</span>
         <span class="p">}</span>
+        <span class="k">if</span> <span class="n">recording_files</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Declared whitelist consumed by entrypoints/sorting.main.</span>
+            <span class="c1"># Names are basenames (the bundle layout is flat under</span>
+            <span class="c1"># ``bundle_dir``), matching the keys in ``payload_files``.</span>
+            <span class="n">manifest</span><span class="p">[</span><span class="s2">&quot;recording_files&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">recording_files</span><span class="p">))</span>
         <span class="p">(</span><span class="n">bundle_dir</span> <span class="o">/</span> <span class="s2">&quot;manifest.json&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span>
             <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">manifest</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">sort_keys</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span>
         <span class="p">)</span>

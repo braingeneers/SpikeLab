@@ -479,9 +479,12 @@
 <span class="sd">together.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
 <span class="c1"># Extra margin beyond the peri-event + recentering + artifact-removal</span>
 <span class="c1"># window.  Gives RT-Sort&#39;s detection model a few ms to warm up before</span>
@@ -649,7 +652,9 @@
     <span class="c1"># Path or BaseRecording → chunked path.</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">stim_recording</span><span class="p">,</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">)):</span>
         <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Opening recording </span><span class="si">{</span><span class="n">stim_recording</span><span class="si">}</span><span class="s2"> (lazy, for chunked reads)...&quot;</span><span class="p">)</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Opening recording </span><span class="si">{</span><span class="n">stim_recording</span><span class="si">}</span><span class="s2"> (lazy, for chunked reads)...&quot;</span>
+            <span class="p">)</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">..recording_io</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_single_recording</span>
 
         <span class="n">rec</span> <span class="o">=</span> <span class="n">load_single_recording</span><span class="p">(</span><span class="n">stim_recording</span><span class="p">)</span>
@@ -746,7 +751,7 @@
     <span class="p">)</span>
     <span class="n">n_dropped</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="o">~</span><span class="n">valid_mask</span><span class="p">))</span>
     <span class="k">if</span> <span class="n">n_dropped</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">verbose</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
             <span class="sa">f</span><span class="s2">&quot;  Dropping </span><span class="si">{</span><span class="n">n_dropped</span><span class="si">}</span><span class="s2"> event(s) whose peri-event window would &quot;</span>
             <span class="sa">f</span><span class="s2">&quot;extend outside the recording / recording_window_ms bounds&quot;</span>
         <span class="p">)</span>
@@ -758,7 +763,7 @@
     <span class="c1"># Group adjacent events into chunks.</span>
     <span class="n">groups</span> <span class="o">=</span> <span class="n">_group_stim_events_into_chunks</span><span class="p">(</span><span class="n">kept_times_ms</span><span class="p">,</span> <span class="n">chunk_pre_ms</span><span class="p">,</span> <span class="n">chunk_post_ms</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
             <span class="sa">f</span><span class="s2">&quot;Chunking </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">kept_times_ms</span><span class="p">)</span><span class="si">}</span><span class="s2"> stim events into </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">groups</span><span class="p">)</span><span class="si">}</span><span class="s2"> &quot;</span>
             <span class="sa">f</span><span class="s2">&quot;time chunk(s)  (chunk window ≈ &quot;</span>
             <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">chunk_pre_ms</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">chunk_post_ms</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2"> ms per event)&quot;</span>
@@ -782,7 +787,7 @@
         <span class="n">chunk_len_ms</span> <span class="o">=</span> <span class="p">(</span><span class="n">end_frame</span> <span class="o">-</span> <span class="n">start_frame</span><span class="p">)</span> <span class="o">*</span> <span class="mf">1000.0</span> <span class="o">/</span> <span class="n">fs_Hz</span>
 
         <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;  chunk </span><span class="si">{</span><span class="n">chunk_idx</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">groups</span><span class="p">)</span><span class="si">}</span><span class="s2">: &quot;</span>
                 <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">group_events_ms</span><span class="p">)</span><span class="si">}</span><span class="s2"> event(s), &quot;</span>
                 <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">chunk_len_ms</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2"> ms (</span><span class="si">{</span><span class="n">end_frame</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">start_frame</span><span class="si">}</span><span class="s2"> samples)&quot;</span>
@@ -898,7 +903,7 @@
 
     <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
         <span class="n">n_slices</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">stim_slices</span><span class="o">.</span><span class="n">spike_stack</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
             <span class="sa">f</span><span class="s2">&quot;Produced SpikeSliceStack with </span><span class="si">{</span><span class="n">n_slices</span><span class="si">}</span><span class="s2"> slices &quot;</span>
             <span class="sa">f</span><span class="s2">&quot;(peri-event windows [-</span><span class="si">{</span><span class="n">pre_ms</span><span class="si">}</span><span class="s2">, +</span><span class="si">{</span><span class="n">post_ms</span><span class="si">}</span><span class="s2">] ms)&quot;</span>
         <span class="p">)</span>
@@ -986,7 +991,7 @@
     <span class="n">fs_Hz</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">fs_Hz</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Recentering stim times (full-recording path)...&quot;</span><span class="p">)</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Recentering stim times (full-recording path)...&quot;</span><span class="p">)</span>
     <span class="n">corrected_stim_ms</span> <span class="o">=</span> <span class="n">recenter_stim_times</span><span class="p">(</span>
         <span class="n">traces</span><span class="p">,</span>
         <span class="n">stim_times_ms</span><span class="p">,</span>
@@ -1002,12 +1007,12 @@
     <span class="p">)</span>
     <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
         <span class="n">offsets</span> <span class="o">=</span> <span class="n">corrected_stim_ms</span> <span class="o">-</span> <span class="n">stim_times_ms</span>
-        <span class="nb">print</span><span class="p">(</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
             <span class="sa">f</span><span class="s2">&quot;  Stim time corrections: &quot;</span>
             <span class="sa">f</span><span class="s2">&quot;mean=</span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">offsets</span><span class="p">)</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> ms  &quot;</span>
             <span class="sa">f</span><span class="s2">&quot;max=</span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">offsets</span><span class="p">))</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> ms&quot;</span>
         <span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Removing artifacts (method=</span><span class="si">{</span><span class="n">artifact_method</span><span class="si">!r}</span><span class="s2">)...&quot;</span><span class="p">)</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Removing artifacts (method=</span><span class="si">{</span><span class="n">artifact_method</span><span class="si">!r}</span><span class="s2">)...&quot;</span><span class="p">)</span>
 
     <span class="n">cleaned</span><span class="p">,</span> <span class="n">blanked_mask</span> <span class="o">=</span> <span class="n">remove_stim_artifacts</span><span class="p">(</span>
         <span class="n">traces</span><span class="p">,</span>
@@ -1024,8 +1029,8 @@
         <span class="n">raw_traces</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="mf">100.0</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">blanked_mask</span><span class="p">)</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">% of samples blanked&quot;</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Running RT-Sort offline sorting on cleaned traces...&quot;</span><span class="p">)</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="mf">100.0</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">blanked_mask</span><span class="p">)</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">% of samples blanked&quot;</span><span class="p">)</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Running RT-Sort offline sorting on cleaned traces...&quot;</span><span class="p">)</span>
 
     <span class="n">sorting</span> <span class="o">=</span> <span class="n">rt_sort_obj</span><span class="o">.</span><span class="n">sort_offline</span><span class="p">(</span>
         <span class="n">recording</span><span class="o">=</span><span class="n">cleaned</span><span class="p">,</span>
@@ -1037,14 +1042,16 @@
     <span class="c1"># associated recording; pass n_samples explicitly.</span>
     <span class="n">sd</span> <span class="o">=</span> <span class="n">_sorting_to_spikedata</span><span class="p">(</span><span class="n">sorting</span><span class="p">,</span> <span class="n">fs_Hz</span><span class="p">,</span> <span class="n">n_samples</span><span class="o">=</span><span class="n">cleaned</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
     <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="si">}</span><span class="s2"> units, </span><span class="si">{</span><span class="nb">sum</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">t</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">sd</span><span class="o">.</span><span class="n">train</span><span class="p">)</span><span class="si">}</span><span class="s2"> total spikes&quot;</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="si">}</span><span class="s2"> units, </span><span class="si">{</span><span class="nb">sum</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">t</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">sd</span><span class="o">.</span><span class="n">train</span><span class="p">)</span><span class="si">}</span><span class="s2"> total spikes&quot;</span><span class="p">)</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
             <span class="sa">f</span><span class="s2">&quot;Aligning to </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">corrected_stim_ms</span><span class="p">)</span><span class="si">}</span><span class="s2"> stim events &quot;</span>
             <span class="sa">f</span><span class="s2">&quot;(window: -</span><span class="si">{</span><span class="n">pre_ms</span><span class="si">}</span><span class="s2"> to +</span><span class="si">{</span><span class="n">post_ms</span><span class="si">}</span><span class="s2"> ms)...&quot;</span>
         <span class="p">)</span>
     <span class="n">stim_slices</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">align_to_events</span><span class="p">(</span><span class="n">corrected_stim_ms</span><span class="p">,</span> <span class="n">pre_ms</span><span class="p">,</span> <span class="n">post_ms</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;spike&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Produced SpikeSliceStack with </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">stim_slices</span><span class="o">.</span><span class="n">spike_stack</span><span class="p">)</span><span class="si">}</span><span class="s2"> slices&quot;</span><span class="p">)</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;  Produced SpikeSliceStack with </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">stim_slices</span><span class="o">.</span><span class="n">spike_stack</span><span class="p">)</span><span class="si">}</span><span class="s2"> slices&quot;</span>
+        <span class="p">)</span>
     <span class="k">return</span> <span class="n">stim_slices</span>
 
 
@@ -1089,7 +1096,7 @@
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Load or return an RTSort object.&quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">rt_sort</span><span class="p">,</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">)):</span>
         <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Loading RTSort from </span><span class="si">{</span><span class="n">rt_sort</span><span class="si">}</span><span class="s2">...&quot;</span><span class="p">)</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Loading RTSort from </span><span class="si">{</span><span class="n">rt_sort</span><span class="si">}</span><span class="s2">...&quot;</span><span class="p">)</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">..rt_sort_runner</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_rt_sort</span> <span class="k">as</span> <span class="n">_load</span>
 
         <span class="k">return</span> <span class="n">_load</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">rt_sort</span><span class="p">),</span> <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span> <span class="n">model_path</span><span class="o">=</span><span class="n">model_path</span><span class="p">)</span>

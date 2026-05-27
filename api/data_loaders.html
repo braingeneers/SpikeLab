@@ -631,7 +631,9 @@ times per cluster and converts to ms using fs_Hz.</p></li>
 get_sampling_frequency(), get_unit_spike_train(…).</p></li>
 <li><p><strong>sampling_frequency</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> | </em><em>None</em>) – Optional override for sampling
 frequency (Hz).</p></li>
-<li><p><strong>unit_ids</strong> (<em>Sequence</em><em> | </em><em>None</em>) – Optional subset of unit IDs to include.</p></li>
+<li><p><strong>unit_ids</strong> (<em>Sequence</em><em> | </em><em>None</em>) – Optional subset of unit IDs to include.
+When provided, the order of the returned SpikeData’s units
+follows the caller’s order (after presence validation).</p></li>
 <li><p><strong>segment_index</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Segment index for multi-segment sortings.</p></li>
 </ul>
 </dd>
@@ -642,6 +644,20 @@ frequency (Hz).</p></li>
 <dd class="field-odd"><p>sd (<a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData">SpikeData</a>)</p>
 </dd>
 </dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>When <code class="docutils literal notranslate"><span class="pre">unit_ids</span> <span class="pre">is</span> <span class="pre">None</span></code>, the resulting unit order follows
+<code class="docutils literal notranslate"><span class="pre">sorting.get_unit_ids()</span></code> order, which is backend-dependent
+(KiloSort returns sequential IDs; some SpikeInterface
+variants reorder by sort metric). Two SpikeData objects
+built from different backends may therefore index the same
+physical unit at different positions. Pass an explicit
+<code class="docutils literal notranslate"><span class="pre">unit_ids</span></code> sequence when the unit ordering matters across
+backends.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">neuron_attributes[i][&quot;unit_id&quot;]</span></code> records the original
+backend ID, providing a stable mapping from position to
+source ID irrespective of the order convention.</p></li>
+</ul>
 </dd></dl>
 
 <dl class="py function">
@@ -713,7 +729,7 @@ credentials.</p></li>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="spikelab.data_loaders.data_loaders.load_spikedata_from_ibl">
-<span class="sig-prename descclassname"><span class="pre">spikelab.data_loaders.data_loaders.</span></span><span class="sig-name descname"><span class="pre">load_spikedata_from_ibl</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">eid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pid</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">length_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/data_loaders/data_loaders.html#load_spikedata_from_ibl"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.data_loaders.data_loaders.load_spikedata_from_ibl" title="Link to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">spikelab.data_loaders.data_loaders.</span></span><span class="sig-name descname"><span class="pre">load_spikedata_from_ibl</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">eid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pid</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">length_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">collection</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/data_loaders/data_loaders.html#load_spikedata_from_ibl"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.data_loaders.data_loaders.load_spikedata_from_ibl" title="Link to this definition"></a></dt>
 <dd><p>Load spike trains for a single IBL probe into SpikeData.</p>
 <p>Authenticates against the public IBL server automatically. Only
 units labelled as good (<code class="docutils literal notranslate"><span class="pre">label</span> <span class="pre">==</span> <span class="pre">1</span></code>) in the Brain-Wide Map unit
@@ -727,6 +743,14 @@ milliseconds.</p>
 <li><p><strong>pid</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – IBL probe ID (UUID string).</p></li>
 <li><p><strong>length_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> | </em><em>None</em>) – Recording duration in milliseconds.
 If not provided, the maximum spike time across all units is used.</p></li>
+<li><p><strong>collection</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – If provided, skip the heuristic
+collection search and load spikes directly from this
+collection (e.g. <code class="docutils literal notranslate"><span class="pre">&quot;alf/probe00/pykilosort&quot;</span></code>). Saves 3-4
+network round-trips per call when the caller already knows
+the canonical collection (e.g. in batch workflows that
+resolve the collection once and reuse it). <code class="docutils literal notranslate"><span class="pre">None</span></code>
+(default) falls back to the PID-suffix heuristic + fallback
+chain.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -753,8 +777,10 @@ If not provided, the maximum spike time across all units is used.</p></li>
 <li><p>Requires <code class="docutils literal notranslate"><span class="pre">one-api</span></code> and <code class="docutils literal notranslate"><span class="pre">brainwidemap</span></code> packages (optional dependencies).</p></li>
 <li><p>Spike times are converted from seconds (IBL convention) to milliseconds.</p></li>
 <li><p>Trial times are converted from seconds to milliseconds.</p></li>
-<li><p>Probe collection is inferred from the PID suffix; falls back through
-<code class="docutils literal notranslate"><span class="pre">alf/probe00/pykilosort</span></code>, <code class="docutils literal notranslate"><span class="pre">alf/probe01/pykilosort</span></code>, and <code class="docutils literal notranslate"><span class="pre">alf</span></code>.</p></li>
+<li><p>When <code class="docutils literal notranslate"><span class="pre">collection</span></code> is <code class="docutils literal notranslate"><span class="pre">None</span></code>, the probe collection is
+inferred from the PID suffix; falls back through
+<code class="docutils literal notranslate"><span class="pre">alf/probe00/pykilosort</span></code>, <code class="docutils literal notranslate"><span class="pre">alf/probe01/pykilosort</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">alf</span></code>.</p></li>
 </ul>
 </dd></dl>
 

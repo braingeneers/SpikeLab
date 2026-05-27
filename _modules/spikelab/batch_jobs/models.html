@@ -545,14 +545,27 @@
     <span class="n">max_interactive_gpus</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
     <span class="n">max_runtime_seconds</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="mi">1_209_600</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># 14 days</span>
     <span class="n">block_sleep_infinity</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
-    <span class="n">warn_request_limit_mismatch</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span></div>
+    <span class="n">warn_request_limit_mismatch</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">sleep_duration_threshold_s</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="n">default</span><span class="o">=</span><span class="mi">86_400</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">1</span>
+    <span class="p">)</span>  <span class="c1"># 24 hours — bare ``sleep &lt;n&gt;`` durations &gt;= this are flagged</span></div>
 
+    <span class="c1"># as idle-placeholders. Separate from ``max_runtime_seconds``</span>
+    <span class="c1"># because the check targets compute-masquerading sleeps, not</span>
+    <span class="c1"># the job&#39;s overall wall-clock budget.</span>
 
 
 <div class="viewcode-block" id="JobSpec">
 <a class="viewcode-back" href="../../../api/batch_jobs.html#spikelab.batch_jobs.models.JobSpec">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">JobSpec</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;High-level description of a Kubernetes batch job.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;High-level description of a Kubernetes batch job.</span>
+
+<span class="sd">    Single-container assumption: ``container`` is a single</span>
+<span class="sd">    :class:`ContainerSpec`, not a list. The rendered ``job.yaml.j2``</span>
+<span class="sd">    template targets one container per pod (named ``analysis``).</span>
+<span class="sd">    Multi-container patterns (sidecars for log shipping, init</span>
+<span class="sd">    containers for fetch) are not supported by the current template.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">name_prefix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;analysis-job&quot;</span>
     <span class="n">namespace</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;default&quot;</span>
@@ -560,6 +573,20 @@
     <span class="n">container</span><span class="p">:</span> <span class="n">ContainerSpec</span>
     <span class="n">resources</span><span class="p">:</span> <span class="n">ResourceSpec</span>
     <span class="n">volumes</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">VolumeMountSpec</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
+    <span class="c1">#: Kubernetes ``ttlSecondsAfterFinished``: how long the K8s job</span>
+    <span class="c1">#: object and its pod logs persist after the pod terminates,</span>
+    <span class="c1">#: before the cluster reaps them. The default 3600 (1 hour)</span>
+    <span class="c1">#: optimises for cluster cleanliness, not forensics — useful</span>
+    <span class="c1">#: dials when you need pod logs available post-completion for</span>
+    <span class="c1">#: debugging:</span>
+    <span class="c1">#:</span>
+    <span class="c1">#: - ``21600`` (6h): end-of-day check</span>
+    <span class="c1">#: - ``86400`` (24h): next-business-day investigation</span>
+    <span class="c1">#: - ``172800`` (48h): covers a weekend gap</span>
+    <span class="c1">#: - ``604800`` (1 week): covers a vacation</span>
+    <span class="c1">#:</span>
+    <span class="c1">#: Results stored in S3 are retained regardless — this TTL only</span>
+    <span class="c1">#: affects the K8s-side job object and its pod logs.</span>
     <span class="n">ttl_seconds_after_finished</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="mi">3600</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
     <span class="n">backoff_limit</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
     <span class="n">active_deadline_seconds</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
@@ -628,7 +655,16 @@
     <span class="n">policy</span><span class="p">:</span> <span class="n">PolicyConfig</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">PolicyConfig</span><span class="p">)</span>
     <span class="n">resources</span><span class="p">:</span> <span class="n">ResourceSpec</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">ResourceSpec</span><span class="p">)</span>
     <span class="n">endpoint_url</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">region_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span></div>
+    <span class="n">region_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="c1">#: Tier L-F7: Kubernetes ``imagePullSecrets`` to attach to the pod</span>
+    <span class="c1">#: spec. Each entry is the name of a ``kubernetes.io/dockerconfigjson``</span>
+    <span class="c1">#: secret that already exists in the target namespace. Empty (the</span>
+    <span class="c1">#: default) means no pull secrets are rendered — appropriate for</span>
+    <span class="c1">#: public registries and clusters whose default ServiceAccount</span>
+    <span class="c1">#: already carries the necessary secrets. Cluster-level rather</span>
+    <span class="c1">#: than per-job because the same registry is typically reused</span>
+    <span class="c1">#: across every job submitted to the cluster.</span>
+    <span class="n">image_pull_secrets</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span></div>
 
 
 
@@ -644,23 +680,6 @@
     <span class="n">output_prefix</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">logs_prefix</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">job_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;workspace&quot;</span><span class="p">,</span> <span class="s2">&quot;sorting&quot;</span><span class="p">,</span> <span class="s2">&quot;prepared&quot;</span><span class="p">]</span></div>
-
-
-
-<div class="viewcode-block" id="RunConfig">
-<a class="viewcode-back" href="../../../api/batch_jobs.html#spikelab.batch_jobs.models.RunConfig">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">RunConfig</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;User-facing run config consumed by CLI/session.&quot;&quot;&quot;</span>
-
-    <span class="n">profile_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;defaults&quot;</span>
-    <span class="n">input_path</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="n">output_prefix</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">workspace_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">namespace</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">allow_policy_risk</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
-    <span class="n">max_wait_seconds</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="mi">3600</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-    <span class="n">wait_for_completion</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
-    <span class="n">follow_logs</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span></div>
 
 </pre></div>
 

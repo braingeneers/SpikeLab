@@ -476,14 +476,41 @@
 
 
 
+<span class="c1">#: Map from accepted profile-name aliases to the YAML file shipped</span>
+<span class="c1">#: under ``spikelab.batch_jobs.profiles``. Add new built-in profiles</span>
+<span class="c1">#: here so ``load_profile_from_name`` recognises them explicitly</span>
+<span class="c1">#: instead of silently falling back to ``defaults``.</span>
+<span class="n">_KNOWN_PROFILE_NAMES</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;nrp&quot;</span><span class="p">:</span> <span class="s2">&quot;nrp.yaml&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;nautilus&quot;</span><span class="p">:</span> <span class="s2">&quot;nrp.yaml&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;defaults&quot;</span><span class="p">:</span> <span class="s2">&quot;defaults.yaml&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="s2">&quot;defaults.yaml&quot;</span><span class="p">,</span>
+<span class="p">}</span>
+
+
 <div class="viewcode-block" id="load_profile_from_name">
 <a class="viewcode-back" href="../../../api/batch_jobs.html#spikelab.batch_jobs.profiles.load_profile_from_name">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">load_profile_from_name</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ClusterProfile</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load one of the built-in profile files by name.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load one of the built-in profile files by name.</span>
+
+<span class="sd">    Unknown names fall back to ``defaults.yaml`` for backward</span>
+<span class="sd">    compatibility, but emit a ``UserWarning`` listing the recognised</span>
+<span class="sd">    profile aliases so a typo doesn&#39;t silently land on the wrong</span>
+<span class="sd">    profile.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+
     <span class="n">normalized</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
-    <span class="k">if</span> <span class="n">normalized</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;nrp&quot;</span><span class="p">,</span> <span class="s2">&quot;nautilus&quot;</span><span class="p">}:</span>
-        <span class="n">filename</span> <span class="o">=</span> <span class="s2">&quot;nrp.yaml&quot;</span>
-    <span class="k">else</span><span class="p">:</span>
+    <span class="n">filename</span> <span class="o">=</span> <span class="n">_KNOWN_PROFILE_NAMES</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">normalized</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">filename</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Unknown profile name </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2">; falling back to &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;``defaults.yaml``. Recognised aliases: &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">_KNOWN_PROFILE_NAMES</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="si">}</span><span class="s2">. Pass &quot;</span>
+            <span class="s2">&quot;``--profile-file &lt;path&gt;`` to load an explicit YAML.&quot;</span><span class="p">,</span>
+            <span class="ne">UserWarning</span><span class="p">,</span>
+            <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+        <span class="p">)</span>
         <span class="n">filename</span> <span class="o">=</span> <span class="s2">&quot;defaults.yaml&quot;</span>
     <span class="n">base</span> <span class="o">=</span> <span class="n">files</span><span class="p">(</span><span class="s2">&quot;spikelab.batch_jobs&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="s2">&quot;profiles&quot;</span><span class="p">)</span>
     <span class="n">payload</span> <span class="o">=</span> <span class="n">_read_yaml</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">base</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="n">filename</span><span class="p">))))</span>

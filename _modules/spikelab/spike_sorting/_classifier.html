@@ -787,13 +787,29 @@
     <span class="n">re</span><span class="o">.</span><span class="n">DOTALL</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="n">_KS4_KMEANS_RE</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;n_samples=(\d+)\s+should be\s+&gt;=\s+n_clusters=(\d+)&quot;</span><span class="p">)</span>
+<span class="c1">#: Permissive fallback regex for the sklearn KMeans &quot;not enough</span>
+<span class="c1">#: samples&quot; diagnostic. The strict ``_KS4_KMEANS_RE`` pins sklearn&#39;s</span>
+<span class="c1">#: pre-1.5 phrasing (&quot;should be &gt;=&quot;); newer sklearn versions have</span>
+<span class="c1">#: reworded the message (e.g. &quot;should be greater than or equal to&quot;).</span>
+<span class="c1">#: This fallback matches any ``n_samples=N`` / ``n_clusters=M`` pair</span>
+<span class="c1">#: in the same message regardless of the connective text, capturing</span>
+<span class="c1">#: both integers so the downstream classification branch still</span>
+<span class="c1">#: fires.</span>
+<span class="n">_KS4_KMEANS_FALLBACK_RE</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span>
+    <span class="sa">r</span><span class="s2">&quot;n_samples=(\d+).{0,200}?n_clusters=(\d+)&quot;</span><span class="p">,</span> <span class="n">re</span><span class="o">.</span><span class="n">DOTALL</span>
+<span class="p">)</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_classify_insufficient_activity_ks4</span><span class="p">(</span>
     <span class="n">chain_text</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">log_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Path</span><span class="p">],</span> <span class="n">exc</span><span class="p">:</span> <span class="ne">BaseException</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">InsufficientActivityError</span><span class="p">]:</span>
     <span class="n">svd_match</span> <span class="o">=</span> <span class="n">_KS4_SVD_EMPTY_RE</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">chain_text</span><span class="p">)</span>
-    <span class="n">kmeans_match</span> <span class="o">=</span> <span class="n">_KS4_KMEANS_RE</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">chain_text</span><span class="p">)</span>
+    <span class="c1"># Try the strict regex first; fall back to the permissive variant</span>
+    <span class="c1"># so a sklearn release that re-words the message doesn&#39;t silently</span>
+    <span class="c1"># break this classification branch.</span>
+    <span class="n">kmeans_match</span> <span class="o">=</span> <span class="n">_KS4_KMEANS_RE</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">chain_text</span><span class="p">)</span> <span class="ow">or</span> <span class="n">_KS4_KMEANS_FALLBACK_RE</span><span class="o">.</span><span class="n">search</span><span class="p">(</span>
+        <span class="n">chain_text</span>
+    <span class="p">)</span>
     <span class="k">if</span> <span class="n">svd_match</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">kmeans_match</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">return</span> <span class="kc">None</span>
 

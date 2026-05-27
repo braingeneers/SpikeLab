@@ -557,12 +557,16 @@ neuron_attributes set to None.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>slices</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – Slice index or list of slice indices to
-extract.</p>
+extract. Indices are kept in <strong>caller order</strong>;
+duplicates are deduplicated (first occurrence wins).
+Negative indices are accepted and resolved against
+the current <code class="docutils literal notranslate"><span class="pre">S</span></code> dimension.</p>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
-<dt>New SpikeSliceStack containing only the</dt><dd><p>specified slices. Shape changes from S to S_trimmed. All
-units and neuron_attributes are carried over.</p>
+<dt>New SpikeSliceStack containing only</dt><dd><p>the specified slices in caller-supplied order. Shape
+changes from S to S_trimmed. All units and
+neuron_attributes are carried over.</p>
 </dd>
 </dl>
 </p>
@@ -571,6 +575,15 @@ units and neuron_attributes are carried over.</p>
 <dd class="field-odd"><p>result (<a class="reference internal" href="#spikelab.spikedata.spikeslicestack.SpikeSliceStack" title="spikelab.spikedata.spikeslicestack.SpikeSliceStack">SpikeSliceStack</a>)</p>
 </dd>
 </dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>Previously the input was silently sorted ascending, so
+<code class="docutils literal notranslate"><span class="pre">subslice([2,</span> <span class="pre">0,</span> <span class="pre">1])</span></code> returned <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">1,</span> <span class="pre">2]</span></code> and any
+caller that intended a reordering for plotting or
+concatenation got the wrong layout. The caller-order +
+dedupe behaviour is consistent with the <code class="docutils literal notranslate"><span class="pre">subset(...,</span>
+<span class="pre">preserve_order=True)</span></code> design family.</p></li>
+</ul>
 </dd></dl>
 
 <dl class="py method">

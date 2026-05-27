@@ -1179,11 +1179,44 @@
 
 <span class="c1"># ---------------------------------------------------------------------------</span>
 <span class="c1"># Presets</span>
+<span class="c1">#</span>
+<span class="c1"># Mutation contract for module-level preset instances</span>
+<span class="c1"># ===================================================</span>
+<span class="c1"># The names below (``KILOSORT2``, ``KILOSORT4``, ``RT_SORT_MEA``, …) are</span>
+<span class="c1"># **module-level singletons**. Importing one binds a reference to the</span>
+<span class="c1"># same instance every time:</span>
+<span class="c1">#</span>
+<span class="c1">#     from spikelab.spike_sorting.config import KILOSORT2</span>
+<span class="c1">#     sort_recording(rec, config=KILOSORT2)</span>
+<span class="c1">#</span>
+<span class="c1"># To customise a preset, ALWAYS use ``.override(**kwargs)`` — it</span>
+<span class="c1"># returns a deep copy, so the singleton stays clean for subsequent</span>
+<span class="c1"># callers:</span>
+<span class="c1">#</span>
+<span class="c1">#     custom = KILOSORT2.override(fr_min=0.5, max_runtime_seconds=86_400)</span>
+<span class="c1">#     sort_recording(rec, config=custom)</span>
+<span class="c1">#</span>
+<span class="c1"># Direct in-place mutation of a preset (or any of its nested configs)</span>
+<span class="c1"># is NOT safe. Any of the following bypass the ``override`` contract</span>
+<span class="c1"># and persist across the process — subsequent ``sort_recording`` calls</span>
+<span class="c1"># that import the same preset inherit the mutated state:</span>
+<span class="c1">#</span>
+<span class="c1">#     KILOSORT2.curation.fr_min = 0.5                              # field assign</span>
+<span class="c1">#     KILOSORT2.figures.scatter_recording_colors.append(&quot;#000&quot;)    # list append</span>
+<span class="c1">#     KILOSORT2.rt_sort.params[&quot;stringent_thresh&quot;] = 0.2           # dict assign</span>
+<span class="c1">#</span>
+<span class="c1"># The dataclasses are intentionally not frozen because ``override()``</span>
+<span class="c1"># needs ``setattr`` on the deep-copy result. The contract is therefore</span>
+<span class="c1"># read-only-by-discipline, not read-only-by-enforcement; treat each</span>
+<span class="c1"># imported preset as immutable and reach for ``override`` for any</span>
+<span class="c1"># change you want to make.</span>
 <span class="c1"># ---------------------------------------------------------------------------</span>
 
 <span class="c1">#: Default configuration for Kilosort2.</span>
 <span class="c1">#: Parameters are compatible with Maxwell MEA and other probe types.</span>
 <span class="c1">#: Hardware-specific presets can be created by overriding parameters.</span>
+<span class="c1">#: See the &quot;Mutation contract&quot; comment above this block before</span>
+<span class="c1">#: modifying — use ``.override(...)`` to customise.</span>
 <span class="n">KILOSORT2</span> <span class="o">=</span> <span class="n">SortingPipelineConfig</span><span class="p">()</span>
 
 <span class="c1">#: Kilosort2 with Docker (no local MATLAB needed).</span>

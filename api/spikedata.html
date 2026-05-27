@@ -1592,23 +1592,42 @@ leads unit i. Diagonal is always 0.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="spikelab.spikedata.SpikeData.latencies">
 <span class="sig-name descname"><span class="pre">latencies</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">times</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikedata.html#SpikeData.latencies"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.SpikeData.latencies" title="Link to this definition"></a></dt>
-<dd><p>Compute latencies from each time to the nearest spike per unit.</p>
+<dd><p>Compute latencies from each query time to the nearest spike per unit.</p>
+<p>Tier L-F1: rewrote from the previous O(N_units * N_times *
+N_train) inner loop (per-iteration <code class="docutils literal notranslate"><span class="pre">np.argmin(np.abs(train</span> <span class="pre">-</span>
+<span class="pre">time))</span></code> + redundant <code class="docutils literal notranslate"><span class="pre">np.array(train)</span></code> allocation) to a
+<code class="docutils literal notranslate"><span class="pre">np.searchsorted</span></code>-based vectorisation that is
+O(N_units * (N_times + N_train * log N_train)) — orders of
+magnitude faster on long trains. The return shape also
+changed: a NaN-padded <code class="docutils literal notranslate"><span class="pre">(U,</span> <span class="pre">len(times))</span></code> ndarray instead
+of the previous nested <code class="docutils literal notranslate"><span class="pre">list[list[float]]</span></code>. The new shape
+is information-preserving — <code class="docutils literal notranslate"><span class="pre">arr[u,</span> <span class="pre">i]</span></code> is the signed
+latency from <code class="docutils literal notranslate"><span class="pre">times[i]</span></code> to the nearest spike in unit <code class="docutils literal notranslate"><span class="pre">u</span></code>,
+or <code class="docutils literal notranslate"><span class="pre">NaN</span></code> if that nearest spike is more than <code class="docutils literal notranslate"><span class="pre">window_ms</span></code>
+away. The previous nested-list shape silently dropped the
+time-index correspondence (collapsing out-of-window entries
+produced <code class="docutils literal notranslate"><span class="pre">[lat_t2,</span> <span class="pre">lat_t3]</span></code> with no way to tell which
+query times those corresponded to).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>times</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – List of times.</p></li>
-<li><p><strong>window_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Window in milliseconds (default: 100.0).</p></li>
+<li><p><strong>times</strong> (<em>array-like</em>) – Query times in milliseconds.</p></li>
+<li><p><strong>window_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Latency window in milliseconds; entries
+whose nearest-spike distance exceeds the window are
+returned as <code class="docutils literal notranslate"><span class="pre">NaN</span></code> (default: 100.0).</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
-<dt>2D list, each row is a list of latencies from</dt><dd><p>a time to the nearest spike in the train.</p>
+<dt>Shape <code class="docutils literal notranslate"><span class="pre">(N_units,</span> <span class="pre">len(times))</span></code></dt><dd><p>ndarray of signed latencies (<code class="docutils literal notranslate"><span class="pre">spike_time</span> <span class="pre">-</span> <span class="pre">query_time</span></code>)
+or NaN for out-of-window entries. Empty <code class="docutils literal notranslate"><span class="pre">times</span></code> →
+returns an <code class="docutils literal notranslate"><span class="pre">(N_units,</span> <span class="pre">0)</span></code> array.</p>
 </dd>
 </dl>
 </p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>latencies (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)">list</a>)</p>
+<dd class="field-odd"><p>latencies (np.ndarray)</p>
 </dd>
 </dl>
 </dd></dl>
@@ -1658,22 +1677,29 @@ to unit j.</p>
 <dt class="sig sig-object py" id="spikelab.spikedata.SpikeData.latencies_to_index">
 <span class="sig-name descname"><span class="pre">latencies_to_index</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">i</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikedata.html#SpikeData.latencies_to_index"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.SpikeData.latencies_to_index" title="Link to this definition"></a></dt>
 <dd><p>Compute the latency from one unit to all other units.</p>
+<p>Thin wrapper around <a class="reference internal" href="#spikelab.spikedata.SpikeData.latencies" title="spikelab.spikedata.SpikeData.latencies"><code class="xref py py-meth docutils literal notranslate"><span class="pre">latencies()</span></code></a> that uses unit <code class="docutils literal notranslate"><span class="pre">i</span></code>’s
+spike train as the query times.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>i</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Index of the unit.</p></li>
+<li><p><strong>i</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Index of the reference unit.</p></li>
 <li><p><strong>window_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Window in milliseconds (default: 100.0).</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
-<dt>2D list, each row is a list of latencies per</dt><dd><p>neuron.</p>
+<dt>Shape <code class="docutils literal notranslate"><span class="pre">(N_units,</span> <span class="pre">len(self.train[i]))</span></code></dt><dd><p>float64 ndarray. Entry <code class="docutils literal notranslate"><span class="pre">[u,</span> <span class="pre">k]</span></code> is the signed latency
+from the <code class="docutils literal notranslate"><span class="pre">k</span></code>-th spike of unit <code class="docutils literal notranslate"><span class="pre">i</span></code> to the nearest
+spike of unit <code class="docutils literal notranslate"><span class="pre">u</span></code> (within <code class="docutils literal notranslate"><span class="pre">window_ms</span></code>), or <code class="docutils literal notranslate"><span class="pre">NaN</span></code>
+when no spike of unit <code class="docutils literal notranslate"><span class="pre">u</span></code> falls within the window.
+Row <code class="docutils literal notranslate"><span class="pre">i</span></code> contains zeros where self-latencies match
+exactly.</p>
 </dd>
 </dl>
 </p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>latencies (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)">list</a>)</p>
+<dd class="field-odd"><p>latencies (np.ndarray)</p>
 </dd>
 </dl>
 </dd></dl>
@@ -1794,8 +1820,13 @@ null distributions for statistical testing.</p>
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>n_shuffles</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Number of shuffled datasets to generate.</p></li>
-<li><p><strong>seed</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><em>None</em>) – Base random seed. Each shuffle uses
-<code class="docutils literal notranslate"><span class="pre">seed</span> <span class="pre">+</span> <span class="pre">i</span></code> for reproducibility. None means no seed.</p></li>
+<li><p><strong>seed</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><em>None</em>) – Base random seed. When set, the n
+child seeds are derived via
+<code class="docutils literal notranslate"><span class="pre">np.random.SeedSequence(seed).spawn(n_shuffles)</span></code> so
+that each shuffle gets an entropy-mixed independent
+stream — the same idiomatic pattern
+<code class="docutils literal notranslate"><span class="pre">_rank_order_correlation_from_timing</span></code> uses. None
+means no seed (shuffles non-reproducible).</p></li>
 <li><p><strong>swap_per_spike</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Forwarded to <code class="docutils literal notranslate"><span class="pre">spike_shuffle</span></code>
 (default: 5).</p></li>
 <li><p><strong>bin_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Forwarded to <code class="docutils literal notranslate"><span class="pre">spike_shuffle</span></code> (default: 1).</p></li>
@@ -1812,6 +1843,19 @@ null distributions for statistical testing.</p>
 <dd class="field-odd"><p>stack (<a class="reference internal" href="spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack" title="spikelab.spikedata.spikeslicestack.SpikeSliceStack">SpikeSliceStack</a>)</p>
 </dd>
 </dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>Reproducibility: <code class="docutils literal notranslate"><span class="pre">spike_shuffle_stack(seed=42)</span></code> produces
+identical output across calls. Different seeds produce
+different outputs.</p></li>
+<li><p>Pre-Tier-L the child seeds were <code class="docutils literal notranslate"><span class="pre">seed</span> <span class="pre">+</span> <span class="pre">i</span></code>. Switching
+to <code class="docutils literal notranslate"><span class="pre">SeedSequence.spawn</span></code> produces a different (but
+still deterministic) sequence per seed value — exact
+shuffle values from analysis snapshots pinned to the
+old <code class="docutils literal notranslate"><span class="pre">seed</span> <span class="pre">+</span> <span class="pre">i</span></code> mapping will not bit-exact match the
+new output. Null-distribution properties (the use case)
+are statistically unaffected.</p></li>
+</ul>
 </dd></dl>
 
 <dl class="py method">
