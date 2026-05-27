@@ -698,11 +698,44 @@ class SortingPipelineConfig:
 
 # ---------------------------------------------------------------------------
 # Presets
+#
+# Mutation contract for module-level preset instances
+# ===================================================
+# The names below (``KILOSORT2``, ``KILOSORT4``, ``RT_SORT_MEA``, …) are
+# **module-level singletons**. Importing one binds a reference to the
+# same instance every time:
+#
+#     from spikelab.spike_sorting.config import KILOSORT2
+#     sort_recording(rec, config=KILOSORT2)
+#
+# To customise a preset, ALWAYS use ``.override(**kwargs)`` — it
+# returns a deep copy, so the singleton stays clean for subsequent
+# callers:
+#
+#     custom = KILOSORT2.override(fr_min=0.5, max_runtime_seconds=86_400)
+#     sort_recording(rec, config=custom)
+#
+# Direct in-place mutation of a preset (or any of its nested configs)
+# is NOT safe. Any of the following bypass the ``override`` contract
+# and persist across the process — subsequent ``sort_recording`` calls
+# that import the same preset inherit the mutated state:
+#
+#     KILOSORT2.curation.fr_min = 0.5                              # field assign
+#     KILOSORT2.figures.scatter_recording_colors.append("#000")    # list append
+#     KILOSORT2.rt_sort.params["stringent_thresh"] = 0.2           # dict assign
+#
+# The dataclasses are intentionally not frozen because ``override()``
+# needs ``setattr`` on the deep-copy result. The contract is therefore
+# read-only-by-discipline, not read-only-by-enforcement; treat each
+# imported preset as immutable and reach for ``override`` for any
+# change you want to make.
 # ---------------------------------------------------------------------------
 
 #: Default configuration for Kilosort2.
 #: Parameters are compatible with Maxwell MEA and other probe types.
 #: Hardware-specific presets can be created by overriding parameters.
+#: See the "Mutation contract" comment above this block before
+#: modifying — use ``.override(...)`` to customise.
 KILOSORT2 = SortingPipelineConfig()
 
 #: Kilosort2 with Docker (no local MATLAB needed).
