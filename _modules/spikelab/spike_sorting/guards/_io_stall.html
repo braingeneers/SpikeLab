@@ -531,6 +531,9 @@
     <span class="k">try</span><span class="p">:</span>
         <span class="kn">import</span><span class="w"> </span><span class="nn">psutil</span>
     <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">.._psutil_warn</span><span class="w"> </span><span class="kn">import</span> <span class="n">warn_psutil_missing_once</span>
+
+        <span class="n">warn_psutil_missing_once</span><span class="p">(</span><span class="n">_logger</span><span class="p">,</span> <span class="s2">&quot;I/O stall watchdog&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="kc">None</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="n">partitions</span> <span class="o">=</span> <span class="n">psutil</span><span class="o">.</span><span class="n">disk_partitions</span><span class="p">(</span><span class="nb">all</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
@@ -603,6 +606,9 @@
     <span class="k">try</span><span class="p">:</span>
         <span class="kn">import</span><span class="w"> </span><span class="nn">psutil</span>
     <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">.._psutil_warn</span><span class="w"> </span><span class="kn">import</span> <span class="n">warn_psutil_missing_once</span>
+
+        <span class="n">warn_psutil_missing_once</span><span class="p">(</span><span class="n">_logger</span><span class="p">,</span> <span class="s2">&quot;I/O stall watchdog&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="mi">0</span>
 
     <span class="n">total</span> <span class="o">=</span> <span class="mi">0</span>
@@ -698,6 +704,9 @@
     <span class="k">try</span><span class="p">:</span>
         <span class="kn">import</span><span class="w"> </span><span class="nn">psutil</span>
     <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">.._psutil_warn</span><span class="w"> </span><span class="kn">import</span> <span class="n">warn_psutil_missing_once</span>
+
+        <span class="n">warn_psutil_missing_once</span><span class="p">(</span><span class="n">_logger</span><span class="p">,</span> <span class="s2">&quot;I/O stall watchdog&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="kc">None</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="n">counters</span> <span class="o">=</span> <span class="n">psutil</span><span class="o">.</span><span class="n">disk_io_counters</span><span class="p">(</span><span class="n">perdisk</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>

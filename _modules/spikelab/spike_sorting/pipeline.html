@@ -2079,8 +2079,6 @@
 
     <span class="c1"># Set HDF5 plugin path before any recording is loaded (affects all backends)</span>
     <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">recording</span><span class="o">.</span><span class="n">hdf5_plugin_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
-
         <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;HDF5_PLUGIN_PATH&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">recording</span><span class="o">.</span><span class="n">hdf5_plugin_path</span><span class="p">)</span>
 
     <span class="n">backend_cls</span> <span class="o">=</span> <span class="n">get_backend_class</span><span class="p">(</span><span class="n">sorter</span><span class="p">)</span>

@@ -570,6 +570,9 @@
 
         <span class="k">return</span> <span class="n">psutil</span><span class="o">.</span><span class="n">virtual_memory</span><span class="p">()</span><span class="o">.</span><span class="n">available</span> <span class="o">/</span> <span class="n">_GB</span>
     <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">.._psutil_warn</span><span class="w"> </span><span class="kn">import</span> <span class="n">warn_psutil_missing_once</span>
+
+        <span class="n">warn_psutil_missing_once</span><span class="p">(</span><span class="n">_logger</span><span class="p">,</span> <span class="s2">&quot;preflight available-RAM check&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="kc">None</span>
 
 
