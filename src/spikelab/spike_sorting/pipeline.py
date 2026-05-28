@@ -1629,8 +1629,6 @@ def sort_recording(
 
     # Set HDF5 plugin path before any recording is loaded (affects all backends)
     if config.recording.hdf5_plugin_path is not None:
-        import os
-
         os.environ["HDF5_PLUGIN_PATH"] = str(config.recording.hdf5_plugin_path)
 
     backend_cls = get_backend_class(sorter)

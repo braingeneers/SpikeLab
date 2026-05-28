@@ -83,6 +83,9 @@ def _resolve_device_for_path(path: Path) -> Optional[str]:
     try:
         import psutil
     except ImportError:
+        from .._psutil_warn import warn_psutil_missing_once
+
+        warn_psutil_missing_once(_logger, "I/O stall watchdog")
         return None
     try:
         partitions = psutil.disk_partitions(all=False)
@@ -155,6 +158,9 @@ def _read_io_bytes_for_pids(
     try:
         import psutil
     except ImportError:
+        from .._psutil_warn import warn_psutil_missing_once
+
+        warn_psutil_missing_once(_logger, "I/O stall watchdog")
         return None, 0
 
     total = 0
@@ -250,6 +256,9 @@ def _read_io_bytes(device: str) -> Optional[int]:
     try:
         import psutil
     except ImportError:
+        from .._psutil_warn import warn_psutil_missing_once
+
+        warn_psutil_missing_once(_logger, "I/O stall watchdog")
         return None
     try:
         counters = psutil.disk_io_counters(perdisk=True)

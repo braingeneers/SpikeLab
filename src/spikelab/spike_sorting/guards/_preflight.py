@@ -119,6 +119,9 @@ def _available_ram_gb() -> Optional[float]:
 
         return psutil.virtual_memory().available / _GB
     except ImportError:
+        from .._psutil_warn import warn_psutil_missing_once
+
+        warn_psutil_missing_once(_logger, "preflight available-RAM check")
         return None
 
 
