@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "spikelab"
-version = "0.1.1"
+version = "0.1.2"
 description = "Python library for agentic spike train analysis of neural electrophysiology data"
 readme = "README.md"
 license = {text = "MIT"}
@@ -58,6 +58,15 @@ include = ["spikelab*"]
 [tool.setuptools.package-data]
 spikelab = ["agent/skills/**/*", "batch_jobs/profiles/*.yaml", "batch_jobs/templates/*.j2"]
 
+# Maintenance contract:
+#   environment.yml mirrors the popular extras documented in
+#   .claude/skills/spikelab/INSTALL.md (the "Option A — Conda" path):
+#   [ml], [neo], [mcp], [s3], [io], [dev], [docs], [ibl].
+#   When you add to or modify any of those extras, also update
+#   environment.yml so the conda install path stays in sync.
+#   Specialized extras ([spike-sorting], [kilosort4], [batch-jobs],
+#   [gplvm], [numba], [sse]) are NOT mirrored — users layer them via
+#   `pip install -e ".[extra]"` after the conda env is created.
 [project.optional-dependencies]
 dev = [
   "pytest>=7.0",

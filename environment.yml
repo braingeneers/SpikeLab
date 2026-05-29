@@ -1,33 +1,57 @@
+# Conda bootstrap for the "Option A" install path in
+# .claude/skills/spikelab/INSTALL.md. Mirrors the popular extras
+# defined in pyproject.toml: [ml], [neo], [mcp], [s3], [io], [dev],
+# [docs], [ibl]. Specialized extras ([spike-sorting], [kilosort4],
+# [batch-jobs], [gplvm], [numba], [sse]) are NOT preinstalled here —
+# users layer them on top via `pip install -e ".[extra]"` after the
+# env is active.
+#
+# Source of truth for every package version range is pyproject.toml's
+# `[project.optional-dependencies]`. When you change a popular extra
+# there, update the corresponding line here too.
+
 name: spikelab
 channels:
   - conda-forge
   - defaults
 dependencies:
   - python>=3.10
+  # Core dependencies (pyproject [project.dependencies])
   - numpy>=1.20
   - scipy>=1.5
-  - scikit-learn
-  - networkx
   - matplotlib>=3.5
-  - pandas>=1.3
   - h5py>=3.0.0
-  # Install umap from conda so numba/llvmlite are binaries; pip+umap often
-  # builds llvmlite from source and fails (setuptools spawn/dry_run).
+  # [io]
+  - pandas>=1.3
+  # [ml] — binary parts via conda so numba/llvmlite are prebuilt
+  # (pip-built llvmlite frequently fails on Windows / older systems).
+  # The matching [ml] pip-only package (python-louvain) is in the
+  # pip: section below.
+  - scikit-learn>=1.0
+  - networkx>=2.6
   - umap-learn>=0.5.0
   - pip
   - pip:
+    # [ml] (python-louvain — imported as `community`)
+    - python-louvain>=0.16
+    # [mcp]
     - mcp>=0.9.0
+    - pydantic>=2.7
+    - pydantic-settings>=2.3
+    # [s3]
     - boto3>=1.28.0
+    # [neo]
+    - neo>=0.12.0
+    - quantities>=0.14.0
+    - pynwb>=2.0.0
+    # [ibl] — brainwidemap is not on PyPI; install separately for IBL
+    # queries: pip install git+https://github.com/int-brain-lab/paper-brain-wide-map.git
+    - ONE-api>=2.0
+    # [dev]
     - pytest>=7.0
     - pytest-asyncio>=0.21.0
-    - black>=24.0
+    - black==26.3.1
+    # [docs]
     - sphinx>=7.0
     - sphinx-rtd-theme>=2.0
     - sphinx-autodoc-typehints>=1.25
-    # Optional — guarded in source with try/except ImportError
-    - neo>=0.12.0
-    - quantities>=0.14.0
-    - ONE-api>=2.0
-    # brainwidemap is not on PyPI; install manually for IBL queries:
-    #   pip install git+https://github.com/int-brain-lab/paper-brain-wide-map.git
-

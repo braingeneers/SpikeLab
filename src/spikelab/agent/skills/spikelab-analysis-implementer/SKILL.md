@@ -252,3 +252,39 @@ Update this file at the end of every session, not just when explicitly asked. Wr
 - `PairwiseCompMatrixStack` shape is `(N, N, S)`.
 - `RateSliceStack` shape is `(U, T, S)` where U = units, T = time bins, S = slices.
 - `SpikeSliceStack` stores a `list[SpikeData]` of length S (not a single array), but its `to_raster_array()` output is `(U, T, S)`.
+
+---
+
+## Troubleshooting
+
+### Missing optional dependencies
+
+The analyzer uses optional `pyproject.toml` extras for several analyses. If you hit an `ImportError`, install the matching extra inside the active environment (this works inside a conda env created from `environment.yml` too — pip installs cleanly into a conda env).
+
+| Missing module(s) | Extra to install | Used by |
+|---|---|---|
+| `umap`, `sklearn`, `networkx`, `community` | `[ml]` | UMAP embeddings, clustering helpers, Louvain community detection (`python-louvain` imports as `community`) |
+| `neo`, `quantities`, `pynwb` | `[neo]` | Reading `.nwb` files via `neo` / `pynwb` |
+| `one` (or `brainwidemap`) | `[ibl]` (+ `pip install git+https://github.com/int-brain-lab/paper-brain-wide-map.git` for `brainwidemap`) | Querying and loading IBL Brain-Wide Map datasets (`ONE-api` imports as `one`) |
+| `boto3` | `[s3]` | Loading data from S3-compatible stores |
+| `pandas` | `[io]` | Pandas-backed loaders and exporters |
+| `jax`, `jaxlib`, `jaxopt`, `optax`, `poor_man_gplvm` | `[gplvm]` (+ `pip install git+https://github.com/samdeoxys1/poor-man-GPLVM.git` for `poor_man_gplvm`) | Gaussian Process Latent Variable Model fitting |
+| `numba` | `[numba]` | Numba-accelerated kernels |
+
+Install (from a source clone):
+
+```bash
+pip install -e ".[ml]"              # one extra
+pip install -e ".[ml,neo,s3]"       # multiple
+pip install -e ".[all]"             # everything except [kilosort4]
+```
+
+From PyPI:
+
+```bash
+pip install "spikelab[ml]"
+pip install "spikelab[ml,neo,s3]"
+pip install "spikelab[all]"
+```
+
+The complete extras list and their package contents lives in `[project.optional-dependencies]` in `pyproject.toml`.
