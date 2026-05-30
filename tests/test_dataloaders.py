@@ -768,6 +768,604 @@ class TestNWBFileMetadata:
             loaders.load_spikedata_from_nwb(path, prefer_pynwb=True)
 
 
+@skip_no_pynwb
+class TestLoadSpikedataFromDandi:
+    """Tests for ``load_spikedata_from_dandi`` and ``list_dandi_assets``.
+
+    Both functions are stdlib-only; we mock ``urllib.request.urlopen``
+    so the tests don't touch the network. The NWB content stream is a
+    real on-disk pynwb-generated file so the delegation through
+    ``load_spikedata_from_nwb`` is exercised end-to-end.
+    """
+
+    def _fake_urlopen_chain(self, responses):
+        """Build a side-effect function for ``urlopen`` that returns
+        each scripted response in order. Each response is either:
+          * a bytes payload (returned from ``.read()``)
+          * a path to a file on disk (streamed via the chunked-read
+            loop used by the DANDI download helper)
+          * a JSON-serialisable dict (encoded as UTF-8 bytes)
+        """
+        import io
+        import json as _json
+
+        responses = list(responses)
+
+        def _fake(req, timeout=None):
+            if not responses:
+                raise AssertionError("urlopen called more times than scripted")
+            r = responses.pop(0)
+            if isinstance(r, dict):
+                buf = io.BytesIO(_json.dumps(r).encode("utf-8"))
+            elif isinstance(r, (bytes, bytearray)):
+                buf = io.BytesIO(bytes(r))
+            elif isinstance(r, str):
+                buf = io.BytesIO(open(r, "rb").read())
+            else:
+                raise TypeError(f"unexpected response type: {type(r)}")
+
+            class _Ctx:
+                def __enter__(self_inner):
+                    return buf
+
+                def __exit__(self_inner, *exc):
+                    buf.close()
+                    return False
+
+            return _Ctx()
+
+        return _fake
+
+    def test_list_dandi_assets_iterates_pagination(self, tmp_path):
+        """
+        Test that ``list_dandi_assets`` flattens paginated responses
+        into a single iterator.
+
+        Tests:
+            (Method 1) Mocks two pages of API responses.
+            (Method 2) Calls ``list_dandi_assets`` and materialises.
+            (Test Case 1) Total assets equals sum across pages.
+            (Test Case 2) Asset dicts carry expected keys + values.
+            (Test Case 3) Iteration terminates when ``next`` is null.
+        """
+        page1 = {
+            "results": [
+                {
+                    "asset_id": "aaaa1111",
+                    "path": "sub-001/sub-001_ses-1_ecephys.nwb",
+                    "size": 12345,
+                    "contentUrl": ["https://example.org/aaaa1111.nwb"],
+                },
+                {
+                    "asset_id": "bbbb2222",
+                    "path": "sub-001/sub-001_ses-1_metadata.json",
+                    "size": 678,
+                },
+            ],
+            "next": "https://api.example.org/page2",
+        }
+        page2 = {
+            "results": [
+                {
+                    "asset_id": "cccc3333",
+                    "path": "sub-002/sub-002_ses-1_ecephys.nwb",
+                    "size": 999_888,
+                    "contentUrl": "https://example.org/cccc3333.nwb",
+                },
+            ],
+            "next": None,
+        }
+
+        fake = self._fake_urlopen_chain([page1, page2])
+        with patch("urllib.request.urlopen", side_effect=fake):
+            assets = list(loaders.list_dandi_assets("000006", version="draft"))
+
+        assert len(assets) == 3
+        assert assets[0]["asset_id"] == "aaaa1111"
+        assert assets[0]["path"].endswith(".nwb")
+        assert assets[0]["download_url"] == "https://example.org/aaaa1111.nwb"
+        assert assets[0]["dandiset_id"] == "000006"
+        assert assets[0]["version"] == "draft"
+        assert assets[1]["size"] == 678
+        assert assets[2]["download_url"] == "https://example.org/cccc3333.nwb"
+
+    def test_list_dandi_assets_synthesizes_download_url_fallback(self, tmp_path):
+        """
+        Test that ``list_dandi_assets`` synthesizes a canonical download
+        URL when the API response is missing ``contentUrl`` and
+        ``download_url``.
+
+        Tests:
+            (Test Case 1) Asset with neither URL field falls back to
+                ``{api_base}/assets/{id}/download/``.
+        """
+        page = {
+            "results": [
+                {"asset_id": "no-url-asset", "path": "sub-1/x.nwb", "size": 0},
+            ],
+            "next": None,
+        }
+        fake = self._fake_urlopen_chain([page])
+        with patch("urllib.request.urlopen", side_effect=fake):
+            (asset,) = list(loaders.list_dandi_assets("000006"))
+        assert asset["download_url"].endswith("/assets/no-url-asset/download/")
+
+    def test_load_spikedata_from_dandi_delegates_to_nwb_loader(self, tmp_path):
+        """
+        Test end-to-end: detail lookup + download + delegation populates
+        DANDI provenance on metadata and propagates the NWB file-level
+        fields.
+
+        Tests:
+            (Method 1) Build a real NWB fixture on disk, mock the asset
+                detail + download responses to serve its bytes.
+            (Test Case 1) ``sd.metadata['dandi_asset_id']`` matches.
+            (Test Case 2) ``sd.metadata['source_reference']`` is the
+                canonical DANDI URL.
+            (Test Case 3) NWB metadata (identifier, species, etc.)
+                survives the delegation.
+            (Test Case 4) Spike trains round-trip.
+        """
+        nwb_path = str(tmp_path / "fixture.nwb")
+        _write_nwb_metadata_fixture(nwb_path, with_units=True, locations=["VISp"])
+
+        detail = {
+            "asset_id": "asset-xyz",
+            "path": "sub-fix/fixture.nwb",
+            "size": os.path.getsize(nwb_path),
+            "contentUrl": ["https://example.org/asset-xyz/download/"],
+        }
+        fake = self._fake_urlopen_chain([detail, nwb_path])
+
+        download_dir = str(tmp_path / "dl")
+        with patch("urllib.request.urlopen", side_effect=fake):
+            sd = loaders.load_spikedata_from_dandi(
+                "asset-xyz",
+                dandiset_id="000006",
+                version="draft",
+                download_dir=download_dir,
+            )
+
+        assert sd.metadata["dandi_asset_id"] == "asset-xyz"
+        assert sd.metadata["dandi_dandiset_id"] == "000006"
+        assert sd.metadata["dandi_version"] == "draft"
+        assert sd.metadata["source_reference"].startswith("dandi://")
+        assert "000006" in sd.metadata["source_reference"]
+        assert "asset-xyz" in sd.metadata["source_reference"]
+        # File-level metadata from the NWB loader survived delegation.
+        assert sd.metadata["identifier"] == "fixture-uuid-001"
+        assert sd.metadata["species"] == "Mus musculus"
+        assert sd.metadata["sampling_rate_hz"] == 30000.0
+        # Caller-supplied download dir is recorded so consumers can
+        # post-process the bytes (content-hash, blob write, etc.).
+        assert sd.metadata["downloaded_path"].endswith(".nwb")
+        assert os.path.isfile(sd.metadata["downloaded_path"])
+        # Spike trains delegated correctly.
+        assert sd.N == 1
+        assert len(sd.train[0]) == 2  # two spikes per fixture unit
+
+    def test_load_spikedata_from_dandi_temp_dir_cleanup(self, tmp_path):
+        """
+        Test that ``download_dir=None`` uses a temporary directory that
+        is cleaned up after the load (no ``downloaded_path`` recorded).
+
+        Tests:
+            (Test Case 1) ``downloaded_path`` is absent from metadata.
+            (Test Case 2) The load still succeeds end-to-end.
+        """
+        nwb_path = str(tmp_path / "fixture.nwb")
+        _write_nwb_metadata_fixture(nwb_path, with_units=True, locations=["VISp"])
+
+        detail = {
+            "asset_id": "asset-tmp",
+            "path": "x/x.nwb",
+            "size": os.path.getsize(nwb_path),
+            "contentUrl": ["https://example.org/asset-tmp/download/"],
+        }
+        fake = self._fake_urlopen_chain([detail, nwb_path])
+        with patch("urllib.request.urlopen", side_effect=fake):
+            sd = loaders.load_spikedata_from_dandi(
+                "asset-tmp",
+                dandiset_id="000006",
+            )
+
+        assert "downloaded_path" not in sd.metadata
+        assert sd.N == 1
+
+    def test_load_spikedata_from_dandi_accepts_full_url(self, tmp_path):
+        """
+        Test that passing a full URL as ``asset_id`` skips the detail
+        endpoint and downloads directly.
+
+        Tests:
+            (Test Case 1) Detail endpoint is NOT called (only one
+                mocked response is consumed).
+            (Test Case 2) ``dandi_asset_id`` is derived from the URL tail.
+        """
+        nwb_path = str(tmp_path / "fixture.nwb")
+        _write_nwb_metadata_fixture(nwb_path, with_units=True, locations=["VISp"])
+
+        # Only one mocked response — the download. If the loader tried
+        # to fetch a detail page, the fake would raise AssertionError.
+        fake = self._fake_urlopen_chain([nwb_path])
+        with patch("urllib.request.urlopen", side_effect=fake):
+            sd = loaders.load_spikedata_from_dandi(
+                "https://example.org/some/path/asset-url-id",
+            )
+
+        assert sd.metadata["dandi_asset_id"] == "asset-url-id"
+
+    def test_load_spikedata_from_dandi_raw_recording_allow_no_units(self, tmp_path):
+        """
+        Test that a DANDI asset without a Units table loads via
+        ``allow_no_units=True`` and returns ``N=0`` with metadata
+        populated — the "raw recording triage" path.
+
+        Tests:
+            (Test Case 1) ``sd.N`` is 0.
+            (Test Case 2) ``sd.metadata['identifier']`` is populated.
+            (Test Case 3) ``sd.metadata['electrodes_by_channel']`` is
+                populated (raw recordings still have electrodes).
+        """
+        nwb_path = str(tmp_path / "raw.nwb")
+        _write_nwb_metadata_fixture(nwb_path, with_units=False, locations=["VISp"])
+
+        detail = {
+            "asset_id": "raw-asset",
+            "path": "x/raw.nwb",
+            "size": os.path.getsize(nwb_path),
+            "contentUrl": ["https://example.org/raw-asset/download/"],
+        }
+        fake = self._fake_urlopen_chain([detail, nwb_path])
+        with patch("urllib.request.urlopen", side_effect=fake):
+            sd = loaders.load_spikedata_from_dandi(
+                "raw-asset",
+                dandiset_id="000006",
+                allow_no_units=True,
+            )
+
+        assert sd.N == 0
+        assert sd.metadata["identifier"] == "fixture-uuid-001"
+        assert "electrodes_by_channel" in sd.metadata
+
+
+try:  # optional, only needed for load_recording_from_dandi tests
+    from spikeinterface.extractors import NwbRecordingExtractor  # type: ignore  # noqa: F401
+
+    spikeinterface_available = True
+except Exception:  # pragma: no cover
+    spikeinterface_available = False
+
+
+skip_no_spikeinterface = pytest.mark.skipif(
+    not spikeinterface_available,
+    reason="spikeinterface not installed; skipping DANDI recording tests",
+)
+
+
+@skip_no_pynwb
+@skip_no_spikeinterface
+class TestLoadRecordingFromDandi:
+    """Tests for ``load_recording_from_dandi`` (DANDI raw recording →
+    SpikeInterface Zarr).
+
+    Uses the same mocked-urlopen pattern as the spike-data DANDI tests
+    but actually exercises SpikeInterface's NWB extractor + Zarr write
+    end-to-end on a real fixture.
+    """
+
+    def _fake_urlopen_chain(self, responses):
+        """Same helper as TestLoadSpikedataFromDandi.
+
+        Duplicated rather than shared because pytest's class collection
+        doesn't make helper inheritance ergonomic across classes; the
+        helper is small and changes to one shouldn't silently affect
+        the other.
+        """
+        import io
+        import json as _json
+
+        responses = list(responses)
+
+        def _fake(req, timeout=None):
+            if not responses:
+                raise AssertionError("urlopen called more times than scripted")
+            r = responses.pop(0)
+            if isinstance(r, dict):
+                buf = io.BytesIO(_json.dumps(r).encode("utf-8"))
+            elif isinstance(r, (bytes, bytearray)):
+                buf = io.BytesIO(bytes(r))
+            elif isinstance(r, str):
+                buf = io.BytesIO(open(r, "rb").read())
+            else:
+                raise TypeError(f"unexpected response type: {type(r)}")
+
+            class _Ctx:
+                def __enter__(self_inner):
+                    return buf
+
+                def __exit__(self_inner, *exc):
+                    buf.close()
+                    return False
+
+            return _Ctx()
+
+        return _fake
+
+    def test_writes_zarr_and_returns_metadata(self, tmp_path):
+        """
+        Test happy path: download → NwbRecordingExtractor → Zarr write
+        → metadata sidecar.
+
+        Tests:
+            (Test Case 1) ``zarr_path`` is created on disk and contains
+                a SpikeInterface-shaped directory.
+            (Test Case 2) ``recording_metadata.json`` sidecar exists with
+                DANDI provenance + NWB metadata merged.
+            (Test Case 3) Returned dict has expected recording-shape
+                fields (``sampling_rate_hz``, ``n_channels``,
+                ``n_samples``).
+            (Test Case 4) ``downloaded_nwb_path`` absent by default
+                (NWB cleaned up after Zarr write).
+        """
+        nwb_path = str(tmp_path / "fixture.nwb")
+        _write_nwb_metadata_fixture(
+            nwb_path, with_units=False, locations=["VISp", "CA1"]
+        )
+
+        detail = {
+            "asset_id": "raw-asset-zarr",
+            "path": "sub-fix/raw.nwb",
+            "size": os.path.getsize(nwb_path),
+            "contentUrl": ["https://example.org/raw-asset-zarr/download/"],
+        }
+        fake = self._fake_urlopen_chain([detail, nwb_path])
+
+        zarr_dest = str(tmp_path / "out.zarr")
+        with patch("urllib.request.urlopen", side_effect=fake):
+            result = loaders.load_recording_from_dandi(
+                "raw-asset-zarr",
+                zarr_dest,
+                dandiset_id="000999",
+                version="draft",
+            )
+
+        assert os.path.isdir(result["zarr_path"])
+        assert os.path.isfile(result["recording_metadata_path"])
+        assert result["sampling_rate_hz"] == 30000.0
+        assert result["n_channels"] == 2
+        assert result["n_samples"] == 500
+        assert result["duration_seconds"] == pytest.approx(500 / 30000.0)
+        assert result["dandi_asset_id"] == "raw-asset-zarr"
+        assert result["dandi_dandiset_id"] == "000999"
+        assert result["source_reference"].startswith("dandi://")
+        # NWB metadata merged from the fixture.
+        assert result["identifier"] == "fixture-uuid-001"
+        assert result["species"] == "Mus musculus"
+        # NWB cleaned up by default.
+        assert "downloaded_nwb_path" not in result
+        # Sidecar JSON has the same fields.
+        import json as _json
+
+        with open(result["recording_metadata_path"], "r", encoding="utf-8") as fh:
+            sidecar = _json.load(fh)
+        assert sidecar["dandi_asset_id"] == "raw-asset-zarr"
+        assert sidecar["n_channels"] == 2
+        assert sidecar["format"] == "spikeinterface_zarr"
+
+    def test_keep_nwb_preserves_source_file(self, tmp_path):
+        """
+        Test ``keep_nwb=True`` leaves the downloaded NWB on disk and
+        records the path in the return dict.
+
+        Tests:
+            (Test Case 1) ``downloaded_nwb_path`` present in result.
+            (Test Case 2) The path resolves to an existing file.
+        """
+        nwb_path = str(tmp_path / "fixture.nwb")
+        _write_nwb_metadata_fixture(nwb_path, with_units=False, locations=["VISp"])
+
+        download_dir = str(tmp_path / "dl")
+        detail = {
+            "asset_id": "keep-asset",
+            "path": "x/keep.nwb",
+            "size": os.path.getsize(nwb_path),
+            "contentUrl": ["https://example.org/keep-asset/download/"],
+        }
+        fake = self._fake_urlopen_chain([detail, nwb_path])
+
+        zarr_dest = str(tmp_path / "out2.zarr")
+        with patch("urllib.request.urlopen", side_effect=fake):
+            result = loaders.load_recording_from_dandi(
+                "keep-asset",
+                zarr_dest,
+                dandiset_id="000999",
+                download_dir=download_dir,
+                keep_nwb=True,
+            )
+
+        assert "downloaded_nwb_path" in result
+        assert os.path.isfile(result["downloaded_nwb_path"])
+
+    def test_existing_zarr_dest_raises_without_overwrite(self, tmp_path):
+        """
+        Test that an existing target Zarr dir raises ``FileExistsError``
+        when ``overwrite=False`` (the safe default).
+
+        Tests:
+            (Test Case 1) FileExistsError raised.
+            (Test Case 2) Existing dir is untouched.
+        """
+        zarr_dest = tmp_path / "out3.zarr"
+        zarr_dest.mkdir()
+        sentinel = zarr_dest / "DO_NOT_DELETE.txt"
+        sentinel.write_text("keep me", encoding="utf-8")
+
+        with pytest.raises(FileExistsError):
+            loaders.load_recording_from_dandi(
+                "irrelevant-asset",
+                str(zarr_dest),
+                dandiset_id="000999",
+                overwrite=False,
+            )
+
+        assert sentinel.is_file()
+        assert sentinel.read_text(encoding="utf-8") == "keep me"
+
+
+class TestIBLMetadataHelpers:
+    """Tests for the private IBL metadata helpers ``_ibl_collect_session_metadata``
+    and ``_ibl_collect_channels``.
+
+    The helpers wrap REST + ONE calls in best-effort try/except blocks
+    so analysis pipelines don't crash on network failures or schema
+    drift. We mock the ``one`` object surface they touch — full IBL
+    integration tests require live ONE access which CI doesn't have.
+    """
+
+    def test_collect_session_metadata_merges_session_subject_insertion(self):
+        """
+        Test that session + subject + insertion data merge into one
+        flat dict with NWB-aligned keys.
+
+        Tests:
+            (Test Case 1) Session fields map to expected dst keys.
+            (Test Case 2) Subject details (a second REST call) merge.
+            (Test Case 3) Insertion json coords surface as
+                ``insertion_*`` fields.
+        """
+        one = MagicMock()
+        one.alyx.rest.side_effect = [
+            # sessions/read response
+            {
+                "start_time": "2024-01-01T12:00:00Z",
+                "end_time": "2024-01-01T13:00:00Z",
+                "lab": "cortexlab",
+                "task_protocol": "_iblrig_tasks_ephysChoiceWorld6.4.0",
+                "project": "ibl_neuropixel_brainwide_01",
+                "number": 3,
+                "procedures": ["behavior_training_3A"],
+                "qc": "PASS",
+                "subject": "SWC_054",
+            },
+            # subjects/read response
+            {
+                "species": "Mus musculus",
+                "sex": "M",
+                "birth_date": "2023-09-01",
+                "age_weeks": 16.0,
+                "strain": "C57BL/6J",
+                "genotype": "DAT-Cre",
+                "responsible_user": "lab_member_1",
+            },
+            # insertions/read response
+            {
+                "name": "probe00",
+                "model": "NEUROPIXEL_1.0",
+                "json": {"x": 1500.0, "y": -2300.0, "z": 0.0, "depth": 3000.0},
+            },
+        ]
+
+        md = loaders._ibl_collect_session_metadata(one, eid="eid-1", pid="pid-1")
+
+        assert md["session_start_time"] == "2024-01-01T12:00:00Z"
+        assert md["lab"] == "cortexlab"
+        assert md["task_protocol"].startswith("_iblrig_tasks_ephysChoiceWorld")
+        assert md["session_number"] == 3
+        assert md["procedures"] == ["behavior_training_3A"]
+        assert md["subject_id"] == "SWC_054"
+        assert md["species"] == "Mus musculus"
+        assert md["strain"] == "C57BL/6J"
+        assert md["probe_name"] == "probe00"
+        assert md["probe_model"] == "NEUROPIXEL_1.0"
+        assert md["insertion_x"] == 1500.0
+        assert md["insertion_depth"] == 3000.0
+
+    def test_collect_session_metadata_swallows_partial_failures(self):
+        """
+        Test that an exception on any individual REST call leaves the
+        corresponding fields absent without raising upward.
+
+        Tests:
+            (Test Case 1) Session call fails → subject + insertion keys
+                still surface from the surviving calls. Subject lookup
+                is skipped (it depends on session.subject), so subject
+                fields stay absent.
+            (Test Case 2) Returned dict has only insertion fields.
+        """
+        one = MagicMock()
+        one.alyx.rest.side_effect = [
+            Exception("alyx session 502"),
+            # session_subject path doesn't fire (session failed)
+            # → next call is the insertion read
+            {"name": "probe01", "model": "NEUROPIXEL_2.0", "json": {}},
+        ]
+
+        md = loaders._ibl_collect_session_metadata(one, eid="eid-x", pid="pid-x")
+
+        assert "subject_id" not in md
+        assert "lab" not in md
+        assert md["probe_name"] == "probe01"
+        assert md["probe_model"] == "NEUROPIXEL_2.0"
+
+    def test_collect_channels_returns_empty_on_load_failure(self):
+        """
+        Test that ``_ibl_collect_channels`` returns an empty dict when
+        every candidate collection raises on ``load_object``.
+
+        Tests:
+            (Test Case 1) Empty dict, no exception.
+        """
+        one = MagicMock()
+        one.load_object.side_effect = ValueError("no channels here")
+        out = loaders._ibl_collect_channels(one, "eid", ["alf/probe00", "alf"])
+        assert out == {}
+
+    def test_collect_channels_projects_onto_nwb_shape(self):
+        """
+        Test that a successful channels load produces an
+        ``electrodes_by_channel`` dict matching the NWB shape.
+
+        Tests:
+            (Test Case 1) Per-channel ``location`` is the Allen acronym.
+            (Test Case 2) ``atlas_id`` is the integer Allen Structure ID.
+            (Test Case 3) ``x/y/z`` are ML/AP/DV from ``mlapdv``.
+            (Test Case 4) ``raw_index`` is preserved.
+        """
+        one = MagicMock()
+        # Build a channels object with the shape ONE returns.
+        channels = MagicMock()
+        channels.acronym = np.array(["VISp5", "VISp5", "CA1"], dtype=object)
+        channels.atlas_id = np.array([778, 778, 382])
+        channels.mlapdv = np.array(
+            [
+                [1.5, -2.3, 0.5],
+                [1.6, -2.4, 0.6],
+                [1.7, -2.5, 0.7],
+            ]
+        )
+        channels.localCoordinates = np.array(
+            [
+                [20.0, 0.0],
+                [20.0, 20.0],
+                [20.0, 40.0],
+            ]
+        )
+        channels.rawInd = np.array([100, 101, 102])
+
+        one.load_object.return_value = channels
+        out = loaders._ibl_collect_channels(one, "eid", ["alf/probe00"])
+
+        assert set(out.keys()) == {0, 1, 2}
+        assert out[0]["location"] == "VISp5"
+        assert out[0]["atlas_id"] == 778
+        assert out[0]["x"] == 1.5
+        assert out[0]["z"] == 0.5
+        assert out[2]["location"] == "CA1"
+        assert out[2]["atlas_id"] == 382
+        assert out[2]["raw_index"] == 102
+
+
 class TestKiloSortAndSpikeInterface:
     """Tests for KiloSort and SpikeInterface loaders."""
 

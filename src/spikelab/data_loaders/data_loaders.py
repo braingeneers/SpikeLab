@@ -18,6 +18,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Dict, List, Mapping, Optional, Sequence, Tuple, Union
 
+import json
 import os
 import re
 import warnings
@@ -48,6 +49,9 @@ __all__ = [
     "load_spikedata_from_pickle",
     "load_spikedata_from_ibl",
     "query_ibl_probes",
+    "load_spikedata_from_dandi",
+    "list_dandi_assets",
+    "load_recording_from_dandi",
     "load_spikedata_from_spikelab_sorted_npz",
 ]
 
@@ -2000,15 +2004,43 @@ def load_spikedata_from_ibl(
 
     Returns:
         sd (SpikeData): Loaded spike train data.
-            ``neuron_attributes`` contains
-            ``{"region": <Beryl atlas region>}`` per unit.
-            ``metadata`` contains ``eid``, ``pid``, ``n_trials``,
-            ``trial_start_times``, ``trial_end_times``,
-            ``stim_on_times``, ``stim_off_times``, ``go_cue_times``,
-            ``response_times``, ``feedback_times``,
-            ``first_movement_times``, ``choice``, ``feedback_type``,
-            ``contrast_left``, ``contrast_right``, and
-            ``probability_left``. All time arrays are in milliseconds.
+            ``neuron_attributes`` carries the Beryl region per unit plus,
+            when the Brain-Wide Map table provides them, Allen acronym
+            and atlas_id, the Cosmos parcellation parent, and per-unit
+            QC fields (``firing_rate``, ``presence_ratio``,
+            ``amp_median``, ``contamination``, ``drift``,
+            ``noise_cutoff``, ``cluster_id``).
+            ``metadata`` carries:
+              * Existing trial fields: ``eid``, ``pid``, ``n_trials``,
+                ``trial_start_times``, ``trial_end_times``,
+                ``stim_on_times``, ``stim_off_times``, ``go_cue_times``,
+                ``response_times``, ``feedback_times``,
+                ``first_movement_times``, ``choice``, ``feedback_type``,
+                ``contrast_left``, ``contrast_right``, ``probability_left``.
+              * File-level identification: ``identifier`` (= eid),
+                ``format`` (``"IBL"``), ``unit_count``,
+                ``sampling_rate_hz`` (when present on the spikes
+                object), ``duration_seconds``.
+              * Session metadata (best-effort, one extra REST call):
+                ``session_start_time``, ``session_end_time``, ``lab``,
+                ``task_protocol``, ``project``, ``session_number``,
+                ``procedures``, ``qc``.
+              * Subject metadata (same REST chain):
+                ``subject_id``, ``species``, ``sex``, ``date_of_birth``,
+                ``age_weeks``, ``strain``, ``genotype``,
+                ``responsible_user``.
+              * Probe insertion (best-effort REST call):
+                ``probe_name``, ``probe_model``, and ``insertion_*``
+                coordinates for any of {x, y, z, theta, phi, depth}
+                present.
+              * ``electrodes_by_channel`` (best-effort
+                ``one.load_object("channels")`` call): per-channel
+                ``location`` (Allen acronym), ``atlas_id`` (Allen
+                Structure ID), ``x``/``y``/``z`` (ML/AP/DV in mm),
+                ``local_x``/``local_y`` (probe-relative, μm),
+                ``raw_index``. Key shape matches the NWB loader's
+                ``electrodes_by_channel`` for cross-format consumers.
+            All time arrays are in milliseconds.
 
     Notes:
         - Requires ``one-api`` and ``brainwidemap`` packages (optional dependencies).
@@ -2018,6 +2050,10 @@ def load_spikedata_from_ibl(
           inferred from the PID suffix; falls back through
           ``alf/probe00/pykilosort``, ``alf/probe01/pykilosort``, and
           ``alf``.
+        - Session, subject, insertion, and channels lookups are
+          best-effort. A failure on any of them yields an absent
+          metadata field rather than raising — the spike-train load
+          succeeds as long as the units table is reachable.
     """
     try:
         from one.api import ONE  # type: ignore
@@ -2100,13 +2136,51 @@ def load_spikedata_from_ibl(
     # Build per-unit spike trains (seconds → milliseconds).
     spike_trains: List[np.ndarray] = []
     neuron_attributes: List[dict] = []
+    # Per-unit QC + Allen-precise region fields, copied from the
+    # Brain-Wide Map unit table when present. Only columns that exist
+    # are copied so future bwm_units schema changes don't break the
+    # loader.
+    _IBL_PER_UNIT_COPY = (
+        ("acronym", "acronym"),  # Allen acronym
+        ("atlas_id", "atlas_id"),  # Allen Structure ID
+        ("Cosmos", "cosmos"),  # Cosmos parcellation parent
+        ("firing_rate", "firing_rate"),
+        ("presence_ratio", "presence_ratio"),
+        ("amp_median", "amp_median"),
+        ("contamination", "contamination"),
+        ("drift", "drift"),
+        ("noise_cutoff", "noise_cutoff"),
+        ("cluster_id", "cluster_id"),
+    )
     for _, unit in good_units.iterrows():
         if spikes is None:
             spike_trains.append(np.array([], dtype=float))
         else:
             mask = spikes["clusters"] == unit["cluster_id"]
             spike_trains.append(spikes["times"][mask] * 1_000.0)
-        neuron_attributes.append({"region": unit["Beryl"]})
+        attr: dict = {"region": unit["Beryl"]}  # Beryl region (existing)
+        for src_col, dst_key in _IBL_PER_UNIT_COPY:
+            if src_col in good_units.columns:
+                try:
+                    val = unit[src_col]
+                except KeyError:
+                    continue
+                # Skip NaN / pandas-NA without depending on pandas being
+                # imported here (the IBL function already requires it
+                # transitively, but be defensive).
+                if val is None:
+                    continue
+                if hasattr(val, "item"):
+                    try:
+                        val = val.item()
+                    except (TypeError, ValueError):
+                        pass
+                # Filter NaN floats (pandas often emits these for
+                # missing values in float columns).
+                if isinstance(val, float) and val != val:  # NaN check
+                    continue
+                attr[dst_key] = val
+        neuron_attributes.append(attr)
 
     # Infer session length from the largest spike time if not provided.
     if length_ms is None:
@@ -2162,12 +2236,818 @@ def load_spikedata_from_ibl(
         "probability_left": _to_array("probabilityLeft"),
     }
 
+    # File-level identification + counts (Tier 2 — free, from already-
+    # loaded data). ``identifier`` parallels NWB so downstream consumers
+    # can read the same key across loaders.
+    metadata["identifier"] = eid
+    metadata["format"] = "IBL"
+    metadata["unit_count"] = int(len(good_units))
+    if length_ms is not None:
+        metadata["duration_seconds"] = float(length_ms) / 1_000.0
+    if spikes is not None:
+        sr = getattr(spikes, "sampling_rate", None)
+        if sr is not None:
+            try:
+                metadata["sampling_rate_hz"] = float(sr)
+            except (TypeError, ValueError):
+                pass
+
+    # Session + subject + probe-insertion metadata (Tier 1 — two extra
+    # cached REST queries). Wrapped in best-effort helper so a failed
+    # Alyx request doesn't crash the spike-train load.
+    metadata.update(_ibl_collect_session_metadata(one, eid, pid))
+
+    # Per-channel Allen acronym + atlas_id + 3D coords (Tier 3 — one
+    # extra cached ONE.load_object call). Empty dict when the channels
+    # object isn't available for any of the probe collections.
+    electrodes = _ibl_collect_channels(one, eid, ordered_collections)
+    if electrodes:
+        metadata["electrodes_by_channel"] = electrodes
+
     return _build_spikedata(
         spike_trains,
         length_ms=length_ms,
         metadata=metadata,
         neuron_attributes=neuron_attributes,
     )
+
+
+def _ibl_collect_session_metadata(one, eid: str, pid: str) -> Dict[str, object]:
+    """Best-effort gather of IBL session + subject + probe-insertion
+    metadata via the Alyx REST API.
+
+    Every individual query is wrapped — a failure (network blip,
+    permissions, schema drift) yields an absent field rather than
+    crashing the spike-train load. Returns a dict containing whichever
+    fields could be resolved.
+
+    Keys populated (all optional):
+      * Session: ``session_start_time``, ``session_end_time``, ``lab``,
+        ``task_protocol``, ``project``, ``session_number``, ``procedures``,
+        ``qc``.
+      * Subject (one REST call away from session): ``subject_id``,
+        ``species`` (typically ``"Mus musculus"`` for IBL),
+        ``sex``, ``date_of_birth``, ``age_weeks``, ``strain``,
+        ``genotype``, ``responsible_user``.
+      * Probe insertion: ``probe_name``, ``probe_model``, and
+        ``insertion_*`` for any of {x, y, z, theta, phi, depth}
+        present in the insertion's free-form json.
+    """
+    md: Dict[str, object] = {}
+
+    # Session
+    sess = None
+    try:
+        sess = one.alyx.rest("sessions", "read", id=eid)
+    except Exception:
+        sess = None
+    if isinstance(sess, dict):
+        for src_key, dst_key in (
+            ("start_time", "session_start_time"),
+            ("end_time", "session_end_time"),
+            ("lab", "lab"),
+            ("task_protocol", "task_protocol"),
+            ("project", "project"),
+            ("number", "session_number"),
+            ("procedures", "procedures"),
+            ("qc", "qc"),
+        ):
+            val = sess.get(src_key)
+            if val is not None:
+                md[dst_key] = val
+
+        # Subject — Alyx returns the subject as a nickname string on
+        # session records. A second REST query fetches the full subject
+        # detail.
+        subj = sess.get("subject")
+        if isinstance(subj, str) and subj:
+            md["subject_id"] = subj
+            subj_data = None
+            try:
+                subj_data = one.alyx.rest("subjects", "read", id=subj)
+            except Exception:
+                subj_data = None
+            if isinstance(subj_data, dict):
+                for src_key, dst_key in (
+                    ("species", "species"),
+                    ("sex", "sex"),
+                    ("birth_date", "date_of_birth"),
+                    ("age_weeks", "age_weeks"),
+                    ("strain", "strain"),
+                    ("genotype", "genotype"),
+                    ("responsible_user", "responsible_user"),
+                ):
+                    val = subj_data.get(src_key)
+                    if val is not None:
+                        md[dst_key] = val
+
+    # Probe insertion
+    ins = None
+    try:
+        ins = one.alyx.rest("insertions", "read", id=pid)
+    except Exception:
+        ins = None
+    if isinstance(ins, dict):
+        if ins.get("name"):
+            md["probe_name"] = ins["name"]
+        if ins.get("model"):
+            md["probe_model"] = ins["model"]
+        ij = ins.get("json")
+        if isinstance(ij, dict):
+            for key in ("x", "y", "z", "theta", "phi", "depth"):
+                v = ij.get(key)
+                if v is not None:
+                    md[f"insertion_{key}"] = v
+
+    return md
+
+
+def _ibl_collect_channels(
+    one, eid: str, ordered_collections: List[str]
+) -> Dict[int, dict]:
+    """Best-effort load of the IBL ``channels`` object and projection
+    onto a NWB-style ``electrodes_by_channel`` dict.
+
+    Returns ``{channel_id (int): {"location" (Allen acronym),
+    "atlas_id" (Allen Structure ID), "x"/"y"/"z" (ML/AP/DV in mm),
+    "local_x"/"local_y" (probe-relative, micrometres), "raw_index"}}``.
+    Empty dict when none of the probe collections yield a channels
+    object.
+
+    Key names match the NWB loader's ``electrodes_by_channel`` shape so
+    downstream consumers (ingestion mappers, analysis pipelines) read
+    the same fields across formats. ``location`` carries the Allen
+    acronym for IBL — analogous to the textual region NWB writes in the
+    electrodes table's ``location`` column.
+    """
+    channels = None
+    for candidate in ordered_collections:
+        try:
+            channels = one.load_object(eid, "channels", collection=candidate)
+            break
+        except (ValueError, KeyError, FileNotFoundError):
+            continue
+    if channels is None:
+        return {}
+
+    acronyms = getattr(channels, "acronym", None)
+    atlas_ids = getattr(channels, "atlas_id", None)
+    mlapdv = getattr(channels, "mlapdv", None)
+    local_coords = getattr(channels, "localCoordinates", None)
+    raw_inds = getattr(channels, "rawInd", None)
+
+    # Pick the largest length across the per-attribute arrays as the
+    # channel count; this is robust to any one attribute being absent.
+    n = 0
+    for arr in (acronyms, atlas_ids, raw_inds):
+        try:
+            n = max(n, len(arr))  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            pass
+    if mlapdv is not None:
+        try:
+            n = max(n, int(mlapdv.shape[0]))
+        except (TypeError, ValueError, IndexError, AttributeError):
+            pass
+    if local_coords is not None:
+        try:
+            n = max(n, int(local_coords.shape[0]))
+        except (TypeError, ValueError, IndexError, AttributeError):
+            pass
+    if n == 0:
+        return {}
+
+    out: Dict[int, dict] = {}
+    for i in range(n):
+        entry: Dict[str, object] = {}
+        if acronyms is not None:
+            try:
+                entry["location"] = str(acronyms[i])
+            except (IndexError, TypeError, ValueError):
+                pass
+        if atlas_ids is not None:
+            try:
+                entry["atlas_id"] = int(atlas_ids[i])
+            except (IndexError, TypeError, ValueError):
+                pass
+        if mlapdv is not None:
+            try:
+                entry["x"] = float(mlapdv[i, 0])  # ML
+                entry["y"] = float(mlapdv[i, 1])  # AP
+                entry["z"] = float(mlapdv[i, 2])  # DV
+            except (IndexError, TypeError, ValueError, AttributeError):
+                pass
+        if local_coords is not None:
+            try:
+                entry["local_x"] = float(local_coords[i, 0])
+                entry["local_y"] = float(local_coords[i, 1])
+            except (IndexError, TypeError, ValueError, AttributeError):
+                pass
+        if raw_inds is not None:
+            try:
+                entry["raw_index"] = int(raw_inds[i])
+            except (IndexError, TypeError, ValueError):
+                pass
+        out[i] = entry
+    return out
+
+
+# ----------------------------
+# DANDI Archive
+# ----------------------------
+
+#: DANDI Archive REST API base URL. Public dandisets are readable without
+#: auth; embargoed dandisets need ``DANDI_API_TOKEN`` in the env.
+_DANDI_API_BASE = "https://api.dandiarchive.org/api"
+
+#: Default page size used by :func:`list_dandi_assets`.
+_DANDI_DEFAULT_PAGE_SIZE = 100
+
+
+def _dandi_json_get(
+    url: str,
+    *,
+    api_token: Optional[str] = None,
+    timeout_seconds: float = 30.0,
+) -> dict:
+    """GET ``url`` and decode JSON. Adds optional bearer auth.
+
+    Used by both the asset listing and asset detail endpoints. Caller
+    is responsible for retries — DANDI's API is generally reliable
+    enough that a single attempt is fine for most workflows.
+    """
+    import urllib.request as _ur
+
+    req = _ur.Request(url)
+    req.add_header("Accept", "application/json")
+    if api_token:
+        req.add_header("Authorization", f"token {api_token}")
+    with _ur.urlopen(req, timeout=timeout_seconds) as resp:  # noqa: S310
+        return json.loads(resp.read().decode("utf-8"))
+
+
+def _dandi_download_asset(
+    download_url: str,
+    dest: str,
+    *,
+    api_token: Optional[str] = None,
+    timeout_seconds: float = 600.0,
+) -> str:
+    """Stream a DANDI asset to ``dest``.
+
+    Uses ``urlopen`` + a 1-MiB read loop so the per-request timeout
+    applies to the whole download, not just the header exchange. NWB
+    assets on DANDI range from MB to multi-GB; the default 10-minute
+    timeout covers ~50 GB at 100 Mbps.
+    """
+    import urllib.request as _ur
+
+    req = _ur.Request(download_url)
+    if api_token:
+        req.add_header("Authorization", f"token {api_token}")
+    with _ur.urlopen(req, timeout=timeout_seconds) as resp:  # noqa: S310
+        with open(dest, "wb") as fh:
+            while True:
+                chunk = resp.read(1 << 20)  # 1 MiB
+                if not chunk:
+                    break
+                fh.write(chunk)
+    return dest
+
+
+def list_dandi_assets(
+    dandiset_id: str,
+    *,
+    version: str = "draft",
+    path_glob: Optional[str] = None,
+    api_token: Optional[str] = None,
+    api_base: str = _DANDI_API_BASE,
+    page_size: int = _DANDI_DEFAULT_PAGE_SIZE,
+    request_timeout_seconds: float = 30.0,
+):
+    """Yield assets in a DANDI dandiset version.
+
+    Parameters:
+        dandiset_id (str): Six-digit DANDI identifier (e.g. ``"000006"``).
+            Leading zeros matter.
+        version (str): Dandiset version. ``"draft"`` (default) is the
+            in-progress version; published versions are tagged like
+            ``"0.231012.0"``.
+        path_glob (str | None): Optional ``glob`` pattern (e.g.
+            ``"*.nwb"``) the API filters on server-side. Cheaper than
+            client-side filtering when most assets aren't of interest.
+        api_token (str | None): Personal access token. Required for
+            embargoed dandisets. Defaults to the ``DANDI_API_TOKEN``
+            env var when not supplied; public dandisets work without one.
+        api_base (str): API root. Override for staging or self-hosted DANDI.
+        page_size (int): Per-page result count. Default 100 — the
+            iterator pages internally, so this only affects request
+            granularity.
+        request_timeout_seconds (float): Per-request timeout.
+
+    Yields:
+        dict: One asset per yielded value, with keys:
+            ``asset_id`` (str, UUID), ``path`` (str, dandiset-relative),
+            ``size`` (int, bytes), ``download_url`` (str),
+            ``dandiset_id`` (str), ``version`` (str).
+
+    Notes:
+        Pagination is handled transparently — caller iterates without
+        worrying about ``next_page``. Large dandisets can have
+        thousands of assets, so consumers should consume the iterator
+        lazily rather than materialising the full list.
+    """
+    import urllib.parse as _urlparse
+
+    if api_token is None:
+        api_token = os.environ.get("DANDI_API_TOKEN")
+
+    params = {"page_size": str(page_size)}
+    if path_glob:
+        params["glob"] = path_glob
+    url = (
+        f"{api_base.rstrip('/')}/dandisets/{dandiset_id}/versions/"
+        f"{version}/assets/?{_urlparse.urlencode(params)}"
+    )
+    while url:
+        payload = _dandi_json_get(
+            url, api_token=api_token, timeout_seconds=request_timeout_seconds
+        )
+        for entry in payload.get("results") or ():
+            asset_id = str(entry.get("asset_id") or entry.get("identifier") or "")
+            path = str(entry.get("path") or "")
+            size_raw = entry.get("size") or 0
+            try:
+                size = int(size_raw)
+            except (TypeError, ValueError):
+                size = 0
+            content_urls = entry.get("contentUrl") or entry.get("contentUrls") or ()
+            if isinstance(content_urls, str):
+                content_urls = [content_urls]
+            download_url = (
+                entry.get("download_url")
+                or (content_urls[0] if content_urls else "")
+                or f"{api_base.rstrip('/')}/assets/{asset_id}/download/"
+            )
+            yield {
+                "asset_id": asset_id,
+                "path": path,
+                "size": size,
+                "download_url": str(download_url),
+                "dandiset_id": dandiset_id,
+                "version": version,
+            }
+        url = payload.get("next") or ""
+
+
+def load_spikedata_from_dandi(
+    asset_id: str,
+    *,
+    dandiset_id: Optional[str] = None,
+    version: str = "draft",
+    download_dir: Optional[str] = None,
+    api_token: Optional[str] = None,
+    api_base: str = _DANDI_API_BASE,
+    request_timeout_seconds: float = 30.0,
+    download_timeout_seconds: float = 600.0,
+    allow_no_units: bool = False,
+    length_ms: Optional[float] = None,
+    start_time_ms: Optional[float] = None,
+) -> SpikeData:
+    """Download one DANDI NWB asset and load it as a :class:`SpikeData`.
+
+    Resolves the asset's download URL via DANDI's asset-detail endpoint
+    (or accepts a direct URL when ``asset_id`` looks like one), streams
+    the bytes to disk, then delegates to :func:`load_spikedata_from_nwb`
+    for the actual NWB parsing. DANDI provenance fields are added to
+    ``SpikeData.metadata``.
+
+    Parameters:
+        asset_id (str): Either a DANDI asset UUID (the
+            ``asset_id`` field from :func:`list_dandi_assets`) or a
+            fully-qualified asset download URL.
+        dandiset_id (str | None): Owning dandiset id (e.g. ``"000006"``).
+            Used to build the ``source_reference`` provenance string;
+            optional when only the asset_id is known.
+        version (str): Dandiset version. Recorded on metadata.
+        download_dir (str | None): Directory the downloaded file lives
+            in. When ``None``, a :class:`tempfile.TemporaryDirectory`
+            is used and the file is deleted after the load. When a
+            path is supplied, the directory is created if needed and
+            the file is kept — caller manages cleanup. The file path
+            is then recorded on ``SpikeData.metadata`` as
+            ``downloaded_path``.
+        api_token (str | None): Personal access token. Required for
+            embargoed dandisets. Defaults to the ``DANDI_API_TOKEN``
+            env var when not supplied.
+        api_base (str): API root override.
+        request_timeout_seconds (float): Per-API-call timeout (asset
+            detail lookup, etc.).
+        download_timeout_seconds (float): Per-download timeout. Default
+            10 min covers ~50 GB at 100 Mbps; raise for very large
+            assets on slow links.
+        allow_no_units (bool): Passed through to
+            :func:`load_spikedata_from_nwb`. ``True`` lets metadata-
+            only callers load files without a Units table.
+        length_ms (float | None): Passed through.
+        start_time_ms (float | None): Passed through.
+
+    Returns:
+        sd (SpikeData): Loaded spike data. ``sd.metadata`` carries all
+            the keys :func:`load_spikedata_from_nwb` populates, plus
+            DANDI-specific fields: ``dandi_asset_id``,
+            ``dandi_dandiset_id`` (when ``dandiset_id`` is provided),
+            ``dandi_version``, ``source_reference`` (DANDI URL),
+            ``downloaded_path`` (only when ``download_dir`` is supplied).
+
+    Raises:
+        urllib.error.URLError: On network / HTTP failure.
+        ValueError / ImportError: From the delegated NWB load.
+
+    Notes:
+        Public dandisets work without authentication. Embargoed
+        dandisets need a personal access token (Account → My Tokens on
+        dandiarchive.org). Streaming download keeps memory bounded
+        independent of asset size; on-disk space proportional to the
+        file is required.
+
+        DANDI also hosts raw recordings (NWB files with an
+        ``ElectricalSeries`` acquisition but no ``Units`` table). This
+        loader does NOT materialise the raw voltage traces — the
+        function name signals "spike data only". For metadata triage
+        on raw assets, pass ``allow_no_units=True``: the returned
+        SpikeData has ``N=0`` but ``metadata`` is fully populated
+        (subject, session, ``electrodes_by_channel``,
+        ``sampling_rate_hz``, ``duration_seconds``, etc.). Loading the
+        raw ElectricalSeries as a SpikeInterface ``BaseRecording`` is
+        a separate operation; pair this loader's metadata triage with
+        SpikeInterface's NWB reader on the ``downloaded_path`` for
+        that case.
+    """
+    import tempfile as _tempfile
+
+    if api_token is None:
+        api_token = os.environ.get("DANDI_API_TOKEN")
+
+    # Resolve download URL. Caller may supply either an asset id (we
+    # look up the detail endpoint to get the URL) or a full URL — the
+    # latter shape lets batch workflows reuse already-listed assets
+    # without re-querying.
+    if asset_id.startswith("http://") or asset_id.startswith("https://"):
+        download_url = asset_id
+        asset_path_hint = ""
+        resolved_asset_id = asset_id.rsplit("/", 1)[-1] or asset_id
+    else:
+        detail_url = f"{api_base.rstrip('/')}/assets/{asset_id}/"
+        try:
+            detail = _dandi_json_get(
+                detail_url,
+                api_token=api_token,
+                timeout_seconds=request_timeout_seconds,
+            )
+        except Exception as exc:
+            raise ValueError(
+                f"DANDI asset detail fetch failed for {asset_id!r}: "
+                f"{type(exc).__name__}: {exc}"
+            ) from exc
+        content_urls = detail.get("contentUrl") or detail.get("contentUrls") or ()
+        if isinstance(content_urls, str):
+            content_urls = [content_urls]
+        download_url = str(
+            detail.get("download_url")
+            or (content_urls[0] if content_urls else "")
+            or f"{api_base.rstrip('/')}/assets/{asset_id}/download/"
+        )
+        asset_path_hint = str(detail.get("path") or "")
+        resolved_asset_id = asset_id
+
+    # Manage the download directory's lifecycle. Caller-supplied dirs
+    # are kept around after the load; tempdirs are cleaned up.
+    cleanup = None
+    if download_dir is None:
+        cleanup = _tempfile.TemporaryDirectory(prefix="dandi-asset-")
+        download_root = cleanup.name
+    else:
+        os.makedirs(download_dir, exist_ok=True)
+        download_root = download_dir
+
+    try:
+        # Pick a non-traversal filename. DANDI paths are
+        # forward-slash-separated and well-behaved, but defensive
+        # ``os.path.basename`` strips any directory components and any
+        # ``..`` segments that might appear.
+        rel = os.path.basename(asset_path_hint) or f"{resolved_asset_id}.nwb"
+        dest = os.path.join(download_root, rel)
+        _dandi_download_asset(
+            download_url,
+            dest,
+            api_token=api_token,
+            timeout_seconds=download_timeout_seconds,
+        )
+
+        sd = load_spikedata_from_nwb(
+            dest,
+            prefer_pynwb=True,
+            length_ms=length_ms,
+            start_time_ms=start_time_ms,
+            allow_no_units=allow_no_units,
+        )
+
+        # Stamp DANDI provenance onto SpikeData.metadata. ``metadata``
+        # is always a dict at this point — load_spikedata_from_nwb
+        # initialises it with at least source_file + format keys.
+        if sd.metadata is not None:
+            sd.metadata["dandi_asset_id"] = resolved_asset_id
+            if dandiset_id:
+                sd.metadata["dandi_dandiset_id"] = dandiset_id
+            sd.metadata["dandi_version"] = version
+            if dandiset_id:
+                sd.metadata["source_reference"] = (
+                    f"dandi://dandiarchive.org/dandisets/{dandiset_id}"
+                    f"/versions/{version}/assets/{resolved_asset_id}"
+                )
+            else:
+                sd.metadata["source_reference"] = (
+                    f"dandi://dandiarchive.org/assets/{resolved_asset_id}"
+                )
+            if download_dir is not None:
+                # Caller owns the directory; record where the file
+                # ended up so the gateway / analysis caller can find it
+                # for content-hashing or further processing.
+                sd.metadata["downloaded_path"] = dest
+        return sd
+    finally:
+        if cleanup is not None:
+            cleanup.cleanup()
+
+
+def load_recording_from_dandi(
+    asset_id: str,
+    zarr_dest: str,
+    *,
+    dandiset_id: Optional[str] = None,
+    version: str = "draft",
+    electrical_series_path: Optional[str] = None,
+    overwrite: bool = False,
+    download_dir: Optional[str] = None,
+    keep_nwb: bool = False,
+    api_token: Optional[str] = None,
+    api_base: str = _DANDI_API_BASE,
+    request_timeout_seconds: float = 30.0,
+    download_timeout_seconds: float = 600.0,
+    save_kwargs: Optional[dict] = None,
+) -> dict:
+    """Download a DANDI NWB asset and convert its raw ElectricalSeries
+    to SpikeInterface Zarr format.
+
+    Complementary to :func:`load_spikedata_from_dandi`: that one is for
+    pre-sorted Units tables; this one is for the raw voltage traces
+    (the ``ElectricalSeries`` acquisition objects DANDI hosts but that
+    no analysis tooling pre-processes for you). Output is a Zarr
+    directory that any consumer of SpikeInterface — e.g. a spike
+    sorter run later — can re-open via
+    :func:`spikeinterface.core.read_zarr_recording`.
+
+    Parameters:
+        asset_id (str): DANDI asset UUID or a fully-qualified asset URL.
+            Same shapes accepted by :func:`load_spikedata_from_dandi`.
+        zarr_dest (str): Target Zarr directory. Created if absent.
+        dandiset_id (str | None): Owning dandiset id, used for the
+            ``source_reference`` provenance string.
+        version (str): Dandiset version. Recorded on metadata.
+        electrical_series_path (str | None): When the NWB file has
+            multiple ElectricalSeries objects, the HDMF location of the
+            one to convert (e.g. ``"acquisition/ElectricalSeriesAP"``).
+            ``None`` (default) lets SpikeInterface auto-pick — works
+            when there's exactly one.
+        overwrite (bool): When ``True``, an existing ``zarr_dest`` is
+            removed first. When ``False`` (default), an existing target
+            raises.
+        download_dir (str | None): Directory the downloaded ``.nwb``
+            lives in. ``None`` uses a tempdir. The NWB is removed after
+            the Zarr write unless ``keep_nwb=True``.
+        keep_nwb (bool): When ``True``, the downloaded ``.nwb`` is left
+            on disk after the Zarr is written. Useful for callers that
+            want to content-hash the original bytes (e.g. gateway
+            ingestion). The downloaded path is included in the return
+            dict under ``downloaded_nwb_path``.
+        api_token (str | None): DANDI personal access token. Defaults
+            to ``DANDI_API_TOKEN`` env var.
+        api_base (str): API root override.
+        request_timeout_seconds (float): Per-API-call timeout.
+        download_timeout_seconds (float): Per-download timeout.
+        save_kwargs (dict | None): Forwarded to
+            :meth:`BaseRecording.save` — e.g. ``{"n_jobs": 4,
+            "chunk_duration_s": 1.0}``. Defaults to ``{}``.
+
+    Returns:
+        dict: Conversion outcome with the following keys:
+            * ``zarr_path``: Absolute path to the Zarr directory.
+            * ``recording_metadata_path``: JSON sidecar (DANDI provenance
+              + NWB file-level metadata + recording shape).
+            * ``downloaded_nwb_path``: Present only when ``keep_nwb`` is
+              True. Path to the source NWB file.
+            * ``dandi_asset_id``, ``dandi_dandiset_id`` (when supplied),
+              ``dandi_version``, ``source_reference``: provenance.
+            * ``sampling_rate_hz``, ``n_channels``, ``n_samples``,
+              ``duration_seconds``: recording shape, surfaced from the
+              SpikeInterface extractor for callers that don't want to
+              re-open the Zarr just to check.
+            * Subject + session fields merged from the NWB metadata
+              (when present): ``identifier``, ``subject_id``,
+              ``species``, ``sex``, ``session_start_time``, etc.
+
+    Raises:
+        ImportError: If ``spikeinterface`` (or its NWB extractor) isn't
+            installed.
+        ValueError: If asset detail fetch fails or the NWB file has no
+            ElectricalSeries the extractor can resolve.
+        FileExistsError: If ``zarr_dest`` exists and ``overwrite=False``.
+
+    Notes:
+        Streaming download keeps memory bounded. Zarr writes are
+        proportional to the recording size — a 1-hour, 384-channel,
+        30 kHz Neuropixels session is ~80 GB raw → ~20–40 GB with the
+        default LZ4 compressor. Plan disk accordingly.
+
+        SpikeInterface's NWB extractor decides chunking + dtype from
+        the source ElectricalSeries. Pass ``save_kwargs={"n_jobs": N}``
+        to parallelise the chunk write for large recordings.
+
+        For DANDI assets that ARE pre-sorted (Units table present), use
+        :func:`load_spikedata_from_dandi` instead — that path stops at
+        the spike trains rather than rewriting the voltage traces.
+    """
+    import shutil as _shutil
+    import tempfile as _tempfile
+
+    try:
+        from spikeinterface.extractors import NwbRecordingExtractor  # type: ignore
+    except ImportError as exc:
+        raise ImportError(
+            "load_recording_from_dandi requires spikeinterface; install via "
+            "the spikelab[io] extra (which pulls spikeinterface + zarr) "
+            "or `pip install spikeinterface`."
+        ) from exc
+
+    if api_token is None:
+        api_token = os.environ.get("DANDI_API_TOKEN")
+
+    if os.path.exists(zarr_dest):
+        if not overwrite:
+            raise FileExistsError(
+                f"zarr_dest {zarr_dest!r} already exists; pass "
+                "overwrite=True to replace it."
+            )
+        _shutil.rmtree(zarr_dest)
+    os.makedirs(os.path.dirname(os.path.abspath(zarr_dest)) or ".", exist_ok=True)
+
+    # Resolve download URL (same shape as load_spikedata_from_dandi).
+    if asset_id.startswith("http://") or asset_id.startswith("https://"):
+        download_url = asset_id
+        asset_path_hint = ""
+        resolved_asset_id = asset_id.rsplit("/", 1)[-1] or asset_id
+    else:
+        detail_url = f"{api_base.rstrip('/')}/assets/{asset_id}/"
+        try:
+            detail = _dandi_json_get(
+                detail_url,
+                api_token=api_token,
+                timeout_seconds=request_timeout_seconds,
+            )
+        except Exception as exc:
+            raise ValueError(
+                f"DANDI asset detail fetch failed for {asset_id!r}: "
+                f"{type(exc).__name__}: {exc}"
+            ) from exc
+        content_urls = detail.get("contentUrl") or detail.get("contentUrls") or ()
+        if isinstance(content_urls, str):
+            content_urls = [content_urls]
+        download_url = str(
+            detail.get("download_url")
+            or (content_urls[0] if content_urls else "")
+            or f"{api_base.rstrip('/')}/assets/{asset_id}/download/"
+        )
+        asset_path_hint = str(detail.get("path") or "")
+        resolved_asset_id = asset_id
+
+    # Manage the download dir.
+    cleanup = None
+    if download_dir is None:
+        cleanup = _tempfile.TemporaryDirectory(prefix="dandi-recording-")
+        download_root = cleanup.name
+    else:
+        os.makedirs(download_dir, exist_ok=True)
+        download_root = download_dir
+
+    nwb_path = None
+    try:
+        rel = os.path.basename(asset_path_hint) or f"{resolved_asset_id}.nwb"
+        nwb_path = os.path.join(download_root, rel)
+        _dandi_download_asset(
+            download_url,
+            nwb_path,
+            api_token=api_token,
+            timeout_seconds=download_timeout_seconds,
+        )
+
+        # File-level metadata via pynwb. Reuses the same helper as the
+        # NWB spike-train loader so metadata shape is uniform across
+        # both paths.
+        nwb_metadata: dict = {}
+        try:
+            from pynwb import NWBHDF5IO  # type: ignore
+
+            with NWBHDF5IO(nwb_path, mode="r", load_namespaces=True) as io:
+                _nwb = io.read()
+                nwb_metadata = _nwb_collect_file_metadata(_nwb)
+        except Exception as exc:
+            warnings.warn(
+                f"load_recording_from_dandi: NWB metadata read failed "
+                f"({type(exc).__name__}: {exc}); proceeding with empty "
+                "metadata sidecar.",
+                stacklevel=2,
+            )
+
+        # SpikeInterface extractor + Zarr write.
+        extractor_kwargs: Dict[str, object] = {}
+        if electrical_series_path is not None:
+            extractor_kwargs["electrical_series_path"] = electrical_series_path
+        recording = NwbRecordingExtractor(nwb_path, **extractor_kwargs)
+
+        sample_rate = float(recording.get_sampling_frequency())
+        n_channels = int(recording.get_num_channels())
+        n_samples = int(recording.get_num_frames())
+        duration_seconds = n_samples / sample_rate if sample_rate > 0 else None
+
+        sk = dict(save_kwargs or {})
+        recording.save(
+            folder=zarr_dest,
+            format="zarr",
+            overwrite=False,  # we already enforced the policy above
+            **sk,
+        )
+        # Release the extractor's file handle BEFORE we try to delete
+        # the source NWB. SpikeInterface's NwbRecordingExtractor holds
+        # an h5py handle via pynwb that doesn't auto-release on save;
+        # leaving it open makes ``os.remove(nwb_path)`` fail on
+        # Windows (file-in-use), and the subsequent tempdir cleanup
+        # misinterprets that error and tries to rmtree the .nwb as a
+        # directory. ``del`` + ``gc.collect`` forces finalisation.
+        del recording
+        import gc as _gc
+
+        _gc.collect()
+
+        # Drop a JSON sidecar so consumers reading the Zarr later have
+        # provenance + file-level metadata without re-opening the
+        # source NWB.
+        sidecar: Dict[str, object] = {
+            "format": "spikeinterface_zarr",
+            "dandi_asset_id": resolved_asset_id,
+            "dandi_version": version,
+            "sampling_rate_hz": sample_rate,
+            "n_channels": n_channels,
+            "n_samples": n_samples,
+        }
+        if dandiset_id:
+            sidecar["dandi_dandiset_id"] = dandiset_id
+            sidecar["source_reference"] = (
+                f"dandi://dandiarchive.org/dandisets/{dandiset_id}"
+                f"/versions/{version}/assets/{resolved_asset_id}"
+            )
+        else:
+            sidecar["source_reference"] = (
+                f"dandi://dandiarchive.org/assets/{resolved_asset_id}"
+            )
+        if duration_seconds is not None:
+            sidecar["duration_seconds"] = duration_seconds
+        # Merge file-level NWB metadata last so it overlays the
+        # computed sidecar fields (the NWB unit_count + duration are
+        # the same conceptually as the SI-derived ones; keep the SI
+        # values authoritative for the recording-shape fields).
+        for k, v in nwb_metadata.items():
+            sidecar.setdefault(k, v)
+
+        sidecar_path = os.path.join(zarr_dest, "recording_metadata.json")
+        with open(sidecar_path, "w", encoding="utf-8") as fh:
+            json.dump(sidecar, fh, indent=2, default=str)
+
+        # Build the return dict (a flat copy of sidecar plus paths).
+        result: Dict[str, object] = dict(sidecar)
+        result["zarr_path"] = os.path.abspath(zarr_dest)
+        result["recording_metadata_path"] = os.path.abspath(sidecar_path)
+        if keep_nwb:
+            result["downloaded_nwb_path"] = os.path.abspath(nwb_path)
+        return result
+    finally:
+        if not keep_nwb and nwb_path is not None and os.path.isfile(nwb_path):
+            try:
+                os.remove(nwb_path)
+            except OSError:
+                pass
+        if cleanup is not None:
+            cleanup.cleanup()
 
 
 def query_ibl_probes(

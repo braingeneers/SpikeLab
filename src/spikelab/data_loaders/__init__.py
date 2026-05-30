@@ -16,6 +16,9 @@ from .data_loaders import (
     load_spikedata_from_pickle,
     load_spikedata_from_ibl,
     query_ibl_probes,
+    load_spikedata_from_dandi,
+    list_dandi_assets,
+    load_recording_from_dandi,
 )
 
 from .data_exporters import (
@@ -44,6 +47,9 @@ __all__ = [
     "load_spikedata_from_pickle",
     "load_spikedata_from_ibl",
     "query_ibl_probes",
+    "load_spikedata_from_dandi",
+    "list_dandi_assets",
+    "load_recording_from_dandi",
     "export_spikedata_to_hdf5",
     "export_spikedata_to_nwb",
     "export_spikedata_to_kilosort",
