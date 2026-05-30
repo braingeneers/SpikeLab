@@ -2027,7 +2027,18 @@
                 <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="si">}</span><span class="s2">); the resulting raster would have a negative &quot;</span>
                 <span class="sa">f</span><span class="s2">&quot;number of bins.&quot;</span>
             <span class="p">)</span>
-        <span class="n">length</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">+</span> <span class="n">time_offset</span><span class="p">)</span> <span class="o">/</span> <span class="n">bin_size</span><span class="p">))</span>
+        <span class="c1"># Absorb sub-bin float drift in self.length so np.ceil doesn&#39;t round up</span>
+        <span class="c1"># to a spurious extra bin. Drift originates in event-aligned slicing:</span>
+        <span class="c1"># (peak + after) - (peak - before) is not exactly before + after under</span>
+        <span class="c1"># float arithmetic, so a slice intended for 1000 ms ends up with length</span>
+        <span class="c1"># 1000.0000000000002. Without tolerance, ceil(1000.0000000000002 / 1.0)</span>
+        <span class="c1"># is 1001, which causes SpikeSliceStack.to_raster_array to fail at</span>
+        <span class="c1"># np.stack on ~2% of slices when align_to_events is called with</span>
+        <span class="c1"># float-valued event times. Tolerance scales with bin count to remain</span>
+        <span class="c1"># well below any legitimate sub-bin precision across bin sizes.</span>
+        <span class="n">exact_bins</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">+</span> <span class="n">time_offset</span><span class="p">)</span> <span class="o">/</span> <span class="n">bin_size</span>
+        <span class="n">tolerance</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mf">1e-9</span><span class="p">,</span> <span class="nb">abs</span><span class="p">(</span><span class="n">exact_bins</span><span class="p">)</span> <span class="o">*</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">finfo</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span><span class="o">.</span><span class="n">eps</span><span class="p">)</span>
+        <span class="n">length</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">exact_bins</span> <span class="o">-</span> <span class="n">tolerance</span><span class="p">))</span>
         <span class="c1"># N==0 short-circuit: np.hstack on an empty list raises, so</span>
         <span class="c1"># build the empty (0, T) sparse matrix directly.</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">N</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
