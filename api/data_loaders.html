@@ -381,6 +381,9 @@
 <li class="toctree-l4"><a class="reference internal" href="#spikelab.data_loaders.data_loaders.load_spikedata_from_pickle"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_pickle()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#spikelab.data_loaders.data_loaders.load_spikedata_from_ibl"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_ibl()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#spikelab.data_loaders.data_loaders.query_ibl_probes"><code class="docutils literal notranslate"><span class="pre">query_ibl_probes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#spikelab.data_loaders.data_loaders.load_spikedata_from_dandi"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_dandi()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#spikelab.data_loaders.data_loaders.list_dandi_assets"><code class="docutils literal notranslate"><span class="pre">list_dandi_assets()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#spikelab.data_loaders.data_loaders.load_recording_from_dandi"><code class="docutils literal notranslate"><span class="pre">load_recording_from_dandi()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#spikelab.data_loaders.data_loaders.load_spikedata_from_spikelab_sorted_npz"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikelab_sorted_npz()</span></code></a></li>
 </ul>
 </li>
@@ -821,16 +824,48 @@ chain.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p><dl class="simple">
-<dt>Loaded spike train data.</dt><dd><p><code class="docutils literal notranslate"><span class="pre">neuron_attributes</span></code> contains
-<code class="docutils literal notranslate"><span class="pre">{&quot;region&quot;:</span> <span class="pre">&lt;Beryl</span> <span class="pre">atlas</span> <span class="pre">region&gt;}</span></code> per unit.
-<code class="docutils literal notranslate"><span class="pre">metadata</span></code> contains <code class="docutils literal notranslate"><span class="pre">eid</span></code>, <code class="docutils literal notranslate"><span class="pre">pid</span></code>, <code class="docutils literal notranslate"><span class="pre">n_trials</span></code>,
+<dd class="field-even"><p><dl>
+<dt>Loaded spike train data.</dt><dd><p><code class="docutils literal notranslate"><span class="pre">neuron_attributes</span></code> carries the Beryl region per unit plus,
+when the Brain-Wide Map table provides them, Allen acronym
+and atlas_id, the Cosmos parcellation parent, and per-unit
+QC fields (<code class="docutils literal notranslate"><span class="pre">firing_rate</span></code>, <code class="docutils literal notranslate"><span class="pre">presence_ratio</span></code>,
+<code class="docutils literal notranslate"><span class="pre">amp_median</span></code>, <code class="docutils literal notranslate"><span class="pre">contamination</span></code>, <code class="docutils literal notranslate"><span class="pre">drift</span></code>,
+<code class="docutils literal notranslate"><span class="pre">noise_cutoff</span></code>, <code class="docutils literal notranslate"><span class="pre">cluster_id</span></code>).
+<code class="docutils literal notranslate"><span class="pre">metadata</span></code> carries:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Existing trial fields: <code class="docutils literal notranslate"><span class="pre">eid</span></code>, <code class="docutils literal notranslate"><span class="pre">pid</span></code>, <code class="docutils literal notranslate"><span class="pre">n_trials</span></code>,
 <code class="docutils literal notranslate"><span class="pre">trial_start_times</span></code>, <code class="docutils literal notranslate"><span class="pre">trial_end_times</span></code>,
 <code class="docutils literal notranslate"><span class="pre">stim_on_times</span></code>, <code class="docutils literal notranslate"><span class="pre">stim_off_times</span></code>, <code class="docutils literal notranslate"><span class="pre">go_cue_times</span></code>,
 <code class="docutils literal notranslate"><span class="pre">response_times</span></code>, <code class="docutils literal notranslate"><span class="pre">feedback_times</span></code>,
 <code class="docutils literal notranslate"><span class="pre">first_movement_times</span></code>, <code class="docutils literal notranslate"><span class="pre">choice</span></code>, <code class="docutils literal notranslate"><span class="pre">feedback_type</span></code>,
-<code class="docutils literal notranslate"><span class="pre">contrast_left</span></code>, <code class="docutils literal notranslate"><span class="pre">contrast_right</span></code>, and
-<code class="docutils literal notranslate"><span class="pre">probability_left</span></code>. All time arrays are in milliseconds.</p>
+<code class="docutils literal notranslate"><span class="pre">contrast_left</span></code>, <code class="docutils literal notranslate"><span class="pre">contrast_right</span></code>, <code class="docutils literal notranslate"><span class="pre">probability_left</span></code>.</p></li>
+<li><p>File-level identification: <code class="docutils literal notranslate"><span class="pre">identifier</span></code> (= eid),
+<code class="docutils literal notranslate"><span class="pre">format</span></code> (<code class="docutils literal notranslate"><span class="pre">&quot;IBL&quot;</span></code>), <code class="docutils literal notranslate"><span class="pre">unit_count</span></code>,
+<code class="docutils literal notranslate"><span class="pre">sampling_rate_hz</span></code> (when present on the spikes
+object), <code class="docutils literal notranslate"><span class="pre">duration_seconds</span></code>.</p></li>
+<li><p>Session metadata (best-effort, one extra REST call):
+<code class="docutils literal notranslate"><span class="pre">session_start_time</span></code>, <code class="docutils literal notranslate"><span class="pre">session_end_time</span></code>, <code class="docutils literal notranslate"><span class="pre">lab</span></code>,
+<code class="docutils literal notranslate"><span class="pre">task_protocol</span></code>, <code class="docutils literal notranslate"><span class="pre">project</span></code>, <code class="docutils literal notranslate"><span class="pre">session_number</span></code>,
+<code class="docutils literal notranslate"><span class="pre">procedures</span></code>, <code class="docutils literal notranslate"><span class="pre">qc</span></code>.</p></li>
+<li><p>Subject metadata (same REST chain):
+<code class="docutils literal notranslate"><span class="pre">subject_id</span></code>, <code class="docutils literal notranslate"><span class="pre">species</span></code>, <code class="docutils literal notranslate"><span class="pre">sex</span></code>, <code class="docutils literal notranslate"><span class="pre">date_of_birth</span></code>,
+<code class="docutils literal notranslate"><span class="pre">age_weeks</span></code>, <code class="docutils literal notranslate"><span class="pre">strain</span></code>, <code class="docutils literal notranslate"><span class="pre">genotype</span></code>,
+<code class="docutils literal notranslate"><span class="pre">responsible_user</span></code>.</p></li>
+<li><p>Probe insertion (best-effort REST call):
+<code class="docutils literal notranslate"><span class="pre">probe_name</span></code>, <code class="docutils literal notranslate"><span class="pre">probe_model</span></code>, and <code class="docutils literal notranslate"><span class="pre">insertion_*</span></code>
+coordinates for any of {x, y, z, theta, phi, depth}
+present.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">electrodes_by_channel</span></code> (best-effort
+<code class="docutils literal notranslate"><span class="pre">one.load_object(&quot;channels&quot;)</span></code> call): per-channel
+<code class="docutils literal notranslate"><span class="pre">location</span></code> (Allen acronym), <code class="docutils literal notranslate"><span class="pre">atlas_id</span></code> (Allen
+Structure ID), <code class="docutils literal notranslate"><span class="pre">x</span></code>/<code class="docutils literal notranslate"><span class="pre">y</span></code>/<code class="docutils literal notranslate"><span class="pre">z</span></code> (ML/AP/DV in mm),
+<code class="docutils literal notranslate"><span class="pre">local_x</span></code>/<code class="docutils literal notranslate"><span class="pre">local_y</span></code> (probe-relative, μm),
+<code class="docutils literal notranslate"><span class="pre">raw_index</span></code>. Key shape matches the NWB loader’s
+<code class="docutils literal notranslate"><span class="pre">electrodes_by_channel</span></code> for cross-format consumers.</p></li>
+</ul>
+</div></blockquote>
+<p>All time arrays are in milliseconds.</p>
 </dd>
 </dl>
 </p>
@@ -848,6 +883,10 @@ chain.</p></li>
 inferred from the PID suffix; falls back through
 <code class="docutils literal notranslate"><span class="pre">alf/probe00/pykilosort</span></code>, <code class="docutils literal notranslate"><span class="pre">alf/probe01/pykilosort</span></code>, and
 <code class="docutils literal notranslate"><span class="pre">alf</span></code>.</p></li>
+<li><p>Session, subject, insertion, and channels lookups are
+best-effort. A failure on any of them yields an absent
+metadata field rather than raising — the spike-train load
+succeeds as long as the units table is reachable.</p></li>
 </ul>
 </dd></dl>
 
@@ -892,6 +931,226 @@ dependencies).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">bwm_units()</span></code> fetches the full Brain-Wide Map unit table from the
 IBL server; this may take several seconds on first call.</p></li>
 </ul>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="spikelab.data_loaders.data_loaders.load_spikedata_from_dandi">
+<span class="sig-prename descclassname"><span class="pre">spikelab.data_loaders.data_loaders.</span></span><span class="sig-name descname"><span class="pre">load_spikedata_from_dandi</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">asset_id</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dandiset_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">version</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'draft'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">download_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">api_token</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">api_base</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'https://api.dandiarchive.org/api'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">request_timeout_seconds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">30.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">download_timeout_seconds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">600.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allow_no_units</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">length_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_time_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/data_loaders/data_loaders.html#load_spikedata_from_dandi"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.data_loaders.data_loaders.load_spikedata_from_dandi" title="Link to this definition"></a></dt>
+<dd><p>Download one DANDI NWB asset and load it as a <code class="xref py py-class docutils literal notranslate"><span class="pre">SpikeData</span></code>.</p>
+<p>Resolves the asset’s download URL via DANDI’s asset-detail endpoint
+(or accepts a direct URL when <code class="docutils literal notranslate"><span class="pre">asset_id</span></code> looks like one), streams
+the bytes to disk, then delegates to <a class="reference internal" href="#spikelab.data_loaders.data_loaders.load_spikedata_from_nwb" title="spikelab.data_loaders.data_loaders.load_spikedata_from_nwb"><code class="xref py py-func docutils literal notranslate"><span class="pre">load_spikedata_from_nwb()</span></code></a>
+for the actual NWB parsing. DANDI provenance fields are added to
+<code class="docutils literal notranslate"><span class="pre">SpikeData.metadata</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>asset_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Either a DANDI asset UUID (the
+<code class="docutils literal notranslate"><span class="pre">asset_id</span></code> field from <a class="reference internal" href="#spikelab.data_loaders.data_loaders.list_dandi_assets" title="spikelab.data_loaders.data_loaders.list_dandi_assets"><code class="xref py py-func docutils literal notranslate"><span class="pre">list_dandi_assets()</span></code></a>) or a
+fully-qualified asset download URL.</p></li>
+<li><p><strong>dandiset_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – Owning dandiset id (e.g. <code class="docutils literal notranslate"><span class="pre">&quot;000006&quot;</span></code>).
+Used to build the <code class="docutils literal notranslate"><span class="pre">source_reference</span></code> provenance string;
+optional when only the asset_id is known.</p></li>
+<li><p><strong>version</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Dandiset version. Recorded on metadata.</p></li>
+<li><p><strong>download_dir</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – Directory the downloaded file lives
+in. When <code class="docutils literal notranslate"><span class="pre">None</span></code>, a <a class="reference external" href="https://docs.python.org/3/library/tempfile.html#tempfile.TemporaryDirectory" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">tempfile.TemporaryDirectory</span></code></a>
+is used and the file is deleted after the load. When a
+path is supplied, the directory is created if needed and
+the file is kept — caller manages cleanup. The file path
+is then recorded on <code class="docutils literal notranslate"><span class="pre">SpikeData.metadata</span></code> as
+<code class="docutils literal notranslate"><span class="pre">downloaded_path</span></code>.</p></li>
+<li><p><strong>api_token</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – Personal access token. Required for
+embargoed dandisets. Defaults to the <code class="docutils literal notranslate"><span class="pre">DANDI_API_TOKEN</span></code>
+env var when not supplied.</p></li>
+<li><p><strong>api_base</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – API root override.</p></li>
+<li><p><strong>request_timeout_seconds</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Per-API-call timeout (asset
+detail lookup, etc.).</p></li>
+<li><p><strong>download_timeout_seconds</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Per-download timeout. Default
+10 min covers ~50 GB at 100 Mbps; raise for very large
+assets on slow links.</p></li>
+<li><p><strong>allow_no_units</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Passed through to
+<a class="reference internal" href="#spikelab.data_loaders.data_loaders.load_spikedata_from_nwb" title="spikelab.data_loaders.data_loaders.load_spikedata_from_nwb"><code class="xref py py-func docutils literal notranslate"><span class="pre">load_spikedata_from_nwb()</span></code></a>. <code class="docutils literal notranslate"><span class="pre">True</span></code> lets metadata-
+only callers load files without a Units table.</p></li>
+<li><p><strong>length_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> | </em><em>None</em>) – Passed through.</p></li>
+<li><p><strong>start_time_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> | </em><em>None</em>) – Passed through.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Loaded spike data. <code class="docutils literal notranslate"><span class="pre">sd.metadata</span></code> carries all</dt><dd><p>the keys <a class="reference internal" href="#spikelab.data_loaders.data_loaders.load_spikedata_from_nwb" title="spikelab.data_loaders.data_loaders.load_spikedata_from_nwb"><code class="xref py py-func docutils literal notranslate"><span class="pre">load_spikedata_from_nwb()</span></code></a> populates, plus
+DANDI-specific fields: <code class="docutils literal notranslate"><span class="pre">dandi_asset_id</span></code>,
+<code class="docutils literal notranslate"><span class="pre">dandi_dandiset_id</span></code> (when <code class="docutils literal notranslate"><span class="pre">dandiset_id</span></code> is provided),
+<code class="docutils literal notranslate"><span class="pre">dandi_version</span></code>, <code class="docutils literal notranslate"><span class="pre">source_reference</span></code> (DANDI URL),
+<code class="docutils literal notranslate"><span class="pre">downloaded_path</span></code> (only when <code class="docutils literal notranslate"><span class="pre">download_dir</span></code> is supplied).</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>sd (<a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData">SpikeData</a>)</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><a class="reference external" href="https://docs.python.org/3/library/urllib.error.html#urllib.error.URLError" title="(in Python v3.14)"><strong>urllib.error.URLError</strong></a> – On network / HTTP failure.</p></li>
+<li><p><strong>ValueError / ImportError</strong> – From the delegated NWB load.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>Public dandisets work without authentication. Embargoed
+dandisets need a personal access token (Account → My Tokens on
+dandiarchive.org). Streaming download keeps memory bounded
+independent of asset size; on-disk space proportional to the
+file is required.</p>
+<p>DANDI also hosts raw recordings (NWB files with an
+<code class="docutils literal notranslate"><span class="pre">ElectricalSeries</span></code> acquisition but no <code class="docutils literal notranslate"><span class="pre">Units</span></code> table). This
+loader does NOT materialise the raw voltage traces — the
+function name signals “spike data only”. For metadata triage
+on raw assets, pass <code class="docutils literal notranslate"><span class="pre">allow_no_units=True</span></code>: the returned
+SpikeData has <code class="docutils literal notranslate"><span class="pre">N=0</span></code> but <code class="docutils literal notranslate"><span class="pre">metadata</span></code> is fully populated
+(subject, session, <code class="docutils literal notranslate"><span class="pre">electrodes_by_channel</span></code>,
+<code class="docutils literal notranslate"><span class="pre">sampling_rate_hz</span></code>, <code class="docutils literal notranslate"><span class="pre">duration_seconds</span></code>, etc.). Loading the
+raw ElectricalSeries as a SpikeInterface <code class="docutils literal notranslate"><span class="pre">BaseRecording</span></code> is
+a separate operation; pair this loader’s metadata triage with
+SpikeInterface’s NWB reader on the <code class="docutils literal notranslate"><span class="pre">downloaded_path</span></code> for
+that case.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="spikelab.data_loaders.data_loaders.list_dandi_assets">
+<span class="sig-prename descclassname"><span class="pre">spikelab.data_loaders.data_loaders.</span></span><span class="sig-name descname"><span class="pre">list_dandi_assets</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dandiset_id</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">version</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'draft'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path_glob</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">api_token</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">api_base</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'https://api.dandiarchive.org/api'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">page_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">request_timeout_seconds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">30.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/data_loaders/data_loaders.html#list_dandi_assets"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.data_loaders.data_loaders.list_dandi_assets" title="Link to this definition"></a></dt>
+<dd><p>Yield assets in a DANDI dandiset version.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>dandiset_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Six-digit DANDI identifier (e.g. <code class="docutils literal notranslate"><span class="pre">&quot;000006&quot;</span></code>).
+Leading zeros matter.</p></li>
+<li><p><strong>version</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Dandiset version. <code class="docutils literal notranslate"><span class="pre">&quot;draft&quot;</span></code> (default) is the
+in-progress version; published versions are tagged like
+<code class="docutils literal notranslate"><span class="pre">&quot;0.231012.0&quot;</span></code>.</p></li>
+<li><p><strong>path_glob</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – Optional <code class="docutils literal notranslate"><span class="pre">glob</span></code> pattern (e.g.
+<code class="docutils literal notranslate"><span class="pre">&quot;*.nwb&quot;</span></code>) the API filters on server-side. Cheaper than
+client-side filtering when most assets aren’t of interest.</p></li>
+<li><p><strong>api_token</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – Personal access token. Required for
+embargoed dandisets. Defaults to the <code class="docutils literal notranslate"><span class="pre">DANDI_API_TOKEN</span></code>
+env var when not supplied; public dandisets work without one.</p></li>
+<li><p><strong>api_base</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – API root. Override for staging or self-hosted DANDI.</p></li>
+<li><p><strong>page_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Per-page result count. Default 100 — the
+iterator pages internally, so this only affects request
+granularity.</p></li>
+<li><p><strong>request_timeout_seconds</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Per-request timeout.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Yields<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>dict</em> –</p>
+<dl class="simple">
+<dt>One asset per yielded value, with keys:</dt><dd><p><code class="docutils literal notranslate"><span class="pre">asset_id</span></code> (str, UUID), <code class="docutils literal notranslate"><span class="pre">path</span></code> (str, dandiset-relative),
+<code class="docutils literal notranslate"><span class="pre">size</span></code> (int, bytes), <code class="docutils literal notranslate"><span class="pre">download_url</span></code> (str),
+<code class="docutils literal notranslate"><span class="pre">dandiset_id</span></code> (str), <code class="docutils literal notranslate"><span class="pre">version</span></code> (str).</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>Pagination is handled transparently — caller iterates without
+worrying about <code class="docutils literal notranslate"><span class="pre">next_page</span></code>. Large dandisets can have
+thousands of assets, so consumers should consume the iterator
+lazily rather than materialising the full list.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="spikelab.data_loaders.data_loaders.load_recording_from_dandi">
+<span class="sig-prename descclassname"><span class="pre">spikelab.data_loaders.data_loaders.</span></span><span class="sig-name descname"><span class="pre">load_recording_from_dandi</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">asset_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zarr_dest</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dandiset_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">version</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'draft'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">electrical_series_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overwrite</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">download_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keep_nwb</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">api_token</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">api_base</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'https://api.dandiarchive.org/api'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">request_timeout_seconds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">30.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">download_timeout_seconds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">600.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_kwargs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/data_loaders/data_loaders.html#load_recording_from_dandi"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.data_loaders.data_loaders.load_recording_from_dandi" title="Link to this definition"></a></dt>
+<dd><p>Download a DANDI NWB asset and convert its raw ElectricalSeries
+to SpikeInterface Zarr format.</p>
+<p>Complementary to <a class="reference internal" href="#spikelab.data_loaders.data_loaders.load_spikedata_from_dandi" title="spikelab.data_loaders.data_loaders.load_spikedata_from_dandi"><code class="xref py py-func docutils literal notranslate"><span class="pre">load_spikedata_from_dandi()</span></code></a>: that one is for
+pre-sorted Units tables; this one is for the raw voltage traces
+(the <code class="docutils literal notranslate"><span class="pre">ElectricalSeries</span></code> acquisition objects DANDI hosts but that
+no analysis tooling pre-processes for you). Output is a Zarr
+directory that any consumer of SpikeInterface — e.g. a spike
+sorter run later — can re-open via
+<code class="xref py py-func docutils literal notranslate"><span class="pre">spikeinterface.core.read_zarr_recording()</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>asset_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – DANDI asset UUID or a fully-qualified asset URL.
+Same shapes accepted by <a class="reference internal" href="#spikelab.data_loaders.data_loaders.load_spikedata_from_dandi" title="spikelab.data_loaders.data_loaders.load_spikedata_from_dandi"><code class="xref py py-func docutils literal notranslate"><span class="pre">load_spikedata_from_dandi()</span></code></a>.</p></li>
+<li><p><strong>zarr_dest</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Target Zarr directory. Created if absent.</p></li>
+<li><p><strong>dandiset_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – Owning dandiset id, used for the
+<code class="docutils literal notranslate"><span class="pre">source_reference</span></code> provenance string.</p></li>
+<li><p><strong>version</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Dandiset version. Recorded on metadata.</p></li>
+<li><p><strong>electrical_series_path</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – When the NWB file has
+multiple ElectricalSeries objects, the HDMF location of the
+one to convert (e.g. <code class="docutils literal notranslate"><span class="pre">&quot;acquisition/ElectricalSeriesAP&quot;</span></code>).
+<code class="docutils literal notranslate"><span class="pre">None</span></code> (default) lets SpikeInterface auto-pick — works
+when there’s exactly one.</p></li>
+<li><p><strong>overwrite</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – When <code class="docutils literal notranslate"><span class="pre">True</span></code>, an existing <code class="docutils literal notranslate"><span class="pre">zarr_dest</span></code> is
+removed first. When <code class="docutils literal notranslate"><span class="pre">False</span></code> (default), an existing target
+raises.</p></li>
+<li><p><strong>download_dir</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – Directory the downloaded <code class="docutils literal notranslate"><span class="pre">.nwb</span></code>
+lives in. <code class="docutils literal notranslate"><span class="pre">None</span></code> uses a tempdir. The NWB is removed after
+the Zarr write unless <code class="docutils literal notranslate"><span class="pre">keep_nwb=True</span></code>.</p></li>
+<li><p><strong>keep_nwb</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – When <code class="docutils literal notranslate"><span class="pre">True</span></code>, the downloaded <code class="docutils literal notranslate"><span class="pre">.nwb</span></code> is left
+on disk after the Zarr is written. Useful for callers that
+want to content-hash the original bytes (e.g. gateway
+ingestion). The downloaded path is included in the return
+dict under <code class="docutils literal notranslate"><span class="pre">downloaded_nwb_path</span></code>.</p></li>
+<li><p><strong>api_token</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – DANDI personal access token. Defaults
+to <code class="docutils literal notranslate"><span class="pre">DANDI_API_TOKEN</span></code> env var.</p></li>
+<li><p><strong>api_base</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – API root override.</p></li>
+<li><p><strong>request_timeout_seconds</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Per-API-call timeout.</p></li>
+<li><p><strong>download_timeout_seconds</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Per-download timeout.</p></li>
+<li><p><strong>save_kwargs</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em> | </em><em>None</em>) – Forwarded to
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">BaseRecording.save()</span></code> — e.g. <code class="docutils literal notranslate"><span class="pre">{&quot;n_jobs&quot;:</span> <span class="pre">4,</span>
+<span class="pre">&quot;chunk_duration_s&quot;:</span> <span class="pre">1.0}</span></code>. Defaults to <code class="docutils literal notranslate"><span class="pre">{}</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Conversion outcome with the following keys:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">zarr_path</span></code>: Absolute path to the Zarr directory.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">recording_metadata_path</span></code>: JSON sidecar (DANDI provenance
++ NWB file-level metadata + recording shape).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">downloaded_nwb_path</span></code>: Present only when <code class="docutils literal notranslate"><span class="pre">keep_nwb</span></code> is
+True. Path to the source NWB file.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dandi_asset_id</span></code>, <code class="docutils literal notranslate"><span class="pre">dandi_dandiset_id</span></code> (when supplied),
+<code class="docutils literal notranslate"><span class="pre">dandi_version</span></code>, <code class="docutils literal notranslate"><span class="pre">source_reference</span></code>: provenance.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sampling_rate_hz</span></code>, <code class="docutils literal notranslate"><span class="pre">n_channels</span></code>, <code class="docutils literal notranslate"><span class="pre">n_samples</span></code>,
+<code class="docutils literal notranslate"><span class="pre">duration_seconds</span></code>: recording shape, surfaced from the
+SpikeInterface extractor for callers that don’t want to
+re-open the Zarr just to check.</p></li>
+<li><p>Subject + session fields merged from the NWB metadata
+(when present): <code class="docutils literal notranslate"><span class="pre">identifier</span></code>, <code class="docutils literal notranslate"><span class="pre">subject_id</span></code>,
+<code class="docutils literal notranslate"><span class="pre">species</span></code>, <code class="docutils literal notranslate"><span class="pre">sex</span></code>, <code class="docutils literal notranslate"><span class="pre">session_start_time</span></code>, etc.</p></li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a></p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ImportError" title="(in Python v3.14)"><strong>ImportError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">spikeinterface</span></code> (or its NWB extractor) isn’t
+    installed.</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – If asset detail fetch fails or the NWB file has no
+    ElectricalSeries the extractor can resolve.</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#FileExistsError" title="(in Python v3.14)"><strong>FileExistsError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">zarr_dest</span></code> exists and <code class="docutils literal notranslate"><span class="pre">overwrite=False</span></code>.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>Streaming download keeps memory bounded. Zarr writes are
+proportional to the recording size — a 1-hour, 384-channel,
+30 kHz Neuropixels session is ~80 GB raw → ~20–40 GB with the
+default LZ4 compressor. Plan disk accordingly.</p>
+<p>SpikeInterface’s NWB extractor decides chunking + dtype from
+the source ElectricalSeries. Pass <code class="docutils literal notranslate"><span class="pre">save_kwargs={&quot;n_jobs&quot;:</span> <span class="pre">N}</span></code>
+to parallelise the chunk write for large recordings.</p>
+<p>For DANDI assets that ARE pre-sorted (Units table present), use
+<a class="reference internal" href="#spikelab.data_loaders.data_loaders.load_spikedata_from_dandi" title="spikelab.data_loaders.data_loaders.load_spikedata_from_dandi"><code class="xref py py-func docutils literal notranslate"><span class="pre">load_spikedata_from_dandi()</span></code></a> instead — that path stops at
+the spike trains rather than rewriting the voltage traces.</p>
 </dd></dl>
 
 <dl class="py function">

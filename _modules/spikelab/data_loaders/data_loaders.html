@@ -378,6 +378,9 @@
 <li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_pickle"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_pickle()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_ibl"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_ibl()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.query_ibl_probes"><code class="docutils literal notranslate"><span class="pre">query_ibl_probes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_dandi"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_dandi()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.list_dandi_assets"><code class="docutils literal notranslate"><span class="pre">list_dandi_assets()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_recording_from_dandi"><code class="docutils literal notranslate"><span class="pre">load_recording_from_dandi()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_spikelab_sorted_npz"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikelab_sorted_npz()</span></code></a></li>
 </ul>
 </li>
@@ -507,6 +510,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
@@ -537,6 +541,9 @@
     <span class="s2">&quot;load_spikedata_from_pickle&quot;</span><span class="p">,</span>
     <span class="s2">&quot;load_spikedata_from_ibl&quot;</span><span class="p">,</span>
     <span class="s2">&quot;query_ibl_probes&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;load_spikedata_from_dandi&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;list_dandi_assets&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;load_recording_from_dandi&quot;</span><span class="p">,</span>
     <span class="s2">&quot;load_spikedata_from_spikelab_sorted_npz&quot;</span><span class="p">,</span>
 <span class="p">]</span>
 
@@ -2515,15 +2522,43 @@
 
 <span class="sd">    Returns:</span>
 <span class="sd">        sd (SpikeData): Loaded spike train data.</span>
-<span class="sd">            ``neuron_attributes`` contains</span>
-<span class="sd">            ``{&quot;region&quot;: &lt;Beryl atlas region&gt;}`` per unit.</span>
-<span class="sd">            ``metadata`` contains ``eid``, ``pid``, ``n_trials``,</span>
-<span class="sd">            ``trial_start_times``, ``trial_end_times``,</span>
-<span class="sd">            ``stim_on_times``, ``stim_off_times``, ``go_cue_times``,</span>
-<span class="sd">            ``response_times``, ``feedback_times``,</span>
-<span class="sd">            ``first_movement_times``, ``choice``, ``feedback_type``,</span>
-<span class="sd">            ``contrast_left``, ``contrast_right``, and</span>
-<span class="sd">            ``probability_left``. All time arrays are in milliseconds.</span>
+<span class="sd">            ``neuron_attributes`` carries the Beryl region per unit plus,</span>
+<span class="sd">            when the Brain-Wide Map table provides them, Allen acronym</span>
+<span class="sd">            and atlas_id, the Cosmos parcellation parent, and per-unit</span>
+<span class="sd">            QC fields (``firing_rate``, ``presence_ratio``,</span>
+<span class="sd">            ``amp_median``, ``contamination``, ``drift``,</span>
+<span class="sd">            ``noise_cutoff``, ``cluster_id``).</span>
+<span class="sd">            ``metadata`` carries:</span>
+<span class="sd">              * Existing trial fields: ``eid``, ``pid``, ``n_trials``,</span>
+<span class="sd">                ``trial_start_times``, ``trial_end_times``,</span>
+<span class="sd">                ``stim_on_times``, ``stim_off_times``, ``go_cue_times``,</span>
+<span class="sd">                ``response_times``, ``feedback_times``,</span>
+<span class="sd">                ``first_movement_times``, ``choice``, ``feedback_type``,</span>
+<span class="sd">                ``contrast_left``, ``contrast_right``, ``probability_left``.</span>
+<span class="sd">              * File-level identification: ``identifier`` (= eid),</span>
+<span class="sd">                ``format`` (``&quot;IBL&quot;``), ``unit_count``,</span>
+<span class="sd">                ``sampling_rate_hz`` (when present on the spikes</span>
+<span class="sd">                object), ``duration_seconds``.</span>
+<span class="sd">              * Session metadata (best-effort, one extra REST call):</span>
+<span class="sd">                ``session_start_time``, ``session_end_time``, ``lab``,</span>
+<span class="sd">                ``task_protocol``, ``project``, ``session_number``,</span>
+<span class="sd">                ``procedures``, ``qc``.</span>
+<span class="sd">              * Subject metadata (same REST chain):</span>
+<span class="sd">                ``subject_id``, ``species``, ``sex``, ``date_of_birth``,</span>
+<span class="sd">                ``age_weeks``, ``strain``, ``genotype``,</span>
+<span class="sd">                ``responsible_user``.</span>
+<span class="sd">              * Probe insertion (best-effort REST call):</span>
+<span class="sd">                ``probe_name``, ``probe_model``, and ``insertion_*``</span>
+<span class="sd">                coordinates for any of {x, y, z, theta, phi, depth}</span>
+<span class="sd">                present.</span>
+<span class="sd">              * ``electrodes_by_channel`` (best-effort</span>
+<span class="sd">                ``one.load_object(&quot;channels&quot;)`` call): per-channel</span>
+<span class="sd">                ``location`` (Allen acronym), ``atlas_id`` (Allen</span>
+<span class="sd">                Structure ID), ``x``/``y``/``z`` (ML/AP/DV in mm),</span>
+<span class="sd">                ``local_x``/``local_y`` (probe-relative, μm),</span>
+<span class="sd">                ``raw_index``. Key shape matches the NWB loader&#39;s</span>
+<span class="sd">                ``electrodes_by_channel`` for cross-format consumers.</span>
+<span class="sd">            All time arrays are in milliseconds.</span>
 
 <span class="sd">    Notes:</span>
 <span class="sd">        - Requires ``one-api`` and ``brainwidemap`` packages (optional dependencies).</span>
@@ -2533,6 +2568,10 @@
 <span class="sd">          inferred from the PID suffix; falls back through</span>
 <span class="sd">          ``alf/probe00/pykilosort``, ``alf/probe01/pykilosort``, and</span>
 <span class="sd">          ``alf``.</span>
+<span class="sd">        - Session, subject, insertion, and channels lookups are</span>
+<span class="sd">          best-effort. A failure on any of them yields an absent</span>
+<span class="sd">          metadata field rather than raising — the spike-train load</span>
+<span class="sd">          succeeds as long as the units table is reachable.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">one.api</span><span class="w"> </span><span class="kn">import</span> <span class="n">ONE</span>  <span class="c1"># type: ignore</span>
@@ -2615,13 +2654,51 @@
     <span class="c1"># Build per-unit spike trains (seconds → milliseconds).</span>
     <span class="n">spike_trains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">neuron_attributes</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="c1"># Per-unit QC + Allen-precise region fields, copied from the</span>
+    <span class="c1"># Brain-Wide Map unit table when present. Only columns that exist</span>
+    <span class="c1"># are copied so future bwm_units schema changes don&#39;t break the</span>
+    <span class="c1"># loader.</span>
+    <span class="n">_IBL_PER_UNIT_COPY</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="p">(</span><span class="s2">&quot;acronym&quot;</span><span class="p">,</span> <span class="s2">&quot;acronym&quot;</span><span class="p">),</span>  <span class="c1"># Allen acronym</span>
+        <span class="p">(</span><span class="s2">&quot;atlas_id&quot;</span><span class="p">,</span> <span class="s2">&quot;atlas_id&quot;</span><span class="p">),</span>  <span class="c1"># Allen Structure ID</span>
+        <span class="p">(</span><span class="s2">&quot;Cosmos&quot;</span><span class="p">,</span> <span class="s2">&quot;cosmos&quot;</span><span class="p">),</span>  <span class="c1"># Cosmos parcellation parent</span>
+        <span class="p">(</span><span class="s2">&quot;firing_rate&quot;</span><span class="p">,</span> <span class="s2">&quot;firing_rate&quot;</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;presence_ratio&quot;</span><span class="p">,</span> <span class="s2">&quot;presence_ratio&quot;</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;amp_median&quot;</span><span class="p">,</span> <span class="s2">&quot;amp_median&quot;</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;contamination&quot;</span><span class="p">,</span> <span class="s2">&quot;contamination&quot;</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;drift&quot;</span><span class="p">,</span> <span class="s2">&quot;drift&quot;</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;noise_cutoff&quot;</span><span class="p">,</span> <span class="s2">&quot;noise_cutoff&quot;</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;cluster_id&quot;</span><span class="p">,</span> <span class="s2">&quot;cluster_id&quot;</span><span class="p">),</span>
+    <span class="p">)</span>
     <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">unit</span> <span class="ow">in</span> <span class="n">good_units</span><span class="o">.</span><span class="n">iterrows</span><span class="p">():</span>
         <span class="k">if</span> <span class="n">spikes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">spike_trains</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">mask</span> <span class="o">=</span> <span class="n">spikes</span><span class="p">[</span><span class="s2">&quot;clusters&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">unit</span><span class="p">[</span><span class="s2">&quot;cluster_id&quot;</span><span class="p">]</span>
             <span class="n">spike_trains</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">spikes</span><span class="p">[</span><span class="s2">&quot;times&quot;</span><span class="p">][</span><span class="n">mask</span><span class="p">]</span> <span class="o">*</span> <span class="mf">1_000.0</span><span class="p">)</span>
-        <span class="n">neuron_attributes</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;region&quot;</span><span class="p">:</span> <span class="n">unit</span><span class="p">[</span><span class="s2">&quot;Beryl&quot;</span><span class="p">]})</span>
+        <span class="n">attr</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;region&quot;</span><span class="p">:</span> <span class="n">unit</span><span class="p">[</span><span class="s2">&quot;Beryl&quot;</span><span class="p">]}</span>  <span class="c1"># Beryl region (existing)</span>
+        <span class="k">for</span> <span class="n">src_col</span><span class="p">,</span> <span class="n">dst_key</span> <span class="ow">in</span> <span class="n">_IBL_PER_UNIT_COPY</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">src_col</span> <span class="ow">in</span> <span class="n">good_units</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">val</span> <span class="o">=</span> <span class="n">unit</span><span class="p">[</span><span class="n">src_col</span><span class="p">]</span>
+                <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="c1"># Skip NaN / pandas-NA without depending on pandas being</span>
+                <span class="c1"># imported here (the IBL function already requires it</span>
+                <span class="c1"># transitively, but be defensive).</span>
+                <span class="k">if</span> <span class="n">val</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="s2">&quot;item&quot;</span><span class="p">):</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="n">val</span> <span class="o">=</span> <span class="n">val</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+                    <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+                        <span class="k">pass</span>
+                <span class="c1"># Filter NaN floats (pandas often emits these for</span>
+                <span class="c1"># missing values in float columns).</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span> <span class="ow">and</span> <span class="n">val</span> <span class="o">!=</span> <span class="n">val</span><span class="p">:</span>  <span class="c1"># NaN check</span>
+                    <span class="k">continue</span>
+                <span class="n">attr</span><span class="p">[</span><span class="n">dst_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+        <span class="n">neuron_attributes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">attr</span><span class="p">)</span>
 
     <span class="c1"># Infer session length from the largest spike time if not provided.</span>
     <span class="k">if</span> <span class="n">length_ms</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -2677,12 +2754,831 @@
         <span class="s2">&quot;probability_left&quot;</span><span class="p">:</span> <span class="n">_to_array</span><span class="p">(</span><span class="s2">&quot;probabilityLeft&quot;</span><span class="p">),</span>
     <span class="p">}</span>
 
+    <span class="c1"># File-level identification + counts (Tier 2 — free, from already-</span>
+    <span class="c1"># loaded data). ``identifier`` parallels NWB so downstream consumers</span>
+    <span class="c1"># can read the same key across loaders.</span>
+    <span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;identifier&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">eid</span>
+    <span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;format&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;IBL&quot;</span>
+    <span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;unit_count&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">good_units</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">length_ms</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;duration_seconds&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">length_ms</span><span class="p">)</span> <span class="o">/</span> <span class="mf">1_000.0</span>
+    <span class="k">if</span> <span class="n">spikes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">sr</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">spikes</span><span class="p">,</span> <span class="s2">&quot;sampling_rate&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">sr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;sampling_rate_hz&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">sr</span><span class="p">)</span>
+            <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+                <span class="k">pass</span>
+
+    <span class="c1"># Session + subject + probe-insertion metadata (Tier 1 — two extra</span>
+    <span class="c1"># cached REST queries). Wrapped in best-effort helper so a failed</span>
+    <span class="c1"># Alyx request doesn&#39;t crash the spike-train load.</span>
+    <span class="n">metadata</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">_ibl_collect_session_metadata</span><span class="p">(</span><span class="n">one</span><span class="p">,</span> <span class="n">eid</span><span class="p">,</span> <span class="n">pid</span><span class="p">))</span>
+
+    <span class="c1"># Per-channel Allen acronym + atlas_id + 3D coords (Tier 3 — one</span>
+    <span class="c1"># extra cached ONE.load_object call). Empty dict when the channels</span>
+    <span class="c1"># object isn&#39;t available for any of the probe collections.</span>
+    <span class="n">electrodes</span> <span class="o">=</span> <span class="n">_ibl_collect_channels</span><span class="p">(</span><span class="n">one</span><span class="p">,</span> <span class="n">eid</span><span class="p">,</span> <span class="n">ordered_collections</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">electrodes</span><span class="p">:</span>
+        <span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;electrodes_by_channel&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">electrodes</span>
+
     <span class="k">return</span> <span class="n">_build_spikedata</span><span class="p">(</span>
         <span class="n">spike_trains</span><span class="p">,</span>
         <span class="n">length_ms</span><span class="o">=</span><span class="n">length_ms</span><span class="p">,</span>
         <span class="n">metadata</span><span class="o">=</span><span class="n">metadata</span><span class="p">,</span>
         <span class="n">neuron_attributes</span><span class="o">=</span><span class="n">neuron_attributes</span><span class="p">,</span>
     <span class="p">)</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_ibl_collect_session_metadata</span><span class="p">(</span><span class="n">one</span><span class="p">,</span> <span class="n">eid</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">pid</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Best-effort gather of IBL session + subject + probe-insertion</span>
+<span class="sd">    metadata via the Alyx REST API.</span>
+
+<span class="sd">    Every individual query is wrapped — a failure (network blip,</span>
+<span class="sd">    permissions, schema drift) yields an absent field rather than</span>
+<span class="sd">    crashing the spike-train load. Returns a dict containing whichever</span>
+<span class="sd">    fields could be resolved.</span>
+
+<span class="sd">    Keys populated (all optional):</span>
+<span class="sd">      * Session: ``session_start_time``, ``session_end_time``, ``lab``,</span>
+<span class="sd">        ``task_protocol``, ``project``, ``session_number``, ``procedures``,</span>
+<span class="sd">        ``qc``.</span>
+<span class="sd">      * Subject (one REST call away from session): ``subject_id``,</span>
+<span class="sd">        ``species`` (typically ``&quot;Mus musculus&quot;`` for IBL),</span>
+<span class="sd">        ``sex``, ``date_of_birth``, ``age_weeks``, ``strain``,</span>
+<span class="sd">        ``genotype``, ``responsible_user``.</span>
+<span class="sd">      * Probe insertion: ``probe_name``, ``probe_model``, and</span>
+<span class="sd">        ``insertion_*`` for any of {x, y, z, theta, phi, depth}</span>
+<span class="sd">        present in the insertion&#39;s free-form json.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">md</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="c1"># Session</span>
+    <span class="n">sess</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">sess</span> <span class="o">=</span> <span class="n">one</span><span class="o">.</span><span class="n">alyx</span><span class="o">.</span><span class="n">rest</span><span class="p">(</span><span class="s2">&quot;sessions&quot;</span><span class="p">,</span> <span class="s2">&quot;read&quot;</span><span class="p">,</span> <span class="nb">id</span><span class="o">=</span><span class="n">eid</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+        <span class="n">sess</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sess</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">src_key</span><span class="p">,</span> <span class="n">dst_key</span> <span class="ow">in</span> <span class="p">(</span>
+            <span class="p">(</span><span class="s2">&quot;start_time&quot;</span><span class="p">,</span> <span class="s2">&quot;session_start_time&quot;</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;end_time&quot;</span><span class="p">,</span> <span class="s2">&quot;session_end_time&quot;</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;lab&quot;</span><span class="p">,</span> <span class="s2">&quot;lab&quot;</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;task_protocol&quot;</span><span class="p">,</span> <span class="s2">&quot;task_protocol&quot;</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;project&quot;</span><span class="p">,</span> <span class="s2">&quot;project&quot;</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;number&quot;</span><span class="p">,</span> <span class="s2">&quot;session_number&quot;</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;procedures&quot;</span><span class="p">,</span> <span class="s2">&quot;procedures&quot;</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;qc&quot;</span><span class="p">,</span> <span class="s2">&quot;qc&quot;</span><span class="p">),</span>
+        <span class="p">):</span>
+            <span class="n">val</span> <span class="o">=</span> <span class="n">sess</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">src_key</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">val</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">md</span><span class="p">[</span><span class="n">dst_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+
+        <span class="c1"># Subject — Alyx returns the subject as a nickname string on</span>
+        <span class="c1"># session records. A second REST query fetches the full subject</span>
+        <span class="c1"># detail.</span>
+        <span class="n">subj</span> <span class="o">=</span> <span class="n">sess</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;subject&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">subj</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="n">subj</span><span class="p">:</span>
+            <span class="n">md</span><span class="p">[</span><span class="s2">&quot;subject_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">subj</span>
+            <span class="n">subj_data</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">subj_data</span> <span class="o">=</span> <span class="n">one</span><span class="o">.</span><span class="n">alyx</span><span class="o">.</span><span class="n">rest</span><span class="p">(</span><span class="s2">&quot;subjects&quot;</span><span class="p">,</span> <span class="s2">&quot;read&quot;</span><span class="p">,</span> <span class="nb">id</span><span class="o">=</span><span class="n">subj</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="n">subj_data</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">subj_data</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+                <span class="k">for</span> <span class="n">src_key</span><span class="p">,</span> <span class="n">dst_key</span> <span class="ow">in</span> <span class="p">(</span>
+                    <span class="p">(</span><span class="s2">&quot;species&quot;</span><span class="p">,</span> <span class="s2">&quot;species&quot;</span><span class="p">),</span>
+                    <span class="p">(</span><span class="s2">&quot;sex&quot;</span><span class="p">,</span> <span class="s2">&quot;sex&quot;</span><span class="p">),</span>
+                    <span class="p">(</span><span class="s2">&quot;birth_date&quot;</span><span class="p">,</span> <span class="s2">&quot;date_of_birth&quot;</span><span class="p">),</span>
+                    <span class="p">(</span><span class="s2">&quot;age_weeks&quot;</span><span class="p">,</span> <span class="s2">&quot;age_weeks&quot;</span><span class="p">),</span>
+                    <span class="p">(</span><span class="s2">&quot;strain&quot;</span><span class="p">,</span> <span class="s2">&quot;strain&quot;</span><span class="p">),</span>
+                    <span class="p">(</span><span class="s2">&quot;genotype&quot;</span><span class="p">,</span> <span class="s2">&quot;genotype&quot;</span><span class="p">),</span>
+                    <span class="p">(</span><span class="s2">&quot;responsible_user&quot;</span><span class="p">,</span> <span class="s2">&quot;responsible_user&quot;</span><span class="p">),</span>
+                <span class="p">):</span>
+                    <span class="n">val</span> <span class="o">=</span> <span class="n">subj_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">src_key</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">val</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="n">md</span><span class="p">[</span><span class="n">dst_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+
+    <span class="c1"># Probe insertion</span>
+    <span class="n">ins</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">ins</span> <span class="o">=</span> <span class="n">one</span><span class="o">.</span><span class="n">alyx</span><span class="o">.</span><span class="n">rest</span><span class="p">(</span><span class="s2">&quot;insertions&quot;</span><span class="p">,</span> <span class="s2">&quot;read&quot;</span><span class="p">,</span> <span class="nb">id</span><span class="o">=</span><span class="n">pid</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+        <span class="n">ins</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ins</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">ins</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;name&quot;</span><span class="p">):</span>
+            <span class="n">md</span><span class="p">[</span><span class="s2">&quot;probe_name&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ins</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">ins</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;model&quot;</span><span class="p">):</span>
+            <span class="n">md</span><span class="p">[</span><span class="s2">&quot;probe_model&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ins</span><span class="p">[</span><span class="s2">&quot;model&quot;</span><span class="p">]</span>
+        <span class="n">ij</span> <span class="o">=</span> <span class="n">ins</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;json&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ij</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;z&quot;</span><span class="p">,</span> <span class="s2">&quot;theta&quot;</span><span class="p">,</span> <span class="s2">&quot;phi&quot;</span><span class="p">,</span> <span class="s2">&quot;depth&quot;</span><span class="p">):</span>
+                <span class="n">v</span> <span class="o">=</span> <span class="n">ij</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">v</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">md</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;insertion_</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+
+    <span class="k">return</span> <span class="n">md</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_ibl_collect_channels</span><span class="p">(</span>
+    <span class="n">one</span><span class="p">,</span> <span class="n">eid</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">ordered_collections</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Best-effort load of the IBL ``channels`` object and projection</span>
+<span class="sd">    onto a NWB-style ``electrodes_by_channel`` dict.</span>
+
+<span class="sd">    Returns ``{channel_id (int): {&quot;location&quot; (Allen acronym),</span>
+<span class="sd">    &quot;atlas_id&quot; (Allen Structure ID), &quot;x&quot;/&quot;y&quot;/&quot;z&quot; (ML/AP/DV in mm),</span>
+<span class="sd">    &quot;local_x&quot;/&quot;local_y&quot; (probe-relative, micrometres), &quot;raw_index&quot;}}``.</span>
+<span class="sd">    Empty dict when none of the probe collections yield a channels</span>
+<span class="sd">    object.</span>
+
+<span class="sd">    Key names match the NWB loader&#39;s ``electrodes_by_channel`` shape so</span>
+<span class="sd">    downstream consumers (ingestion mappers, analysis pipelines) read</span>
+<span class="sd">    the same fields across formats. ``location`` carries the Allen</span>
+<span class="sd">    acronym for IBL — analogous to the textual region NWB writes in the</span>
+<span class="sd">    electrodes table&#39;s ``location`` column.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">channels</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">for</span> <span class="n">candidate</span> <span class="ow">in</span> <span class="n">ordered_collections</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">channels</span> <span class="o">=</span> <span class="n">one</span><span class="o">.</span><span class="n">load_object</span><span class="p">(</span><span class="n">eid</span><span class="p">,</span> <span class="s2">&quot;channels&quot;</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="n">candidate</span><span class="p">)</span>
+            <span class="k">break</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>  <span class="c1"># noqa: BLE001</span>
+            <span class="c1"># Best-effort: any failure (missing collection, network</span>
+            <span class="c1"># timeout, auth, schema drift) yields no electrodes_by_channel</span>
+            <span class="c1"># rather than crashing the spike-train load. Matches the</span>
+            <span class="c1"># defensive posture of _ibl_collect_session_metadata.</span>
+            <span class="k">continue</span>
+    <span class="k">if</span> <span class="n">channels</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">{}</span>
+
+    <span class="n">acronyms</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">channels</span><span class="p">,</span> <span class="s2">&quot;acronym&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="n">atlas_ids</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">channels</span><span class="p">,</span> <span class="s2">&quot;atlas_id&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="n">mlapdv</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">channels</span><span class="p">,</span> <span class="s2">&quot;mlapdv&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="n">local_coords</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">channels</span><span class="p">,</span> <span class="s2">&quot;localCoordinates&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="n">raw_inds</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">channels</span><span class="p">,</span> <span class="s2">&quot;rawInd&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+    <span class="c1"># Pick the largest length across the per-attribute arrays as the</span>
+    <span class="c1"># channel count; this is robust to any one attribute being absent.</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">arr</span> <span class="ow">in</span> <span class="p">(</span><span class="n">acronyms</span><span class="p">,</span> <span class="n">atlas_ids</span><span class="p">,</span> <span class="n">raw_inds</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">n</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">arr</span><span class="p">))</span>  <span class="c1"># type: ignore[arg-type]</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+            <span class="k">pass</span>
+    <span class="k">if</span> <span class="n">mlapdv</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">n</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">mlapdv</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="ne">IndexError</span><span class="p">,</span> <span class="ne">AttributeError</span><span class="p">):</span>
+            <span class="k">pass</span>
+    <span class="k">if</span> <span class="n">local_coords</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">n</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">local_coords</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="ne">IndexError</span><span class="p">,</span> <span class="ne">AttributeError</span><span class="p">):</span>
+            <span class="k">pass</span>
+    <span class="k">if</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">{}</span>
+
+    <span class="n">out</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+        <span class="n">entry</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">if</span> <span class="n">acronyms</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;location&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">acronyms</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+            <span class="k">except</span> <span class="p">(</span><span class="ne">IndexError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+                <span class="k">pass</span>
+        <span class="k">if</span> <span class="n">atlas_ids</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;atlas_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">atlas_ids</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+            <span class="k">except</span> <span class="p">(</span><span class="ne">IndexError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+                <span class="k">pass</span>
+        <span class="k">if</span> <span class="n">mlapdv</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">mlapdv</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>  <span class="c1"># ML</span>
+                <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">mlapdv</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>  <span class="c1"># AP</span>
+                <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;z&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">mlapdv</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">2</span><span class="p">])</span>  <span class="c1"># DV</span>
+            <span class="k">except</span> <span class="p">(</span><span class="ne">IndexError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="ne">AttributeError</span><span class="p">):</span>
+                <span class="k">pass</span>
+        <span class="k">if</span> <span class="n">local_coords</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;local_x&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">local_coords</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
+                <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;local_y&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">local_coords</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+            <span class="k">except</span> <span class="p">(</span><span class="ne">IndexError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="ne">AttributeError</span><span class="p">):</span>
+                <span class="k">pass</span>
+        <span class="k">if</span> <span class="n">raw_inds</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;raw_index&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">raw_inds</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+            <span class="k">except</span> <span class="p">(</span><span class="ne">IndexError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+                <span class="k">pass</span>
+        <span class="n">out</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">entry</span>
+    <span class="k">return</span> <span class="n">out</span>
+
+
+<span class="c1"># ----------------------------</span>
+<span class="c1"># DANDI Archive</span>
+<span class="c1"># ----------------------------</span>
+
+<span class="c1">#: DANDI Archive REST API base URL. Public dandisets are readable without</span>
+<span class="c1">#: auth; embargoed dandisets need ``DANDI_API_TOKEN`` in the env.</span>
+<span class="n">_DANDI_API_BASE</span> <span class="o">=</span> <span class="s2">&quot;https://api.dandiarchive.org/api&quot;</span>
+
+<span class="c1">#: Default page size used by :func:`list_dandi_assets`.</span>
+<span class="n">_DANDI_DEFAULT_PAGE_SIZE</span> <span class="o">=</span> <span class="mi">100</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_dandi_json_get</span><span class="p">(</span>
+    <span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">api_token</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">timeout_seconds</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">30.0</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;GET ``url`` and decode JSON. Adds optional bearer auth.</span>
+
+<span class="sd">    Used by both the asset listing and asset detail endpoints. Caller</span>
+<span class="sd">    is responsible for retries — DANDI&#39;s API is generally reliable</span>
+<span class="sd">    enough that a single attempt is fine for most workflows.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">urllib.request</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_ur</span>
+
+    <span class="n">req</span> <span class="o">=</span> <span class="n">_ur</span><span class="o">.</span><span class="n">Request</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+    <span class="n">req</span><span class="o">.</span><span class="n">add_header</span><span class="p">(</span><span class="s2">&quot;Accept&quot;</span><span class="p">,</span> <span class="s2">&quot;application/json&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">api_token</span><span class="p">:</span>
+        <span class="n">req</span><span class="o">.</span><span class="n">add_header</span><span class="p">(</span><span class="s2">&quot;Authorization&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;token </span><span class="si">{</span><span class="n">api_token</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">with</span> <span class="n">_ur</span><span class="o">.</span><span class="n">urlopen</span><span class="p">(</span><span class="n">req</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="n">timeout_seconds</span><span class="p">)</span> <span class="k">as</span> <span class="n">resp</span><span class="p">:</span>  <span class="c1"># noqa: S310</span>
+        <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">resp</span><span class="o">.</span><span class="n">read</span><span class="p">()</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">))</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_dandi_download_asset</span><span class="p">(</span>
+    <span class="n">download_url</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">dest</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">api_token</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">timeout_seconds</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">600.0</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Stream a DANDI asset to ``dest``.</span>
+
+<span class="sd">    Uses ``urlopen`` + a 1-MiB read loop so the per-request timeout</span>
+<span class="sd">    applies to the whole download, not just the header exchange. NWB</span>
+<span class="sd">    assets on DANDI range from MB to multi-GB; the default 10-minute</span>
+<span class="sd">    timeout covers ~50 GB at 100 Mbps.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">urllib.request</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_ur</span>
+
+    <span class="n">req</span> <span class="o">=</span> <span class="n">_ur</span><span class="o">.</span><span class="n">Request</span><span class="p">(</span><span class="n">download_url</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">api_token</span><span class="p">:</span>
+        <span class="n">req</span><span class="o">.</span><span class="n">add_header</span><span class="p">(</span><span class="s2">&quot;Authorization&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;token </span><span class="si">{</span><span class="n">api_token</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">with</span> <span class="n">_ur</span><span class="o">.</span><span class="n">urlopen</span><span class="p">(</span><span class="n">req</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="n">timeout_seconds</span><span class="p">)</span> <span class="k">as</span> <span class="n">resp</span><span class="p">:</span>  <span class="c1"># noqa: S310</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">dest</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fh</span><span class="p">:</span>
+            <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+                <span class="n">chunk</span> <span class="o">=</span> <span class="n">resp</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="mi">20</span><span class="p">)</span>  <span class="c1"># 1 MiB</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">chunk</span><span class="p">:</span>
+                    <span class="k">break</span>
+                <span class="n">fh</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">chunk</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">dest</span>
+
+
+<div class="viewcode-block" id="list_dandi_assets">
+<a class="viewcode-back" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.list_dandi_assets">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">list_dandi_assets</span><span class="p">(</span>
+    <span class="n">dandiset_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">version</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;draft&quot;</span><span class="p">,</span>
+    <span class="n">path_glob</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">api_token</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">api_base</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">_DANDI_API_BASE</span><span class="p">,</span>
+    <span class="n">page_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">_DANDI_DEFAULT_PAGE_SIZE</span><span class="p">,</span>
+    <span class="n">request_timeout_seconds</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">30.0</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Yield assets in a DANDI dandiset version.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        dandiset_id (str): Six-digit DANDI identifier (e.g. ``&quot;000006&quot;``).</span>
+<span class="sd">            Leading zeros matter.</span>
+<span class="sd">        version (str): Dandiset version. ``&quot;draft&quot;`` (default) is the</span>
+<span class="sd">            in-progress version; published versions are tagged like</span>
+<span class="sd">            ``&quot;0.231012.0&quot;``.</span>
+<span class="sd">        path_glob (str | None): Optional ``glob`` pattern (e.g.</span>
+<span class="sd">            ``&quot;*.nwb&quot;``) the API filters on server-side. Cheaper than</span>
+<span class="sd">            client-side filtering when most assets aren&#39;t of interest.</span>
+<span class="sd">        api_token (str | None): Personal access token. Required for</span>
+<span class="sd">            embargoed dandisets. Defaults to the ``DANDI_API_TOKEN``</span>
+<span class="sd">            env var when not supplied; public dandisets work without one.</span>
+<span class="sd">        api_base (str): API root. Override for staging or self-hosted DANDI.</span>
+<span class="sd">        page_size (int): Per-page result count. Default 100 — the</span>
+<span class="sd">            iterator pages internally, so this only affects request</span>
+<span class="sd">            granularity.</span>
+<span class="sd">        request_timeout_seconds (float): Per-request timeout.</span>
+
+<span class="sd">    Yields:</span>
+<span class="sd">        dict: One asset per yielded value, with keys:</span>
+<span class="sd">            ``asset_id`` (str, UUID), ``path`` (str, dandiset-relative),</span>
+<span class="sd">            ``size`` (int, bytes), ``download_url`` (str),</span>
+<span class="sd">            ``dandiset_id`` (str), ``version`` (str).</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        Pagination is handled transparently — caller iterates without</span>
+<span class="sd">        worrying about ``next_page``. Large dandisets can have</span>
+<span class="sd">        thousands of assets, so consumers should consume the iterator</span>
+<span class="sd">        lazily rather than materialising the full list.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">urllib.parse</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_urlparse</span>
+
+    <span class="k">if</span> <span class="n">api_token</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">api_token</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;DANDI_API_TOKEN&quot;</span><span class="p">)</span>
+
+    <span class="n">params</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;page_size&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">page_size</span><span class="p">)}</span>
+    <span class="k">if</span> <span class="n">path_glob</span><span class="p">:</span>
+        <span class="n">params</span><span class="p">[</span><span class="s2">&quot;glob&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">path_glob</span>
+    <span class="n">url</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">api_base</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">/dandisets/</span><span class="si">{</span><span class="n">dandiset_id</span><span class="si">}</span><span class="s2">/versions/&quot;</span>
+        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">version</span><span class="si">}</span><span class="s2">/assets/?</span><span class="si">{</span><span class="n">_urlparse</span><span class="o">.</span><span class="n">urlencode</span><span class="p">(</span><span class="n">params</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="p">)</span>
+    <span class="k">while</span> <span class="n">url</span><span class="p">:</span>
+        <span class="n">payload</span> <span class="o">=</span> <span class="n">_dandi_json_get</span><span class="p">(</span>
+            <span class="n">url</span><span class="p">,</span> <span class="n">api_token</span><span class="o">=</span><span class="n">api_token</span><span class="p">,</span> <span class="n">timeout_seconds</span><span class="o">=</span><span class="n">request_timeout_seconds</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;results&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="p">():</span>
+            <span class="n">asset_id</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">entry</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;asset_id&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">entry</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;identifier&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+            <span class="n">path</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">entry</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;path&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+            <span class="n">size_raw</span> <span class="o">=</span> <span class="n">entry</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;size&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="mi">0</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">size</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">size_raw</span><span class="p">)</span>
+            <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+                <span class="n">size</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">content_urls</span> <span class="o">=</span> <span class="n">entry</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;contentUrl&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">entry</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;contentUrls&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="p">()</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">content_urls</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+                <span class="n">content_urls</span> <span class="o">=</span> <span class="p">[</span><span class="n">content_urls</span><span class="p">]</span>
+            <span class="n">download_url</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">entry</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;download_url&quot;</span><span class="p">)</span>
+                <span class="ow">or</span> <span class="p">(</span><span class="n">content_urls</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">content_urls</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+                <span class="ow">or</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">api_base</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">/assets/</span><span class="si">{</span><span class="n">asset_id</span><span class="si">}</span><span class="s2">/download/&quot;</span>
+            <span class="p">)</span>
+            <span class="k">yield</span> <span class="p">{</span>
+                <span class="s2">&quot;asset_id&quot;</span><span class="p">:</span> <span class="n">asset_id</span><span class="p">,</span>
+                <span class="s2">&quot;path&quot;</span><span class="p">:</span> <span class="n">path</span><span class="p">,</span>
+                <span class="s2">&quot;size&quot;</span><span class="p">:</span> <span class="n">size</span><span class="p">,</span>
+                <span class="s2">&quot;download_url&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">download_url</span><span class="p">),</span>
+                <span class="s2">&quot;dandiset_id&quot;</span><span class="p">:</span> <span class="n">dandiset_id</span><span class="p">,</span>
+                <span class="s2">&quot;version&quot;</span><span class="p">:</span> <span class="n">version</span><span class="p">,</span>
+            <span class="p">}</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;next&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span></div>
+
+
+
+<div class="viewcode-block" id="load_spikedata_from_dandi">
+<a class="viewcode-back" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_dandi">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_spikedata_from_dandi</span><span class="p">(</span>
+    <span class="n">asset_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">dandiset_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">version</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;draft&quot;</span><span class="p">,</span>
+    <span class="n">download_dir</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">api_token</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">api_base</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">_DANDI_API_BASE</span><span class="p">,</span>
+    <span class="n">request_timeout_seconds</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">30.0</span><span class="p">,</span>
+    <span class="n">download_timeout_seconds</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">600.0</span><span class="p">,</span>
+    <span class="n">allow_no_units</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">length_ms</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">start_time_ms</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SpikeData</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Download one DANDI NWB asset and load it as a :class:`SpikeData`.</span>
+
+<span class="sd">    Resolves the asset&#39;s download URL via DANDI&#39;s asset-detail endpoint</span>
+<span class="sd">    (or accepts a direct URL when ``asset_id`` looks like one), streams</span>
+<span class="sd">    the bytes to disk, then delegates to :func:`load_spikedata_from_nwb`</span>
+<span class="sd">    for the actual NWB parsing. DANDI provenance fields are added to</span>
+<span class="sd">    ``SpikeData.metadata``.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        asset_id (str): Either a DANDI asset UUID (the</span>
+<span class="sd">            ``asset_id`` field from :func:`list_dandi_assets`) or a</span>
+<span class="sd">            fully-qualified asset download URL.</span>
+<span class="sd">        dandiset_id (str | None): Owning dandiset id (e.g. ``&quot;000006&quot;``).</span>
+<span class="sd">            Used to build the ``source_reference`` provenance string;</span>
+<span class="sd">            optional when only the asset_id is known.</span>
+<span class="sd">        version (str): Dandiset version. Recorded on metadata.</span>
+<span class="sd">        download_dir (str | None): Directory the downloaded file lives</span>
+<span class="sd">            in. When ``None``, a :class:`tempfile.TemporaryDirectory`</span>
+<span class="sd">            is used and the file is deleted after the load. When a</span>
+<span class="sd">            path is supplied, the directory is created if needed and</span>
+<span class="sd">            the file is kept — caller manages cleanup. The file path</span>
+<span class="sd">            is then recorded on ``SpikeData.metadata`` as</span>
+<span class="sd">            ``downloaded_path``.</span>
+<span class="sd">        api_token (str | None): Personal access token. Required for</span>
+<span class="sd">            embargoed dandisets. Defaults to the ``DANDI_API_TOKEN``</span>
+<span class="sd">            env var when not supplied.</span>
+<span class="sd">        api_base (str): API root override.</span>
+<span class="sd">        request_timeout_seconds (float): Per-API-call timeout (asset</span>
+<span class="sd">            detail lookup, etc.).</span>
+<span class="sd">        download_timeout_seconds (float): Per-download timeout. Default</span>
+<span class="sd">            10 min covers ~50 GB at 100 Mbps; raise for very large</span>
+<span class="sd">            assets on slow links.</span>
+<span class="sd">        allow_no_units (bool): Passed through to</span>
+<span class="sd">            :func:`load_spikedata_from_nwb`. ``True`` lets metadata-</span>
+<span class="sd">            only callers load files without a Units table.</span>
+<span class="sd">        length_ms (float | None): Passed through.</span>
+<span class="sd">        start_time_ms (float | None): Passed through.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        sd (SpikeData): Loaded spike data. ``sd.metadata`` carries all</span>
+<span class="sd">            the keys :func:`load_spikedata_from_nwb` populates, plus</span>
+<span class="sd">            DANDI-specific fields: ``dandi_asset_id``,</span>
+<span class="sd">            ``dandi_dandiset_id`` (when ``dandiset_id`` is provided),</span>
+<span class="sd">            ``dandi_version``, ``source_reference`` (DANDI URL),</span>
+<span class="sd">            ``downloaded_path`` (only when ``download_dir`` is supplied).</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        urllib.error.URLError: On network / HTTP failure.</span>
+<span class="sd">        ValueError / ImportError: From the delegated NWB load.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        Public dandisets work without authentication. Embargoed</span>
+<span class="sd">        dandisets need a personal access token (Account → My Tokens on</span>
+<span class="sd">        dandiarchive.org). Streaming download keeps memory bounded</span>
+<span class="sd">        independent of asset size; on-disk space proportional to the</span>
+<span class="sd">        file is required.</span>
+
+<span class="sd">        DANDI also hosts raw recordings (NWB files with an</span>
+<span class="sd">        ``ElectricalSeries`` acquisition but no ``Units`` table). This</span>
+<span class="sd">        loader does NOT materialise the raw voltage traces — the</span>
+<span class="sd">        function name signals &quot;spike data only&quot;. For metadata triage</span>
+<span class="sd">        on raw assets, pass ``allow_no_units=True``: the returned</span>
+<span class="sd">        SpikeData has ``N=0`` but ``metadata`` is fully populated</span>
+<span class="sd">        (subject, session, ``electrodes_by_channel``,</span>
+<span class="sd">        ``sampling_rate_hz``, ``duration_seconds``, etc.). Loading the</span>
+<span class="sd">        raw ElectricalSeries as a SpikeInterface ``BaseRecording`` is</span>
+<span class="sd">        a separate operation; pair this loader&#39;s metadata triage with</span>
+<span class="sd">        SpikeInterface&#39;s NWB reader on the ``downloaded_path`` for</span>
+<span class="sd">        that case.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_tempfile</span>
+
+    <span class="k">if</span> <span class="n">api_token</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">api_token</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;DANDI_API_TOKEN&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Resolve download URL. Caller may supply either an asset id (we</span>
+    <span class="c1"># look up the detail endpoint to get the URL) or a full URL — the</span>
+    <span class="c1"># latter shape lets batch workflows reuse already-listed assets</span>
+    <span class="c1"># without re-querying.</span>
+    <span class="k">if</span> <span class="n">asset_id</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;http://&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">asset_id</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;https://&quot;</span><span class="p">):</span>
+        <span class="n">download_url</span> <span class="o">=</span> <span class="n">asset_id</span>
+        <span class="n">asset_path_hint</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+        <span class="n">resolved_asset_id</span> <span class="o">=</span> <span class="n">asset_id</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="ow">or</span> <span class="n">asset_id</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">detail_url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">api_base</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">/assets/</span><span class="si">{</span><span class="n">asset_id</span><span class="si">}</span><span class="s2">/&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">detail</span> <span class="o">=</span> <span class="n">_dandi_json_get</span><span class="p">(</span>
+                <span class="n">detail_url</span><span class="p">,</span>
+                <span class="n">api_token</span><span class="o">=</span><span class="n">api_token</span><span class="p">,</span>
+                <span class="n">timeout_seconds</span><span class="o">=</span><span class="n">request_timeout_seconds</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;DANDI asset detail fetch failed for </span><span class="si">{</span><span class="n">asset_id</span><span class="si">!r}</span><span class="s2">: &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
+        <span class="n">content_urls</span> <span class="o">=</span> <span class="n">detail</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;contentUrl&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">detail</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;contentUrls&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="p">()</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">content_urls</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">content_urls</span> <span class="o">=</span> <span class="p">[</span><span class="n">content_urls</span><span class="p">]</span>
+        <span class="n">download_url</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span>
+            <span class="n">detail</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;download_url&quot;</span><span class="p">)</span>
+            <span class="ow">or</span> <span class="p">(</span><span class="n">content_urls</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">content_urls</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+            <span class="ow">or</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">api_base</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">/assets/</span><span class="si">{</span><span class="n">asset_id</span><span class="si">}</span><span class="s2">/download/&quot;</span>
+        <span class="p">)</span>
+        <span class="n">asset_path_hint</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">detail</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;path&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="n">resolved_asset_id</span> <span class="o">=</span> <span class="n">asset_id</span>
+
+    <span class="c1"># Manage the download directory&#39;s lifecycle. Caller-supplied dirs</span>
+    <span class="c1"># are kept around after the load; tempdirs are cleaned up.</span>
+    <span class="n">cleanup</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">download_dir</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">cleanup</span> <span class="o">=</span> <span class="n">_tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;dandi-asset-&quot;</span><span class="p">)</span>
+        <span class="n">download_root</span> <span class="o">=</span> <span class="n">cleanup</span><span class="o">.</span><span class="n">name</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">download_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">download_root</span> <span class="o">=</span> <span class="n">download_dir</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="c1"># Pick a non-traversal filename. DANDI paths are</span>
+        <span class="c1"># forward-slash-separated and well-behaved, but defensive</span>
+        <span class="c1"># ``os.path.basename`` strips any directory components and any</span>
+        <span class="c1"># ``..`` segments that might appear.</span>
+        <span class="n">rel</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">asset_path_hint</span><span class="p">)</span> <span class="ow">or</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">resolved_asset_id</span><span class="si">}</span><span class="s2">.nwb&quot;</span>
+        <span class="n">dest</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">download_root</span><span class="p">,</span> <span class="n">rel</span><span class="p">)</span>
+        <span class="n">_dandi_download_asset</span><span class="p">(</span>
+            <span class="n">download_url</span><span class="p">,</span>
+            <span class="n">dest</span><span class="p">,</span>
+            <span class="n">api_token</span><span class="o">=</span><span class="n">api_token</span><span class="p">,</span>
+            <span class="n">timeout_seconds</span><span class="o">=</span><span class="n">download_timeout_seconds</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">sd</span> <span class="o">=</span> <span class="n">load_spikedata_from_nwb</span><span class="p">(</span>
+            <span class="n">dest</span><span class="p">,</span>
+            <span class="n">prefer_pynwb</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">length_ms</span><span class="o">=</span><span class="n">length_ms</span><span class="p">,</span>
+            <span class="n">start_time_ms</span><span class="o">=</span><span class="n">start_time_ms</span><span class="p">,</span>
+            <span class="n">allow_no_units</span><span class="o">=</span><span class="n">allow_no_units</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Stamp DANDI provenance onto SpikeData.metadata. ``metadata``</span>
+        <span class="c1"># is always a dict at this point — load_spikedata_from_nwb</span>
+        <span class="c1"># initialises it with at least source_file + format keys.</span>
+        <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">metadata</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">sd</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;dandi_asset_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">resolved_asset_id</span>
+            <span class="k">if</span> <span class="n">dandiset_id</span><span class="p">:</span>
+                <span class="n">sd</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;dandi_dandiset_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">dandiset_id</span>
+            <span class="n">sd</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;dandi_version&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">version</span>
+            <span class="k">if</span> <span class="n">dandiset_id</span><span class="p">:</span>
+                <span class="n">sd</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;source_reference&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;dandi://dandiarchive.org/dandisets/</span><span class="si">{</span><span class="n">dandiset_id</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;/versions/</span><span class="si">{</span><span class="n">version</span><span class="si">}</span><span class="s2">/assets/</span><span class="si">{</span><span class="n">resolved_asset_id</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">sd</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;source_reference&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;dandi://dandiarchive.org/assets/</span><span class="si">{</span><span class="n">resolved_asset_id</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="n">download_dir</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="c1"># Caller owns the directory; record where the file</span>
+                <span class="c1"># ended up so the gateway / analysis caller can find it</span>
+                <span class="c1"># for content-hashing or further processing.</span>
+                <span class="n">sd</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;downloaded_path&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">dest</span>
+        <span class="k">return</span> <span class="n">sd</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">cleanup</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">cleanup</span><span class="o">.</span><span class="n">cleanup</span><span class="p">()</span></div>
+
+
+
+<div class="viewcode-block" id="load_recording_from_dandi">
+<a class="viewcode-back" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_recording_from_dandi">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_recording_from_dandi</span><span class="p">(</span>
+    <span class="n">asset_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">zarr_dest</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">dandiset_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">version</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;draft&quot;</span><span class="p">,</span>
+    <span class="n">electrical_series_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">overwrite</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">download_dir</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">keep_nwb</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">api_token</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">api_base</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">_DANDI_API_BASE</span><span class="p">,</span>
+    <span class="n">request_timeout_seconds</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">30.0</span><span class="p">,</span>
+    <span class="n">download_timeout_seconds</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">600.0</span><span class="p">,</span>
+    <span class="n">save_kwargs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Download a DANDI NWB asset and convert its raw ElectricalSeries</span>
+<span class="sd">    to SpikeInterface Zarr format.</span>
+
+<span class="sd">    Complementary to :func:`load_spikedata_from_dandi`: that one is for</span>
+<span class="sd">    pre-sorted Units tables; this one is for the raw voltage traces</span>
+<span class="sd">    (the ``ElectricalSeries`` acquisition objects DANDI hosts but that</span>
+<span class="sd">    no analysis tooling pre-processes for you). Output is a Zarr</span>
+<span class="sd">    directory that any consumer of SpikeInterface — e.g. a spike</span>
+<span class="sd">    sorter run later — can re-open via</span>
+<span class="sd">    :func:`spikeinterface.core.read_zarr_recording`.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        asset_id (str): DANDI asset UUID or a fully-qualified asset URL.</span>
+<span class="sd">            Same shapes accepted by :func:`load_spikedata_from_dandi`.</span>
+<span class="sd">        zarr_dest (str): Target Zarr directory. Created if absent.</span>
+<span class="sd">        dandiset_id (str | None): Owning dandiset id, used for the</span>
+<span class="sd">            ``source_reference`` provenance string.</span>
+<span class="sd">        version (str): Dandiset version. Recorded on metadata.</span>
+<span class="sd">        electrical_series_path (str | None): When the NWB file has</span>
+<span class="sd">            multiple ElectricalSeries objects, the HDMF location of the</span>
+<span class="sd">            one to convert (e.g. ``&quot;acquisition/ElectricalSeriesAP&quot;``).</span>
+<span class="sd">            ``None`` (default) lets SpikeInterface auto-pick — works</span>
+<span class="sd">            when there&#39;s exactly one.</span>
+<span class="sd">        overwrite (bool): When ``True``, an existing ``zarr_dest`` is</span>
+<span class="sd">            removed first. When ``False`` (default), an existing target</span>
+<span class="sd">            raises.</span>
+<span class="sd">        download_dir (str | None): Directory the downloaded ``.nwb``</span>
+<span class="sd">            lives in. ``None`` uses a tempdir. The NWB is removed after</span>
+<span class="sd">            the Zarr write unless ``keep_nwb=True``.</span>
+<span class="sd">        keep_nwb (bool): When ``True``, the downloaded ``.nwb`` is left</span>
+<span class="sd">            on disk after the Zarr is written. Useful for callers that</span>
+<span class="sd">            want to content-hash the original bytes (e.g. gateway</span>
+<span class="sd">            ingestion). The downloaded path is included in the return</span>
+<span class="sd">            dict under ``downloaded_nwb_path``.</span>
+<span class="sd">        api_token (str | None): DANDI personal access token. Defaults</span>
+<span class="sd">            to ``DANDI_API_TOKEN`` env var.</span>
+<span class="sd">        api_base (str): API root override.</span>
+<span class="sd">        request_timeout_seconds (float): Per-API-call timeout.</span>
+<span class="sd">        download_timeout_seconds (float): Per-download timeout.</span>
+<span class="sd">        save_kwargs (dict | None): Forwarded to</span>
+<span class="sd">            :meth:`BaseRecording.save` — e.g. ``{&quot;n_jobs&quot;: 4,</span>
+<span class="sd">            &quot;chunk_duration_s&quot;: 1.0}``. Defaults to ``{}``.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        dict: Conversion outcome with the following keys:</span>
+<span class="sd">            * ``zarr_path``: Absolute path to the Zarr directory.</span>
+<span class="sd">            * ``recording_metadata_path``: JSON sidecar (DANDI provenance</span>
+<span class="sd">              + NWB file-level metadata + recording shape).</span>
+<span class="sd">            * ``downloaded_nwb_path``: Present only when ``keep_nwb`` is</span>
+<span class="sd">              True. Path to the source NWB file.</span>
+<span class="sd">            * ``dandi_asset_id``, ``dandi_dandiset_id`` (when supplied),</span>
+<span class="sd">              ``dandi_version``, ``source_reference``: provenance.</span>
+<span class="sd">            * ``sampling_rate_hz``, ``n_channels``, ``n_samples``,</span>
+<span class="sd">              ``duration_seconds``: recording shape, surfaced from the</span>
+<span class="sd">              SpikeInterface extractor for callers that don&#39;t want to</span>
+<span class="sd">              re-open the Zarr just to check.</span>
+<span class="sd">            * Subject + session fields merged from the NWB metadata</span>
+<span class="sd">              (when present): ``identifier``, ``subject_id``,</span>
+<span class="sd">              ``species``, ``sex``, ``session_start_time``, etc.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ImportError: If ``spikeinterface`` (or its NWB extractor) isn&#39;t</span>
+<span class="sd">            installed.</span>
+<span class="sd">        ValueError: If asset detail fetch fails or the NWB file has no</span>
+<span class="sd">            ElectricalSeries the extractor can resolve.</span>
+<span class="sd">        FileExistsError: If ``zarr_dest`` exists and ``overwrite=False``.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        Streaming download keeps memory bounded. Zarr writes are</span>
+<span class="sd">        proportional to the recording size — a 1-hour, 384-channel,</span>
+<span class="sd">        30 kHz Neuropixels session is ~80 GB raw → ~20–40 GB with the</span>
+<span class="sd">        default LZ4 compressor. Plan disk accordingly.</span>
+
+<span class="sd">        SpikeInterface&#39;s NWB extractor decides chunking + dtype from</span>
+<span class="sd">        the source ElectricalSeries. Pass ``save_kwargs={&quot;n_jobs&quot;: N}``</span>
+<span class="sd">        to parallelise the chunk write for large recordings.</span>
+
+<span class="sd">        For DANDI assets that ARE pre-sorted (Units table present), use</span>
+<span class="sd">        :func:`load_spikedata_from_dandi` instead — that path stops at</span>
+<span class="sd">        the spike trains rather than rewriting the voltage traces.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_shutil</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_tempfile</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">spikeinterface.extractors</span><span class="w"> </span><span class="kn">import</span> <span class="n">NwbRecordingExtractor</span>  <span class="c1"># type: ignore</span>
+    <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
+            <span class="s2">&quot;load_recording_from_dandi requires spikeinterface; install via &quot;</span>
+            <span class="s2">&quot;the spikelab[io] extra (which pulls spikeinterface + zarr) &quot;</span>
+            <span class="s2">&quot;or `pip install spikeinterface`.&quot;</span>
+        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
+
+    <span class="k">if</span> <span class="n">api_token</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">api_token</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;DANDI_API_TOKEN&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">zarr_dest</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">overwrite</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">FileExistsError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;zarr_dest </span><span class="si">{</span><span class="n">zarr_dest</span><span class="si">!r}</span><span class="s2"> already exists; pass &quot;</span>
+                <span class="s2">&quot;overwrite=True to replace it.&quot;</span>
+            <span class="p">)</span>
+        <span class="n">_shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="n">zarr_dest</span><span class="p">)</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">zarr_dest</span><span class="p">))</span> <span class="ow">or</span> <span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Resolve download URL (same shape as load_spikedata_from_dandi).</span>
+    <span class="k">if</span> <span class="n">asset_id</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;http://&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">asset_id</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;https://&quot;</span><span class="p">):</span>
+        <span class="n">download_url</span> <span class="o">=</span> <span class="n">asset_id</span>
+        <span class="n">asset_path_hint</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+        <span class="n">resolved_asset_id</span> <span class="o">=</span> <span class="n">asset_id</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="ow">or</span> <span class="n">asset_id</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">detail_url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">api_base</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">/assets/</span><span class="si">{</span><span class="n">asset_id</span><span class="si">}</span><span class="s2">/&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">detail</span> <span class="o">=</span> <span class="n">_dandi_json_get</span><span class="p">(</span>
+                <span class="n">detail_url</span><span class="p">,</span>
+                <span class="n">api_token</span><span class="o">=</span><span class="n">api_token</span><span class="p">,</span>
+                <span class="n">timeout_seconds</span><span class="o">=</span><span class="n">request_timeout_seconds</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;DANDI asset detail fetch failed for </span><span class="si">{</span><span class="n">asset_id</span><span class="si">!r}</span><span class="s2">: &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
+        <span class="n">content_urls</span> <span class="o">=</span> <span class="n">detail</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;contentUrl&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">detail</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;contentUrls&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="p">()</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">content_urls</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">content_urls</span> <span class="o">=</span> <span class="p">[</span><span class="n">content_urls</span><span class="p">]</span>
+        <span class="n">download_url</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span>
+            <span class="n">detail</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;download_url&quot;</span><span class="p">)</span>
+            <span class="ow">or</span> <span class="p">(</span><span class="n">content_urls</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">content_urls</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+            <span class="ow">or</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">api_base</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">/assets/</span><span class="si">{</span><span class="n">asset_id</span><span class="si">}</span><span class="s2">/download/&quot;</span>
+        <span class="p">)</span>
+        <span class="n">asset_path_hint</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">detail</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;path&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="n">resolved_asset_id</span> <span class="o">=</span> <span class="n">asset_id</span>
+
+    <span class="c1"># Manage the download dir.</span>
+    <span class="n">cleanup</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">download_dir</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">cleanup</span> <span class="o">=</span> <span class="n">_tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;dandi-recording-&quot;</span><span class="p">)</span>
+        <span class="n">download_root</span> <span class="o">=</span> <span class="n">cleanup</span><span class="o">.</span><span class="n">name</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">download_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">download_root</span> <span class="o">=</span> <span class="n">download_dir</span>
+
+    <span class="n">nwb_path</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">rel</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">asset_path_hint</span><span class="p">)</span> <span class="ow">or</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">resolved_asset_id</span><span class="si">}</span><span class="s2">.nwb&quot;</span>
+        <span class="n">nwb_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">download_root</span><span class="p">,</span> <span class="n">rel</span><span class="p">)</span>
+        <span class="n">_dandi_download_asset</span><span class="p">(</span>
+            <span class="n">download_url</span><span class="p">,</span>
+            <span class="n">nwb_path</span><span class="p">,</span>
+            <span class="n">api_token</span><span class="o">=</span><span class="n">api_token</span><span class="p">,</span>
+            <span class="n">timeout_seconds</span><span class="o">=</span><span class="n">download_timeout_seconds</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># File-level metadata via pynwb. Reuses the same helper as the</span>
+        <span class="c1"># NWB spike-train loader so metadata shape is uniform across</span>
+        <span class="c1"># both paths.</span>
+        <span class="n">nwb_metadata</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">pynwb</span><span class="w"> </span><span class="kn">import</span> <span class="n">NWBHDF5IO</span>  <span class="c1"># type: ignore</span>
+
+            <span class="k">with</span> <span class="n">NWBHDF5IO</span><span class="p">(</span><span class="n">nwb_path</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;r&quot;</span><span class="p">,</span> <span class="n">load_namespaces</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="k">as</span> <span class="n">io</span><span class="p">:</span>
+                <span class="n">_nwb</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+                <span class="n">nwb_metadata</span> <span class="o">=</span> <span class="n">_nwb_collect_file_metadata</span><span class="p">(</span><span class="n">_nwb</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;load_recording_from_dandi: NWB metadata read failed &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">); proceeding with empty &quot;</span>
+                <span class="s2">&quot;metadata sidecar.&quot;</span><span class="p">,</span>
+                <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="c1"># SpikeInterface extractor + Zarr write.</span>
+        <span class="n">extractor_kwargs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">if</span> <span class="n">electrical_series_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">extractor_kwargs</span><span class="p">[</span><span class="s2">&quot;electrical_series_path&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">electrical_series_path</span>
+        <span class="n">recording</span> <span class="o">=</span> <span class="n">NwbRecordingExtractor</span><span class="p">(</span><span class="n">nwb_path</span><span class="p">,</span> <span class="o">**</span><span class="n">extractor_kwargs</span><span class="p">)</span>
+
+        <span class="n">sample_rate</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">recording</span><span class="o">.</span><span class="n">get_sampling_frequency</span><span class="p">())</span>
+        <span class="n">n_channels</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">recording</span><span class="o">.</span><span class="n">get_num_channels</span><span class="p">())</span>
+        <span class="n">n_samples</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">recording</span><span class="o">.</span><span class="n">get_num_frames</span><span class="p">())</span>
+        <span class="n">duration_seconds</span> <span class="o">=</span> <span class="n">n_samples</span> <span class="o">/</span> <span class="n">sample_rate</span> <span class="k">if</span> <span class="n">sample_rate</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="kc">None</span>
+
+        <span class="n">sk</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">save_kwargs</span> <span class="ow">or</span> <span class="p">{})</span>
+        <span class="n">recording</span><span class="o">.</span><span class="n">save</span><span class="p">(</span>
+            <span class="n">folder</span><span class="o">=</span><span class="n">zarr_dest</span><span class="p">,</span>
+            <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;zarr&quot;</span><span class="p">,</span>
+            <span class="n">overwrite</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>  <span class="c1"># we already enforced the policy above</span>
+            <span class="o">**</span><span class="n">sk</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="c1"># Release the extractor&#39;s file handle BEFORE we try to delete</span>
+        <span class="c1"># the source NWB. SpikeInterface&#39;s NwbRecordingExtractor holds</span>
+        <span class="c1"># an h5py handle via pynwb that doesn&#39;t auto-release on save;</span>
+        <span class="c1"># leaving it open makes ``os.remove(nwb_path)`` fail on</span>
+        <span class="c1"># Windows (file-in-use), and the subsequent tempdir cleanup</span>
+        <span class="c1"># misinterprets that error and tries to rmtree the .nwb as a</span>
+        <span class="c1"># directory. ``del`` + ``gc.collect`` forces finalisation.</span>
+        <span class="k">del</span> <span class="n">recording</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">gc</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_gc</span>
+
+        <span class="n">_gc</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+
+        <span class="c1"># Drop a JSON sidecar so consumers reading the Zarr later have</span>
+        <span class="c1"># provenance + file-level metadata without re-opening the</span>
+        <span class="c1"># source NWB.</span>
+        <span class="n">sidecar</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;spikeinterface_zarr&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;dandi_asset_id&quot;</span><span class="p">:</span> <span class="n">resolved_asset_id</span><span class="p">,</span>
+            <span class="s2">&quot;dandi_version&quot;</span><span class="p">:</span> <span class="n">version</span><span class="p">,</span>
+            <span class="s2">&quot;sampling_rate_hz&quot;</span><span class="p">:</span> <span class="n">sample_rate</span><span class="p">,</span>
+            <span class="s2">&quot;n_channels&quot;</span><span class="p">:</span> <span class="n">n_channels</span><span class="p">,</span>
+            <span class="s2">&quot;n_samples&quot;</span><span class="p">:</span> <span class="n">n_samples</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="k">if</span> <span class="n">dandiset_id</span><span class="p">:</span>
+            <span class="n">sidecar</span><span class="p">[</span><span class="s2">&quot;dandi_dandiset_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">dandiset_id</span>
+            <span class="n">sidecar</span><span class="p">[</span><span class="s2">&quot;source_reference&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;dandi://dandiarchive.org/dandisets/</span><span class="si">{</span><span class="n">dandiset_id</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;/versions/</span><span class="si">{</span><span class="n">version</span><span class="si">}</span><span class="s2">/assets/</span><span class="si">{</span><span class="n">resolved_asset_id</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">sidecar</span><span class="p">[</span><span class="s2">&quot;source_reference&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;dandi://dandiarchive.org/assets/</span><span class="si">{</span><span class="n">resolved_asset_id</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">duration_seconds</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">sidecar</span><span class="p">[</span><span class="s2">&quot;duration_seconds&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">duration_seconds</span>
+        <span class="c1"># Merge file-level NWB metadata last so it overlays the</span>
+        <span class="c1"># computed sidecar fields (the NWB unit_count + duration are</span>
+        <span class="c1"># the same conceptually as the SI-derived ones; keep the SI</span>
+        <span class="c1"># values authoritative for the recording-shape fields).</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">nwb_metadata</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">sidecar</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
+
+        <span class="n">sidecar_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">zarr_dest</span><span class="p">,</span> <span class="s2">&quot;recording_metadata.json&quot;</span><span class="p">)</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">sidecar_path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fh</span><span class="p">:</span>
+            <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">sidecar</span><span class="p">,</span> <span class="n">fh</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="nb">str</span><span class="p">)</span>
+
+        <span class="c1"># Build the return dict (a flat copy of sidecar plus paths).</span>
+        <span class="n">result</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">sidecar</span><span class="p">)</span>
+        <span class="n">result</span><span class="p">[</span><span class="s2">&quot;zarr_path&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">zarr_dest</span><span class="p">)</span>
+        <span class="n">result</span><span class="p">[</span><span class="s2">&quot;recording_metadata_path&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">sidecar_path</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">keep_nwb</span><span class="p">:</span>
+            <span class="n">result</span><span class="p">[</span><span class="s2">&quot;downloaded_nwb_path&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">nwb_path</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">result</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">keep_nwb</span> <span class="ow">and</span> <span class="n">nwb_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">nwb_path</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">nwb_path</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
+                <span class="k">pass</span>
+        <span class="k">if</span> <span class="n">cleanup</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">cleanup</span><span class="o">.</span><span class="n">cleanup</span><span class="p">()</span></div>
 
 
 
