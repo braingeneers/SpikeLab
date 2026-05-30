@@ -1474,7 +1474,18 @@ class SpikeData:
                 f"({-self.length}); the resulting raster would have a negative "
                 f"number of bins."
             )
-        length = int(np.ceil((self.length + time_offset) / bin_size))
+        # Absorb sub-bin float drift in self.length so np.ceil doesn't round up
+        # to a spurious extra bin. Drift originates in event-aligned slicing:
+        # (peak + after) - (peak - before) is not exactly before + after under
+        # float arithmetic, so a slice intended for 1000 ms ends up with length
+        # 1000.0000000000002. Without tolerance, ceil(1000.0000000000002 / 1.0)
+        # is 1001, which causes SpikeSliceStack.to_raster_array to fail at
+        # np.stack on ~2% of slices when align_to_events is called with
+        # float-valued event times. Tolerance scales with bin count to remain
+        # well below any legitimate sub-bin precision across bin sizes.
+        exact_bins = (self.length + time_offset) / bin_size
+        tolerance = max(1e-9, abs(exact_bins) * 4 * np.finfo(float).eps)
+        length = int(np.ceil(exact_bins - tolerance))
         # N==0 short-circuit: np.hstack on an empty list raises, so
         # build the empty (0, T) sparse matrix directly.
         if self.N == 0:

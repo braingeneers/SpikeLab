@@ -1949,6 +1949,42 @@ class TestSpikeDataRates:
         # Bin 3: [10, 20) → spike at 15
         assert raster[0, 3] == 1
 
+    def test_sparse_raster_absorbs_sub_bin_length_drift(self):
+        """
+        sparse_raster must not produce an extra bin when self.length drifts
+        by sub-bin float epsilon (e.g., 1000.0000000000002 from event-aligned
+        slicing arithmetic).
+
+        Tests:
+            (Test Case 1) length exactly on bin boundary -> ceil produces N bins.
+            (Test Case 2) length with sub-bin epsilon overshoot -> ceil still
+                produces N bins (not N+1).
+            (Test Case 3) length with a true sub-bin overshoot (>tolerance)
+                -> ceil produces N+1 bins as before.
+            (Test Case 4) drift tolerance scales with bin count so a fine
+                bin_size on a long recording still absorbs ULP-magnitude drift.
+        """
+        train = [np.array([100.0, 200.0])]
+
+        sd_exact = SpikeData(train, length=1000.0)
+        assert sd_exact.sparse_raster(bin_size=1.0).shape[1] == 1000
+
+        # Sub-bin drift typical of event-aligned slicing: 1000.0000000000002
+        sd_drift = SpikeData(train, length=1000.0 + 2e-13)
+        assert sd_drift.sparse_raster(bin_size=1.0).shape[1] == 1000
+
+        # Real sub-bin overshoot must still round up
+        sd_real_overshoot = SpikeData(train, length=1000.5)
+        assert sd_real_overshoot.sparse_raster(bin_size=1.0).shape[1] == 1001
+
+        # Long recording, fine bin: ULP-magnitude drift in length must be
+        # absorbed by the scaling tolerance. For length=1e6 ms, ULP is
+        # ~1.2e-10 ms; tolerance must catch drift at that magnitude when
+        # divided by bin_size=0.1 ms (drift / bin = 1.2e-9 bins).
+        ulp_drift = np.spacing(1_000_000.0) * 2  # ~2.3e-10 ms
+        sd_long = SpikeData(train, length=1_000_000.0 + ulp_drift)
+        assert sd_long.sparse_raster(bin_size=0.1).shape[1] == 10_000_000
+
     def test_rates(self):
         """
         Tests rates() method for correct spike rate calculation and unit handling.
