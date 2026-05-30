@@ -504,7 +504,8 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
@@ -1119,6 +1120,247 @@
 <span class="c1"># ----------------------------</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_nwb_str_or_none</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Coerce ``value`` to a non-empty stripped string, else ``None``.</span>
+
+<span class="sd">    Module-private helper for the NWB loader&#39;s file-level metadata</span>
+<span class="sd">    population — used to clean up Subject / session text fields that</span>
+<span class="sd">    may be ``None``, empty, or whitespace.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">s</span> <span class="ow">or</span> <span class="kc">None</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_nwb_safe_get</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="n">column</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">row_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">cast</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Pull one cell out of a pynwb ``DynamicTable`` column.</span>
+
+<span class="sd">    pynwb&#39;s ``__getitem__`` semantics are quirky (region references,</span>
+<span class="sd">    slicing) and a malformed column shouldn&#39;t crash the whole</span>
+<span class="sd">    extraction. Broad ``Exception`` catches are intentional — callers</span>
+<span class="sd">    receive ``None`` for any cell pynwb can&#39;t decode.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">col</span> <span class="o">=</span> <span class="n">table</span><span class="p">[</span><span class="n">column</span><span class="p">]</span>
+    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="n">col</span><span class="p">[</span><span class="n">row_idx</span><span class="p">]</span>
+    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">cast</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">value</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_nwb_collect_file_metadata</span><span class="p">(</span><span class="n">nwbfile</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build the file-level metadata dict folded into ``SpikeData.metadata``.</span>
+
+<span class="sd">    Reads subject, session, devices, and per-channel electrode info</span>
+<span class="sd">    (locations + 3D coords + group names). Returns a flat dict with</span>
+<span class="sd">    string keys — caller merges it into ``meta`` alongside the existing</span>
+<span class="sd">    ``source_file`` / ``format`` keys.</span>
+
+<span class="sd">    Keys populated (all optional — absent when the file doesn&#39;t carry</span>
+<span class="sd">    the field):</span>
+
+<span class="sd">      * ``identifier``: NWB file identifier (UUID-shaped string).</span>
+<span class="sd">      * ``session_description``, ``session_start_time`` (ISO string).</span>
+<span class="sd">      * ``subject_id``, ``species``, ``sex``, ``age``, ``date_of_birth``</span>
+<span class="sd">        (ISO string).</span>
+<span class="sd">      * ``device_names``: list of device names (probes, rigs), sorted.</span>
+<span class="sd">      * ``sampling_rate_hz``, ``duration_seconds``: from the first</span>
+<span class="sd">        ElectricalSeries acquisition object.</span>
+<span class="sd">      * ``unit_count``: number of rows in ``nwbfile.units``.</span>
+<span class="sd">      * ``electrodes_by_channel``: ``{channel_id (int): {&quot;location&quot;:</span>
+<span class="sd">        str|None, &quot;group_name&quot;: str|None, &quot;x&quot;/&quot;y&quot;/&quot;z&quot;: float|None}}``.</span>
+<span class="sd">        The free-text ``location`` field is what downstream ontology</span>
+<span class="sd">        resolvers consume (cross-references to UBERON / Allen CCF).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">meta</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="n">identifier</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">nwbfile</span><span class="p">,</span> <span class="s2">&quot;identifier&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">identifier</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">str</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">():</span>
+        <span class="n">meta</span><span class="p">[</span><span class="s2">&quot;identifier&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+
+    <span class="n">sess_desc</span> <span class="o">=</span> <span class="n">_nwb_str_or_none</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">nwbfile</span><span class="p">,</span> <span class="s2">&quot;session_description&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">sess_desc</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">meta</span><span class="p">[</span><span class="s2">&quot;session_description&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sess_desc</span>
+
+    <span class="n">sess_start</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">nwbfile</span><span class="p">,</span> <span class="s2">&quot;session_start_time&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sess_start</span><span class="p">,</span> <span class="n">datetime</span><span class="p">):</span>
+        <span class="n">meta</span><span class="p">[</span><span class="s2">&quot;session_start_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sess_start</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span>
+
+    <span class="n">subject</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">nwbfile</span><span class="p">,</span> <span class="s2">&quot;subject&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">subject</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">field_name</span><span class="p">,</span> <span class="n">attr</span> <span class="ow">in</span> <span class="p">(</span>
+            <span class="p">(</span><span class="s2">&quot;subject_id&quot;</span><span class="p">,</span> <span class="s2">&quot;subject_id&quot;</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;species&quot;</span><span class="p">,</span> <span class="s2">&quot;species&quot;</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;sex&quot;</span><span class="p">,</span> <span class="s2">&quot;sex&quot;</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;age&quot;</span><span class="p">,</span> <span class="s2">&quot;age&quot;</span><span class="p">),</span>
+        <span class="p">):</span>
+            <span class="n">val</span> <span class="o">=</span> <span class="n">_nwb_str_or_none</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">subject</span><span class="p">,</span> <span class="n">attr</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">val</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">meta</span><span class="p">[</span><span class="n">field_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+        <span class="n">dob</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">subject</span><span class="p">,</span> <span class="s2">&quot;date_of_birth&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dob</span><span class="p">,</span> <span class="n">datetime</span><span class="p">):</span>
+            <span class="n">meta</span><span class="p">[</span><span class="s2">&quot;date_of_birth&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">dob</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span>
+
+    <span class="n">nwb_devices</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">nwbfile</span><span class="p">,</span> <span class="s2">&quot;devices&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">nwb_devices</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">meta</span><span class="p">[</span><span class="s2">&quot;device_names&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">nwb_devices</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="k">pass</span>
+
+    <span class="n">sample_rate</span><span class="p">,</span> <span class="n">duration</span> <span class="o">=</span> <span class="n">_read_nwb_first_acquisition_timing</span><span class="p">(</span><span class="n">nwbfile</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">sample_rate</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">meta</span><span class="p">[</span><span class="s2">&quot;sampling_rate_hz&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sample_rate</span>
+    <span class="k">if</span> <span class="n">duration</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">meta</span><span class="p">[</span><span class="s2">&quot;duration_seconds&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">duration</span>
+
+    <span class="n">nwb_units</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">nwbfile</span><span class="p">,</span> <span class="s2">&quot;units&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">nwb_units</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">meta</span><span class="p">[</span><span class="s2">&quot;unit_count&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">nwb_units</span><span class="p">))</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+            <span class="n">meta</span><span class="p">[</span><span class="s2">&quot;unit_count&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="n">electrodes_by_channel</span> <span class="o">=</span> <span class="n">_read_nwb_electrodes</span><span class="p">(</span><span class="n">nwbfile</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">electrodes_by_channel</span><span class="p">:</span>
+        <span class="n">meta</span><span class="p">[</span><span class="s2">&quot;electrodes_by_channel&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">electrodes_by_channel</span>
+
+    <span class="k">return</span> <span class="n">meta</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_read_nwb_electrodes</span><span class="p">(</span><span class="n">nwbfile</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Read per-channel electrode metadata from ``nwbfile.electrodes``.</span>
+
+<span class="sd">    Returns ``{channel_id (int): {&quot;location&quot;: str|None, &quot;group_name&quot;:</span>
+<span class="sd">    str|None, &quot;x&quot;/&quot;y&quot;/&quot;z&quot;: float|None}}``. The ``location`` value is</span>
+<span class="sd">    the source dataset&#39;s free-text region label (e.g. ``&quot;VISp&quot;``,</span>
+<span class="sd">    ``&quot;CA1&quot;``, ``&quot;primary visual cortex&quot;``) — kept verbatim; the</span>
+<span class="sd">    consumer (e.g. gateway ingestion) resolves to a canonical ontology</span>
+<span class="sd">    ID.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">table</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">nwbfile</span><span class="p">,</span> <span class="s2">&quot;electrodes&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">table</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">{}</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">n_rows</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">table</span><span class="p">))</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">{}</span>
+    <span class="n">cols</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="s2">&quot;colnames&quot;</span><span class="p">,</span> <span class="p">())</span> <span class="ow">or</span> <span class="p">())</span>
+    <span class="n">out</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_rows</span><span class="p">):</span>
+        <span class="n">entry</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">if</span> <span class="s2">&quot;location&quot;</span> <span class="ow">in</span> <span class="n">cols</span><span class="p">:</span>
+            <span class="n">loc</span> <span class="o">=</span> <span class="n">_nwb_str_or_none</span><span class="p">(</span><span class="n">_nwb_safe_get</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="s2">&quot;location&quot;</span><span class="p">,</span> <span class="n">i</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">loc</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;location&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">loc</span>
+        <span class="k">if</span> <span class="s2">&quot;group_name&quot;</span> <span class="ow">in</span> <span class="n">cols</span><span class="p">:</span>
+            <span class="n">gn</span> <span class="o">=</span> <span class="n">_nwb_str_or_none</span><span class="p">(</span><span class="n">_nwb_safe_get</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="s2">&quot;group_name&quot;</span><span class="p">,</span> <span class="n">i</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">gn</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;group_name&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">gn</span>
+        <span class="k">for</span> <span class="n">coord</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;z&quot;</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">coord</span> <span class="ow">in</span> <span class="n">cols</span><span class="p">:</span>
+                <span class="n">v</span> <span class="o">=</span> <span class="n">_nwb_safe_get</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="n">coord</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">cast</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">v</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">entry</span><span class="p">[</span><span class="n">coord</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+        <span class="c1"># Even an empty entry is recorded — the consumer needs the full</span>
+        <span class="c1"># set of channel ids to build a layout description.</span>
+        <span class="n">out</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">entry</span>
+    <span class="k">return</span> <span class="n">out</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_resolve_electrode_ref</span><span class="p">(</span><span class="n">val</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Resolve a units-table electrode-reference cell to a scalar id.</span>
+
+<span class="sd">    Cell values can come back as:</span>
+<span class="sd">      * a pandas DataFrame slice (the dereferenced electrodes-table rows</span>
+<span class="sd">        when the column is a ``DynamicTableRegion`` — pynwb default).</span>
+<span class="sd">        Take the first row&#39;s index.</span>
+<span class="sd">      * a list / ndarray of integer indices. Take the first element.</span>
+<span class="sd">      * a bare scalar (rare — used by some non-standard NWB writers).</span>
+<span class="sd">        Use as-is.</span>
+
+<span class="sd">    Returns the resolved scalar, or the original ``val`` if no</span>
+<span class="sd">    interpretation fits (caller&#39;s ``int()`` coercion will then fail</span>
+<span class="sd">    cleanly).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># pandas DataFrame: dereferenced electrode rows from a DynamicTableRegion.</span>
+    <span class="c1"># Prefer the underlying ``Index`` (the electrode-table row ids) over</span>
+    <span class="c1"># value-indexing the columns. ``__contains__`` discriminates a</span>
+    <span class="c1"># DataFrame from a numpy array (both have ``index`` only when truly</span>
+    <span class="c1"># pandas — numpy doesn&#39;t expose ``index``).</span>
+    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="s2">&quot;index&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">)):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">val</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="n">n</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="n">n</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">val</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="k">pass</span>
+    <span class="k">if</span> <span class="p">(</span>
+        <span class="nb">hasattr</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="s2">&quot;__len__&quot;</span><span class="p">)</span>
+        <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
+        <span class="ow">and</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="s2">&quot;index&quot;</span><span class="p">)</span>  <span class="c1"># already handled above</span>
+    <span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="n">n</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="n">n</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">val</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">val</span>
+    <span class="k">return</span> <span class="n">val</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_read_nwb_first_acquisition_timing</span><span class="p">(</span>
+    <span class="n">nwbfile</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return ``(sampling_rate_hz, duration_seconds)`` from the first</span>
+<span class="sd">    ``ElectricalSeries``-shaped acquisition object, or ``(None, None)``.</span>
+
+<span class="sd">    NWB stores the rate per acquisition object; we record the first as</span>
+<span class="sd">    a representative value. Multi-rate recordings are flagged for the</span>
+<span class="sd">    consumer by repeating the call against later acquisitions if</span>
+<span class="sd">    needed.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">acq</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">nwbfile</span><span class="p">,</span> <span class="s2">&quot;acquisition&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">acq</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">_name</span><span class="p">,</span> <span class="n">obj</span> <span class="ow">in</span> <span class="n">acq</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">rate</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="s2">&quot;rate&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="s2">&quot;data&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">rate</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">data</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">rate_f</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">rate</span><span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+            <span class="k">continue</span>
+        <span class="n">n_samples</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">shape</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="s2">&quot;shape&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">shape</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">n_samples</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="ne">IndexError</span><span class="p">):</span>
+                <span class="n">n_samples</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">rate_f</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">n_samples</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">rate_f</span><span class="p">,</span> <span class="n">n_samples</span> <span class="o">/</span> <span class="n">rate_f</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">rate_f</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">rate_f</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+
 <div class="viewcode-block" id="load_spikedata_from_nwb">
 <a class="viewcode-back" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_nwb">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">load_spikedata_from_nwb</span><span class="p">(</span>
@@ -1127,6 +1369,7 @@
     <span class="n">prefer_pynwb</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="n">length_ms</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">start_time_ms</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">allow_no_units</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SpikeData</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Load spike trains from an NWB file&#39;s Units table.</span>
 
@@ -1143,13 +1386,39 @@
 <span class="sd">            ``start_time`` attribute (written by</span>
 <span class="sd">            ``export_spikedata_to_nwb``); falls back to 0.0 if the</span>
 <span class="sd">            attribute is absent. Mirrors the ``length_ms`` ladder.</span>
+<span class="sd">        allow_no_units (bool): When ``True``, files without a Units table</span>
+<span class="sd">            return a ``SpikeData`` with ``N=0`` and empty trains rather</span>
+<span class="sd">            than raising ``ValueError``. The file-level metadata in</span>
+<span class="sd">            ``sd.metadata`` is still populated. Useful for metadata-</span>
+<span class="sd">            only callers (e.g. ingestion pipelines that need to gate on</span>
+<span class="sd">            &quot;is this sorted?&quot; without crashing on unsorted inputs).</span>
+<span class="sd">            Only honored on the pynwb path; the h5py fallback still</span>
+<span class="sd">            requires the ``/units`` group.</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">        sd (SpikeData): The loaded spike train data.</span>
+<span class="sd">        sd (SpikeData): The loaded spike train data. Under the pynwb</span>
+<span class="sd">            path, ``sd.metadata`` is populated with file-level NWB</span>
+<span class="sd">            metadata in addition to the usual ``source_file`` /</span>
+<span class="sd">            ``format``: ``identifier``, ``session_description``,</span>
+<span class="sd">            ``session_start_time`` (ISO string), ``subject_id``,</span>
+<span class="sd">            ``species``, ``sex``, ``age``, ``date_of_birth`` (ISO),</span>
+<span class="sd">            ``device_names`` (sorted list), ``sampling_rate_hz``,</span>
+<span class="sd">            ``duration_seconds``, ``unit_count``, and</span>
+<span class="sd">            ``electrodes_by_channel`` (``{channel_id: {&quot;location&quot;,</span>
+<span class="sd">            &quot;group_name&quot;, &quot;x&quot;, &quot;y&quot;, &quot;z&quot;}}``). Each entry in</span>
+<span class="sd">            ``sd.neuron_attributes`` gains a ``location_label`` key</span>
+<span class="sd">            (textual region from the electrodes table) and</span>
+<span class="sd">            ``group_name`` key alongside the existing ``location`` 3D</span>
+<span class="sd">            coordinate list. The h5py fallback path doesn&#39;t populate</span>
+<span class="sd">            these extra fields — ``length_ms`` / ``start_time`` remain</span>
+<span class="sd">            the only file-level attrs it carries.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">trains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">neuron_attributes</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="n">meta</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;source_file&quot;</span><span class="p">:</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">filepath</span><span class="p">),</span> <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;NWB&quot;</span><span class="p">}</span>
+    <span class="n">meta</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;source_file&quot;</span><span class="p">:</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">filepath</span><span class="p">),</span>
+        <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;NWB&quot;</span><span class="p">,</span>
+    <span class="p">}</span>
 
     <span class="c1"># Read file-level attributes via h5py up-front so both the pynwb</span>
     <span class="c1"># and h5py paths benefit. Caller overrides take precedence; missing</span>
@@ -1181,23 +1450,37 @@
 
             <span class="k">with</span> <span class="n">NWBHDF5IO</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">io</span><span class="p">:</span>
                 <span class="n">nwb</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
-                <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">nwb</span><span class="p">,</span> <span class="s2">&quot;units&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">has_units</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">nwb</span><span class="p">,</span> <span class="s2">&quot;units&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">has_units</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">allow_no_units</span><span class="p">:</span>
                     <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;NWB file has no Units table&quot;</span><span class="p">)</span>
-                <span class="n">df</span> <span class="o">=</span> <span class="n">nwb</span><span class="o">.</span><span class="n">units</span><span class="o">.</span><span class="n">to_dataframe</span><span class="p">()</span>
 
-                <span class="n">electrode_positions</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-                <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">nwb</span><span class="p">,</span> <span class="s2">&quot;electrodes&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                    <span class="n">elec_df</span> <span class="o">=</span> <span class="n">nwb</span><span class="o">.</span><span class="n">electrodes</span><span class="o">.</span><span class="n">to_dataframe</span><span class="p">()</span>
-                    <span class="n">electrode_positions</span> <span class="o">=</span> <span class="p">{}</span>
-                    <span class="k">for</span> <span class="n">elec_row</span> <span class="ow">in</span> <span class="n">elec_df</span><span class="o">.</span><span class="n">itertuples</span><span class="p">():</span>
-                        <span class="n">pos</span> <span class="o">=</span> <span class="p">[]</span>
-                        <span class="k">for</span> <span class="n">coord</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;z&quot;</span><span class="p">):</span>
-                            <span class="k">if</span> <span class="n">coord</span> <span class="ow">in</span> <span class="n">elec_df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
-                                <span class="n">val</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">elec_row</span><span class="p">,</span> <span class="n">coord</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-                                <span class="k">if</span> <span class="n">val</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">val</span><span class="p">):</span>
-                                    <span class="n">pos</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">val</span><span class="p">))</span>
-                        <span class="k">if</span> <span class="n">pos</span><span class="p">:</span>
-                            <span class="n">electrode_positions</span><span class="p">[</span><span class="n">elec_row</span><span class="o">.</span><span class="n">Index</span><span class="p">]</span> <span class="o">=</span> <span class="n">pos</span>
+                <span class="c1"># File-level metadata: subject, session, devices, per-</span>
+                <span class="c1"># channel electrode info (location text + 3D coords +</span>
+                <span class="c1"># group name), sampling rate, unit count. Merged into</span>
+                <span class="c1"># ``meta`` so downstream consumers (analysis code,</span>
+                <span class="c1"># gateway ingestion, etc.) have everything they need</span>
+                <span class="c1"># without re-opening the file. Done BEFORE the units</span>
+                <span class="c1"># branch so metadata-only callers (``allow_no_units=True``)</span>
+                <span class="c1"># also get fully-populated metadata.</span>
+                <span class="n">meta</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">_nwb_collect_file_metadata</span><span class="p">(</span><span class="n">nwb</span><span class="p">))</span>
+
+                <span class="n">electrodes_by_channel</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="n">meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+                    <span class="s2">&quot;electrodes_by_channel&quot;</span><span class="p">,</span> <span class="p">{}</span>
+                <span class="p">)</span>  <span class="c1"># type: ignore[assignment]</span>
+
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">has_units</span><span class="p">:</span>
+                    <span class="c1"># Metadata-only return for unsorted files. Caller</span>
+                    <span class="c1"># detects via ``sd.N == 0`` or</span>
+                    <span class="c1"># ``sd.metadata.get(&quot;unit_count&quot;, 0) == 0``.</span>
+                    <span class="k">return</span> <span class="n">_build_spikedata</span><span class="p">(</span>
+                        <span class="n">trains</span><span class="p">,</span>
+                        <span class="n">length_ms</span><span class="o">=</span><span class="n">length_ms</span><span class="p">,</span>
+                        <span class="n">start_time</span><span class="o">=</span><span class="n">start_time_ms</span> <span class="k">if</span> <span class="n">start_time_ms</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="mf">0.0</span><span class="p">,</span>
+                        <span class="n">metadata</span><span class="o">=</span><span class="n">meta</span><span class="p">,</span>
+                        <span class="n">neuron_attributes</span><span class="o">=</span><span class="n">neuron_attributes</span><span class="p">,</span>
+                    <span class="p">)</span>
+
+                <span class="n">df</span> <span class="o">=</span> <span class="n">nwb</span><span class="o">.</span><span class="n">units</span><span class="o">.</span><span class="n">to_dataframe</span><span class="p">()</span>
 
                 <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">itertuples</span><span class="p">():</span>
                     <span class="n">stimes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">row</span><span class="o">.</span><span class="n">spike_times</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
@@ -1208,14 +1491,7 @@
                         <span class="k">if</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
                             <span class="n">val</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">row</span><span class="p">,</span> <span class="n">col</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
                             <span class="k">if</span> <span class="n">val</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                                <span class="k">if</span> <span class="p">(</span>
-                                    <span class="nb">hasattr</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="s2">&quot;__len__&quot;</span><span class="p">)</span>
-                                    <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
-                                    <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">val</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span>
-                                <span class="p">):</span>
-                                    <span class="n">channel_val</span> <span class="o">=</span> <span class="n">val</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-                                <span class="k">else</span><span class="p">:</span>
-                                    <span class="n">channel_val</span> <span class="o">=</span> <span class="n">val</span>
+                                <span class="n">channel_val</span> <span class="o">=</span> <span class="n">_resolve_electrode_ref</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
                                 <span class="k">try</span><span class="p">:</span>
                                     <span class="n">attr</span><span class="p">[</span><span class="s2">&quot;electrode&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">channel_val</span><span class="p">)</span>
                                     <span class="n">electrode_id</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">channel_val</span><span class="p">)</span>
@@ -1223,8 +1499,20 @@
                                     <span class="n">attr</span><span class="p">[</span><span class="s2">&quot;electrode&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">channel_val</span>
                                     <span class="n">electrode_id</span> <span class="o">=</span> <span class="n">channel_val</span>
                                 <span class="k">break</span>
-                    <span class="k">if</span> <span class="n">electrode_positions</span> <span class="ow">and</span> <span class="n">electrode_id</span> <span class="ow">in</span> <span class="n">electrode_positions</span><span class="p">:</span>
-                        <span class="n">attr</span><span class="p">[</span><span class="s2">&quot;location&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">electrode_positions</span><span class="p">[</span><span class="n">electrode_id</span><span class="p">]</span>
+                    <span class="c1"># Backwards-compatible enrichment: ``location`` stays</span>
+                    <span class="c1"># the 3D coordinate list (existing analysis code</span>
+                    <span class="c1"># depends on that shape); ``location_label`` is the</span>
+                    <span class="c1"># new textual region name (e.g. ``&quot;VISp&quot;``,</span>
+                    <span class="c1"># ``&quot;CA1&quot;``) consumed by ontology resolvers.</span>
+                    <span class="k">if</span> <span class="n">electrodes_by_channel</span> <span class="ow">and</span> <span class="n">electrode_id</span> <span class="ow">in</span> <span class="n">electrodes_by_channel</span><span class="p">:</span>
+                        <span class="n">ec</span> <span class="o">=</span> <span class="n">electrodes_by_channel</span><span class="p">[</span><span class="n">electrode_id</span><span class="p">]</span>
+                        <span class="n">pos</span> <span class="o">=</span> <span class="p">[</span><span class="n">ec</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;z&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">ec</span><span class="p">]</span>
+                        <span class="k">if</span> <span class="n">pos</span><span class="p">:</span>
+                            <span class="n">attr</span><span class="p">[</span><span class="s2">&quot;location&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pos</span>
+                        <span class="k">if</span> <span class="s2">&quot;location&quot;</span> <span class="ow">in</span> <span class="n">ec</span><span class="p">:</span>
+                            <span class="n">attr</span><span class="p">[</span><span class="s2">&quot;location_label&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ec</span><span class="p">[</span><span class="s2">&quot;location&quot;</span><span class="p">]</span>
+                        <span class="k">if</span> <span class="s2">&quot;group_name&quot;</span> <span class="ow">in</span> <span class="n">ec</span><span class="p">:</span>
+                            <span class="n">attr</span><span class="p">[</span><span class="s2">&quot;group_name&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ec</span><span class="p">[</span><span class="s2">&quot;group_name&quot;</span><span class="p">]</span>
                     <span class="n">neuron_attributes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">attr</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">_build_spikedata</span><span class="p">(</span>
                 <span class="n">trains</span><span class="p">,</span>

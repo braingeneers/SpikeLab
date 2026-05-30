@@ -594,7 +594,7 @@ if dict, pass to filter; if False, no filtering.</p></li>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="spikelab.data_loaders.data_loaders.load_spikedata_from_nwb">
-<span class="sig-prename descclassname"><span class="pre">spikelab.data_loaders.data_loaders.</span></span><span class="sig-name descname"><span class="pre">load_spikedata_from_nwb</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filepath</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prefer_pynwb</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">length_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_time_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/data_loaders/data_loaders.html#load_spikedata_from_nwb"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.data_loaders.data_loaders.load_spikedata_from_nwb" title="Link to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">spikelab.data_loaders.data_loaders.</span></span><span class="sig-name descname"><span class="pre">load_spikedata_from_nwb</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filepath</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prefer_pynwb</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">length_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_time_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allow_no_units</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/data_loaders/data_loaders.html#load_spikedata_from_nwb"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.data_loaders.data_loaders.load_spikedata_from_nwb" title="Link to this definition"></a></dt>
 <dd><p>Load spike trains from an NWB file’s Units table.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -611,10 +611,36 @@ milliseconds. When <code class="docutils literal notranslate"><span class="pre">
 <code class="docutils literal notranslate"><span class="pre">start_time</span></code> attribute (written by
 <code class="docutils literal notranslate"><span class="pre">export_spikedata_to_nwb</span></code>); falls back to 0.0 if the
 attribute is absent. Mirrors the <code class="docutils literal notranslate"><span class="pre">length_ms</span></code> ladder.</p></li>
+<li><p><strong>allow_no_units</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – When <code class="docutils literal notranslate"><span class="pre">True</span></code>, files without a Units table
+return a <code class="docutils literal notranslate"><span class="pre">SpikeData</span></code> with <code class="docutils literal notranslate"><span class="pre">N=0</span></code> and empty trains rather
+than raising <code class="docutils literal notranslate"><span class="pre">ValueError</span></code>. The file-level metadata in
+<code class="docutils literal notranslate"><span class="pre">sd.metadata</span></code> is still populated. Useful for metadata-
+only callers (e.g. ingestion pipelines that need to gate on
+“is this sorted?” without crashing on unsorted inputs).
+Only honored on the pynwb path; the h5py fallback still
+requires the <code class="docutils literal notranslate"><span class="pre">/units</span></code> group.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>The loaded spike train data.</p>
+<dd class="field-even"><p><dl class="simple">
+<dt>The loaded spike train data. Under the pynwb</dt><dd><p>path, <code class="docutils literal notranslate"><span class="pre">sd.metadata</span></code> is populated with file-level NWB
+metadata in addition to the usual <code class="docutils literal notranslate"><span class="pre">source_file</span></code> /
+<code class="docutils literal notranslate"><span class="pre">format</span></code>: <code class="docutils literal notranslate"><span class="pre">identifier</span></code>, <code class="docutils literal notranslate"><span class="pre">session_description</span></code>,
+<code class="docutils literal notranslate"><span class="pre">session_start_time</span></code> (ISO string), <code class="docutils literal notranslate"><span class="pre">subject_id</span></code>,
+<code class="docutils literal notranslate"><span class="pre">species</span></code>, <code class="docutils literal notranslate"><span class="pre">sex</span></code>, <code class="docutils literal notranslate"><span class="pre">age</span></code>, <code class="docutils literal notranslate"><span class="pre">date_of_birth</span></code> (ISO),
+<code class="docutils literal notranslate"><span class="pre">device_names</span></code> (sorted list), <code class="docutils literal notranslate"><span class="pre">sampling_rate_hz</span></code>,
+<code class="docutils literal notranslate"><span class="pre">duration_seconds</span></code>, <code class="docutils literal notranslate"><span class="pre">unit_count</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">electrodes_by_channel</span></code> (<code class="docutils literal notranslate"><span class="pre">{channel_id:</span> <span class="pre">{&quot;location&quot;,</span>
+<span class="pre">&quot;group_name&quot;,</span> <span class="pre">&quot;x&quot;,</span> <span class="pre">&quot;y&quot;,</span> <span class="pre">&quot;z&quot;}}</span></code>). Each entry in
+<code class="docutils literal notranslate"><span class="pre">sd.neuron_attributes</span></code> gains a <code class="docutils literal notranslate"><span class="pre">location_label</span></code> key
+(textual region from the electrodes table) and
+<code class="docutils literal notranslate"><span class="pre">group_name</span></code> key alongside the existing <code class="docutils literal notranslate"><span class="pre">location</span></code> 3D
+coordinate list. The h5py fallback path doesn’t populate
+these extra fields — <code class="docutils literal notranslate"><span class="pre">length_ms</span></code> / <code class="docutils literal notranslate"><span class="pre">start_time</span></code> remain
+the only file-level attrs it carries.</p>
+</dd>
+</dl>
+</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>sd (<a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData">SpikeData</a>)</p>
