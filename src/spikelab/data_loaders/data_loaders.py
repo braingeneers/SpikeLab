@@ -15,7 +15,8 @@ These helpers avoid hard dependencies: optional libraries are imported lazily.
 
 from __future__ import annotations
 
-from typing import Dict, List, Mapping, Optional, Sequence, Union
+from datetime import datetime
+from typing import Dict, List, Mapping, Optional, Sequence, Tuple, Union
 
 import os
 import re
@@ -624,12 +625,254 @@ def load_spikedata_from_hdf5_raw_thresholded(
 # ----------------------------
 
 
+def _nwb_str_or_none(value) -> Optional[str]:
+    """Coerce ``value`` to a non-empty stripped string, else ``None``.
+
+    Module-private helper for the NWB loader's file-level metadata
+    population — used to clean up Subject / session text fields that
+    may be ``None``, empty, or whitespace.
+    """
+    if value is None:
+        return None
+    s = str(value).strip()
+    return s or None
+
+
+def _nwb_safe_get(table, column: str, row_idx: int, *, cast=None):
+    """Pull one cell out of a pynwb ``DynamicTable`` column.
+
+    pynwb's ``__getitem__`` semantics are quirky (region references,
+    slicing) and a malformed column shouldn't crash the whole
+    extraction. Broad ``Exception`` catches are intentional — callers
+    receive ``None`` for any cell pynwb can't decode.
+    """
+    try:
+        col = table[column]
+    except Exception:
+        return None
+    try:
+        value = col[row_idx]
+    except Exception:
+        return None
+    if cast is None:
+        return value
+    try:
+        return cast(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _nwb_collect_file_metadata(nwbfile) -> dict:
+    """Build the file-level metadata dict folded into ``SpikeData.metadata``.
+
+    Reads subject, session, devices, and per-channel electrode info
+    (locations + 3D coords + group names). Returns a flat dict with
+    string keys — caller merges it into ``meta`` alongside the existing
+    ``source_file`` / ``format`` keys.
+
+    Keys populated (all optional — absent when the file doesn't carry
+    the field):
+
+      * ``identifier``: NWB file identifier (UUID-shaped string).
+      * ``session_description``, ``session_start_time`` (ISO string).
+      * ``subject_id``, ``species``, ``sex``, ``age``, ``date_of_birth``
+        (ISO string).
+      * ``device_names``: list of device names (probes, rigs), sorted.
+      * ``sampling_rate_hz``, ``duration_seconds``: from the first
+        ElectricalSeries acquisition object.
+      * ``unit_count``: number of rows in ``nwbfile.units``.
+      * ``electrodes_by_channel``: ``{channel_id (int): {"location":
+        str|None, "group_name": str|None, "x"/"y"/"z": float|None}}``.
+        The free-text ``location`` field is what downstream ontology
+        resolvers consume (cross-references to UBERON / Allen CCF).
+    """
+    meta: Dict[str, object] = {}
+
+    identifier = getattr(nwbfile, "identifier", None)
+    if identifier is not None and str(identifier).strip():
+        meta["identifier"] = str(identifier).strip()
+
+    sess_desc = _nwb_str_or_none(getattr(nwbfile, "session_description", None))
+    if sess_desc is not None:
+        meta["session_description"] = sess_desc
+
+    sess_start = getattr(nwbfile, "session_start_time", None)
+    if isinstance(sess_start, datetime):
+        meta["session_start_time"] = sess_start.isoformat()
+
+    subject = getattr(nwbfile, "subject", None)
+    if subject is not None:
+        for field_name, attr in (
+            ("subject_id", "subject_id"),
+            ("species", "species"),
+            ("sex", "sex"),
+            ("age", "age"),
+        ):
+            val = _nwb_str_or_none(getattr(subject, attr, None))
+            if val is not None:
+                meta[field_name] = val
+        dob = getattr(subject, "date_of_birth", None)
+        if isinstance(dob, datetime):
+            meta["date_of_birth"] = dob.isoformat()
+
+    nwb_devices = getattr(nwbfile, "devices", None)
+    if nwb_devices:
+        try:
+            meta["device_names"] = sorted(str(name) for name in nwb_devices.keys())
+        except Exception:
+            pass
+
+    sample_rate, duration = _read_nwb_first_acquisition_timing(nwbfile)
+    if sample_rate is not None:
+        meta["sampling_rate_hz"] = sample_rate
+    if duration is not None:
+        meta["duration_seconds"] = duration
+
+    nwb_units = getattr(nwbfile, "units", None)
+    if nwb_units is not None:
+        try:
+            meta["unit_count"] = int(len(nwb_units))
+        except (TypeError, ValueError):
+            meta["unit_count"] = 0
+
+    electrodes_by_channel = _read_nwb_electrodes(nwbfile)
+    if electrodes_by_channel:
+        meta["electrodes_by_channel"] = electrodes_by_channel
+
+    return meta
+
+
+def _read_nwb_electrodes(nwbfile) -> dict:
+    """Read per-channel electrode metadata from ``nwbfile.electrodes``.
+
+    Returns ``{channel_id (int): {"location": str|None, "group_name":
+    str|None, "x"/"y"/"z": float|None}}``. The ``location`` value is
+    the source dataset's free-text region label (e.g. ``"VISp"``,
+    ``"CA1"``, ``"primary visual cortex"``) — kept verbatim; the
+    consumer (e.g. gateway ingestion) resolves to a canonical ontology
+    ID.
+    """
+    table = getattr(nwbfile, "electrodes", None)
+    if table is None:
+        return {}
+    try:
+        n_rows = int(len(table))
+    except (TypeError, ValueError):
+        return {}
+    cols = set(getattr(table, "colnames", ()) or ())
+    out: Dict[int, dict] = {}
+    for i in range(n_rows):
+        entry: Dict[str, object] = {}
+        if "location" in cols:
+            loc = _nwb_str_or_none(_nwb_safe_get(table, "location", i))
+            if loc is not None:
+                entry["location"] = loc
+        if "group_name" in cols:
+            gn = _nwb_str_or_none(_nwb_safe_get(table, "group_name", i))
+            if gn is not None:
+                entry["group_name"] = gn
+        for coord in ("x", "y", "z"):
+            if coord in cols:
+                v = _nwb_safe_get(table, coord, i, cast=float)
+                if v is not None:
+                    entry[coord] = v
+        # Even an empty entry is recorded — the consumer needs the full
+        # set of channel ids to build a layout description.
+        out[i] = entry
+    return out
+
+
+def _resolve_electrode_ref(val):
+    """Resolve a units-table electrode-reference cell to a scalar id.
+
+    Cell values can come back as:
+      * a pandas DataFrame slice (the dereferenced electrodes-table rows
+        when the column is a ``DynamicTableRegion`` — pynwb default).
+        Take the first row's index.
+      * a list / ndarray of integer indices. Take the first element.
+      * a bare scalar (rare — used by some non-standard NWB writers).
+        Use as-is.
+
+    Returns the resolved scalar, or the original ``val`` if no
+    interpretation fits (caller's ``int()`` coercion will then fail
+    cleanly).
+    """
+    # pandas DataFrame: dereferenced electrode rows from a DynamicTableRegion.
+    # Prefer the underlying ``Index`` (the electrode-table row ids) over
+    # value-indexing the columns. ``__contains__`` discriminates a
+    # DataFrame from a numpy array (both have ``index`` only when truly
+    # pandas — numpy doesn't expose ``index``).
+    if hasattr(val, "index") and not isinstance(val, (str, bytes)):
+        try:
+            n = len(val.index)
+        except Exception:
+            n = 0
+        if n > 0:
+            try:
+                return val.index[0]
+            except Exception:
+                pass
+    if (
+        hasattr(val, "__len__")
+        and not isinstance(val, str)
+        and not hasattr(val, "index")  # already handled above
+    ):
+        try:
+            n = len(val)
+        except Exception:
+            n = 0
+        if n > 0:
+            try:
+                return val[0]
+            except Exception:
+                return val
+    return val
+
+
+def _read_nwb_first_acquisition_timing(
+    nwbfile,
+) -> Tuple[Optional[float], Optional[float]]:
+    """Return ``(sampling_rate_hz, duration_seconds)`` from the first
+    ``ElectricalSeries``-shaped acquisition object, or ``(None, None)``.
+
+    NWB stores the rate per acquisition object; we record the first as
+    a representative value. Multi-rate recordings are flagged for the
+    consumer by repeating the call against later acquisitions if
+    needed.
+    """
+    acq = getattr(nwbfile, "acquisition", None)
+    if not acq:
+        return (None, None)
+    for _name, obj in acq.items():
+        rate = getattr(obj, "rate", None)
+        data = getattr(obj, "data", None)
+        if rate is None or data is None:
+            continue
+        try:
+            rate_f = float(rate)
+        except (TypeError, ValueError):
+            continue
+        n_samples: Optional[int] = None
+        shape = getattr(data, "shape", None)
+        if shape is not None:
+            try:
+                n_samples = int(shape[0])
+            except (TypeError, ValueError, IndexError):
+                n_samples = None
+        if rate_f > 0 and n_samples is not None:
+            return (rate_f, n_samples / rate_f)
+        if rate_f > 0:
+            return (rate_f, None)
+    return (None, None)
+
+
 def load_spikedata_from_nwb(
     filepath: str,
     *,
     prefer_pynwb: bool = True,
     length_ms: Optional[float] = None,
     start_time_ms: Optional[float] = None,
+    allow_no_units: bool = False,
 ) -> SpikeData:
     """Load spike trains from an NWB file's Units table.
 
@@ -646,13 +889,39 @@ def load_spikedata_from_nwb(
             ``start_time`` attribute (written by
             ``export_spikedata_to_nwb``); falls back to 0.0 if the
             attribute is absent. Mirrors the ``length_ms`` ladder.
+        allow_no_units (bool): When ``True``, files without a Units table
+            return a ``SpikeData`` with ``N=0`` and empty trains rather
+            than raising ``ValueError``. The file-level metadata in
+            ``sd.metadata`` is still populated. Useful for metadata-
+            only callers (e.g. ingestion pipelines that need to gate on
+            "is this sorted?" without crashing on unsorted inputs).
+            Only honored on the pynwb path; the h5py fallback still
+            requires the ``/units`` group.
 
     Returns:
-        sd (SpikeData): The loaded spike train data.
+        sd (SpikeData): The loaded spike train data. Under the pynwb
+            path, ``sd.metadata`` is populated with file-level NWB
+            metadata in addition to the usual ``source_file`` /
+            ``format``: ``identifier``, ``session_description``,
+            ``session_start_time`` (ISO string), ``subject_id``,
+            ``species``, ``sex``, ``age``, ``date_of_birth`` (ISO),
+            ``device_names`` (sorted list), ``sampling_rate_hz``,
+            ``duration_seconds``, ``unit_count``, and
+            ``electrodes_by_channel`` (``{channel_id: {"location",
+            "group_name", "x", "y", "z"}}``). Each entry in
+            ``sd.neuron_attributes`` gains a ``location_label`` key
+            (textual region from the electrodes table) and
+            ``group_name`` key alongside the existing ``location`` 3D
+            coordinate list. The h5py fallback path doesn't populate
+            these extra fields — ``length_ms`` / ``start_time`` remain
+            the only file-level attrs it carries.
     """
     trains: List[np.ndarray] = []
     neuron_attributes: List[dict] = []
-    meta = {"source_file": os.path.abspath(filepath), "format": "NWB"}
+    meta: Dict[str, object] = {
+        "source_file": os.path.abspath(filepath),
+        "format": "NWB",
+    }
 
     # Read file-level attributes via h5py up-front so both the pynwb
     # and h5py paths benefit. Caller overrides take precedence; missing
@@ -684,23 +953,37 @@ def load_spikedata_from_nwb(
 
             with NWBHDF5IO(filepath, "r") as io:
                 nwb = io.read()
-                if getattr(nwb, "units", None) is None:
+                has_units = getattr(nwb, "units", None) is not None
+                if not has_units and not allow_no_units:
                     raise ValueError("NWB file has no Units table")
-                df = nwb.units.to_dataframe()
 
-                electrode_positions: Optional[dict] = None
-                if getattr(nwb, "electrodes", None) is not None:
-                    elec_df = nwb.electrodes.to_dataframe()
-                    electrode_positions = {}
-                    for elec_row in elec_df.itertuples():
-                        pos = []
-                        for coord in ("x", "y", "z"):
-                            if coord in elec_df.columns:
-                                val = getattr(elec_row, coord, None)
-                                if val is not None and not np.isnan(val):
-                                    pos.append(float(val))
-                        if pos:
-                            electrode_positions[elec_row.Index] = pos
+                # File-level metadata: subject, session, devices, per-
+                # channel electrode info (location text + 3D coords +
+                # group name), sampling rate, unit count. Merged into
+                # ``meta`` so downstream consumers (analysis code,
+                # gateway ingestion, etc.) have everything they need
+                # without re-opening the file. Done BEFORE the units
+                # branch so metadata-only callers (``allow_no_units=True``)
+                # also get fully-populated metadata.
+                meta.update(_nwb_collect_file_metadata(nwb))
+
+                electrodes_by_channel: dict = meta.get(
+                    "electrodes_by_channel", {}
+                )  # type: ignore[assignment]
+
+                if not has_units:
+                    # Metadata-only return for unsorted files. Caller
+                    # detects via ``sd.N == 0`` or
+                    # ``sd.metadata.get("unit_count", 0) == 0``.
+                    return _build_spikedata(
+                        trains,
+                        length_ms=length_ms,
+                        start_time=start_time_ms if start_time_ms is not None else 0.0,
+                        metadata=meta,
+                        neuron_attributes=neuron_attributes,
+                    )
+
+                df = nwb.units.to_dataframe()
 
                 for row in df.itertuples():
                     stimes = np.asarray(row.spike_times, dtype=float)
@@ -711,14 +994,7 @@ def load_spikedata_from_nwb(
                         if col in df.columns:
                             val = getattr(row, col, None)
                             if val is not None:
-                                if (
-                                    hasattr(val, "__len__")
-                                    and not isinstance(val, str)
-                                    and len(val) > 0
-                                ):
-                                    channel_val = val[0]
-                                else:
-                                    channel_val = val
+                                channel_val = _resolve_electrode_ref(val)
                                 try:
                                     attr["electrode"] = int(channel_val)
                                     electrode_id = int(channel_val)
@@ -726,8 +1002,20 @@ def load_spikedata_from_nwb(
                                     attr["electrode"] = channel_val
                                     electrode_id = channel_val
                                 break
-                    if electrode_positions and electrode_id in electrode_positions:
-                        attr["location"] = electrode_positions[electrode_id]
+                    # Backwards-compatible enrichment: ``location`` stays
+                    # the 3D coordinate list (existing analysis code
+                    # depends on that shape); ``location_label`` is the
+                    # new textual region name (e.g. ``"VISp"``,
+                    # ``"CA1"``) consumed by ontology resolvers.
+                    if electrodes_by_channel and electrode_id in electrodes_by_channel:
+                        ec = electrodes_by_channel[electrode_id]
+                        pos = [ec[c] for c in ("x", "y", "z") if c in ec]
+                        if pos:
+                            attr["location"] = pos
+                        if "location" in ec:
+                            attr["location_label"] = ec["location"]
+                        if "group_name" in ec:
+                            attr["group_name"] = ec["group_name"]
                     neuron_attributes.append(attr)
             return _build_spikedata(
                 trains,

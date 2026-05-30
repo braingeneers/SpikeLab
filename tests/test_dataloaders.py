@@ -601,6 +601,173 @@ class TestNWBLoader:
         assert sd.N == 2
 
 
+try:  # optional, only needed for pynwb metadata tests
+    import pynwb  # type: ignore  # noqa: F401
+
+    pynwb_available = True
+except Exception:  # pragma: no cover
+    pynwb_available = False
+
+
+skip_no_pynwb = pytest.mark.skipif(
+    not pynwb_available, reason="pynwb not installed; skipping NWB metadata tests"
+)
+
+
+def _write_nwb_metadata_fixture(path: str, *, with_units: bool, locations=None) -> None:
+    """Build a minimal pynwb NWB file with subject, electrodes and an
+    ElectricalSeries acquisition. Used by the file-level metadata
+    population tests. Adds a small units table when ``with_units``.
+    """
+    from datetime import datetime, timezone
+
+    import numpy as np
+    from pynwb import NWBFile, NWBHDF5IO
+    from pynwb.ecephys import ElectricalSeries
+    from pynwb.file import Subject
+
+    locations = locations if locations is not None else ["VISp", "CA1"]
+    nwb = NWBFile(
+        session_description="metadata test",
+        identifier="fixture-uuid-001",
+        session_start_time=datetime(2026, 5, 30, 12, 0, 0, tzinfo=timezone.utc),
+    )
+    nwb.subject = Subject(
+        subject_id="m001", species="Mus musculus", sex="M", age="P90D"
+    )
+    device = nwb.create_device(name="test_probe")
+    eg = nwb.create_electrode_group(
+        name="shank0", description="d", location="VISp", device=device
+    )
+    for i, loc in enumerate(locations):
+        nwb.add_electrode(location=loc, group=eg, x=float(i), y=0.0, z=0.0)
+    region = nwb.create_electrode_table_region(
+        list(range(len(locations))), "all electrodes"
+    )
+    es = ElectricalSeries(
+        name="ElectricalSeries",
+        data=np.zeros((500, len(locations)), dtype="int16"),
+        electrodes=region,
+        starting_time=0.0,
+        rate=30000.0,
+    )
+    nwb.add_acquisition(es)
+    if with_units:
+        # Each unit needs an explicit ``electrodes`` index for the
+        # neuron_attributes electrode wiring to populate. Without it
+        # pynwb's auto-DynamicTableRegion still appears in the units
+        # table but with no rows, so ``df.columns`` lacks the
+        # ``electrodes`` key our loader scans for.
+        for i in range(len(locations)):
+            nwb.add_unit(spike_times=[0.1 + 0.1 * i, 0.5 + 0.1 * i], electrodes=[i])
+    with NWBHDF5IO(path, mode="w") as io:
+        io.write(nwb)
+
+
+@skip_no_pynwb
+class TestNWBFileMetadata:
+    """Tests for the file-level metadata population folded into
+    ``load_spikedata_from_nwb`` via the pynwb path."""
+
+    def test_metadata_populates_file_level_fields(self, tmp_path):
+        """
+        Test that subject, session, devices, and electrode info land in
+        ``sd.metadata`` when reading via pynwb.
+
+        Tests:
+            (Test Case 1) ``identifier`` matches the file's UUID.
+            (Test Case 2) Subject fields (``subject_id``, ``species``,
+                ``sex``, ``age``) round-trip.
+            (Test Case 3) ``device_names`` is the sorted device list.
+            (Test Case 4) ``sampling_rate_hz`` + ``duration_seconds``
+                derive from the first ``ElectricalSeries`` acquisition.
+            (Test Case 5) ``unit_count`` matches the units table length.
+            (Test Case 6) ``electrodes_by_channel`` has one entry per
+                electrode row with ``location`` text + 3D coords.
+        """
+        path = str(tmp_path / "meta.nwb")
+        _write_nwb_metadata_fixture(path, with_units=True, locations=["VISp", "CA1"])
+
+        sd = loaders.load_spikedata_from_nwb(path, prefer_pynwb=True)
+        m = sd.metadata
+        assert m["identifier"] == "fixture-uuid-001"
+        assert m["subject_id"] == "m001"
+        assert m["species"] == "Mus musculus"
+        assert m["sex"] == "M"
+        assert m["age"] == "P90D"
+        assert m["device_names"] == ["test_probe"]
+        assert m["sampling_rate_hz"] == 30000.0
+        assert m["duration_seconds"] == pytest.approx(500 / 30000.0)
+        assert m["unit_count"] == 2
+        ebc = m["electrodes_by_channel"]
+        assert set(ebc.keys()) == {0, 1}
+        assert ebc[0]["location"] == "VISp"
+        assert ebc[1]["location"] == "CA1"
+        assert ebc[0]["x"] == 0.0
+        assert ebc[1]["x"] == 1.0
+
+    def test_metadata_neuron_attrs_carry_location_label(self, tmp_path):
+        """
+        Test that per-neuron ``location_label`` carries the textual
+        region from the electrodes table alongside the 3D-coord
+        ``location`` list.
+
+        Tests:
+            (Test Case 1) ``neuron_attributes`` has one entry per unit.
+            (Test Case 2) The first unit's ``location`` is the 3D coord
+                list (backwards-compatible).
+            (Test Case 3) The first unit's ``location_label`` is the
+                textual region string from the electrodes table.
+        """
+        path = str(tmp_path / "labelled.nwb")
+        _write_nwb_metadata_fixture(path, with_units=True, locations=["VISp", "CA1"])
+
+        sd = loaders.load_spikedata_from_nwb(path, prefer_pynwb=True)
+        assert sd.neuron_attributes is not None
+        assert len(sd.neuron_attributes) == 2
+        # The first unit was added without specifying an electrode column,
+        # so pynwb's default behavior wires it to electrode 0 via the
+        # auto-populated 'electrodes' DynamicTableRegion. Both 'location'
+        # (3D coords) and 'location_label' (textual) should be present.
+        first = sd.neuron_attributes[0]
+        assert "location" in first
+        assert isinstance(first["location"], list)
+        assert first["location_label"] == "VISp"
+        assert first["group_name"] == "shank0"
+
+    def test_metadata_allow_no_units_returns_empty_spikedata(self, tmp_path):
+        """
+        Test that ``allow_no_units=True`` returns a SpikeData with N=0
+        for files without a Units table, with metadata still populated.
+
+        Tests:
+            (Test Case 1) ``sd.N`` is 0.
+            (Test Case 2) ``sd.metadata['unit_count']`` is absent or 0.
+            (Test Case 3) ``sd.metadata['identifier']`` is still populated
+                — metadata extraction precedes the units branch.
+            (Test Case 4) Without ``allow_no_units`` the loader raises.
+        """
+        path = str(tmp_path / "unsorted.nwb")
+        _write_nwb_metadata_fixture(path, with_units=False, locations=["VISp"])
+
+        sd = loaders.load_spikedata_from_nwb(
+            path, prefer_pynwb=True, allow_no_units=True
+        )
+        assert sd.N == 0
+        assert sd.metadata["identifier"] == "fixture-uuid-001"
+        assert sd.metadata.get("unit_count", 0) == 0
+
+        # Without ``allow_no_units`` the pynwb path raises "no Units
+        # table". That ValueError is swallowed by the broad fallback
+        # handler and the loader then tries h5py, which raises
+        # "missing '/units' group". Either error reaching the caller is
+        # a correct refusal — accept either message.
+        with pytest.raises(
+            ValueError, match=r"(no Units table|missing '/units' group)"
+        ):
+            loaders.load_spikedata_from_nwb(path, prefer_pynwb=True)
+
+
 class TestKiloSortAndSpikeInterface:
     """Tests for KiloSort and SpikeInterface loaders."""
 
