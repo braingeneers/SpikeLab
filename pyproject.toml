@@ -139,6 +139,14 @@ ibl = [
   #   pip install git+https://github.com/int-brain-lab/paper-brain-wide-map.git
   "ONE-api>=2.0",
 ]
+hippie = [
+  # Install HIPPIE from GitHub (or a local editable install for development)
+  "hippie @ git+https://github.com/braingeneers/HIPPIE.git",
+  "huggingface-hub>=0.20",
+  "torch>=2.0",
+  "umap-learn>=0.5.0",
+  "hdbscan>=0.8",
+]
 all = [
   "pandas>=1.3",
   "mcp>=0.9.0",

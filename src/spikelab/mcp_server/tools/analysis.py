@@ -451,14 +451,18 @@ async def compute_spike_trig_pop_rate(
     """Compute spike-triggered population rate and coupling stats and store to workspace."""
     ws = _get_workspace(workspace_id)
     sd = _get_spikedata(ws, namespace)
-    stPR_filtered, coupling_zero_lag, coupling_max, delays, lags = (
-        sd.compute_spike_trig_pop_rate(
-            window_ms=window_ms,
-            cutoff_hz=cutoff_hz,
-            fs=fs,
-            bin_size=bin_size,
-            cut_outer=cut_outer,
-        )
+    (
+        stPR_filtered,
+        coupling_zero_lag,
+        coupling_max,
+        delays,
+        lags,
+    ) = sd.compute_spike_trig_pop_rate(
+        window_ms=window_ms,
+        cutoff_hz=cutoff_hz,
+        fs=fs,
+        bin_size=bin_size,
+        cut_outer=cut_outer,
     )
     # Store stPR (U, T) and lags (T,) separately; combine coupling stats as (3, U)
     coupling_stack = np.stack(
@@ -1307,13 +1311,17 @@ async def compute_rate_slice_unit_order(
     ws = _get_workspace(workspace_id)
     rss = _get_rateslicestack(ws, namespace, stack_key)
     frac_active = _get_optional_frac_active(ws, namespace, frac_active_key)
-    _, unit_ids_in_order, unit_std_indices, unit_peak_times, unit_frac_active = (
-        rss.order_units_across_slices(
-            agg_func,
-            MIN_RATE_THRESHOLD=min_rate_threshold,
-            MIN_FRAC_ACTIVE=min_frac_active,
-            frac_active=frac_active,
-        )
+    (
+        _,
+        unit_ids_in_order,
+        unit_std_indices,
+        unit_peak_times,
+        unit_frac_active,
+    ) = rss.order_units_across_slices(
+        agg_func,
+        MIN_RATE_THRESHOLD=min_rate_threshold,
+        MIN_FRAC_ACTIVE=min_frac_active,
+        frac_active=frac_active,
     )
     # Each element is a tuple of two arrays (highly_active, low_active)
     return {
@@ -3061,3 +3069,221 @@ async def pairwise_tests(
     if out_key:
         response["key"] = out_key
     return response
+
+
+# ---------------------------------------------------------------------------
+# HIPPIE cell-type classification (optional — requires spikelab[hippie])
+# ---------------------------------------------------------------------------
+
+
+def _store_hippie_result(ws, sd, workspace_id, namespace, result, prefix):
+    """Write embeddings / UMAP / cluster labels to neuron_attributes and return summary.
+
+    Shared by ``classify_neurons_hippie`` and ``compress_neurons_hippie``; differs
+    only in the attribute-name prefix (``"hippie"`` vs ``"vae"``). Re-stores the
+    SpikeData in the workspace so downstream tools see the new attributes.
+    """
+    sd.set_neuron_attribute(f"{prefix}_embedding", result["embeddings"].tolist())
+    added_attrs = [f"{prefix}_embedding"]
+    if "umap_coords" in result:
+        sd.set_neuron_attribute(
+            f"{prefix}_umap_x", result["umap_coords"][:, 0].tolist()
+        )
+        sd.set_neuron_attribute(
+            f"{prefix}_umap_y", result["umap_coords"][:, 1].tolist()
+        )
+        added_attrs += [f"{prefix}_umap_x", f"{prefix}_umap_y"]
+    if "cluster_labels" in result:
+        sd.set_neuron_attribute(f"{prefix}_cluster", result["cluster_labels"].tolist())
+        added_attrs.append(f"{prefix}_cluster")
+
+    ws.store(namespace, "spikedata", sd)
+
+    labels = result.get("cluster_labels")
+    n_clusters = (
+        int(np.unique(labels[labels >= 0]).size) if labels is not None else None
+    )
+    n_noise = int((labels < 0).sum()) if labels is not None else None
+
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "n_neurons": int(result["embeddings"].shape[0]),
+        "embedding_dim": int(result["embeddings"].shape[1]),
+        "umap_computed": "umap_coords" in result,
+        "hdbscan_computed": "cluster_labels" in result,
+        "n_clusters": n_clusters,
+        "n_noise_neurons": n_noise,
+        "neuron_attributes_added": added_attrs,
+    }
+
+
+async def classify_neurons_hippie(
+    workspace_id: str,
+    namespace: str,
+    tech_id: int = 0,
+    run_umap: bool = True,
+    run_hdbscan: bool = True,
+    min_cluster_size: int = 5,
+    umap_n_neighbors: int = 30,
+    umap_min_dist: float = 0.1,
+    device: str = "cpu",
+    cache_dir: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Classify neurons using the pretrained HIPPIE model (requires spikelab[hippie]).
+
+    Downloads the HIPPIE checkpoint from HuggingFace, encodes all neurons into
+    a 30-dimensional latent space, and optionally runs UMAP projection and
+    HDBSCAN clustering.  Results are stored back into the workspace as
+    neuron_attributes and as a workspace item.
+
+    Requires avg_waveform to be present in neuron_attributes — run
+    get_waveform_traces first if raw data is available.
+
+    Args:
+        workspace_id: Workspace ID.
+        namespace: Recording namespace.
+        tech_id: Recording technology index (0=neuropixels, 1=silicon_probe,
+                 2=juxtacellular, 3=tetrodes).
+        run_umap: Compute 2-D UMAP projection and store coordinates.
+        run_hdbscan: Cluster with HDBSCAN (-1 = noise).
+        min_cluster_size: Minimum neurons per HDBSCAN cluster.
+        umap_n_neighbors: UMAP neighbourhood size.
+        umap_min_dist: UMAP minimum distance between points.
+        device: "cuda" or "cpu" for the HIPPIE encoder.
+        cache_dir: Directory to cache the downloaded checkpoint.
+    """
+    from ....spikedata.hippie_adapter import classify_neurons
+
+    ws = _get_workspace(workspace_id)
+    sd = _get_spikedata(ws, namespace)
+
+    umap_kwargs = {"n_neighbors": umap_n_neighbors, "min_dist": umap_min_dist}
+    hdbscan_kwargs = {"min_cluster_size": min_cluster_size}
+
+    result = classify_neurons(
+        sd,
+        tech_id=tech_id,
+        device=device,
+        run_umap=run_umap,
+        run_hdbscan=run_hdbscan,
+        umap_kwargs=umap_kwargs,
+        hdbscan_kwargs=hdbscan_kwargs,
+        cache_dir=cache_dir,
+    )
+
+    return _store_hippie_result(ws, sd, workspace_id, namespace, result, "hippie")
+
+
+# ---------------------------------------------------------------------------
+# Unconditioned VAE: training + compression (requires spikelab[hippie])
+# ---------------------------------------------------------------------------
+
+
+async def train_vae_hippie(
+    workspace_id: str,
+    namespace: str,
+    output_dir: str,
+    z_dim: int = 30,
+    n_epochs: int = 100,
+    batch_size: int = 256,
+    learning_rate: float = 1e-3,
+    val_fraction: float = 0.1,
+    device: str = "cpu",
+) -> Dict[str, Any]:
+    """Train an unconditioned multimodal VAE on a SpikeData object (requires spikelab[hippie]).
+
+    Uses the same ResNet18 + fusion encoder architecture as the pretrained HIPPIE
+    model but removes all class and technology conditioning.  The VAE learns to
+    compress waveform + ISI + autocorrelogram into a z_dim-dimensional latent
+    space using only reconstruction + KL loss (beta=1).
+
+    The best checkpoint is saved to output_dir/vae_best.ckpt.  Pass this path
+    to compress_neurons_hippie to encode new data.
+
+    Requires avg_waveform in neuron_attributes — run get_waveform_traces first.
+    """
+    import os
+
+    from ....spikedata.hippie_adapter import train_vae_on_spikedata
+
+    ws = _get_workspace(workspace_id)
+    sd = _get_spikedata(ws, namespace)
+
+    # Fail fast if output_dir is unwritable — VAE training can take hours, so
+    # surface permission / typo errors before the run starts rather than after.
+    os.makedirs(output_dir, exist_ok=True)
+    probe = os.path.join(output_dir, ".write_probe")
+    try:
+        with open(probe, "w") as fh:
+            fh.write("")
+        os.remove(probe)
+    except OSError as e:
+        raise OSError(f"output_dir is not writable: {output_dir!r} ({e})") from e
+
+    train_vae_on_spikedata(
+        sd,
+        output_dir=output_dir,
+        z_dim=z_dim,
+        n_epochs=n_epochs,
+        batch_size=batch_size,
+        learning_rate=learning_rate,
+        val_fraction=val_fraction,
+        device=device,
+    )
+
+    ckpt_path = os.path.join(output_dir, "vae_best.ckpt")
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "checkpoint_path": ckpt_path,
+        "z_dim": z_dim,
+        "n_epochs": n_epochs,
+        "n_neurons_trained_on": sd.N,
+    }
+
+
+async def compress_neurons_hippie(
+    workspace_id: str,
+    namespace: str,
+    checkpoint_path: str,
+    run_umap: bool = True,
+    run_hdbscan: bool = True,
+    min_cluster_size: int = 5,
+    umap_n_neighbors: int = 30,
+    umap_min_dist: float = 0.1,
+    device: str = "cpu",
+) -> Dict[str, Any]:
+    """Compress neurons with a trained unconditioned VAE (requires spikelab[hippie]).
+
+    Encodes all neurons into the VAE latent space, optionally runs UMAP and
+    HDBSCAN, then writes results into neuron_attributes:
+      vae_embedding, vae_umap_x, vae_umap_y, vae_cluster.
+
+    Args:
+        workspace_id: Workspace ID.
+        namespace: Recording namespace.
+        checkpoint_path: Path to the .ckpt file saved by train_vae_hippie.
+        run_umap: Compute 2-D UMAP projection.
+        run_hdbscan: Cluster with HDBSCAN (-1 = noise).
+        min_cluster_size: Minimum neurons per cluster.
+        umap_n_neighbors: UMAP neighbourhood size.
+        umap_min_dist: UMAP minimum distance.
+        device: "cuda" or "cpu".
+    """
+    from ....spikedata.hippie_adapter import compress_neurons
+
+    ws = _get_workspace(workspace_id)
+    sd = _get_spikedata(ws, namespace)
+
+    result = compress_neurons(
+        sd,
+        compressor=checkpoint_path,
+        run_umap=run_umap,
+        run_hdbscan=run_hdbscan,
+        umap_kwargs={"n_neighbors": umap_n_neighbors, "min_dist": umap_min_dist},
+        hdbscan_kwargs={"min_cluster_size": min_cluster_size},
+        device=device,
+    )
+
+    return _store_hippie_result(ws, sd, workspace_id, namespace, result, "vae")

@@ -4,3 +4,4 @@ from .spikedata import *  # noqa: F401,F403
 from .ratedata import *
 from .rateslicestack import *
 from .spikeslicestack import *
+from .hippie_adapter import *  # noqa: F401,F403  — module is import-safe without [hippie]

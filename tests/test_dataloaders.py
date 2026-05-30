@@ -5601,6 +5601,80 @@ class TestNWBLoaderPynwbFallbackBroadException:
         self._assert_h5py_fallback_warning(recwarn, OSError)
         assert sd.N == 2
 
+    def test_pynwb_mid_loop_failure_does_not_leak_into_h5py_fallback(
+        self, tmp_path, monkeypatch
+    ):
+        """
+        Regression for the partial-population bug in the pynwb→h5py fallback.
+
+        When pynwb starts successfully and populates ``trains`` /
+        ``neuron_attributes`` for the first few units, then raises one of
+        the caught exceptions mid-iteration, the loader must reset both
+        lists before delegating to the h5py path. Otherwise the h5py
+        ``extend`` lands on top of the partial pynwb state and
+        ``SpikeData.N`` ends up as ``partial + h5py_count`` instead of
+        ``h5py_count``.
+
+        Tests:
+            (Test Case 1) ``sd.N`` matches the h5py-only count (2), not
+                the buggy ``partial + h5py_count`` (4).
+            (Test Case 2) ``sd.train`` contents come from the h5py
+                layout, confirming pynwb partial data was discarded.
+        """
+        pynwb = pytest.importorskip("pynwb")
+        from types import SimpleNamespace
+
+        class _MidLoopRaisingDataFrame:
+            """Iterates K rows successfully, then raises ``KeyError``."""
+
+            columns: list = []  # no candidate channel columns
+
+            def __init__(self, k_good: int):
+                self.k_good = k_good
+
+            def itertuples(self):
+                for i in range(self.k_good):
+                    yield SimpleNamespace(
+                        Index=i,
+                        spike_times=np.array([0.001 * (i + 1)]),
+                    )
+                raise KeyError("simulated mid-loop pynwb read failure")
+
+        class _FakeIO:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def read(self):
+                return SimpleNamespace(
+                    units=SimpleNamespace(
+                        to_dataframe=lambda: _MidLoopRaisingDataFrame(k_good=2)
+                    ),
+                    electrodes=None,
+                )
+
+        monkeypatch.setattr(pynwb, "NWBHDF5IO", _FakeIO)
+
+        path = str(tmp_path / "test.nwb")
+        self._write_valid_nwb_h5py_layout(path)  # 2 units in h5py layout
+
+        with pytest.warns(UserWarning) as recwarn:
+            sd = loaders.load_spikedata_from_nwb(path)
+        self._assert_h5py_fallback_warning(recwarn, KeyError)
+
+        # Without the fix, sd.N would be 4 (2 partial pynwb + 2 h5py).
+        assert sd.N == 2, (
+            f"pynwb partial state leaked into h5py fallback: got N={sd.N}, "
+            f"expected 2"
+        )
+        np.testing.assert_array_equal(sd.train[0], np.array([100.0, 200.0]))
+        np.testing.assert_array_equal(sd.train[1], np.array([500.0]))
+
 
 class TestLoadSpikedataFromHdf5RawThresholdedFsHzValidation:
     """``load_spikedata_from_hdf5_raw_thresholded`` must validate

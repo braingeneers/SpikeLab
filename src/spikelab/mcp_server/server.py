@@ -3008,6 +3008,193 @@ async def _list_tools() -> list[types.Tool]:
     )
 
     # -----------------------------------------------------------------------
+    # HIPPIE cell-type classification (optional — requires spikelab[hippie])
+    # -----------------------------------------------------------------------
+    tools.extend(
+        [
+            types.Tool(
+                name="classify_neurons_hippie",
+                description=(
+                    "Classify neurons using the pretrained HIPPIE multimodal model "
+                    "(requires spikelab[hippie]). "
+                    "Downloads the checkpoint from HuggingFace (Jesusgf23/hippie), "
+                    "encodes each neuron's waveform + ISI + autocorrelogram into a "
+                    "30-D latent space, optionally runs UMAP (2-D projection) and "
+                    "HDBSCAN clustering, then stores the results as neuron_attributes "
+                    "(hippie_embedding, hippie_umap_x, hippie_umap_y, hippie_cluster). "
+                    "Requires avg_waveform in neuron_attributes — run "
+                    "get_waveform_traces first if raw data is available."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        **_WS_PROPS,
+                        "tech_id": {
+                            "type": "integer",
+                            "description": (
+                                "Recording technology index: "
+                                "0=neuropixels (default), 1=silicon_probe, "
+                                "2=juxtacellular, 3=tetrodes"
+                            ),
+                            "default": 0,
+                        },
+                        "run_umap": {
+                            "type": "boolean",
+                            "description": "Compute 2-D UMAP projection of embeddings (default: true)",
+                            "default": True,
+                        },
+                        "run_hdbscan": {
+                            "type": "boolean",
+                            "description": "Cluster with HDBSCAN on UMAP coords (default: true)",
+                            "default": True,
+                        },
+                        "min_cluster_size": {
+                            "type": "integer",
+                            "description": "Minimum neurons per HDBSCAN cluster (default: 5)",
+                            "default": 5,
+                        },
+                        "umap_n_neighbors": {
+                            "type": "integer",
+                            "description": "UMAP neighbourhood size (default: 30)",
+                            "default": 30,
+                        },
+                        "umap_min_dist": {
+                            "type": "number",
+                            "description": "UMAP minimum distance between points (default: 0.1)",
+                            "default": 0.1,
+                        },
+                        "device": {
+                            "type": "string",
+                            "description": "PyTorch device for the HIPPIE encoder: 'cpu' or 'cuda'",
+                            "default": "cpu",
+                        },
+                        "cache_dir": {
+                            "type": "string",
+                            "description": "Local directory to cache the downloaded checkpoint (optional)",
+                        },
+                    },
+                    "required": ["workspace_id", "namespace"],
+                },
+            ),
+        ]
+    )
+
+    # -----------------------------------------------------------------------
+    # Unconditioned VAE: training + compression (requires spikelab[hippie])
+    # -----------------------------------------------------------------------
+    tools.extend(
+        [
+            types.Tool(
+                name="train_vae_hippie",
+                description=(
+                    "Train an unconditioned multimodal VAE on a SpikeData object "
+                    "(requires spikelab[hippie]). "
+                    "Uses the same ResNet18 + fusion encoder as the pretrained HIPPIE "
+                    "model but removes all class and technology conditioning — the VAE "
+                    "learns to compress waveform + ISI + autocorrelogram into a latent "
+                    "space using only reconstruction + KL loss. "
+                    "Saves the best checkpoint to output_dir/vae_best.ckpt. "
+                    "Pass that path to compress_neurons_hippie to encode new data. "
+                    "Requires avg_waveform in neuron_attributes — run get_waveform_traces first."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        **_WS_PROPS,
+                        "output_dir": {
+                            "type": "string",
+                            "description": "Directory to save the best checkpoint (vae_best.ckpt)",
+                        },
+                        "z_dim": {
+                            "type": "integer",
+                            "description": "Latent space dimensionality (default 30)",
+                            "default": 30,
+                        },
+                        "n_epochs": {
+                            "type": "integer",
+                            "description": "Number of training epochs (default 100)",
+                            "default": 100,
+                        },
+                        "batch_size": {
+                            "type": "integer",
+                            "description": "Minibatch size (default 256)",
+                            "default": 256,
+                        },
+                        "learning_rate": {
+                            "type": "number",
+                            "description": "AdamW learning rate (default 1e-3)",
+                            "default": 0.001,
+                        },
+                        "val_fraction": {
+                            "type": "number",
+                            "description": "Fraction of neurons held out for validation (default 0.1)",
+                            "default": 0.1,
+                        },
+                        "device": {
+                            "type": "string",
+                            "description": "PyTorch device: 'cpu' or 'cuda'",
+                            "default": "cpu",
+                        },
+                    },
+                    "required": ["workspace_id", "namespace", "output_dir"],
+                },
+            ),
+            types.Tool(
+                name="compress_neurons_hippie",
+                description=(
+                    "Compress neurons using a trained unconditioned VAE "
+                    "(requires spikelab[hippie]). "
+                    "Encodes all neurons into the VAE latent space, optionally runs "
+                    "UMAP (2-D projection) and HDBSCAN clustering, then stores results "
+                    "as neuron_attributes: vae_embedding, vae_umap_x, vae_umap_y, "
+                    "vae_cluster. Train the model first with train_vae_hippie."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        **_WS_PROPS,
+                        "checkpoint_path": {
+                            "type": "string",
+                            "description": "Path to the .ckpt file saved by train_vae_hippie",
+                        },
+                        "run_umap": {
+                            "type": "boolean",
+                            "description": "Compute 2-D UMAP projection (default true)",
+                            "default": True,
+                        },
+                        "run_hdbscan": {
+                            "type": "boolean",
+                            "description": "Cluster with HDBSCAN (default true)",
+                            "default": True,
+                        },
+                        "min_cluster_size": {
+                            "type": "integer",
+                            "description": "Minimum neurons per HDBSCAN cluster (default 5)",
+                            "default": 5,
+                        },
+                        "umap_n_neighbors": {
+                            "type": "integer",
+                            "description": "UMAP neighbourhood size (default 30)",
+                            "default": 30,
+                        },
+                        "umap_min_dist": {
+                            "type": "number",
+                            "description": "UMAP minimum distance (default 0.1)",
+                            "default": 0.1,
+                        },
+                        "device": {
+                            "type": "string",
+                            "description": "PyTorch device: 'cpu' or 'cuda'",
+                            "default": "cpu",
+                        },
+                    },
+                    "required": ["workspace_id", "namespace", "checkpoint_path"],
+                },
+            ),
+        ]
+    )
+
+    # -----------------------------------------------------------------------
     # Workspace management tools
     # -----------------------------------------------------------------------
     tools.extend(
@@ -4217,6 +4404,10 @@ _TOOL_DISPATCH: dict[str, Any] = {
     "slice_trend": analysis.slice_trend,
     "slice_stability": analysis.slice_stability,
     "pairwise_tests": analysis.pairwise_tests,
+    # HIPPIE cell-type classification and VAE compression
+    "classify_neurons_hippie": analysis.classify_neurons_hippie,
+    "train_vae_hippie": analysis.train_vae_hippie,
+    "compress_neurons_hippie": analysis.compress_neurons_hippie,
     # Export tools
     "export_to_hdf5_raster": exporters.export_to_hdf5_raster,
     "export_to_hdf5_ragged": exporters.export_to_hdf5_ragged,
