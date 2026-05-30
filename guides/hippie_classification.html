@@ -1,0 +1,1006 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cell-Type Classification with HIPPIE &mdash; SpikeLab 0.1.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=a58bc63e"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="API Reference" href="../api/index.html" />
+    <link rel="prev" title="Batch Jobs" href="batch_jobs.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            SpikeLab
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/index.html">Getting Started</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/installation.html">Installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/installation.html#basic-install">Basic Install</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/installation.html#optional-extras">Optional Extras</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/installation.html#development-install">Development Install</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/quickstart.html">Quick Start</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#creating-a-spikedata-object">Creating a SpikeData Object</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#loading-from-a-file">Loading from a File</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#plotting">Plotting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#basic-analysis">Basic Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Guides</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="loading_data.html">Loading Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="loading_data.html#from-pickle-files">From pickle files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="loading_data.html#from-hdf5-files">From HDF5 files</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="loading_data.html#the-spike-times-unit-parameter">The <code class="docutils literal notranslate"><span class="pre">spike_times_unit</span></code> parameter</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="loading_data.html#from-nwb-files">From NWB files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="loading_data.html#from-kilosort-phy-output">From KiloSort/Phy output</a></li>
+<li class="toctree-l3"><a class="reference internal" href="loading_data.html#from-spikeinterface">From SpikeInterface</a></li>
+<li class="toctree-l3"><a class="reference internal" href="loading_data.html#from-spikelab-sorted-npz">From SpikeLab sorted .npz</a></li>
+<li class="toctree-l3"><a class="reference internal" href="loading_data.html#from-the-ibl-database">From the IBL database</a></li>
+<li class="toctree-l3"><a class="reference internal" href="loading_data.html#from-neo-spiketrains">From Neo SpikeTrains</a></li>
+<li class="toctree-l3"><a class="reference internal" href="loading_data.html#from-raw-data">From raw data</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="loading_data.html#from-threshold-detection">From threshold detection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="loading_data.html#from-a-spike-count-raster">From a spike count raster</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="spike_sorting.html">Spike Sorting and Curation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="spike_sorting.html#spike-sorting">Spike Sorting</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#basic-usage">Basic usage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#configuration-and-presets">Configuration and presets</a></li>
+<li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#multi-stream-recordings">Multi-stream recordings</a></li>
+<li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#reusing-intermediate-results">Reusing intermediate results</a></li>
+<li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#built-in-safeguards">Built-in safeguards</a></li>
+<li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#pipeline-canary">Pipeline canary</a></li>
+<li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#stimulation-artifact-removal">Stimulation Artifact Removal</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="spike_sorting.html#unit-curation">Unit Curation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#individual-criteria">Individual criteria</a></li>
+<li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#merge-based-deduplication">Merge-based deduplication</a></li>
+<li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#batch-curation">Batch curation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#curation-history">Curation history</a></li>
+<li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#visualising-sorted-units">Visualising sorted units</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="spike_sorting.html#sorting-concatenated-recordings">Sorting Concatenated Recordings</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spike_sorting.html#handling-sort-failures">Handling Sort Failures</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#watchdog-and-lock-failures">Watchdog and lock failures</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="spike_analysis.html">Spike Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#population-rate">Population Rate</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#burst-detection">Burst Detection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#burst-widths">Burst Widths</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#burst-sensitivity-analysis">Burst Sensitivity Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#per-unit-metrics">Per-Unit Metrics</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="spike_analysis.html#firing-rates">Firing rates</a></li>
+<li class="toctree-l4"><a class="reference internal" href="spike_analysis.html#inter-spike-intervals">Inter-spike intervals</a></li>
+<li class="toctree-l4"><a class="reference internal" href="spike_analysis.html#spike-triggered-population-rate">Spike-triggered population rate</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#burst-participation-per-unit">Burst Participation per Unit</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#fraction-of-spikes-in-bursts">Fraction of Spikes in Bursts</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#selecting-and-combining-data">Selecting and Combining Data</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="spike_analysis.html#unit-selection">Unit selection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="spike_analysis.html#time-selection">Time selection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="spike_analysis.html#appending-recordings">Appending recordings</a></li>
+<li class="toctree-l4"><a class="reference internal" href="spike_analysis.html#combining-units">Combining units</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#pairwise-metrics">Pairwise Metrics</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="firing_rates.html">Instantaneous Firing Rates</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="firing_rates.html#id1">Instantaneous Firing Rates</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="firing_rates.html#isi-interpolation">ISI interpolation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="firing_rates.html#sliding-window">Sliding window</a></li>
+<li class="toctree-l4"><a class="reference internal" href="firing_rates.html#working-with-ratedata">Working with RateData</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="firing_rates.html#dimensionality-reduction">Dimensionality Reduction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="firing_rates.html#pairwise-firing-rate-correlations">Pairwise Firing-Rate Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="firing_rates.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="event_aligned_analysis.html">Event-Aligned Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="event_aligned_analysis.html#aligning-to-events">Aligning to Events</a></li>
+<li class="toctree-l3"><a class="reference internal" href="event_aligned_analysis.html#rateslicestack">RateSliceStack</a></li>
+<li class="toctree-l3"><a class="reference internal" href="event_aligned_analysis.html#spikeslicestack">SpikeSliceStack</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="event_aligned_analysis.html#applying-a-function-across-slices">Applying a function across slices</a></li>
+<li class="toctree-l4"><a class="reference internal" href="event_aligned_analysis.html#subsetting-slice-stacks">Subsetting slice stacks</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="event_aligned_analysis.html#slice-to-slice-unit-correlations">Slice-to-Slice Unit Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="event_aligned_analysis.html#slice-to-slice-time-correlations">Slice-to-Slice Time Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="event_aligned_analysis.html#unit-to-unit-pca">Unit-to-Unit PCA</a></li>
+<li class="toctree-l3"><a class="reference internal" href="event_aligned_analysis.html#rank-order-analysis">Rank-Order Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="event_aligned_analysis.html#temporal-trends-and-stability">Temporal Trends and Stability</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="event_aligned_analysis.html#shuffled-null-distributions">Shuffled Null Distributions</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="pairwise_analysis.html">Pairwise Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="pairwise_analysis.html#spike-time-tiling-coefficient-sttc">Spike Time Tiling Coefficient (STTC)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="pairwise_analysis.html#firing-rate-correlations">Firing-Rate Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="pairwise_analysis.html#fr-correlation-vs-sttc-scatter">FR Correlation vs STTC Scatter</a></li>
+<li class="toctree-l3"><a class="reference internal" href="pairwise_analysis.html#network-analysis">Network Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="pairwise_analysis.html#spatial-network-visualization">Spatial Network Visualization</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="shuffled_data.html">Shuffled Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="shuffled_data.html#single-shuffle">Single Shuffle</a></li>
+<li class="toctree-l3"><a class="reference internal" href="shuffled_data.html#shuffle-stacks">Shuffle Stacks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="shuffled_data.html#unit-subset-stacks">Unit Subset Stacks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="shuffled_data.html#comparing-to-the-null-distribution">Comparing to the Null Distribution</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="gplvm.html">GPLVM Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="gplvm.html#fitting-a-gplvm">Fitting a GPLVM</a></li>
+<li class="toctree-l3"><a class="reference internal" href="gplvm.html#post-fit-analysis">Post-fit Analysis</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="gplvm.html#state-entropy">State entropy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="gplvm.html#continuity-probability">Continuity probability</a></li>
+<li class="toctree-l4"><a class="reference internal" href="gplvm.html#average-state-probability">Average state probability</a></li>
+<li class="toctree-l4"><a class="reference internal" href="gplvm.html#consecutive-state-durations">Consecutive state durations</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="gplvm.html#visualisation">Visualisation</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="exporting_data.html">Exporting Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="exporting_data.html#to-hdf5">To HDF5</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="exporting_data.html#ragged-vs-raster-style">Ragged vs raster style</a></li>
+<li class="toctree-l4"><a class="reference internal" href="exporting_data.html#the-spike-times-unit-parameter">The <code class="docutils literal notranslate"><span class="pre">spike_times_unit</span></code> parameter</a></li>
+<li class="toctree-l4"><a class="reference internal" href="exporting_data.html#exporting-raw-data">Exporting raw data</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="exporting_data.html#to-nwb">To NWB</a></li>
+<li class="toctree-l3"><a class="reference internal" href="exporting_data.html#to-kilosort">To KiloSort</a></li>
+<li class="toctree-l3"><a class="reference internal" href="exporting_data.html#to-pickle">To pickle</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="workspace.html">Workspace Persistence</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="workspace.html#creating-a-workspace">Creating a Workspace</a></li>
+<li class="toctree-l3"><a class="reference internal" href="workspace.html#saving-and-loading">Saving and Loading</a></li>
+<li class="toctree-l3"><a class="reference internal" href="workspace.html#listing-and-retrieving">Listing and Retrieving</a></li>
+<li class="toctree-l3"><a class="reference internal" href="workspace.html#lazy-loading">Lazy Loading</a></li>
+<li class="toctree-l3"><a class="reference internal" href="workspace.html#merging-workspaces">Merging Workspaces</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="mcp_server.html#starting-the-server">Starting the server</a></li>
+<li class="toctree-l3"><a class="reference internal" href="mcp_server.html#tool-categories">Tool categories</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="mcp_server.html#data-loading-tools">Data loading tools</a></li>
+<li class="toctree-l4"><a class="reference internal" href="mcp_server.html#analysis-tools">Analysis tools</a></li>
+<li class="toctree-l4"><a class="reference internal" href="mcp_server.html#export-tools">Export tools</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="mcp_server.html#workspace-addressing">Workspace addressing</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="parallel_computing.html">Parallel Computing</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="parallel_computing.html#thread-pool-parallelism">Thread-Pool Parallelism</a></li>
+<li class="toctree-l3"><a class="reference internal" href="parallel_computing.html#numba-acceleration">Numba Acceleration</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="batch_jobs.html">Batch Jobs</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs.html#setting-up-a-session">Setting Up a Session</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs.html#analysis-jobs">Analysis Jobs</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#submitting">Submitting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#writing-an-analysis-script">Writing an analysis script</a></li>
+<li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#retrieving-results">Retrieving results</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs.html#sorting-jobs">Sorting Jobs</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#id1">Submitting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#id2">Retrieving results</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs.html#policy-guardrails">Policy Guardrails</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs.html#docker-images">Docker Images</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#base-images">Base images</a></li>
+<li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#temporary-images">Temporary images</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs.html#monitoring-jobs">Monitoring Jobs</a></li>
+</ul>
+</li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Cell-Type Classification with HIPPIE</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#installation">Installation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#data-requirements">Data requirements</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#pipeline-a-kilosort-output-raw-bin-file">Pipeline A — Kilosort output + raw <code class="docutils literal notranslate"><span class="pre">.bin</span></code> file</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#what-get-waveform-traces-does-in-step-3">What <code class="docutils literal notranslate"><span class="pre">get_waveform_traces</span></code> does in step 3</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#pipeline-b-nwb-file-with-raw-traces">Pipeline B — NWB file with raw traces</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#python">Python</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mcp-agent">MCP / agent</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#pipeline-c-waveforms-already-available">Pipeline C — Waveforms already available</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#quick-start-waveforms-already-present">Quick start (waveforms already present)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#return-values">Return values</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#technology-ids">Technology IDs</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#unsupervised-vae-compression-no-conditioning">Unsupervised VAE compression (no conditioning)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#train-and-compress-in-python">Train and compress in Python</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#reload-and-compress-new-data-later">Reload and compress new data later</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#use-the-vae-api-directly">Use the VAE API directly</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id1">MCP / agent</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#how-it-differs-from-the-pretrained-classifier">How it differs from the pretrained classifier</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#advanced-options">Advanced options</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#tuning-umap-and-hdbscan">Tuning UMAP and HDBSCAN</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#embeddings-only-no-clustering">Embeddings only (no clustering)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#using-the-hippie-api-directly">Using the HIPPIE API directly</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#using-via-the-mcp-server">Using via the MCP server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#example-agent-prompts">Example agent prompts</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#known-limitation-mcp-waveform-extraction-is-per-unit">Known limitation: MCP waveform extraction is per-unit</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#how-it-works">How it works</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#checkpoint">Checkpoint</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html#core-data-structures">Core Data Structures</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/spikedata.html">SpikeData</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/spikedata.html#spikelab.spikedata.SpikeData"><code class="docutils literal notranslate"><span class="pre">SpikeData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/ratedata.html">RateData</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/ratedata.html#spikelab.spikedata.ratedata.RateData"><code class="docutils literal notranslate"><span class="pre">RateData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/pairwise.html">Pairwise Comparisons</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/pairwise.html#pairwisecompmatrix">PairwiseCompMatrix</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/pairwise.html#pairwisecompmatrixstack">PairwiseCompMatrixStack</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/rateslicestack.html">RateSliceStack</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/rateslicestack.html#spikelab.spikedata.rateslicestack.RateSliceStack"><code class="docutils literal notranslate"><span class="pre">RateSliceStack</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/spikeslicestack.html">SpikeSliceStack</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack"><code class="docutils literal notranslate"><span class="pre">SpikeSliceStack</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html#utilities">Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/utilities.html">Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.get_sttc"><code class="docutils literal notranslate"><span class="pre">get_sttc()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.swap"><code class="docutils literal notranslate"><span class="pre">swap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.randomize"><code class="docutils literal notranslate"><span class="pre">randomize()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.trough_between"><code class="docutils literal notranslate"><span class="pre">trough_between()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.ensure_h5py"><code class="docutils literal notranslate"><span class="pre">ensure_h5py()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.times_from_ms"><code class="docutils literal notranslate"><span class="pre">times_from_ms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.to_ms"><code class="docutils literal notranslate"><span class="pre">to_ms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.extract_waveforms"><code class="docutils literal notranslate"><span class="pre">extract_waveforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.check_neuron_attributes"><code class="docutils literal notranslate"><span class="pre">check_neuron_attributes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.get_channels_for_unit"><code class="docutils literal notranslate"><span class="pre">get_channels_for_unit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.compute_avg_waveform"><code class="docutils literal notranslate"><span class="pre">compute_avg_waveform()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.get_valid_spike_times"><code class="docutils literal notranslate"><span class="pre">get_valid_spike_times()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.waveforms_by_channel"><code class="docutils literal notranslate"><span class="pre">waveforms_by_channel()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.extract_unit_waveforms"><code class="docutils literal notranslate"><span class="pre">extract_unit_waveforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.consecutive_durations"><code class="docutils literal notranslate"><span class="pre">consecutive_durations()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.gplvm_state_entropy"><code class="docutils literal notranslate"><span class="pre">gplvm_state_entropy()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.gplvm_continuity_prob"><code class="docutils literal notranslate"><span class="pre">gplvm_continuity_prob()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.gplvm_average_state_probability"><code class="docutils literal notranslate"><span class="pre">gplvm_average_state_probability()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.shuffle_z_score"><code class="docutils literal notranslate"><span class="pre">shuffle_z_score()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.shuffle_percentile"><code class="docutils literal notranslate"><span class="pre">shuffle_percentile()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.slice_trend"><code class="docutils literal notranslate"><span class="pre">slice_trend()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.slice_stability"><code class="docutils literal notranslate"><span class="pre">slice_stability()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/stat_utils.html">Statistical Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/stat_utils.html#spikelab.spikedata.stat_utils.linear_regression"><code class="docutils literal notranslate"><span class="pre">linear_regression()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/stat_utils.html#spikelab.spikedata.stat_utils.pairwise_tests"><code class="docutils literal notranslate"><span class="pre">pairwise_tests()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/stat_utils.html#spikelab.spikedata.stat_utils.paired_test"><code class="docutils literal notranslate"><span class="pre">paired_test()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/stat_utils.html#spikelab.spikedata.stat_utils.mixed_effects_compare"><code class="docutils literal notranslate"><span class="pre">mixed_effects_compare()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/stat_utils.html#spikelab.spikedata.stat_utils.omnibus_test"><code class="docutils literal notranslate"><span class="pre">omnibus_test()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/plot_utils.html">Plotting Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_distribution"><code class="docutils literal notranslate"><span class="pre">plot_distribution()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_pvalue_matrix"><code class="docutils literal notranslate"><span class="pre">plot_pvalue_matrix()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_scatter"><code class="docutils literal notranslate"><span class="pre">plot_scatter()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_scatter_with_marginals"><code class="docutils literal notranslate"><span class="pre">plot_scatter_with_marginals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_manifold"><code class="docutils literal notranslate"><span class="pre">plot_manifold()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_lines"><code class="docutils literal notranslate"><span class="pre">plot_lines()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_percentile_bands"><code class="docutils literal notranslate"><span class="pre">plot_percentile_bands()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_burst_sensitivity"><code class="docutils literal notranslate"><span class="pre">plot_burst_sensitivity()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_aligned_slice_single_unit"><code class="docutils literal notranslate"><span class="pre">plot_aligned_slice_single_unit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_heatmap"><code class="docutils literal notranslate"><span class="pre">plot_heatmap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_recording"><code class="docutils literal notranslate"><span class="pre">plot_recording()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_spatial_network"><code class="docutils literal notranslate"><span class="pre">plot_spatial_network()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_unit_footprints"><code class="docutils literal notranslate"><span class="pre">plot_unit_footprints()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_prediction_probability_heatmap"><code class="docutils literal notranslate"><span class="pre">plot_prediction_probability_heatmap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_responsive_unit_map"><code class="docutils literal notranslate"><span class="pre">plot_responsive_unit_map()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html#data-i-o">Data I/O</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/data_loaders.html">Data Loaders</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_hdf5"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_hdf5()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_hdf5_raw_thresholded"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_hdf5_raw_thresholded()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_nwb"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_nwb()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_kilosort"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_kilosort()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_spikeinterface"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikeinterface()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_spikeinterface_recording"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikeinterface_recording()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_pickle"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_pickle()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_ibl"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_ibl()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_loaders.html#spikelab.data_loaders.data_loaders.query_ibl_probes"><code class="docutils literal notranslate"><span class="pre">query_ibl_probes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_spikelab_sorted_npz"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikelab_sorted_npz()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/data_exporters.html">Data Exporters</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_hdf5"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_hdf5()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_nwb"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_nwb()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_kilosort"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_kilosort()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_to_pickle"><code class="docutils literal notranslate"><span class="pre">export_to_pickle()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/s3_utils.html">S3 Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/s3_utils.html#spikelab.data_loaders.s3_utils.is_s3_url"><code class="docutils literal notranslate"><span class="pre">is_s3_url()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/s3_utils.html#spikelab.data_loaders.s3_utils.parse_s3_url"><code class="docutils literal notranslate"><span class="pre">parse_s3_url()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/s3_utils.html#spikelab.data_loaders.s3_utils.download_from_s3"><code class="docutils literal notranslate"><span class="pre">download_from_s3()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/s3_utils.html#spikelab.data_loaders.s3_utils.upload_to_s3"><code class="docutils literal notranslate"><span class="pre">upload_to_s3()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/s3_utils.html#spikelab.data_loaders.s3_utils.ensure_local_file"><code class="docutils literal notranslate"><span class="pre">ensure_local_file()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html#persistence">Persistence</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/workspace.html">Workspace</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/workspace.html#spikelab.workspace.workspace.AnalysisWorkspace"><code class="docutils literal notranslate"><span class="pre">AnalysisWorkspace</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/workspace.html#spikelab.workspace.workspace.LazyAnalysisWorkspace"><code class="docutils literal notranslate"><span class="pre">LazyAnalysisWorkspace</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/workspace.html#spikelab.workspace.workspace.WorkspaceManager"><code class="docutils literal notranslate"><span class="pre">WorkspaceManager</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/workspace.html#spikelab.workspace.workspace.get_workspace_manager"><code class="docutils literal notranslate"><span class="pre">get_workspace_manager()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html#spike-sorting-and-curation">Spike Sorting and Curation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/spike_sorting.html">Spike Sorting</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/spike_sorting.html#entry-points">Entry Points</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spike_sorting.html#module-spikelab.spike_sorting.config">Configuration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spike_sorting.html#module-spikelab.spike_sorting.backends">Backend Registry</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spike_sorting.html#classified-exceptions">Classified Exceptions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spike_sorting.html#post-failure-classifiers">Post-Failure Classifiers</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spike_sorting.html#sort-run-reports">Sort Run Reports</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spike_sorting.html#resource-guards">Resource Guards</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spike_sorting.html#pipeline-canary">Pipeline Canary</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spike_sorting.html#stimulation-sorting">Stimulation Sorting</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/curation.html">Curation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/curation.html#spikelab.spikedata.curation.curate_by_min_spikes"><code class="docutils literal notranslate"><span class="pre">curate_by_min_spikes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/curation.html#spikelab.spikedata.curation.curate_by_firing_rate"><code class="docutils literal notranslate"><span class="pre">curate_by_firing_rate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/curation.html#spikelab.spikedata.curation.curate_by_isi_violations"><code class="docutils literal notranslate"><span class="pre">curate_by_isi_violations()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/curation.html#spikelab.spikedata.curation.curate_by_snr"><code class="docutils literal notranslate"><span class="pre">curate_by_snr()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/curation.html#spikelab.spikedata.curation.curate_by_std_norm"><code class="docutils literal notranslate"><span class="pre">curate_by_std_norm()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/curation.html#spikelab.spikedata.curation.compute_waveform_metrics"><code class="docutils literal notranslate"><span class="pre">compute_waveform_metrics()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/curation.html#spikelab.spikedata.curation.curate"><code class="docutils literal notranslate"><span class="pre">curate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/curation.html#spikelab.spikedata.curation.build_curation_history"><code class="docutils literal notranslate"><span class="pre">build_curation_history()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/curation.html#spikelab.spikedata.curation.curate_by_merge_duplicates"><code class="docutils literal notranslate"><span class="pre">curate_by_merge_duplicates()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html#batch-jobs">Batch Jobs</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/batch_jobs.html">Batch Jobs</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/batch_jobs.html#models">Models</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/batch_jobs.html#policy-engine">Policy Engine</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/batch_jobs.html#module-spikelab.batch_jobs.profiles">Profile Loading</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/batch_jobs.html#run-session">Run Session</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/batch_jobs.html#module-spikelab.batch_jobs.backend_k8s">Kubernetes Backend</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/batch_jobs.html#module-spikelab.batch_jobs.storage_s3">S3 Storage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/batch_jobs.html#module-spikelab.batch_jobs.artifact_packager">Artifact Packager</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/batch_jobs.html#module-spikelab.batch_jobs.credentials">Credentials</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/batch_jobs.html#module-spikelab.batch_jobs.validation">Validation</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html#server">Server</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/mcp_server.html#spikelab.mcp_server.server.MAX_INLINE_ARRAY_SIZE"><code class="docutils literal notranslate"><span class="pre">MAX_INLINE_ARRAY_SIZE</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">SpikeLab</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Guides</a></li>
+      <li class="breadcrumb-item active">Cell-Type Classification with HIPPIE</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/guides/hippie_classification.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="cell-type-classification-with-hippie">
+<span id="hippie-classification"></span><h1>Cell-Type Classification with HIPPIE<a class="headerlink" href="#cell-type-classification-with-hippie" title="Link to this heading"></a></h1>
+<p>SpikeLab has optional integration with <a class="reference external" href="https://huggingface.co/Jesusgf23/hippie">HIPPIE</a>, a pretrained multimodal
+generative model for neuron classification.  HIPPIE encodes each neuron’s
+<strong>waveform</strong>, <strong>interspike-interval distribution</strong>, and <strong>autocorrelogram</strong>
+into a shared 30-D latent space, then uses UMAP + HDBSCAN for unsupervised
+cell-type discovery.</p>
+<section id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Link to this heading"></a></h2>
+<p>HIPPIE is an optional dependency — install it alongside SpikeLab:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pip</span> <span class="n">install</span> <span class="s2">&quot;spikelab[hippie]&quot;</span>
+</pre></div>
+</div>
+<p>This pulls in PyTorch, HuggingFace Hub, umap-learn, and hdbscan in addition
+to the HIPPIE package itself.  PyTorch with CUDA must be installed separately
+if GPU inference is desired.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Nothing in the base SpikeLab install is affected.  The HIPPIE adapter is
+never imported unless you explicitly call it.</p>
+</div>
+</section>
+<section id="data-requirements">
+<h2>Data requirements<a class="headerlink" href="#data-requirements" title="Link to this heading"></a></h2>
+<p>HIPPIE requires three features per neuron:</p>
+<ul class="simple">
+<li><p><strong>Average waveform</strong> — stored as <code class="docutils literal notranslate"><span class="pre">avg_waveform</span></code> in <code class="docutils literal notranslate"><span class="pre">neuron_attributes</span></code></p></li>
+<li><p><strong>Spike trains</strong> — always present in a <code class="docutils literal notranslate"><span class="pre">SpikeData</span></code> object</p></li>
+<li><p><strong>Recording technology</strong> — passed as <code class="docutils literal notranslate"><span class="pre">tech_id</span></code> at call time</p></li>
+</ul>
+<p>The waveform is the only thing that may need preparation.  The three
+pipelines below cover the most common starting points.</p>
+</section>
+<section id="pipeline-a-kilosort-output-raw-bin-file">
+<span id="hippie-pipeline-a"></span><h2>Pipeline A — Kilosort output + raw <code class="docutils literal notranslate"><span class="pre">.bin</span></code> file<a class="headerlink" href="#pipeline-a-kilosort-output-raw-bin-file" title="Link to this heading"></a></h2>
+<p>This is the typical Neuropixels + Kilosort4 workflow.  Kilosort gives you
+spike times only; waveforms are extracted from the raw voltage trace
+afterward.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Attaching raw data to a <code class="docutils literal notranslate"><span class="pre">SpikeData</span></code> object is currently a Python-only
+step — there is no MCP tool for it.  Use this path when scripting directly.</p>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.data_loaders</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_spikedata_from_kilosort</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.spikedata.hippie_adapter</span><span class="w"> </span><span class="kn">import</span> <span class="n">classify_neurons</span>
+
+<span class="c1"># 1. Load spike times from Kilosort output directory</span>
+<span class="n">sd</span> <span class="o">=</span> <span class="n">load_spikedata_from_kilosort</span><span class="p">(</span>
+    <span class="n">folder_path</span><span class="o">=</span><span class="s2">&quot;/path/to/kilosort_output/&quot;</span><span class="p">,</span>
+    <span class="n">fs_Hz</span><span class="o">=</span><span class="mi">30000</span><span class="p">,</span>                       <span class="c1"># Neuropixels default</span>
+    <span class="n">cluster_info_tsv</span><span class="o">=</span><span class="s2">&quot;cluster_info.tsv&quot;</span><span class="p">,</span>
+    <span class="n">include_noise</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># 2. Attach the raw voltage recording</span>
+<span class="c1">#    Shape must be (n_channels, n_samples).</span>
+<span class="c1">#    Use np.memmap for large files to avoid loading everything into RAM.</span>
+<span class="n">raw</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">memmap</span><span class="p">(</span>
+    <span class="s2">&quot;/path/to/recording.ap.bin&quot;</span><span class="p">,</span>
+    <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;int16&quot;</span><span class="p">,</span>
+    <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;r&quot;</span><span class="p">,</span>
+    <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">385</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">),</span>            <span class="c1"># adjust n_channels and n_samples</span>
+<span class="p">)</span>
+<span class="n">sd</span><span class="o">.</span><span class="n">raw_data</span> <span class="o">=</span> <span class="n">raw</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+<span class="n">sd</span><span class="o">.</span><span class="n">raw_time</span> <span class="o">=</span> <span class="mf">30.0</span>                     <span class="c1"># sampling rate in kHz (30 000 Hz)</span>
+
+<span class="c1"># 3. Extract average waveforms for all units in one call.</span>
+<span class="c1">#    store=True writes avg_waveform into neuron_attributes automatically.</span>
+<span class="n">sd</span><span class="o">.</span><span class="n">get_waveform_traces</span><span class="p">(</span>
+    <span class="n">unit</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>                         <span class="c1"># None = all units</span>
+    <span class="n">ms_before</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+    <span class="n">ms_after</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span>
+    <span class="n">store</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># 4. Run HIPPIE: embed → UMAP → HDBSCAN</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">classify_neurons</span><span class="p">(</span>
+    <span class="n">sd</span><span class="p">,</span>
+    <span class="n">tech_id</span><span class="o">=</span><span class="s2">&quot;neuropixels&quot;</span><span class="p">,</span>             <span class="c1"># or tech_id=0</span>
+    <span class="n">run_umap</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">run_hdbscan</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">hdbscan_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;min_cluster_size&quot;</span><span class="p">:</span> <span class="mi">5</span><span class="p">},</span>
+<span class="p">)</span>
+
+<span class="c1"># 5. Store results back into neuron_attributes</span>
+<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">&quot;hippie_cluster&quot;</span><span class="p">,</span>   <span class="n">result</span><span class="p">[</span><span class="s2">&quot;cluster_labels&quot;</span><span class="p">])</span>
+<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">&quot;hippie_umap_x&quot;</span><span class="p">,</span>    <span class="n">result</span><span class="p">[</span><span class="s2">&quot;umap_coords&quot;</span><span class="p">][:,</span> <span class="mi">0</span><span class="p">])</span>
+<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">&quot;hippie_umap_y&quot;</span><span class="p">,</span>    <span class="n">result</span><span class="p">[</span><span class="s2">&quot;umap_coords&quot;</span><span class="p">][:,</span> <span class="mi">1</span><span class="p">])</span>
+<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">&quot;hippie_embedding&quot;</span><span class="p">,</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;embeddings&quot;</span><span class="p">])</span>
+
+<span class="n">n_clusters</span> <span class="o">=</span> <span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s2">&quot;cluster_labels&quot;</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="si">}</span><span class="s2"> neurons → </span><span class="si">{</span><span class="n">n_clusters</span><span class="si">}</span><span class="s2"> clustered, &quot;</span>
+      <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;cluster_labels&#39;</span><span class="p">]</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="si">}</span><span class="s2"> noise&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<section id="what-get-waveform-traces-does-in-step-3">
+<h3>What <code class="docutils literal notranslate"><span class="pre">get_waveform_traces</span></code> does in step 3<a class="headerlink" href="#what-get-waveform-traces-does-in-step-3" title="Link to this heading"></a></h3>
+<p>For every unit it finds the peak channel (from <code class="docutils literal notranslate"><span class="pre">neuron_to_channel_map</span></code>),
+extracts a short voltage snippet around each spike, averages them, and
+stores the average as <code class="docutils literal notranslate"><span class="pre">neuron_attributes[i][&quot;avg_waveform&quot;]</span></code>.  The adapter
+then reads those stored values — no raw data is needed after this point.</p>
+</section>
+</section>
+<section id="pipeline-b-nwb-file-with-raw-traces">
+<span id="hippie-pipeline-b"></span><h2>Pipeline B — NWB file with raw traces<a class="headerlink" href="#pipeline-b-nwb-file-with-raw-traces" title="Link to this heading"></a></h2>
+<p>NWB files produced by SpikeInterface, the Allen Brain Atlas pipeline, or
+similar tools often embed both spike times and raw traces in a single file.
+This is the only path that works end-to-end from the <strong>MCP / agent interface</strong>.</p>
+<section id="python">
+<h3>Python<a class="headerlink" href="#python" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.data_loaders</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_spikedata_from_nwb</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.spikedata.hippie_adapter</span><span class="w"> </span><span class="kn">import</span> <span class="n">classify_neurons</span>
+
+<span class="n">sd</span> <span class="o">=</span> <span class="n">load_spikedata_from_nwb</span><span class="p">(</span><span class="s2">&quot;/path/to/recording.nwb&quot;</span><span class="p">)</span>
+
+<span class="c1"># Extract waveforms for all units</span>
+<span class="n">sd</span><span class="o">.</span><span class="n">get_waveform_traces</span><span class="p">(</span><span class="n">unit</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ms_before</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">ms_after</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">store</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="n">result</span> <span class="o">=</span> <span class="n">classify_neurons</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">tech_id</span><span class="o">=</span><span class="s2">&quot;neuropixels&quot;</span><span class="p">)</span>
+<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">&quot;hippie_cluster&quot;</span><span class="p">,</span>   <span class="n">result</span><span class="p">[</span><span class="s2">&quot;cluster_labels&quot;</span><span class="p">])</span>
+<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">&quot;hippie_umap_x&quot;</span><span class="p">,</span>    <span class="n">result</span><span class="p">[</span><span class="s2">&quot;umap_coords&quot;</span><span class="p">][:,</span> <span class="mi">0</span><span class="p">])</span>
+<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">&quot;hippie_umap_y&quot;</span><span class="p">,</span>    <span class="n">result</span><span class="p">[</span><span class="s2">&quot;umap_coords&quot;</span><span class="p">][:,</span> <span class="mi">1</span><span class="p">])</span>
+<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">&quot;hippie_embedding&quot;</span><span class="p">,</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;embeddings&quot;</span><span class="p">])</span>
+</pre></div>
+</div>
+</section>
+<section id="mcp-agent">
+<h3>MCP / agent<a class="headerlink" href="#mcp-agent" title="Link to this heading"></a></h3>
+<p>Give an agent these prompts in order:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>1. &quot;Load the NWB file at /path/to/recording.nwb&quot;
+
+2. &quot;Extract waveforms for all N units with 1 ms before and 2 ms after the spike&quot;
+   (the agent will call get_waveform_traces once per unit)
+
+3. &quot;Classify the neurons using HIPPIE with tech_id 0 (neuropixels)&quot;
+
+4. &quot;How many clusters did HIPPIE find?  List cluster IDs and neuron counts.&quot;
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The MCP <code class="docutils literal notranslate"><span class="pre">get_waveform_traces</span></code> tool extracts one unit at a time.
+For a recording with many units the agent needs to call it N times before
+HIPPIE can run.  See <a class="reference internal" href="#hippie-mcp-gap"><span class="std std-ref">Known limitation: MCP waveform extraction is per-unit</span></a> below.</p>
+</div>
+</section>
+</section>
+<section id="pipeline-c-waveforms-already-available">
+<span id="hippie-pipeline-c"></span><h2>Pipeline C — Waveforms already available<a class="headerlink" href="#pipeline-c-waveforms-already-available" title="Link to this heading"></a></h2>
+<p>If <code class="docutils literal notranslate"><span class="pre">avg_waveform</span></code> is already in <code class="docutils literal notranslate"><span class="pre">neuron_attributes</span></code> — e.g. loaded from an
+HDF5 workspace, set manually from an upstream pipeline, or computed in a
+previous session — skip straight to classification:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.spikedata.hippie_adapter</span><span class="w"> </span><span class="kn">import</span> <span class="n">classify_neurons</span>
+
+<span class="c1"># sd already has avg_waveform in neuron_attributes</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">classify_neurons</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">tech_id</span><span class="o">=</span><span class="s2">&quot;neuropixels&quot;</span><span class="p">)</span>
+
+<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">&quot;hippie_cluster&quot;</span><span class="p">,</span>   <span class="n">result</span><span class="p">[</span><span class="s2">&quot;cluster_labels&quot;</span><span class="p">])</span>
+<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">&quot;hippie_umap_x&quot;</span><span class="p">,</span>    <span class="n">result</span><span class="p">[</span><span class="s2">&quot;umap_coords&quot;</span><span class="p">][:,</span> <span class="mi">0</span><span class="p">])</span>
+<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">&quot;hippie_umap_y&quot;</span><span class="p">,</span>    <span class="n">result</span><span class="p">[</span><span class="s2">&quot;umap_coords&quot;</span><span class="p">][:,</span> <span class="mi">1</span><span class="p">])</span>
+<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">&quot;hippie_embedding&quot;</span><span class="p">,</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;embeddings&quot;</span><span class="p">])</span>
+</pre></div>
+</div>
+<p>To check whether waveforms are already present before trying:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">waves</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">get_neuron_attribute</span><span class="p">(</span><span class="s2">&quot;avg_waveform&quot;</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">waves</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">any</span><span class="p">(</span><span class="n">w</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">waves</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Waveforms missing — run get_waveform_traces first&quot;</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Waveforms ready for </span><span class="si">{</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="si">}</span><span class="s2"> units&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="quick-start-waveforms-already-present">
+<h2>Quick start (waveforms already present)<a class="headerlink" href="#quick-start-waveforms-already-present" title="Link to this heading"></a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.spikedata.hippie_adapter</span><span class="w"> </span><span class="kn">import</span> <span class="n">classify_neurons</span>
+
+<span class="n">result</span> <span class="o">=</span> <span class="n">classify_neurons</span><span class="p">(</span>
+    <span class="n">sd</span><span class="p">,</span>
+    <span class="n">tech_id</span><span class="o">=</span><span class="s2">&quot;neuropixels&quot;</span><span class="p">,</span>   <span class="c1"># or 0, 1, 2, 3  — see Technology IDs below</span>
+    <span class="n">run_umap</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">run_hdbscan</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">&quot;hippie_cluster&quot;</span><span class="p">,</span>   <span class="n">result</span><span class="p">[</span><span class="s2">&quot;cluster_labels&quot;</span><span class="p">])</span>
+<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">&quot;hippie_umap_x&quot;</span><span class="p">,</span>    <span class="n">result</span><span class="p">[</span><span class="s2">&quot;umap_coords&quot;</span><span class="p">][:,</span> <span class="mi">0</span><span class="p">])</span>
+<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">&quot;hippie_umap_y&quot;</span><span class="p">,</span>    <span class="n">result</span><span class="p">[</span><span class="s2">&quot;umap_coords&quot;</span><span class="p">][:,</span> <span class="mi">1</span><span class="p">])</span>
+<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">&quot;hippie_embedding&quot;</span><span class="p">,</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;embeddings&quot;</span><span class="p">])</span>
+</pre></div>
+</div>
+<section id="return-values">
+<h3>Return values<a class="headerlink" href="#return-values" title="Link to this heading"></a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 20.0%" />
+<col style="width: 15.0%" />
+<col style="width: 65.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Key</p></th>
+<th class="head"><p>Shape</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">embeddings</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">(N,</span> <span class="pre">30)</span></code></p></td>
+<td><p>Latent z_mean vectors from the HIPPIE encoder</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">umap_coords</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">(N,</span> <span class="pre">2)</span></code></p></td>
+<td><p>2-D UMAP projection (present when <code class="docutils literal notranslate"><span class="pre">run_umap=True</span></code>)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">cluster_labels</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">(N,)</span></code></p></td>
+<td><p>HDBSCAN cluster IDs; <code class="docutils literal notranslate"><span class="pre">-1</span></code> = noise / unclustered
+(present when <code class="docutils literal notranslate"><span class="pre">run_hdbscan=True</span></code>)</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="technology-ids">
+<h3>Technology IDs<a class="headerlink" href="#technology-ids" title="Link to this heading"></a></h3>
+<p>The pretrained checkpoint was trained on recordings from four technology
+families.  Pass the matching <code class="docutils literal notranslate"><span class="pre">tech_id</span></code> for best results:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 28.6%" />
+<col style="width: 71.4%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p><code class="docutils literal notranslate"><span class="pre">tech_id</span></code></p></th>
+<th class="head"><p>Technology</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">0</span></code> / <code class="docutils literal notranslate"><span class="pre">&quot;neuropixels&quot;</span></code></p></td>
+<td><p>Neuropixels probes <em>(default)</em></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">1</span></code> / <code class="docutils literal notranslate"><span class="pre">&quot;silicon_probe&quot;</span></code></p></td>
+<td><p>Silicon probes (non-Neuropixels)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">2</span></code> / <code class="docutils literal notranslate"><span class="pre">&quot;juxtacellular&quot;</span></code></p></td>
+<td><p>Juxtacellular recordings</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">3</span></code> / <code class="docutils literal notranslate"><span class="pre">&quot;tetrodes&quot;</span></code></p></td>
+<td><p>Tetrode recordings</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="unsupervised-vae-compression-no-conditioning">
+<h2>Unsupervised VAE compression (no conditioning)<a class="headerlink" href="#unsupervised-vae-compression-no-conditioning" title="Link to this heading"></a></h2>
+<p>If you do not have cell-type or technology labels, or simply want to learn
+a compressed representation of <em>your own dataset</em> from scratch, the
+unconditioned VAE pipeline trains the same ResNet18 + fusion encoder
+architecture as the pretrained model but with all conditioning removed.
+The only training signal is reconstruction + KL divergence (beta-VAE ELBO,
+beta=1) — no class embeddings, no technology embeddings.</p>
+<p>Results are stored as <code class="docutils literal notranslate"><span class="pre">vae_embedding</span></code>, <code class="docutils literal notranslate"><span class="pre">vae_umap_x</span></code>, <code class="docutils literal notranslate"><span class="pre">vae_umap_y</span></code>,
+and <code class="docutils literal notranslate"><span class="pre">vae_cluster</span></code> in <code class="docutils literal notranslate"><span class="pre">neuron_attributes</span></code>, keeping them separate from the
+pretrained-model attributes (<code class="docutils literal notranslate"><span class="pre">hippie_embedding</span></code> etc.).</p>
+<section id="train-and-compress-in-python">
+<h3>Train and compress in Python<a class="headerlink" href="#train-and-compress-in-python" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.spikedata.hippie_adapter</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">train_vae_on_spikedata</span><span class="p">,</span>
+    <span class="n">compress_neurons</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Step 1 — train on your data (requires avg_waveform in neuron_attributes)</span>
+<span class="n">compressor</span> <span class="o">=</span> <span class="n">train_vae_on_spikedata</span><span class="p">(</span>
+    <span class="n">sd</span><span class="p">,</span>
+    <span class="n">output_dir</span><span class="o">=</span><span class="s2">&quot;./my_vae&quot;</span><span class="p">,</span>
+    <span class="n">z_dim</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span>          <span class="c1"># latent dimensionality</span>
+    <span class="n">n_epochs</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+    <span class="n">batch_size</span><span class="o">=</span><span class="mi">256</span><span class="p">,</span>
+    <span class="n">device</span><span class="o">=</span><span class="s2">&quot;cpu&quot;</span><span class="p">,</span>      <span class="c1"># or &quot;cuda&quot;</span>
+<span class="p">)</span>
+<span class="c1"># Checkpoint saved to ./my_vae/vae_best.ckpt</span>
+
+<span class="c1"># Step 2 — compress (can reuse the returned compressor, or reload later)</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">compress_neurons</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">compressor</span><span class="p">,</span> <span class="n">run_umap</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">run_hdbscan</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">&quot;vae_cluster&quot;</span><span class="p">,</span>   <span class="n">result</span><span class="p">[</span><span class="s2">&quot;cluster_labels&quot;</span><span class="p">])</span>
+<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">&quot;vae_umap_x&quot;</span><span class="p">,</span>    <span class="n">result</span><span class="p">[</span><span class="s2">&quot;umap_coords&quot;</span><span class="p">][:,</span> <span class="mi">0</span><span class="p">])</span>
+<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">&quot;vae_umap_y&quot;</span><span class="p">,</span>    <span class="n">result</span><span class="p">[</span><span class="s2">&quot;umap_coords&quot;</span><span class="p">][:,</span> <span class="mi">1</span><span class="p">])</span>
+<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">&quot;vae_embedding&quot;</span><span class="p">,</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;embeddings&quot;</span><span class="p">])</span>
+</pre></div>
+</div>
+</section>
+<section id="reload-and-compress-new-data-later">
+<h3>Reload and compress new data later<a class="headerlink" href="#reload-and-compress-new-data-later" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.spikedata.hippie_adapter</span><span class="w"> </span><span class="kn">import</span> <span class="n">compress_neurons</span>
+
+<span class="c1"># Load a previously trained checkpoint by path</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">compress_neurons</span><span class="p">(</span><span class="n">sd_new</span><span class="p">,</span> <span class="s2">&quot;./my_vae/vae_best.ckpt&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="use-the-vae-api-directly">
+<h3>Use the VAE API directly<a class="headerlink" href="#use-the-vae-api-directly" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">hippie.vae</span><span class="w"> </span><span class="kn">import</span> <span class="n">train_vae</span><span class="p">,</span> <span class="n">VAECompressor</span>
+
+<span class="c1"># Train</span>
+<span class="n">compressor</span> <span class="o">=</span> <span class="n">train_vae</span><span class="p">(</span><span class="n">wave</span><span class="p">,</span> <span class="n">isi</span><span class="p">,</span> <span class="n">acg</span><span class="p">,</span> <span class="n">output_dir</span><span class="o">=</span><span class="s2">&quot;./my_vae&quot;</span><span class="p">,</span> <span class="n">z_dim</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">n_epochs</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+
+<span class="c1"># Or load an existing checkpoint</span>
+<span class="n">compressor</span> <span class="o">=</span> <span class="n">VAECompressor</span><span class="o">.</span><span class="n">from_checkpoint</span><span class="p">(</span><span class="s2">&quot;./my_vae/vae_best.ckpt&quot;</span><span class="p">)</span>
+
+<span class="c1"># Encode</span>
+<span class="n">embeddings</span> <span class="o">=</span> <span class="n">compressor</span><span class="o">.</span><span class="n">get_embeddings</span><span class="p">(</span><span class="n">wave</span><span class="p">,</span> <span class="n">isi</span><span class="p">,</span> <span class="n">acg</span><span class="p">)</span>  <span class="c1"># (N, z_dim)</span>
+<span class="n">coords</span>      <span class="o">=</span> <span class="n">compressor</span><span class="o">.</span><span class="n">umap_reduce</span><span class="p">(</span><span class="n">embeddings</span><span class="p">)</span>
+<span class="n">labels</span>      <span class="o">=</span> <span class="n">compressor</span><span class="o">.</span><span class="n">hdbscan_cluster</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="n">min_cluster_size</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="id1">
+<h3>MCP / agent<a class="headerlink" href="#id1" title="Link to this heading"></a></h3>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>1. &quot;Train an unconditioned VAE on the neurons in namespace &#39;probe0&#39;,
+   saving to ./my_vae, with 50 epochs.&quot;
+   → calls train_vae_hippie
+
+2. &quot;Compress the neurons in &#39;probe0&#39; using the checkpoint at ./my_vae/vae_best.ckpt.&quot;
+   → calls compress_neurons_hippie
+
+3. &quot;How many clusters did the VAE find?&quot;
+</pre></div>
+</div>
+</section>
+<section id="how-it-differs-from-the-pretrained-classifier">
+<h3>How it differs from the pretrained classifier<a class="headerlink" href="#how-it-differs-from-the-pretrained-classifier" title="Link to this heading"></a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 35.0%" />
+<col style="width: 35.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"></th>
+<th class="head"><p>Pretrained HIPPIE (<code class="docutils literal notranslate"><span class="pre">classify_neurons</span></code>)</p></th>
+<th class="head"><p>Unconditioned VAE (<code class="docutils literal notranslate"><span class="pre">compress_neurons</span></code>)</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Requires labels</p></td>
+<td><p>No (inference only)</p></td>
+<td><p>No (train &amp; infer)</p></td>
+</tr>
+<tr class="row-odd"><td><p>Requires <code class="docutils literal notranslate"><span class="pre">tech_id</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>No</p></td>
+</tr>
+<tr class="row-even"><td><p>Trains on your data</p></td>
+<td><p>No</p></td>
+<td><p>Yes</p></td>
+</tr>
+<tr class="row-odd"><td><p>Learns from 11 datasets</p></td>
+<td><p>Yes (pretrained)</p></td>
+<td><p>No (your data only)</p></td>
+</tr>
+<tr class="row-even"><td><p>Latent space shaped by</p></td>
+<td><p>Cell types + technology</p></td>
+<td><p>Reconstruction only</p></td>
+</tr>
+<tr class="row-odd"><td><p>Best for</p></td>
+<td><p>Known-technology recordings</p></td>
+<td><p>Exploratory compression, novel datasets</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="advanced-options">
+<h2>Advanced options<a class="headerlink" href="#advanced-options" title="Link to this heading"></a></h2>
+<section id="tuning-umap-and-hdbscan">
+<h3>Tuning UMAP and HDBSCAN<a class="headerlink" href="#tuning-umap-and-hdbscan" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">result</span> <span class="o">=</span> <span class="n">classify_neurons</span><span class="p">(</span>
+    <span class="n">sd</span><span class="p">,</span>
+    <span class="n">tech_id</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+    <span class="n">umap_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;n_neighbors&quot;</span><span class="p">:</span> <span class="mi">15</span><span class="p">,</span> <span class="s2">&quot;min_dist&quot;</span><span class="p">:</span> <span class="mf">0.05</span><span class="p">},</span>
+    <span class="n">hdbscan_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;min_cluster_size&quot;</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span> <span class="s2">&quot;min_samples&quot;</span><span class="p">:</span> <span class="mi">5</span><span class="p">},</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="embeddings-only-no-clustering">
+<h3>Embeddings only (no clustering)<a class="headerlink" href="#embeddings-only-no-clustering" title="Link to this heading"></a></h3>
+<p>Useful when you want to inspect the latent space before deciding on
+clustering parameters:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">result</span> <span class="o">=</span> <span class="n">classify_neurons</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">run_umap</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">run_hdbscan</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">embeddings</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;embeddings&quot;</span><span class="p">]</span>   <span class="c1"># (N, 30)</span>
+</pre></div>
+</div>
+</section>
+<section id="using-the-hippie-api-directly">
+<h3>Using the HIPPIE API directly<a class="headerlink" href="#using-the-hippie-api-directly" title="Link to this heading"></a></h3>
+<p>For full control over preprocessing or batching, import
+<code class="xref py py-class docutils literal notranslate"><span class="pre">hippie.inference.HIPPIEClassifier</span></code> directly:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">hippie</span><span class="w"> </span><span class="kn">import</span> <span class="n">HIPPIEClassifier</span>
+
+<span class="n">clf</span> <span class="o">=</span> <span class="n">HIPPIEClassifier</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="s2">&quot;Jesusgf23/hippie&quot;</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s2">&quot;cpu&quot;</span><span class="p">)</span>
+
+<span class="c1"># Inputs must be preprocessed — see hippie_adapter.extract_features()</span>
+<span class="c1"># for the exact normalization applied to each modality.</span>
+<span class="n">embeddings</span> <span class="o">=</span> <span class="n">clf</span><span class="o">.</span><span class="n">get_embeddings</span><span class="p">(</span><span class="n">wave</span><span class="p">,</span> <span class="n">isi</span><span class="p">,</span> <span class="n">acg</span><span class="p">,</span> <span class="n">tech_id</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">coords</span>      <span class="o">=</span> <span class="n">clf</span><span class="o">.</span><span class="n">umap_reduce</span><span class="p">(</span><span class="n">embeddings</span><span class="p">,</span> <span class="n">n_neighbors</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
+<span class="n">labels</span>      <span class="o">=</span> <span class="n">clf</span><span class="o">.</span><span class="n">hdbscan_cluster</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="n">min_cluster_size</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+
+<span class="c1"># Load from a local checkpoint instead of HuggingFace</span>
+<span class="n">clf2</span> <span class="o">=</span> <span class="n">HIPPIEClassifier</span><span class="o">.</span><span class="n">from_checkpoint</span><span class="p">(</span><span class="s2">&quot;./my_trained_model.ckpt&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="using-via-the-mcp-server">
+<h2>Using via the MCP server<a class="headerlink" href="#using-via-the-mcp-server" title="Link to this heading"></a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">classify_neurons_hippie</span></code> tool is available in the SpikeLab MCP
+server once <code class="docutils literal notranslate"><span class="pre">spikelab[hippie]</span></code> is installed.  After the tool runs, it
+writes <code class="docutils literal notranslate"><span class="pre">hippie_embedding</span></code>, <code class="docutils literal notranslate"><span class="pre">hippie_umap_x</span></code>, <code class="docutils literal notranslate"><span class="pre">hippie_umap_y</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">hippie_cluster</span></code> directly into <code class="docutils literal notranslate"><span class="pre">neuron_attributes</span></code>, making them
+accessible to all downstream tools.</p>
+<section id="example-agent-prompts">
+<h3>Example agent prompts<a class="headerlink" href="#example-agent-prompts" title="Link to this heading"></a></h3>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>&quot;Classify the neurons in this recording using HIPPIE.&quot;
+
+&quot;Run HIPPIE cell-type classification with tech_id 1 (silicon probe).&quot;
+
+&quot;Embed the neurons with HIPPIE and cluster with HDBSCAN, minimum cluster size 10.&quot;
+
+&quot;What cell types did HIPPIE find? List the cluster IDs and neuron counts.&quot;
+
+&quot;Plot the HIPPIE UMAP coloured by cluster label.&quot;
+</pre></div>
+</div>
+</section>
+<section id="known-limitation-mcp-waveform-extraction-is-per-unit">
+<span id="hippie-mcp-gap"></span><h3>Known limitation: MCP waveform extraction is per-unit<a class="headerlink" href="#known-limitation-mcp-waveform-extraction-is-per-unit" title="Link to this heading"></a></h3>
+<p>The current <code class="docutils literal notranslate"><span class="pre">get_waveform_traces</span></code> MCP tool extracts waveforms for a
+<strong>single unit</strong> per call.  For a recording with N neurons, an agent must
+call it N times before <code class="docutils literal notranslate"><span class="pre">classify_neurons_hippie</span></code> can run.</p>
+<p>Workaround until a bulk <code class="docutils literal notranslate"><span class="pre">extract_all_waveforms</span></code> tool is added:</p>
+<ul class="simple">
+<li><p>Use Pipeline A or C in Python, where <code class="docutils literal notranslate"><span class="pre">get_waveform_traces(unit=None)</span></code>
+processes all units in one call.</p></li>
+<li><p>Or pre-compute waveforms in Python and save the workspace; the agent can
+then load it and run <code class="docutils literal notranslate"><span class="pre">classify_neurons_hippie</span></code> directly.</p></li>
+</ul>
+</section>
+</section>
+<section id="how-it-works">
+<h2>How it works<a class="headerlink" href="#how-it-works" title="Link to this heading"></a></h2>
+<ol class="arabic simple">
+<li><p><strong>Feature extraction</strong> — For each neuron, SpikeLab computes:</p>
+<ul class="simple">
+<li><p><em>Waveform</em> (50 samples, min-max normalized to [-1, 1])</p></li>
+<li><p><em>ISI histogram</em> (100 log-spaced bins from 1 ms to 5 s, log(x+1)
+transformed, then min-max normalized)</p></li>
+<li><p><em>Autocorrelogram</em> (100 bins, 0–100 ms, min-max normalized)</p></li>
+</ul>
+</li>
+<li><p><strong>Encoding</strong> — Three modality-specific ResNet18 encoders project each
+neuron’s features into a shared 30-D latent space, conditioned on the
+recording technology (<code class="docutils literal notranslate"><span class="pre">tech_id</span></code>).</p></li>
+<li><p><strong>UMAP</strong> — The 30-D embeddings are projected to 2-D using cosine-distance
+UMAP for visualization and clustering.</p></li>
+<li><p><strong>HDBSCAN</strong> — Density clusters are found in the 2-D UMAP space.
+Neurons that do not belong to any cluster receive label <code class="docutils literal notranslate"><span class="pre">-1</span></code>.</p></li>
+</ol>
+</section>
+<section id="checkpoint">
+<h2>Checkpoint<a class="headerlink" href="#checkpoint" title="Link to this heading"></a></h2>
+<p>The pretrained model (<code class="docutils literal notranslate"><span class="pre">hippie_techcond_v1.ckpt</span></code>) is hosted at
+<a class="reference external" href="https://huggingface.co/Jesusgf23/hippie">huggingface.co/Jesusgf23/hippie</a>.  It is downloaded automatically on
+first use and cached locally (HuggingFace default cache, or override with
+<code class="docutils literal notranslate"><span class="pre">cache_dir</span></code>).  The file is 293 MB; subsequent calls use the local cache.</p>
+<p>The model was pretrained on 11 labeled electrophysiology datasets spanning
+mouse, rat, and macaque across multiple brain regions and recording
+technologies.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="batch_jobs.html" class="btn btn-neutral float-left" title="Batch Jobs" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../api/index.html" class="btn btn-neutral float-right" title="API Reference" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Tjitse van der Molen.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

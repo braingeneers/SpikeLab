@@ -20,3 +20,4 @@ In-depth guides covering the main workflows in SpikeLab.
    mcp_server
    parallel_computing
    batch_jobs
+   hippie_classification
