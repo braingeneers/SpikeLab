@@ -6476,3 +6476,113 @@ class TestDumpLabelsAllNoneAsymmetry:
             loaded = _load_labels(f["pcm"])
         # Lossy: [None] becomes None on reload.
         assert loaded is None
+
+
+@pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py not installed")
+class TestDumpNeuronAttributesNonPersistedKeys:
+    """``_dump_neuron_attributes`` intentionally omits keys listed in
+    ``_NON_PERSISTED_NEURON_ATTRS`` (currently ``spike_train_samples``)
+    from the HDF5 file. That attribute is transient sort-time scratch
+    that duplicates ``SpikeData.train`` in sample units and is ragged
+    (one entry per spike, so its length differs per unit). Dropping it
+    means a ragged value no longer reaches the uniform-shape validation
+    and the save succeeds; co-located persistable attributes are
+    unaffected.
+    """
+
+    def test_ragged_spike_train_samples_does_not_block_save(self, tmp_path):
+        """
+        A ragged ``spike_train_samples`` (different spike count per unit)
+        no longer raises at dump time and is absent after reload, while a
+        co-located uniform attribute round-trips intact.
+
+        Tests:
+            (Test Case 1) Dumping units whose ``spike_train_samples``
+                arrays have different lengths does not raise.
+            (Test Case 2) ``spike_train_samples`` is absent from every
+                reloaded unit dict.
+            (Test Case 3) A co-located ``channel`` scalar attribute is
+                preserved with its original values.
+        """
+        from spikelab.workspace.hdf5_io import (
+            _dump_neuron_attributes,
+            _load_neuron_attributes,
+        )
+
+        neuron_attrs = [
+            {"channel": 3, "spike_train_samples": np.array([10, 20, 30])},
+            {"channel": 7, "spike_train_samples": np.array([5, 15, 25, 35, 45])},
+        ]
+        path = str(tmp_path / "ragged_sts.h5")
+        # (Test Case 1) ragged value must not raise.
+        with h5py.File(path, "w") as f:
+            grp = f.create_group("sd")
+            _dump_neuron_attributes(grp, neuron_attrs)
+        with h5py.File(path, "r") as f:
+            loaded = _load_neuron_attributes(f["sd"])
+
+        assert loaded is not None
+        # (Test Case 2) the transient key is dropped on every unit.
+        assert all("spike_train_samples" not in d for d in loaded)
+        # (Test Case 3) the persistable attribute survives unchanged.
+        assert [d["channel"] for d in loaded] == [3, 7]
+
+    def test_uniform_spike_train_samples_still_dropped(self, tmp_path):
+        """
+        ``spike_train_samples`` is excluded by key name, not because it is
+        ragged: even when every unit's array has the same length it is
+        still omitted from the persisted file.
+
+        Tests:
+            (Test Case 1) Equal-length ``spike_train_samples`` arrays are
+                absent from every reloaded unit dict.
+            (Test Case 2) A co-located ``electrode`` attribute is
+                preserved.
+        """
+        from spikelab.workspace.hdf5_io import (
+            _dump_neuron_attributes,
+            _load_neuron_attributes,
+        )
+
+        neuron_attrs = [
+            {"electrode": 11, "spike_train_samples": np.array([10, 20, 30])},
+            {"electrode": 22, "spike_train_samples": np.array([40, 50, 60])},
+        ]
+        path = str(tmp_path / "uniform_sts.h5")
+        with h5py.File(path, "w") as f:
+            grp = f.create_group("sd")
+            _dump_neuron_attributes(grp, neuron_attrs)
+        with h5py.File(path, "r") as f:
+            loaded = _load_neuron_attributes(f["sd"])
+
+        assert loaded is not None
+        assert all("spike_train_samples" not in d for d in loaded)
+        assert [d["electrode"] for d in loaded] == [11, 22]
+
+    def test_spike_train_samples_only_reloads_as_none(self, tmp_path):
+        """
+        When ``spike_train_samples`` is the only key present, dropping it
+        leaves every unit dict empty, so ``_load_neuron_attributes``
+        returns ``None`` (the all-empty contract).
+
+        Tests:
+            (Test Case 1) Units carrying only ``spike_train_samples``
+                reload as ``None``.
+        """
+        from spikelab.workspace.hdf5_io import (
+            _dump_neuron_attributes,
+            _load_neuron_attributes,
+        )
+
+        neuron_attrs = [
+            {"spike_train_samples": np.array([1, 2])},
+            {"spike_train_samples": np.array([3, 4, 5])},
+        ]
+        path = str(tmp_path / "only_sts.h5")
+        with h5py.File(path, "w") as f:
+            grp = f.create_group("sd")
+            _dump_neuron_attributes(grp, neuron_attrs)
+        with h5py.File(path, "r") as f:
+            loaded = _load_neuron_attributes(f["sd"])
+
+        assert loaded is None
