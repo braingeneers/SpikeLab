@@ -37,6 +37,17 @@ import h5py
 
 _NDARRAY_SENTINEL = "__ndarray__"
 
+# Per-unit neuron-attribute keys that are intentionally NOT persisted to the
+# workspace. ``spike_train_samples`` (written by the spike sorter) is transient
+# export scratch: it duplicates ``SpikeData.train`` expressed in sample units,
+# is consumed only in-memory by the .mat/.npz DL compiler during the sort run,
+# and is read by nothing after a workspace round-trip. It is also ragged (one
+# entry per spike, so its length differs per unit), which the uniform-shape
+# neuron-attribute serializer cannot store anyway. It is fully and exactly
+# recoverable from ``train`` and the recording sampling rate:
+# ``samples = round(train_ms * fs_Hz / 1000)``.
+_NON_PERSISTED_NEURON_ATTRS = frozenset({"spike_train_samples"})
+
 
 class _NumpyEncoder(json.JSONEncoder):
     """JSON encoder that converts numpy arrays and scalar types to Python primitives.
@@ -675,6 +686,12 @@ def _dump_neuron_attributes(grp, neuron_attributes: list) -> None:
     all_keys: set = set()
     for d in neuron_attributes:
         all_keys.update(d.keys())
+
+    # Drop transient/non-persisted per-unit attributes (see
+    # _NON_PERSISTED_NEURON_ATTRS). Removing them here means a ragged
+    # attribute like spike_train_samples never reaches the uniform-shape
+    # validation below, so it no longer blocks the save.
+    all_keys -= _NON_PERSISTED_NEURON_ATTRS
 
     _SUPPORTED_SCALAR_TYPES = (
         str,
