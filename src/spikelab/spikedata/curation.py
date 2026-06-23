@@ -598,7 +598,7 @@ def _get_or_compute_waveform_metric(sd, metric_name, ms_before, ms_after, **kwar
 # ---------------------------------------------------------------------------
 
 
-def _find_nearby_unit_pairs(sd, dist_um=24.8):
+def _find_nearby_unit_pairs(sd, dist_um=200.0):
     """Return all pairs of units whose electrode positions are within distance.
 
     Uses ``sd.unit_locations`` (which normalizes across ``"location"``,
@@ -608,8 +608,9 @@ def _find_nearby_unit_pairs(sd, dist_um=24.8):
     Parameters:
         sd (SpikeData): spike data
         dist_um (float): Maximum inter-electrode distance in um.
-            Default 24.8 accounts for the 24.7 µm electrode neighbourhood
-            radius plus floating-point tolerance.
+            Default 200 µm — empirically observed real duplicate pairs on
+            MaxOne MEA recordings up to ~124 µm apart; 200 µm provides
+            headroom while keeping the candidate set small.
 
     Returns:
         pairs (set[tuple[int, int]]): Set of (i, j) index tuples with i < j.
@@ -784,7 +785,7 @@ def _filter_by_cosine_sim(pairs, similarity_matrix, threshold=0.9):
 
 def curate_by_merge_duplicates(
     sd,
-    dist_um=24.8,
+    dist_um=200.0,
     max_violation_rate=0.04,
     isi_threshold_ms=1.5,
     cosine_threshold=0.5,
