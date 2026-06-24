@@ -1114,7 +1114,7 @@
 <span class="c1"># ---------------------------------------------------------------------------</span>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_find_nearby_unit_pairs</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">dist_um</span><span class="o">=</span><span class="mf">24.8</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_find_nearby_unit_pairs</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">dist_um</span><span class="o">=</span><span class="mf">200.0</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Return all pairs of units whose electrode positions are within distance.</span>
 
 <span class="sd">    Uses ``sd.unit_locations`` (which normalizes across ``&quot;location&quot;``,</span>
@@ -1124,8 +1124,9 @@
 <span class="sd">    Parameters:</span>
 <span class="sd">        sd (SpikeData): spike data</span>
 <span class="sd">        dist_um (float): Maximum inter-electrode distance in um.</span>
-<span class="sd">            Default 24.8 accounts for the 24.7 µm electrode neighbourhood</span>
-<span class="sd">            radius plus floating-point tolerance.</span>
+<span class="sd">            Default 200 µm — empirically observed real duplicate pairs on</span>
+<span class="sd">            MaxOne MEA recordings up to ~124 µm apart; 200 µm provides</span>
+<span class="sd">            headroom while keeping the candidate set small.</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        pairs (set[tuple[int, int]]): Set of (i, j) index tuples with i &lt; j.</span>
@@ -1302,7 +1303,7 @@
 <a class="viewcode-back" href="../../../api/curation.html#spikelab.spikedata.curation.curate_by_merge_duplicates">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">curate_by_merge_duplicates</span><span class="p">(</span>
     <span class="n">sd</span><span class="p">,</span>
-    <span class="n">dist_um</span><span class="o">=</span><span class="mf">24.8</span><span class="p">,</span>
+    <span class="n">dist_um</span><span class="o">=</span><span class="mf">200.0</span><span class="p">,</span>
     <span class="n">max_violation_rate</span><span class="o">=</span><span class="mf">0.04</span><span class="p">,</span>
     <span class="n">isi_threshold_ms</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span>
     <span class="n">cosine_threshold</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
