@@ -222,6 +222,46 @@ class TestNumbaSttcKernels:
         ba = _nb_sttc_pair(tB, tA, 10.0, 500.0)
         np.testing.assert_allclose(ab, ba)
 
+    def test_sttc_pair_empty_value_override(self):
+        """
+        _nb_sttc_pair honours the empty_value argument.
+
+        Tests:
+            (Test Case 1) NaN is returned for an empty train when requested.
+            (Test Case 2) Non-empty pairs are unaffected by empty_value.
+        """
+        spikes = np.array([10.0, 50.0, 100.0])
+        empty = np.array([], dtype=np.float64)
+        assert np.isnan(_nb_sttc_pair(empty, spikes, 20.0, 200.0, np.nan))
+        assert np.isnan(_nb_sttc_pair(spikes, empty, 20.0, 200.0, np.nan))
+        np.testing.assert_allclose(
+            _nb_sttc_pair(spikes, spikes, 20.0, 200.0, np.nan),
+            _nb_sttc_pair(spikes, spikes, 20.0, 200.0, 0.0),
+        )
+
+    def test_sttc_pair_saturated_matches_numpy(self):
+        """
+        Saturated trains agree between the numba and numpy paths.
+
+        When ``delt`` is large enough that both trains' tiles cover the whole
+        recording, TA = TB = 1 and both halves of the formula are 0/0. The
+        tile sum is a float accumulation that often lands on
+        0.9999999999999999 rather than exactly 1.0, so an exact-equality
+        guard misses the degenerate case while a tolerance guard catches it.
+        The two implementations previously disagreed on ~15% of such pairs.
+
+        Tests:
+            (Test Case 1) Both paths return identical values when saturated.
+        """
+        rng = np.random.default_rng(1)
+        for _ in range(300):
+            tA = np.sort(rng.uniform(0, 1000, size=int(rng.integers(3, 12))))
+            tB = np.sort(rng.uniform(0, 1000, size=int(rng.integers(3, 12))))
+            # delt=900 on a 1000 ms recording saturates both trains.
+            np_val = get_sttc(tA, tB, 900.0, 1000.0, start_time=0.0)
+            nb_val = _nb_sttc_pair(tA, tB, 900.0, 1000.0)
+            assert np_val == nb_val, f"np={np_val}, nb={nb_val}"
+
 
 class TestNumbaSttcAllPairs:
     """Tests for nb_sttc_all_pairs parallel computation."""
