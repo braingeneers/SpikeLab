@@ -168,10 +168,14 @@ def _nb_sttc_pair(spike_a, spike_b, delt, length, empty_value=0.0):
     PA = _nb_sttc_na(spike_a, spike_b, delt) / nA
     PB = _nb_sttc_na(spike_b, spike_a, delt) / nB
 
+    # ``<= TOL`` takes the sentinel branch so that a non-finite denominator
+    # (length=0 makes TA/TB inf or NaN) compares False and falls through to
+    # the division, propagating NaN instead of being reported as 0.0. Mirrors
+    # utils._spike_time_tiling.
     denom1 = 1.0 - PA * TB
     denom2 = 1.0 - PB * TA
-    aa = (PA - TB) / denom1 if abs(denom1) > _STTC_DENOM_TOL else 0.0
-    bb = (PB - TA) / denom2 if abs(denom2) > _STTC_DENOM_TOL else 0.0
+    aa = 0.0 if abs(denom1) <= _STTC_DENOM_TOL else (PA - TB) / denom1
+    bb = 0.0 if abs(denom2) <= _STTC_DENOM_TOL else (PB - TA) / denom2
     return (aa + bb) / 2.0
 
 

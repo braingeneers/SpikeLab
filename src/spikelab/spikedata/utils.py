@@ -215,10 +215,17 @@ def _spike_time_tiling(tA, tB, TA, TB, delt, empty_value: float = 0.0):
     # 0.9999999999999999 about a fifth of the time and an exact-equality guard
     # silently misses it, returning 1.0 instead. ``_nb_sttc_pair`` uses the
     # same tolerance so the numba and numpy paths agree.
+    #
+    # The comparison is written as ``<= TOL`` taking the sentinel branch, NOT
+    # ``> TOL`` taking the division branch. A non-finite denominator (length=0
+    # makes TA/TB inf or NaN) compares False against everything, so the ``>``
+    # form would route it to the 0.0 sentinel and report an undefined result
+    # as chance-level. This way non-finite values fall through to the division
+    # and propagate as NaN/inf, which is what callers can actually detect.
     denom_a = 1 - PA * TB
     denom_b = 1 - PB * TA
-    aa = (PA - TB) / denom_a if abs(denom_a) > STTC_DENOM_TOL else 0.0
-    bb = (PB - TA) / denom_b if abs(denom_b) > STTC_DENOM_TOL else 0.0
+    aa = 0.0 if abs(denom_a) <= STTC_DENOM_TOL else (PA - TB) / denom_a
+    bb = 0.0 if abs(denom_b) <= STTC_DENOM_TOL else (PB - TA) / denom_b
     return (aa + bb) / 2
 
 
