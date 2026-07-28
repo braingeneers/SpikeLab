@@ -16,8 +16,18 @@ from scipy.stats import norm
 #: named constant makes the unit-conversion intent explicit.
 _MS_PER_S: float = 1000.0
 
+#: Tolerance for treating an STTC denominator as zero. Both halves of the
+#: formula have the form ``(P - T) / (1 - P * T)``, which goes 0/0 when a
+#: train's tiles saturate the recording. ``1 - P * T`` is a float
+#: accumulation, so a saturated train frequently lands on 1e-16 rather than
+#: exactly 0; comparing against this tolerance catches those. Shared with
+#: ``numba_utils._nb_sttc_pair`` so both code paths agree.
+STTC_DENOM_TOL: float = 1e-12
+
 __all__ = [
     "get_sttc",
+    "resolve_empty_sttc",
+    "STTC_DENOM_TOL",
     "swap",
     "randomize",
     "trough_between",
@@ -90,8 +100,32 @@ def _resolve_n_jobs(n_jobs):
     return n_jobs
 
 
+def resolve_empty_sttc(on_empty: str) -> float:
+    """Map an ``on_empty`` option to the value returned for an empty train.
+
+    Parameters:
+        on_empty (str): Either ``"zero"`` or ``"nan"``.
+
+    Returns:
+        empty_value (float): ``0.0`` or ``float("nan")``.
+
+    Raises:
+        ValueError: If ``on_empty`` is not one of the accepted options.
+    """
+    if on_empty == "zero":
+        return 0.0
+    if on_empty == "nan":
+        return float("nan")
+    raise ValueError(f"on_empty must be 'zero' or 'nan', got {on_empty!r}")
+
+
 def get_sttc(
-    tA, tB, delt=20.0, length: Optional[float] = None, start_time: float = 0.0
+    tA,
+    tB,
+    delt=20.0,
+    length: Optional[float] = None,
+    start_time: float = 0.0,
+    on_empty: str = "zero",
 ):
     """Calculate the spike time tiling coefficient between two spike trains.
 
@@ -108,13 +142,41 @@ def get_sttc(
             Spike times are shifted by ``-start_time`` before computation so
             that the STTC edge corrections work correctly for event-centered
             data with negative spike times.
+        on_empty (str): Value to return when either train has no spikes —
+            ``"zero"`` (default, backwards compatible) or ``"nan"``. See
+            "Degenerate cases" below for why ``"nan"`` is often the better
+            choice.
 
     Returns:
         sttc (float): Spike time tiling coefficient between the two spike
-            trains.
+            trains, in ``[-1, 1]``. Returns the ``on_empty`` value if either
+            train is empty, and ``0.0`` where the formula is indeterminate
+            (see below).
 
     Notes:
         Formula: STTC = ((PA - TB) / (1 - PA * TB) + (PB - TA) / (1 - PB * TA)) / 2
+
+        **Degenerate cases.** STTC is undefined in two situations, and neither
+        is distinguishable from a real measurement by inspecting the return
+        value alone:
+
+        1. *Either train is empty.* PA (or PB) is 0/0, so there is no
+           coincidence rate to compare against chance. The default
+           ``on_empty="zero"`` reports this as ``0.0``, which collides with
+           the most meaningful value in the range — an exact 0 otherwise means
+           "coincidence rate equals chance". Pass ``on_empty="nan"`` to make
+           empty units propagate as missing data instead; the NaN-aware paths
+           on :class:`~spikelab.spikedata.pairwise.PairwiseCompMatrix`
+           (``to_networkx``, ``threshold(preserve_nan=True)``, and the stack's
+           ``mean(ignore_nan=True)``) then exclude them rather than treating
+           them as measurements.
+
+        2. *Both trains saturate the recording.* When ``delt`` is large enough
+           that the +/-delt tiles of both trains cover the whole recording,
+           TA = TB = 1 forces PA = PB = 1 and both halves of the formula
+           become 0/0. This is reported as ``0.0``. It signals that ``delt``
+           is too coarse for this recording rather than anything about the
+           data; typical values are 5-50 ms.
 
         [1] Cutts & Eglen. Detecting pairwise correlations in spike trains:
         An objective comparison of methods and application to the study of
@@ -123,8 +185,9 @@ def get_sttc(
     if delt <= 0:
         raise ValueError(f"delt must be positive, got {delt}")
 
+    empty_value = resolve_empty_sttc(on_empty)
     if len(tA) == 0 or len(tB) == 0:
-        return 0.0
+        return empty_value
 
     # Shift both trains by -start_time so they are 0-based. This ensures
     # _sttc_ta edge corrections work correctly for event-centered data.
@@ -136,18 +199,33 @@ def get_sttc(
 
     TA = _sttc_ta(tA, delt, length) / length
     TB = _sttc_ta(tB, delt, length) / length
-    return _spike_time_tiling(tA, tB, TA, TB, delt)
+    return _spike_time_tiling(tA, tB, TA, TB, delt, empty_value)
 
 
-def _spike_time_tiling(tA, tB, TA, TB, delt):
+def _spike_time_tiling(tA, tB, TA, TB, delt, empty_value: float = 0.0):
     """Internal helper method for the second half of STTC calculation."""
     if len(tA) == 0 or len(tB) == 0:
-        return 0
+        return empty_value
     PA = _sttc_na(tA, tB, delt) / len(tA)
     PB = _sttc_na(tB, tA, delt) / len(tB)
 
-    aa = (PA - TB) / (1 - PA * TB) if PA * TB != 1 else 0
-    bb = (PB - TA) / (1 - PB * TA) if PB * TA != 1 else 0
+    # Saturated trains (TA = TB = 1) drive both denominators to 0, leaving an
+    # indeterminate 0/0. Test with a tolerance rather than ``!= 1``: the tile
+    # sum is a float accumulation, so a fully-saturated train lands on
+    # 0.9999999999999999 about a fifth of the time and an exact-equality guard
+    # silently misses it, returning 1.0 instead. ``_nb_sttc_pair`` uses the
+    # same tolerance so the numba and numpy paths agree.
+    #
+    # The comparison is written as ``<= TOL`` taking the sentinel branch, NOT
+    # ``> TOL`` taking the division branch. A non-finite denominator (length=0
+    # makes TA/TB inf or NaN) compares False against everything, so the ``>``
+    # form would route it to the 0.0 sentinel and report an undefined result
+    # as chance-level. This way non-finite values fall through to the division
+    # and propagate as NaN/inf, which is what callers can actually detect.
+    denom_a = 1 - PA * TB
+    denom_b = 1 - PB * TA
+    aa = 0.0 if abs(denom_a) <= STTC_DENOM_TOL else (PA - TB) / denom_a
+    bb = 0.0 if abs(denom_b) <= STTC_DENOM_TOL else (PB - TA) / denom_b
     return (aa + bb) / 2
 
 

@@ -2,6 +2,7 @@
 
 import heapq
 import itertools
+import math
 import warnings
 from typing import Literal, Optional, Union, List, Tuple, Sequence
 from typing import Any, Dict
@@ -16,6 +17,7 @@ from .pairwise import PairwiseCompMatrix
 
 from .utils import (
     get_sttc,
+    resolve_empty_sttc,
     butter_filter,
     extract_waveforms,
     _sttc_ta,
@@ -1842,11 +1844,19 @@ class SpikeData:
             raw_time=self.raw_time,
         )
 
-    def spike_time_tilings(self, delt=20.0):
+    def spike_time_tilings(self, delt=20.0, on_empty="zero"):
         """Compute the spike time tiling coefficient matrix.
 
         Parameters:
             delt (float): Time window in milliseconds (default: 20.0).
+            on_empty (str): What to record for a unit with no spikes —
+                ``"zero"`` (default, backwards compatible) or ``"nan"``.
+                With ``"nan"`` an empty unit's entire row and column, and its
+                diagonal entry, are NaN rather than 0.0 / 1.0, so the
+                NaN-aware paths on the returned matrix (``to_networkx``,
+                ``threshold(preserve_nan=True)``) exclude it instead of
+                scoring it as a perfectly uncorrelated unit. See
+                :func:`~spikelab.spikedata.utils.get_sttc`.
 
         Returns:
             ret (PairwiseCompMatrix): Spike time tiling coefficient matrix.
@@ -1860,7 +1870,18 @@ class SpikeData:
         if delt <= 0:
             raise ValueError(f"delt must be positive, got {delt}")
 
+        empty_value = resolve_empty_sttc(on_empty)
+
         from .numba_utils import NUMBA_AVAILABLE
+
+        # Self-comparison is 1.0, except for units with no spikes: their
+        # self-STTC is as undefined as their pairwise entries, so under
+        # on_empty="nan" the diagonal is NaN too rather than claiming a
+        # perfect self-correlation for a unit that never fired.
+        diagonal = np.ones(self.N)
+        if math.isnan(empty_value):
+            empty_units = [i for i in range(self.N) if len(self.train[i]) == 0]
+            diagonal[empty_units] = empty_value
 
         # Use numba only when N > 2 (more than 1 pair); for N <= 2
         # the JIT compilation overhead exceeds the serial computation.
@@ -1871,19 +1892,19 @@ class SpikeData:
             length = self.length
             if length is None:
                 length = float(np.max(flat)) if len(flat) > 0 else 0.0
-            upper = nb_sttc_all_pairs(flat, offsets, self.N, delt, length)
+            upper = nb_sttc_all_pairs(flat, offsets, self.N, delt, length, empty_value)
             # Unpack upper-triangle vector into symmetric matrix. The
             # earlier Python double-loop ran ~N^2/2 iterations at
             # interpreter speed — for N=1000 that is ~500k iterations
             # purely to copy floats. ``triu_indices`` + a single
             # symmetric assignment runs entirely in NumPy C.
-            ret = np.eye(self.N)
+            ret = np.diag(diagonal)
             triu_idx = np.triu_indices(self.N, k=1)
             ret[triu_idx] = upper
             ret[(triu_idx[1], triu_idx[0])] = upper
             return PairwiseCompMatrix(matrix=ret, metadata={"delt": delt})
 
-        ret = np.eye(self.N)
+        ret = np.diag(diagonal)
         for i in range(self.N):
             for j in range(i + 1, self.N):
                 ret[i, j] = ret[j, i] = get_sttc(
@@ -1892,16 +1913,20 @@ class SpikeData:
                     delt,
                     self.length,
                     start_time=self.start_time,
+                    on_empty=on_empty,
                 )
         return PairwiseCompMatrix(matrix=ret, metadata={"delt": delt})
 
-    def spike_time_tiling(self, i, j, delt=20.0):
+    def spike_time_tiling(self, i, j, delt=20.0, on_empty="zero"):
         """Calculate the spike time tiling coefficient between two units.
 
         Parameters:
             i (int): Index of the first unit.
             j (int): Index of the second unit.
             delt (float): Time window in milliseconds (default: 20.0).
+            on_empty (str): Value to return when either unit has no spikes —
+                ``"zero"`` (default, backwards compatible) or ``"nan"``. See
+                :func:`~spikelab.spikedata.utils.get_sttc`.
 
         Returns:
             ret (float): Spike time tiling coefficient between the two units.
@@ -1916,6 +1941,7 @@ class SpikeData:
             delt,
             self.length,
             start_time=self.start_time,
+            on_empty=on_empty,
         )
 
     def get_pairwise_ccg(
