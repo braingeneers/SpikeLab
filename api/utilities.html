@@ -319,6 +319,8 @@
 <li class="toctree-l2 current"><a class="reference internal" href="index.html#utilities">Utilities</a><ul class="current">
 <li class="toctree-l3 current"><a class="current reference internal" href="#">Utilities</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#spikelab.spikedata.utils.get_sttc"><code class="docutils literal notranslate"><span class="pre">get_sttc()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#spikelab.spikedata.utils.resolve_empty_sttc"><code class="docutils literal notranslate"><span class="pre">resolve_empty_sttc()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#spikelab.spikedata.utils.STTC_DENOM_TOL"><code class="docutils literal notranslate"><span class="pre">STTC_DENOM_TOL</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#spikelab.spikedata.utils.swap"><code class="docutils literal notranslate"><span class="pre">swap()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#spikelab.spikedata.utils.randomize"><code class="docutils literal notranslate"><span class="pre">randomize()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#spikelab.spikedata.utils.trough_between"><code class="docutils literal notranslate"><span class="pre">trough_between()</span></code></a></li>
@@ -499,7 +501,7 @@
 manipulation helpers, time conversion, and validation functions.</p>
 <dl class="py function" id="module-spikelab.spikedata.utils">
 <dt class="sig sig-object py" id="spikelab.spikedata.utils.get_sttc">
-<span class="sig-prename descclassname"><span class="pre">spikelab.spikedata.utils.</span></span><span class="sig-name descname"><span class="pre">get_sttc</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tA</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tB</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">delt</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">length</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_time</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/utils.html#get_sttc"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.utils.get_sttc" title="Link to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">spikelab.spikedata.utils.</span></span><span class="sig-name descname"><span class="pre">get_sttc</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tA</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tB</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">delt</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">length</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_time</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">on_empty</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'zero'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/utils.html#get_sttc"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.utils.get_sttc" title="Link to this definition"></a></dt>
 <dd><p>Calculate the spike time tiling coefficient between two spike trains.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -516,11 +518,17 @@ unbiased STTC.</p></li>
 Spike times are shifted by <code class="docutils literal notranslate"><span class="pre">-start_time</span></code> before computation so
 that the STTC edge corrections work correctly for event-centered
 data with negative spike times.</p></li>
+<li><p><strong>on_empty</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Value to return when either train has no spikes —
+<code class="docutils literal notranslate"><span class="pre">&quot;zero&quot;</span></code> (default, backwards compatible) or <code class="docutils literal notranslate"><span class="pre">&quot;nan&quot;</span></code>. See
+“Degenerate cases” below for why <code class="docutils literal notranslate"><span class="pre">&quot;nan&quot;</span></code> is often the better
+choice.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
-<dt>Spike time tiling coefficient between the two spike</dt><dd><p>trains.</p>
+<dt>Spike time tiling coefficient between the two spike</dt><dd><p>trains, in <code class="docutils literal notranslate"><span class="pre">[-1,</span> <span class="pre">1]</span></code>. Returns the <code class="docutils literal notranslate"><span class="pre">on_empty</span></code> value if either
+train is empty, and <code class="docutils literal notranslate"><span class="pre">0.0</span></code> where the formula is indeterminate
+(see below).</p>
 </dd>
 </dl>
 </p>
@@ -531,9 +539,61 @@ data with negative spike times.</p></li>
 </dl>
 <p class="rubric">Notes</p>
 <p>Formula: STTC = ((PA - TB) / (1 - PA * TB) + (PB - TA) / (1 - PB * TA)) / 2</p>
+<p><strong>Degenerate cases.</strong> STTC is undefined in two situations, and neither
+is distinguishable from a real measurement by inspecting the return
+value alone:</p>
+<ol class="arabic simple">
+<li><p><em>Either train is empty.</em> PA (or PB) is 0/0, so there is no
+coincidence rate to compare against chance. The default
+<code class="docutils literal notranslate"><span class="pre">on_empty=&quot;zero&quot;</span></code> reports this as <code class="docutils literal notranslate"><span class="pre">0.0</span></code>, which collides with
+the most meaningful value in the range — an exact 0 otherwise means
+“coincidence rate equals chance”. Pass <code class="docutils literal notranslate"><span class="pre">on_empty=&quot;nan&quot;</span></code> to make
+empty units propagate as missing data instead; the NaN-aware paths
+on <a class="reference internal" href="pairwise.html#spikelab.spikedata.pairwise.PairwiseCompMatrix" title="spikelab.spikedata.pairwise.PairwiseCompMatrix"><code class="xref py py-class docutils literal notranslate"><span class="pre">PairwiseCompMatrix</span></code></a>
+(<code class="docutils literal notranslate"><span class="pre">to_networkx</span></code>, <code class="docutils literal notranslate"><span class="pre">threshold(preserve_nan=True)</span></code>, and the stack’s
+<code class="docutils literal notranslate"><span class="pre">mean(ignore_nan=True)</span></code>) then exclude them rather than treating
+them as measurements.</p></li>
+<li><p><em>Both trains saturate the recording.</em> When <code class="docutils literal notranslate"><span class="pre">delt</span></code> is large enough
+that the +/-delt tiles of both trains cover the whole recording,
+TA = TB = 1 forces PA = PB = 1 and both halves of the formula
+become 0/0. This is reported as <code class="docutils literal notranslate"><span class="pre">0.0</span></code>. It signals that <code class="docutils literal notranslate"><span class="pre">delt</span></code>
+is too coarse for this recording rather than anything about the
+data; typical values are 5-50 ms.</p></li>
+</ol>
 <p>[1] Cutts &amp; Eglen. Detecting pairwise correlations in spike trains:
 An objective comparison of methods and application to the study of
 retinal waves. Journal of Neuroscience 34:43, 14288-14303 (2014).</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="spikelab.spikedata.utils.resolve_empty_sttc">
+<span class="sig-prename descclassname"><span class="pre">spikelab.spikedata.utils.</span></span><span class="sig-name descname"><span class="pre">resolve_empty_sttc</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">on_empty</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/utils.html#resolve_empty_sttc"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.utils.resolve_empty_sttc" title="Link to this definition"></a></dt>
+<dd><p>Map an <code class="docutils literal notranslate"><span class="pre">on_empty</span></code> option to the value returned for an empty train.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>on_empty</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Either <code class="docutils literal notranslate"><span class="pre">&quot;zero&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;nan&quot;</span></code>.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><code class="docutils literal notranslate"><span class="pre">0.0</span></code> or <code class="docutils literal notranslate"><span class="pre">float(&quot;nan&quot;)</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>empty_value (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)">float</a>)</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">on_empty</span></code> is not one of the accepted options.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="spikelab.spikedata.utils.STTC_DENOM_TOL">
+<span class="sig-prename descclassname"><span class="pre">spikelab.spikedata.utils.</span></span><span class="sig-name descname"><span class="pre">STTC_DENOM_TOL</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1e-12</span></em><a class="headerlink" href="#spikelab.spikedata.utils.STTC_DENOM_TOL" title="Link to this definition"></a></dt>
+<dd><p>Tolerance for treating an STTC denominator as zero. Both halves of the
+formula have the form <code class="docutils literal notranslate"><span class="pre">(P</span> <span class="pre">-</span> <span class="pre">T)</span> <span class="pre">/</span> <span class="pre">(1</span> <span class="pre">-</span> <span class="pre">P</span> <span class="pre">*</span> <span class="pre">T)</span></code>, which goes 0/0 when a
+train’s tiles saturate the recording. <code class="docutils literal notranslate"><span class="pre">1</span> <span class="pre">-</span> <span class="pre">P</span> <span class="pre">*</span> <span class="pre">T</span></code> is a float
+accumulation, so a saturated train frequently lands on 1e-16 rather than
+exactly 0; comparing against this tolerance catches those. Shared with
+<code class="docutils literal notranslate"><span class="pre">numba_utils._nb_sttc_pair</span></code> so both code paths agree.</p>
 </dd></dl>
 
 <dl class="py function">

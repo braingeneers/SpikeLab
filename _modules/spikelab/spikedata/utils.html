@@ -316,6 +316,8 @@
 <li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#utilities">Utilities</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/utilities.html">Utilities</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.get_sttc"><code class="docutils literal notranslate"><span class="pre">get_sttc()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.resolve_empty_sttc"><code class="docutils literal notranslate"><span class="pre">resolve_empty_sttc()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.STTC_DENOM_TOL"><code class="docutils literal notranslate"><span class="pre">STTC_DENOM_TOL</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.swap"><code class="docutils literal notranslate"><span class="pre">swap()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.randomize"><code class="docutils literal notranslate"><span class="pre">randomize()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.trough_between"><code class="docutils literal notranslate"><span class="pre">trough_between()</span></code></a></li>
@@ -508,8 +510,18 @@
 <span class="c1">#: named constant makes the unit-conversion intent explicit.</span>
 <span class="n">_MS_PER_S</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1000.0</span>
 
+<span class="c1">#: Tolerance for treating an STTC denominator as zero. Both halves of the</span>
+<span class="c1">#: formula have the form ``(P - T) / (1 - P * T)``, which goes 0/0 when a</span>
+<span class="c1">#: train&#39;s tiles saturate the recording. ``1 - P * T`` is a float</span>
+<span class="c1">#: accumulation, so a saturated train frequently lands on 1e-16 rather than</span>
+<span class="c1">#: exactly 0; comparing against this tolerance catches those. Shared with</span>
+<span class="c1">#: ``numba_utils._nb_sttc_pair`` so both code paths agree.</span>
+<span class="n">STTC_DENOM_TOL</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-12</span>
+
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
     <span class="s2">&quot;get_sttc&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;resolve_empty_sttc&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;STTC_DENOM_TOL&quot;</span><span class="p">,</span>
     <span class="s2">&quot;swap&quot;</span><span class="p">,</span>
     <span class="s2">&quot;randomize&quot;</span><span class="p">,</span>
     <span class="s2">&quot;trough_between&quot;</span><span class="p">,</span>
@@ -582,10 +594,37 @@
     <span class="k">return</span> <span class="n">n_jobs</span>
 
 
+<div class="viewcode-block" id="resolve_empty_sttc">
+<a class="viewcode-back" href="../../../api/utilities.html#spikelab.spikedata.utils.resolve_empty_sttc">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">resolve_empty_sttc</span><span class="p">(</span><span class="n">on_empty</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Map an ``on_empty`` option to the value returned for an empty train.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        on_empty (str): Either ``&quot;zero&quot;`` or ``&quot;nan&quot;``.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        empty_value (float): ``0.0`` or ``float(&quot;nan&quot;)``.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ValueError: If ``on_empty`` is not one of the accepted options.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">on_empty</span> <span class="o">==</span> <span class="s2">&quot;zero&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="mf">0.0</span>
+    <span class="k">if</span> <span class="n">on_empty</span> <span class="o">==</span> <span class="s2">&quot;nan&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;nan&quot;</span><span class="p">)</span>
+    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;on_empty must be &#39;zero&#39; or &#39;nan&#39;, got </span><span class="si">{</span><span class="n">on_empty</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+
+
 <div class="viewcode-block" id="get_sttc">
 <a class="viewcode-back" href="../../../api/utilities.html#spikelab.spikedata.utils.get_sttc">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_sttc</span><span class="p">(</span>
-    <span class="n">tA</span><span class="p">,</span> <span class="n">tB</span><span class="p">,</span> <span class="n">delt</span><span class="o">=</span><span class="mf">20.0</span><span class="p">,</span> <span class="n">length</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">start_time</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="n">tA</span><span class="p">,</span>
+    <span class="n">tB</span><span class="p">,</span>
+    <span class="n">delt</span><span class="o">=</span><span class="mf">20.0</span><span class="p">,</span>
+    <span class="n">length</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">start_time</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+    <span class="n">on_empty</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;zero&quot;</span><span class="p">,</span>
 <span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculate the spike time tiling coefficient between two spike trains.</span>
 
@@ -602,13 +641,41 @@
 <span class="sd">            Spike times are shifted by ``-start_time`` before computation so</span>
 <span class="sd">            that the STTC edge corrections work correctly for event-centered</span>
 <span class="sd">            data with negative spike times.</span>
+<span class="sd">        on_empty (str): Value to return when either train has no spikes —</span>
+<span class="sd">            ``&quot;zero&quot;`` (default, backwards compatible) or ``&quot;nan&quot;``. See</span>
+<span class="sd">            &quot;Degenerate cases&quot; below for why ``&quot;nan&quot;`` is often the better</span>
+<span class="sd">            choice.</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        sttc (float): Spike time tiling coefficient between the two spike</span>
-<span class="sd">            trains.</span>
+<span class="sd">            trains, in ``[-1, 1]``. Returns the ``on_empty`` value if either</span>
+<span class="sd">            train is empty, and ``0.0`` where the formula is indeterminate</span>
+<span class="sd">            (see below).</span>
 
 <span class="sd">    Notes:</span>
 <span class="sd">        Formula: STTC = ((PA - TB) / (1 - PA * TB) + (PB - TA) / (1 - PB * TA)) / 2</span>
+
+<span class="sd">        **Degenerate cases.** STTC is undefined in two situations, and neither</span>
+<span class="sd">        is distinguishable from a real measurement by inspecting the return</span>
+<span class="sd">        value alone:</span>
+
+<span class="sd">        1. *Either train is empty.* PA (or PB) is 0/0, so there is no</span>
+<span class="sd">           coincidence rate to compare against chance. The default</span>
+<span class="sd">           ``on_empty=&quot;zero&quot;`` reports this as ``0.0``, which collides with</span>
+<span class="sd">           the most meaningful value in the range — an exact 0 otherwise means</span>
+<span class="sd">           &quot;coincidence rate equals chance&quot;. Pass ``on_empty=&quot;nan&quot;`` to make</span>
+<span class="sd">           empty units propagate as missing data instead; the NaN-aware paths</span>
+<span class="sd">           on :class:`~spikelab.spikedata.pairwise.PairwiseCompMatrix`</span>
+<span class="sd">           (``to_networkx``, ``threshold(preserve_nan=True)``, and the stack&#39;s</span>
+<span class="sd">           ``mean(ignore_nan=True)``) then exclude them rather than treating</span>
+<span class="sd">           them as measurements.</span>
+
+<span class="sd">        2. *Both trains saturate the recording.* When ``delt`` is large enough</span>
+<span class="sd">           that the +/-delt tiles of both trains cover the whole recording,</span>
+<span class="sd">           TA = TB = 1 forces PA = PB = 1 and both halves of the formula</span>
+<span class="sd">           become 0/0. This is reported as ``0.0``. It signals that ``delt``</span>
+<span class="sd">           is too coarse for this recording rather than anything about the</span>
+<span class="sd">           data; typical values are 5-50 ms.</span>
 
 <span class="sd">        [1] Cutts &amp; Eglen. Detecting pairwise correlations in spike trains:</span>
 <span class="sd">        An objective comparison of methods and application to the study of</span>
@@ -617,8 +684,9 @@
     <span class="k">if</span> <span class="n">delt</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;delt must be positive, got </span><span class="si">{</span><span class="n">delt</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
+    <span class="n">empty_value</span> <span class="o">=</span> <span class="n">resolve_empty_sttc</span><span class="p">(</span><span class="n">on_empty</span><span class="p">)</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tA</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">tB</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="k">return</span> <span class="mf">0.0</span>
+        <span class="k">return</span> <span class="n">empty_value</span>
 
     <span class="c1"># Shift both trains by -start_time so they are 0-based. This ensures</span>
     <span class="c1"># _sttc_ta edge corrections work correctly for event-centered data.</span>
@@ -630,19 +698,34 @@
 
     <span class="n">TA</span> <span class="o">=</span> <span class="n">_sttc_ta</span><span class="p">(</span><span class="n">tA</span><span class="p">,</span> <span class="n">delt</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span> <span class="o">/</span> <span class="n">length</span>
     <span class="n">TB</span> <span class="o">=</span> <span class="n">_sttc_ta</span><span class="p">(</span><span class="n">tB</span><span class="p">,</span> <span class="n">delt</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span> <span class="o">/</span> <span class="n">length</span>
-    <span class="k">return</span> <span class="n">_spike_time_tiling</span><span class="p">(</span><span class="n">tA</span><span class="p">,</span> <span class="n">tB</span><span class="p">,</span> <span class="n">TA</span><span class="p">,</span> <span class="n">TB</span><span class="p">,</span> <span class="n">delt</span><span class="p">)</span></div>
+    <span class="k">return</span> <span class="n">_spike_time_tiling</span><span class="p">(</span><span class="n">tA</span><span class="p">,</span> <span class="n">tB</span><span class="p">,</span> <span class="n">TA</span><span class="p">,</span> <span class="n">TB</span><span class="p">,</span> <span class="n">delt</span><span class="p">,</span> <span class="n">empty_value</span><span class="p">)</span></div>
 
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_spike_time_tiling</span><span class="p">(</span><span class="n">tA</span><span class="p">,</span> <span class="n">tB</span><span class="p">,</span> <span class="n">TA</span><span class="p">,</span> <span class="n">TB</span><span class="p">,</span> <span class="n">delt</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_spike_time_tiling</span><span class="p">(</span><span class="n">tA</span><span class="p">,</span> <span class="n">tB</span><span class="p">,</span> <span class="n">TA</span><span class="p">,</span> <span class="n">TB</span><span class="p">,</span> <span class="n">delt</span><span class="p">,</span> <span class="n">empty_value</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Internal helper method for the second half of STTC calculation.&quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tA</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">tB</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="k">return</span> <span class="mi">0</span>
+        <span class="k">return</span> <span class="n">empty_value</span>
     <span class="n">PA</span> <span class="o">=</span> <span class="n">_sttc_na</span><span class="p">(</span><span class="n">tA</span><span class="p">,</span> <span class="n">tB</span><span class="p">,</span> <span class="n">delt</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">tA</span><span class="p">)</span>
     <span class="n">PB</span> <span class="o">=</span> <span class="n">_sttc_na</span><span class="p">(</span><span class="n">tB</span><span class="p">,</span> <span class="n">tA</span><span class="p">,</span> <span class="n">delt</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">tB</span><span class="p">)</span>
 
-    <span class="n">aa</span> <span class="o">=</span> <span class="p">(</span><span class="n">PA</span> <span class="o">-</span> <span class="n">TB</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">PA</span> <span class="o">*</span> <span class="n">TB</span><span class="p">)</span> <span class="k">if</span> <span class="n">PA</span> <span class="o">*</span> <span class="n">TB</span> <span class="o">!=</span> <span class="mi">1</span> <span class="k">else</span> <span class="mi">0</span>
-    <span class="n">bb</span> <span class="o">=</span> <span class="p">(</span><span class="n">PB</span> <span class="o">-</span> <span class="n">TA</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">PB</span> <span class="o">*</span> <span class="n">TA</span><span class="p">)</span> <span class="k">if</span> <span class="n">PB</span> <span class="o">*</span> <span class="n">TA</span> <span class="o">!=</span> <span class="mi">1</span> <span class="k">else</span> <span class="mi">0</span>
+    <span class="c1"># Saturated trains (TA = TB = 1) drive both denominators to 0, leaving an</span>
+    <span class="c1"># indeterminate 0/0. Test with a tolerance rather than ``!= 1``: the tile</span>
+    <span class="c1"># sum is a float accumulation, so a fully-saturated train lands on</span>
+    <span class="c1"># 0.9999999999999999 about a fifth of the time and an exact-equality guard</span>
+    <span class="c1"># silently misses it, returning 1.0 instead. ``_nb_sttc_pair`` uses the</span>
+    <span class="c1"># same tolerance so the numba and numpy paths agree.</span>
+    <span class="c1">#</span>
+    <span class="c1"># The comparison is written as ``&lt;= TOL`` taking the sentinel branch, NOT</span>
+    <span class="c1"># ``&gt; TOL`` taking the division branch. A non-finite denominator (length=0</span>
+    <span class="c1"># makes TA/TB inf or NaN) compares False against everything, so the ``&gt;``</span>
+    <span class="c1"># form would route it to the 0.0 sentinel and report an undefined result</span>
+    <span class="c1"># as chance-level. This way non-finite values fall through to the division</span>
+    <span class="c1"># and propagate as NaN/inf, which is what callers can actually detect.</span>
+    <span class="n">denom_a</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">PA</span> <span class="o">*</span> <span class="n">TB</span>
+    <span class="n">denom_b</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">PB</span> <span class="o">*</span> <span class="n">TA</span>
+    <span class="n">aa</span> <span class="o">=</span> <span class="mf">0.0</span> <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">denom_a</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">STTC_DENOM_TOL</span> <span class="k">else</span> <span class="p">(</span><span class="n">PA</span> <span class="o">-</span> <span class="n">TB</span><span class="p">)</span> <span class="o">/</span> <span class="n">denom_a</span>
+    <span class="n">bb</span> <span class="o">=</span> <span class="mf">0.0</span> <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">denom_b</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">STTC_DENOM_TOL</span> <span class="k">else</span> <span class="p">(</span><span class="n">PB</span> <span class="o">-</span> <span class="n">TA</span><span class="p">)</span> <span class="o">/</span> <span class="n">denom_b</span>
     <span class="k">return</span> <span class="p">(</span><span class="n">aa</span> <span class="o">+</span> <span class="n">bb</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
 
 

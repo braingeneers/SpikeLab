@@ -316,6 +316,8 @@
 <li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#utilities">Utilities</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/utilities.html">Utilities</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.get_sttc"><code class="docutils literal notranslate"><span class="pre">get_sttc()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.resolve_empty_sttc"><code class="docutils literal notranslate"><span class="pre">resolve_empty_sttc()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.STTC_DENOM_TOL"><code class="docutils literal notranslate"><span class="pre">STTC_DENOM_TOL</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.swap"><code class="docutils literal notranslate"><span class="pre">swap()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.randomize"><code class="docutils literal notranslate"><span class="pre">randomize()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.trough_between"><code class="docutils literal notranslate"><span class="pre">trough_between()</span></code></a></li>
@@ -494,6 +496,7 @@
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">heapq</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">itertools</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Sequence</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span>
@@ -508,6 +511,7 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">.utils</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">get_sttc</span><span class="p">,</span>
+    <span class="n">resolve_empty_sttc</span><span class="p">,</span>
     <span class="n">butter_filter</span><span class="p">,</span>
     <span class="n">extract_waveforms</span><span class="p">,</span>
     <span class="n">_sttc_ta</span><span class="p">,</span>
@@ -2422,11 +2426,19 @@
 
 <div class="viewcode-block" id="SpikeData.spike_time_tilings">
 <a class="viewcode-back" href="../../../api/spikedata.html#spikelab.spikedata.SpikeData.spike_time_tilings">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">spike_time_tilings</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">delt</span><span class="o">=</span><span class="mf">20.0</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">spike_time_tilings</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">delt</span><span class="o">=</span><span class="mf">20.0</span><span class="p">,</span> <span class="n">on_empty</span><span class="o">=</span><span class="s2">&quot;zero&quot;</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute the spike time tiling coefficient matrix.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            delt (float): Time window in milliseconds (default: 20.0).</span>
+<span class="sd">            on_empty (str): What to record for a unit with no spikes —</span>
+<span class="sd">                ``&quot;zero&quot;`` (default, backwards compatible) or ``&quot;nan&quot;``.</span>
+<span class="sd">                With ``&quot;nan&quot;`` an empty unit&#39;s entire row and column, and its</span>
+<span class="sd">                diagonal entry, are NaN rather than 0.0 / 1.0, so the</span>
+<span class="sd">                NaN-aware paths on the returned matrix (``to_networkx``,</span>
+<span class="sd">                ``threshold(preserve_nan=True)``) exclude it instead of</span>
+<span class="sd">                scoring it as a perfectly uncorrelated unit. See</span>
+<span class="sd">                :func:`~spikelab.spikedata.utils.get_sttc`.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            ret (PairwiseCompMatrix): Spike time tiling coefficient matrix.</span>
@@ -2440,7 +2452,18 @@
         <span class="k">if</span> <span class="n">delt</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;delt must be positive, got </span><span class="si">{</span><span class="n">delt</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
+        <span class="n">empty_value</span> <span class="o">=</span> <span class="n">resolve_empty_sttc</span><span class="p">(</span><span class="n">on_empty</span><span class="p">)</span>
+
         <span class="kn">from</span><span class="w"> </span><span class="nn">.numba_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">NUMBA_AVAILABLE</span>
+
+        <span class="c1"># Self-comparison is 1.0, except for units with no spikes: their</span>
+        <span class="c1"># self-STTC is as undefined as their pairwise entries, so under</span>
+        <span class="c1"># on_empty=&quot;nan&quot; the diagonal is NaN too rather than claiming a</span>
+        <span class="c1"># perfect self-correlation for a unit that never fired.</span>
+        <span class="n">diagonal</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">math</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">empty_value</span><span class="p">):</span>
+            <span class="n">empty_units</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">)</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span>
+            <span class="n">diagonal</span><span class="p">[</span><span class="n">empty_units</span><span class="p">]</span> <span class="o">=</span> <span class="n">empty_value</span>
 
         <span class="c1"># Use numba only when N &gt; 2 (more than 1 pair); for N &lt;= 2</span>
         <span class="c1"># the JIT compilation overhead exceeds the serial computation.</span>
@@ -2451,19 +2474,19 @@
             <span class="n">length</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span>
             <span class="k">if</span> <span class="n">length</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">length</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">flat</span><span class="p">))</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">flat</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span>
-            <span class="n">upper</span> <span class="o">=</span> <span class="n">nb_sttc_all_pairs</span><span class="p">(</span><span class="n">flat</span><span class="p">,</span> <span class="n">offsets</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">,</span> <span class="n">delt</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span>
+            <span class="n">upper</span> <span class="o">=</span> <span class="n">nb_sttc_all_pairs</span><span class="p">(</span><span class="n">flat</span><span class="p">,</span> <span class="n">offsets</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">,</span> <span class="n">delt</span><span class="p">,</span> <span class="n">length</span><span class="p">,</span> <span class="n">empty_value</span><span class="p">)</span>
             <span class="c1"># Unpack upper-triangle vector into symmetric matrix. The</span>
             <span class="c1"># earlier Python double-loop ran ~N^2/2 iterations at</span>
             <span class="c1"># interpreter speed — for N=1000 that is ~500k iterations</span>
             <span class="c1"># purely to copy floats. ``triu_indices`` + a single</span>
             <span class="c1"># symmetric assignment runs entirely in NumPy C.</span>
-            <span class="n">ret</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">)</span>
+            <span class="n">ret</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">diagonal</span><span class="p">)</span>
             <span class="n">triu_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">triu_indices</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
             <span class="n">ret</span><span class="p">[</span><span class="n">triu_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">upper</span>
             <span class="n">ret</span><span class="p">[(</span><span class="n">triu_idx</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">triu_idx</span><span class="p">[</span><span class="mi">0</span><span class="p">])]</span> <span class="o">=</span> <span class="n">upper</span>
             <span class="k">return</span> <span class="n">PairwiseCompMatrix</span><span class="p">(</span><span class="n">matrix</span><span class="o">=</span><span class="n">ret</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;delt&quot;</span><span class="p">:</span> <span class="n">delt</span><span class="p">})</span>
 
-        <span class="n">ret</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">)</span>
+        <span class="n">ret</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">diagonal</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">):</span>
             <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">):</span>
                 <span class="n">ret</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">ret</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">get_sttc</span><span class="p">(</span>
@@ -2472,19 +2495,23 @@
                     <span class="n">delt</span><span class="p">,</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">,</span>
                     <span class="n">start_time</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">start_time</span><span class="p">,</span>
+                    <span class="n">on_empty</span><span class="o">=</span><span class="n">on_empty</span><span class="p">,</span>
                 <span class="p">)</span>
         <span class="k">return</span> <span class="n">PairwiseCompMatrix</span><span class="p">(</span><span class="n">matrix</span><span class="o">=</span><span class="n">ret</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;delt&quot;</span><span class="p">:</span> <span class="n">delt</span><span class="p">})</span></div>
 
 
 <div class="viewcode-block" id="SpikeData.spike_time_tiling">
 <a class="viewcode-back" href="../../../api/spikedata.html#spikelab.spikedata.SpikeData.spike_time_tiling">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">spike_time_tiling</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">delt</span><span class="o">=</span><span class="mf">20.0</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">spike_time_tiling</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">delt</span><span class="o">=</span><span class="mf">20.0</span><span class="p">,</span> <span class="n">on_empty</span><span class="o">=</span><span class="s2">&quot;zero&quot;</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Calculate the spike time tiling coefficient between two units.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            i (int): Index of the first unit.</span>
 <span class="sd">            j (int): Index of the second unit.</span>
 <span class="sd">            delt (float): Time window in milliseconds (default: 20.0).</span>
+<span class="sd">            on_empty (str): Value to return when either unit has no spikes —</span>
+<span class="sd">                ``&quot;zero&quot;`` (default, backwards compatible) or ``&quot;nan&quot;``. See</span>
+<span class="sd">                :func:`~spikelab.spikedata.utils.get_sttc`.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            ret (float): Spike time tiling coefficient between the two units.</span>
@@ -2499,6 +2526,7 @@
             <span class="n">delt</span><span class="p">,</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">,</span>
             <span class="n">start_time</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">start_time</span><span class="p">,</span>
+            <span class="n">on_empty</span><span class="o">=</span><span class="n">on_empty</span><span class="p">,</span>
         <span class="p">)</span></div>
 
 

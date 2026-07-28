@@ -319,6 +319,8 @@
 <li class="toctree-l2"><a class="reference internal" href="index.html#utilities">Utilities</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="utilities.html">Utilities</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.get_sttc"><code class="docutils literal notranslate"><span class="pre">get_sttc()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.resolve_empty_sttc"><code class="docutils literal notranslate"><span class="pre">resolve_empty_sttc()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.STTC_DENOM_TOL"><code class="docutils literal notranslate"><span class="pre">STTC_DENOM_TOL</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.swap"><code class="docutils literal notranslate"><span class="pre">swap()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.randomize"><code class="docutils literal notranslate"><span class="pre">randomize()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.trough_between"><code class="docutils literal notranslate"><span class="pre">trough_between()</span></code></a></li>
@@ -1545,11 +1547,21 @@ issued and the attributes from both are not merged.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="spikelab.spikedata.SpikeData.spike_time_tilings">
-<span class="sig-name descname"><span class="pre">spike_time_tilings</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">delt</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikedata.html#SpikeData.spike_time_tilings"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.SpikeData.spike_time_tilings" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">spike_time_tilings</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">delt</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">on_empty</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'zero'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikedata.html#SpikeData.spike_time_tilings"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.SpikeData.spike_time_tilings" title="Link to this definition"></a></dt>
 <dd><p>Compute the spike time tiling coefficient matrix.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>delt</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Time window in milliseconds (default: 20.0).</p>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>delt</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Time window in milliseconds (default: 20.0).</p></li>
+<li><p><strong>on_empty</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – What to record for a unit with no spikes —
+<code class="docutils literal notranslate"><span class="pre">&quot;zero&quot;</span></code> (default, backwards compatible) or <code class="docutils literal notranslate"><span class="pre">&quot;nan&quot;</span></code>.
+With <code class="docutils literal notranslate"><span class="pre">&quot;nan&quot;</span></code> an empty unit’s entire row and column, and its
+diagonal entry, are NaN rather than 0.0 / 1.0, so the
+NaN-aware paths on the returned matrix (<code class="docutils literal notranslate"><span class="pre">to_networkx</span></code>,
+<code class="docutils literal notranslate"><span class="pre">threshold(preserve_nan=True)</span></code>) exclude it instead of
+scoring it as a perfectly uncorrelated unit. See
+<a class="reference internal" href="utilities.html#spikelab.spikedata.utils.get_sttc" title="spikelab.spikedata.utils.get_sttc"><code class="xref py py-func docutils literal notranslate"><span class="pre">get_sttc()</span></code></a>.</p></li>
+</ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Spike time tiling coefficient matrix.</p>
@@ -1569,7 +1581,7 @@ spike trains. J. Neurosci. 34:43, 14288-14303 (2014).</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="spikelab.spikedata.SpikeData.spike_time_tiling">
-<span class="sig-name descname"><span class="pre">spike_time_tiling</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">i</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">j</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">delt</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikedata.html#SpikeData.spike_time_tiling"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.SpikeData.spike_time_tiling" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">spike_time_tiling</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">i</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">j</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">delt</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">on_empty</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'zero'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikedata.html#SpikeData.spike_time_tiling"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.SpikeData.spike_time_tiling" title="Link to this definition"></a></dt>
 <dd><p>Calculate the spike time tiling coefficient between two units.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -1577,6 +1589,9 @@ spike trains. J. Neurosci. 34:43, 14288-14303 (2014).</p></li>
 <li><p><strong>i</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Index of the first unit.</p></li>
 <li><p><strong>j</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Index of the second unit.</p></li>
 <li><p><strong>delt</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Time window in milliseconds (default: 20.0).</p></li>
+<li><p><strong>on_empty</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Value to return when either unit has no spikes —
+<code class="docutils literal notranslate"><span class="pre">&quot;zero&quot;</span></code> (default, backwards compatible) or <code class="docutils literal notranslate"><span class="pre">&quot;nan&quot;</span></code>. See
+<a class="reference internal" href="utilities.html#spikelab.spikedata.utils.get_sttc" title="spikelab.spikedata.utils.get_sttc"><code class="xref py py-func docutils literal notranslate"><span class="pre">get_sttc()</span></code></a>.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
