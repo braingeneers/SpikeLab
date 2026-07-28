@@ -12,6 +12,12 @@ and the calling code falls back to the existing pure-numpy loops.
 
 import numpy as np
 
+from .utils import STTC_DENOM_TOL
+
+# Bound to a module-level name so numba embeds it as a compile-time constant
+# inside the njit kernels below.
+_STTC_DENOM_TOL = STTC_DENOM_TOL
+
 try:
     from numba import njit, prange
 
@@ -143,12 +149,18 @@ def _nb_sttc_na(tA, tB, delt):
 
 
 @njit
-def _nb_sttc_pair(spike_a, spike_b, delt, length):
-    """Compute STTC for a single pair.  Returns 0.0 for degenerate cases."""
+def _nb_sttc_pair(spike_a, spike_b, delt, length, empty_value=0.0):
+    """Compute STTC for a single pair.
+
+    Mirrors ``utils._spike_time_tiling``, including the ``STTC_DENOM_TOL``
+    tolerance on the saturated-train 0/0 case, so both paths return the same
+    value for the same input.  Returns ``empty_value`` when either train is
+    empty and ``0.0`` for the indeterminate saturated case.
+    """
     nA = len(spike_a)
     nB = len(spike_b)
     if nA == 0 or nB == 0:
-        return 0.0
+        return empty_value
 
     TA = _nb_sttc_ta(spike_a, delt, length) / length
     TB = _nb_sttc_ta(spike_b, delt, length) / length
@@ -158,13 +170,13 @@ def _nb_sttc_pair(spike_a, spike_b, delt, length):
 
     denom1 = 1.0 - PA * TB
     denom2 = 1.0 - PB * TA
-    aa = (PA - TB) / denom1 if abs(denom1) > 1e-12 else 0.0
-    bb = (PB - TA) / denom2 if abs(denom2) > 1e-12 else 0.0
+    aa = (PA - TB) / denom1 if abs(denom1) > _STTC_DENOM_TOL else 0.0
+    bb = (PB - TA) / denom2 if abs(denom2) > _STTC_DENOM_TOL else 0.0
     return (aa + bb) / 2.0
 
 
 @njit(parallel=True)
-def nb_sttc_all_pairs(flat, offsets, n_units, delt, length):
+def nb_sttc_all_pairs(flat, offsets, n_units, delt, length, empty_value=0.0):
     """Compute STTC for all upper-triangle pairs in parallel.
 
     Parameters:
@@ -173,6 +185,8 @@ def nb_sttc_all_pairs(flat, offsets, n_units, delt, length):
         n_units (int): Number of units.
         delt (float): STTC time window (ms).
         length (float): Recording duration (ms).
+        empty_value (float): Value used for pairs where either unit has no
+            spikes (0.0 or NaN). See ``utils.get_sttc``'s ``on_empty``.
 
     Returns:
         result (np.ndarray): Upper-triangle STTC values, length
@@ -195,7 +209,7 @@ def nb_sttc_all_pairs(flat, offsets, n_units, delt, length):
         j = pairs_j[k]
         a = flat[offsets[i] : offsets[i + 1]]
         b = flat[offsets[j] : offsets[j + 1]]
-        result[k] = _nb_sttc_pair(a, b, delt, length)
+        result[k] = _nb_sttc_pair(a, b, delt, length, empty_value)
     return result
 
 
