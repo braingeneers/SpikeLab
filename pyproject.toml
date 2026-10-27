@@ -83,7 +83,9 @@ io = [
   "pandas>=1.3",
 ]
 mcp = [
-  "mcp>=0.9.0",
+  # Capped below 2: mcp 2.0's Server has no list_tools(), which
+  # mcp_server/server.py registers its tools with.
+  "mcp>=0.9.0,<2",
   "pydantic>=2.7",
   "pydantic-settings>=2.3",
 ]
@@ -117,7 +119,10 @@ numba = [
   "numba>=0.56",
 ]
 spike-sorting = [
-  "spikeinterface>=0.104.0",
+  # Capped below 0.105: 0.105 removes get_traces(return_scaled=...), which
+  # spike_sorting/pipeline.py and rt_sort pass. Raise once those call sites
+  # are ported.
+  "spikeinterface>=0.104.0,<0.105",
   "natsort>=8.0",
   "six>=1.16",
   "pandas>=1.3",
@@ -150,7 +155,9 @@ hippie = [
 ]
 all = [
   "pandas>=1.3",
-  "mcp>=0.9.0",
+  # Capped below 2: mcp 2.0's Server has no list_tools(), which
+  # mcp_server/server.py registers its tools with.
+  "mcp>=0.9.0,<2",
   "boto3>=1.28.0",
   "uvicorn>=0.20",
   "starlette>=0.27",
@@ -167,7 +174,10 @@ all = [
   "quantities>=0.14.0",
   "pynwb>=2.0.0",
   "numba>=0.56",
-  "spikeinterface>=0.104.0",
+  # Capped below 0.105: 0.105 removes get_traces(return_scaled=...), which
+  # spike_sorting/pipeline.py and rt_sort pass. Raise once those call sites
+  # are ported.
+  "spikeinterface>=0.104.0,<0.105",
   "natsort>=8.0",
   "six>=1.16",
   "psutil>=5.9",
@@ -207,7 +217,8 @@ filterwarnings = [
 # above; bumping a pin should be paired with bumping the upper
 # bound here.
 [tool.spikelab.tested_versions]
-spikeinterface = ["0.100.0", "0.110.0"]
+# Upper bound follows the <0.105 dependency cap above.
+spikeinterface = ["0.100.0", "0.105.0"]
 kilosort4 = ["4.0.0", "5.0.0"]
 
 
