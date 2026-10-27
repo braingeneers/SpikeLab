@@ -5,14 +5,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>spikelab.batch_jobs.policy &mdash; SpikeLab 0.1.1 documentation</title>
+  <title>spikelab.batch_jobs.policy &mdash; SpikeLab 0.1.2 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../../_static/documentation_options.js?v=a58bc63e"></script>
+      <script src="../../../_static/documentation_options.js?v=92734c54"></script>
       <script src="../../../_static/doctools.js?v=9bcbadda"></script>
       <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
@@ -492,11 +492,11 @@
            <div itemprop="articleBody">
              
   <h1>Source code for spikelab.batch_jobs.policy</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;Cluster policy preflight checks for job specs.</span>
+<span></span><span class="sd">"""Cluster policy preflight checks for job specs.</span>
 
 <span class="sd">Thresholds are read from the active :class:`ClusterProfile` so that</span>
 <span class="sd">different clusters can enforce different rules.</span>
-<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">"""</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
@@ -506,7 +506,7 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">ClusterProfile</span><span class="p">,</span> <span class="n">JobSpec</span><span class="p">,</span> <span class="n">PolicyConfig</span>
 
-<span class="n">Level</span> <span class="o">=</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;PASS&quot;</span><span class="p">,</span> <span class="s2">&quot;WARN&quot;</span><span class="p">,</span> <span class="s2">&quot;BLOCK&quot;</span><span class="p">]</span>
+<span class="n">Level</span> <span class="o">=</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"PASS"</span><span class="p">,</span> <span class="s2">"WARN"</span><span class="p">,</span> <span class="s2">"BLOCK"</span><span class="p">]</span>
 
 
 <div class="viewcode-block" id="PolicyFinding">
@@ -530,7 +530,7 @@
     <span class="o">*</span><span class="p">,</span>
     <span class="n">threshold_s</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">_SLEEP_THRESHOLD_DEFAULT</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Detect idle-placeholder sleep patterns in batch job commands.</span>
+<span class="w">    </span><span class="sd">"""Detect idle-placeholder sleep patterns in batch job commands.</span>
 
 <span class="sd">    This is a best-effort heuristic, not a security boundary. It catches</span>
 <span class="sd">    common idle patterns (``sleep infinity``, ``sleep inf``, bare</span>
@@ -540,8 +540,8 @@
 <span class="sd">    determined circumvention.</span>
 
 <span class="sd">    Parameters:</span>
-<span class="sd">        command (Sequence[str]): The container&#39;s command tokens.</span>
-<span class="sd">        args (Sequence[str]): The container&#39;s arg tokens.</span>
+<span class="sd">        command (Sequence[str]): The container's command tokens.</span>
+<span class="sd">        args (Sequence[str]): The container's arg tokens.</span>
 <span class="sd">        threshold_s (int): Cap (in seconds) above which a bare</span>
 <span class="sd">            ``sleep &lt;number&gt;`` is considered idle. Defaults to 24h.</span>
 <span class="sd">            Pulled from ``PolicyConfig.sleep_duration_threshold_s`` by</span>
@@ -550,38 +550,38 @@
 <span class="sd">    Notes:</span>
 <span class="sd">        - The bare-``sleep`` check fires only when ``sleep`` is the sole</span>
 <span class="sd">          token across ``command + args``. A trailing token that</span>
-<span class="sd">          happens to be the literal string ``&quot;sleep&quot;`` (e.g.</span>
-<span class="sd">          ``[&quot;python&quot;, &quot;-c&quot;, &quot;sleep&quot;]``, where ``&quot;sleep&quot;`` is a Python</span>
+<span class="sd">          happens to be the literal string ``"sleep"`` (e.g.</span>
+<span class="sd">          ``["python", "-c", "sleep"]``, where ``"sleep"`` is a Python</span>
 <span class="sd">          snippet, not a shell command) is intentionally NOT flagged.</span>
 <span class="sd">          This avoids false positives on commands that legitimately</span>
-<span class="sd">          pass the string ``&quot;sleep&quot;`` as an argument. The downside is</span>
+<span class="sd">          pass the string ``"sleep"`` as an argument. The downside is</span>
 <span class="sd">          that a determined operator can sneak in a real</span>
-<span class="sd">          ``exec(&quot;sleep infinity&quot;)``-style payload; this is documented</span>
+<span class="sd">          ``exec("sleep infinity")``-style payload; this is documented</span>
 <span class="sd">          as out-of-scope for the heuristic.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="c1"># Flatten multi-word tokens (e.g., [&quot;sleep infinity&quot;] from sh -c)</span>
+<span class="sd">    """</span>
+    <span class="c1"># Flatten multi-word tokens (e.g., ["sleep infinity"] from sh -c)</span>
     <span class="c1"># into individual words for consistent token-pair matching.</span>
     <span class="n">all_tokens</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">for</span> <span class="n">tok</span> <span class="ow">in</span> <span class="p">[</span><span class="o">*</span><span class="n">command</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">]:</span>
         <span class="n">all_tokens</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">tok</span><span class="o">.</span><span class="n">split</span><span class="p">())</span>
 
-    <span class="c1"># Bare &quot;sleep&quot; as the sole command (no duration argument)</span>
-    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">all_tokens</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">all_tokens</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;sleep&quot;</span><span class="p">:</span>
+    <span class="c1"># Bare "sleep" as the sole command (no duration argument)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">all_tokens</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">all_tokens</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">"sleep"</span><span class="p">:</span>
         <span class="k">return</span> <span class="kc">True</span>
 
-    <span class="c1"># Check token pairs: &quot;sleep infinity&quot;, &quot;sleep inf&quot;, &quot;sleep &lt;large_number&gt;&quot;</span>
+    <span class="c1"># Check token pairs: "sleep infinity", "sleep inf", "sleep &lt;large_number&gt;"</span>
     <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">tok</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">all_tokens</span><span class="p">):</span>
-        <span class="k">if</span> <span class="n">tok</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">!=</span> <span class="s2">&quot;sleep&quot;</span> <span class="ow">or</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">&gt;=</span> <span class="nb">len</span><span class="p">(</span><span class="n">all_tokens</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">tok</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">!=</span> <span class="s2">"sleep"</span> <span class="ow">or</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">&gt;=</span> <span class="nb">len</span><span class="p">(</span><span class="n">all_tokens</span><span class="p">):</span>
             <span class="k">continue</span>
         <span class="n">next_tok</span> <span class="o">=</span> <span class="n">all_tokens</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
-        <span class="k">if</span> <span class="n">next_tok</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;infinity&quot;</span><span class="p">,</span> <span class="s2">&quot;inf&quot;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">next_tok</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"infinity"</span><span class="p">,</span> <span class="s2">"inf"</span><span class="p">):</span>
             <span class="k">return</span> <span class="kc">True</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">duration</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">next_tok</span><span class="p">)</span>
             <span class="c1"># Flag any non-finite duration (NaN, +inf, -inf) as suspicious —</span>
             <span class="c1"># the actual sleep binary rejects these, and a job spec with</span>
             <span class="c1"># such a token is almost certainly a bug or an obfuscation</span>
-            <span class="c1"># attempt around the literal &quot;inf&quot; / &quot;infinity&quot; check above.</span>
+            <span class="c1"># attempt around the literal "inf" / "infinity" check above.</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">math</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">duration</span><span class="p">)</span> <span class="ow">or</span> <span class="n">duration</span> <span class="o">&gt;=</span> <span class="n">threshold_s</span><span class="p">:</span>
                 <span class="k">return</span> <span class="kc">True</span>
         <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">IndexError</span><span class="p">):</span>
@@ -598,7 +598,7 @@
     <span class="o">*</span><span class="p">,</span>
     <span class="n">include_passes</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">PolicyFinding</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Evaluate policy checks using profile-driven thresholds.</span>
+<span class="w">    </span><span class="sd">"""Evaluate policy checks using profile-driven thresholds.</span>
 
 <span class="sd">    Returns a list of :class:`PolicyFinding` entries describing the</span>
 <span class="sd">    outcome of each policy check.</span>
@@ -608,7 +608,7 @@
 <span class="sd">        profile (ClusterProfile): Cluster profile carrying the</span>
 <span class="sd">            :class:`PolicyConfig` thresholds.</span>
 <span class="sd">        include_passes (bool): When True, every check emits a</span>
-<span class="sd">            ``PolicyFinding(level=&quot;PASS&quot;, ...)`` entry alongside the</span>
+<span class="sd">            ``PolicyFinding(level="PASS", ...)`` entry alongside the</span>
 <span class="sd">            WARN / BLOCK entries — useful for compliance audit</span>
 <span class="sd">            tooling that needs a record that each check ran and</span>
 <span class="sd">            passed. Default False (Tier L-C4): the common case</span>
@@ -618,7 +618,7 @@
 
 <span class="sd">    Returns:</span>
 <span class="sd">        findings (list[PolicyFinding]): Per-check outcomes.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">findings</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">PolicyFinding</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">res</span> <span class="o">=</span> <span class="n">job_spec</span><span class="o">.</span><span class="n">resources</span>
     <span class="n">cfg</span><span class="p">:</span> <span class="n">PolicyConfig</span> <span class="o">=</span> <span class="n">profile</span><span class="o">.</span><span class="n">policy</span>
@@ -626,18 +626,18 @@
     <span class="k">if</span> <span class="n">res</span><span class="o">.</span><span class="n">requests_gpu</span> <span class="o">&gt;</span> <span class="n">cfg</span><span class="o">.</span><span class="n">max_interactive_gpus</span><span class="p">:</span>
         <span class="n">findings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
             <span class="n">PolicyFinding</span><span class="p">(</span>
-                <span class="s2">&quot;interactive_gpu_limit&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;WARN&quot;</span><span class="p">,</span>
-                <span class="sa">f</span><span class="s2">&quot;Requested GPUs exceed interactive limit guidance &quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="n">cfg</span><span class="o">.</span><span class="n">max_interactive_gpus</span><span class="si">}</span><span class="s2"> GPUs).&quot;</span><span class="p">,</span>
+                <span class="s2">"interactive_gpu_limit"</span><span class="p">,</span>
+                <span class="s2">"WARN"</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">"Requested GPUs exceed interactive limit guidance "</span>
+                <span class="sa">f</span><span class="s2">"(</span><span class="si">{</span><span class="n">cfg</span><span class="o">.</span><span class="n">max_interactive_gpus</span><span class="si">}</span><span class="s2"> GPUs)."</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="p">)</span>
     <span class="k">elif</span> <span class="n">include_passes</span><span class="p">:</span>
         <span class="n">findings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
             <span class="n">PolicyFinding</span><span class="p">(</span>
-                <span class="s2">&quot;interactive_gpu_limit&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;PASS&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;GPU request is within interactive guidance.&quot;</span><span class="p">,</span>
+                <span class="s2">"interactive_gpu_limit"</span><span class="p">,</span>
+                <span class="s2">"PASS"</span><span class="p">,</span>
+                <span class="s2">"GPU request is within interactive guidance."</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="p">)</span>
 
@@ -649,10 +649,10 @@
     <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">block_sleep_infinity</span> <span class="ow">and</span> <span class="n">sleep_present</span><span class="p">:</span>
         <span class="n">findings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
             <span class="n">PolicyFinding</span><span class="p">(</span>
-                <span class="s2">&quot;sleep_in_batch_job&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;BLOCK&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;Batch jobs containing &#39;sleep infinity&#39; or trailing sleep &quot;</span>
-                <span class="s2">&quot;are disallowed.&quot;</span><span class="p">,</span>
+                <span class="s2">"sleep_in_batch_job"</span><span class="p">,</span>
+                <span class="s2">"BLOCK"</span><span class="p">,</span>
+                <span class="s2">"Batch jobs containing 'sleep infinity' or trailing sleep "</span>
+                <span class="s2">"are disallowed."</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="p">)</span>
     <span class="k">elif</span> <span class="n">sleep_present</span><span class="p">:</span>
@@ -663,19 +663,19 @@
         <span class="c1"># emitted regardless of include_passes.</span>
         <span class="n">findings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
             <span class="n">PolicyFinding</span><span class="p">(</span>
-                <span class="s2">&quot;sleep_in_batch_job&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;WARN&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;Sleep pattern detected but block_sleep_infinity is &quot;</span>
-                <span class="s2">&quot;disabled in this profile; the job will be permitted &quot;</span>
-                <span class="s2">&quot;but the pattern is recorded for audit.&quot;</span><span class="p">,</span>
+                <span class="s2">"sleep_in_batch_job"</span><span class="p">,</span>
+                <span class="s2">"WARN"</span><span class="p">,</span>
+                <span class="s2">"Sleep pattern detected but block_sleep_infinity is "</span>
+                <span class="s2">"disabled in this profile; the job will be permitted "</span>
+                <span class="s2">"but the pattern is recorded for audit."</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="p">)</span>
     <span class="k">elif</span> <span class="n">include_passes</span><span class="p">:</span>
         <span class="n">findings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
             <span class="n">PolicyFinding</span><span class="p">(</span>
-                <span class="s2">&quot;sleep_in_batch_job&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;PASS&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;No forbidden sleep patterns detected in command/args.&quot;</span><span class="p">,</span>
+                <span class="s2">"sleep_in_batch_job"</span><span class="p">,</span>
+                <span class="s2">"PASS"</span><span class="p">,</span>
+                <span class="s2">"No forbidden sleep patterns detected in command/args."</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="p">)</span>
 
@@ -684,47 +684,47 @@
     <span class="p">):</span>
         <span class="n">findings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
             <span class="n">PolicyFinding</span><span class="p">(</span>
-                <span class="s2">&quot;request_limit_mismatch&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;WARN&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;Cluster recommends requests close to limits; tune with monitoring.&quot;</span><span class="p">,</span>
+                <span class="s2">"request_limit_mismatch"</span><span class="p">,</span>
+                <span class="s2">"WARN"</span><span class="p">,</span>
+                <span class="s2">"Cluster recommends requests close to limits; tune with monitoring."</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="p">)</span>
     <span class="k">elif</span> <span class="n">include_passes</span><span class="p">:</span>
         <span class="n">findings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
             <span class="n">PolicyFinding</span><span class="p">(</span>
-                <span class="s2">&quot;request_limit_mismatch&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;PASS&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;CPU/memory requests and limits are aligned.&quot;</span><span class="p">,</span>
+                <span class="s2">"request_limit_mismatch"</span><span class="p">,</span>
+                <span class="s2">"PASS"</span><span class="p">,</span>
+                <span class="s2">"CPU/memory requests and limits are aligned."</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="p">)</span>
 
     <span class="k">if</span> <span class="ow">not</span> <span class="n">job_spec</span><span class="o">.</span><span class="n">active_deadline_seconds</span><span class="p">:</span>
-        <span class="c1"># No deadline set; the cluster&#39;s own max applies via Kubernetes.</span>
+        <span class="c1"># No deadline set; the cluster's own max applies via Kubernetes.</span>
         <span class="c1"># Audit-only PASS — gated by include_passes.</span>
         <span class="k">if</span> <span class="n">include_passes</span><span class="p">:</span>
             <span class="n">findings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
                 <span class="n">PolicyFinding</span><span class="p">(</span>
-                    <span class="s2">&quot;long_runtime&quot;</span><span class="p">,</span>
-                    <span class="s2">&quot;PASS&quot;</span><span class="p">,</span>
-                    <span class="s2">&quot;No active_deadline_seconds set; cluster default applies.&quot;</span><span class="p">,</span>
+                    <span class="s2">"long_runtime"</span><span class="p">,</span>
+                    <span class="s2">"PASS"</span><span class="p">,</span>
+                    <span class="s2">"No active_deadline_seconds set; cluster default applies."</span><span class="p">,</span>
                 <span class="p">)</span>
             <span class="p">)</span>
     <span class="k">elif</span> <span class="n">job_spec</span><span class="o">.</span><span class="n">active_deadline_seconds</span> <span class="o">&gt;</span> <span class="n">cfg</span><span class="o">.</span><span class="n">max_runtime_seconds</span><span class="p">:</span>
         <span class="n">findings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
             <span class="n">PolicyFinding</span><span class="p">(</span>
-                <span class="s2">&quot;long_runtime&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;WARN&quot;</span><span class="p">,</span>
-                <span class="sa">f</span><span class="s2">&quot;Runtime (</span><span class="si">{</span><span class="n">job_spec</span><span class="o">.</span><span class="n">active_deadline_seconds</span><span class="si">}</span><span class="s2">s) exceeds &quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;configured maximum (</span><span class="si">{</span><span class="n">cfg</span><span class="o">.</span><span class="n">max_runtime_seconds</span><span class="si">}</span><span class="s2">s).&quot;</span><span class="p">,</span>
+                <span class="s2">"long_runtime"</span><span class="p">,</span>
+                <span class="s2">"WARN"</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">"Runtime (</span><span class="si">{</span><span class="n">job_spec</span><span class="o">.</span><span class="n">active_deadline_seconds</span><span class="si">}</span><span class="s2">s) exceeds "</span>
+                <span class="sa">f</span><span class="s2">"configured maximum (</span><span class="si">{</span><span class="n">cfg</span><span class="o">.</span><span class="n">max_runtime_seconds</span><span class="si">}</span><span class="s2">s)."</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="p">)</span>
     <span class="k">elif</span> <span class="n">include_passes</span><span class="p">:</span>
         <span class="n">findings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
             <span class="n">PolicyFinding</span><span class="p">(</span>
-                <span class="s2">&quot;long_runtime&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;PASS&quot;</span><span class="p">,</span>
-                <span class="sa">f</span><span class="s2">&quot;Runtime (</span><span class="si">{</span><span class="n">job_spec</span><span class="o">.</span><span class="n">active_deadline_seconds</span><span class="si">}</span><span class="s2">s) within &quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;configured maximum (</span><span class="si">{</span><span class="n">cfg</span><span class="o">.</span><span class="n">max_runtime_seconds</span><span class="si">}</span><span class="s2">s).&quot;</span><span class="p">,</span>
+                <span class="s2">"long_runtime"</span><span class="p">,</span>
+                <span class="s2">"PASS"</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">"Runtime (</span><span class="si">{</span><span class="n">job_spec</span><span class="o">.</span><span class="n">active_deadline_seconds</span><span class="si">}</span><span class="s2">s) within "</span>
+                <span class="sa">f</span><span class="s2">"configured maximum (</span><span class="si">{</span><span class="n">cfg</span><span class="o">.</span><span class="n">max_runtime_seconds</span><span class="si">}</span><span class="s2">s)."</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="p">)</span>
     <span class="k">return</span> <span class="n">findings</span></div>
@@ -734,23 +734,23 @@
 <div class="viewcode-block" id="summarize_preflight">
 <a class="viewcode-back" href="../../../api/batch_jobs.html#spikelab.batch_jobs.policy.summarize_preflight">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">summarize_preflight</span><span class="p">(</span><span class="n">findings</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">PolicyFinding</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Level</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return aggregate level and text summary.</span>
+<span class="w">    </span><span class="sd">"""Return aggregate level and text summary.</span>
 
 <span class="sd">    Empty input: when *findings* is an empty iterable the function</span>
-<span class="sd">    returns ``(&quot;PASS&quot;, &quot;&quot;)``. Callers that distinguish &quot;policy ran and</span>
-<span class="sd">    everything passed&quot; from &quot;policy did not run / produced no</span>
-<span class="sd">    findings&quot; must inspect the source iterable&#39;s length rather than</span>
+<span class="sd">    returns ``("PASS", "")``. Callers that distinguish "policy ran and</span>
+<span class="sd">    everything passed" from "policy did not run / produced no</span>
+<span class="sd">    findings" must inspect the source iterable's length rather than</span>
 <span class="sd">    relying on the returned level alone.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">levels</span> <span class="o">=</span> <span class="p">{</span><span class="n">finding</span><span class="o">.</span><span class="n">level</span> <span class="k">for</span> <span class="n">finding</span> <span class="ow">in</span> <span class="n">findings</span><span class="p">}</span>
-    <span class="k">if</span> <span class="s2">&quot;BLOCK&quot;</span> <span class="ow">in</span> <span class="n">levels</span><span class="p">:</span>
-        <span class="n">status</span><span class="p">:</span> <span class="n">Level</span> <span class="o">=</span> <span class="s2">&quot;BLOCK&quot;</span>
-    <span class="k">elif</span> <span class="s2">&quot;WARN&quot;</span> <span class="ow">in</span> <span class="n">levels</span><span class="p">:</span>
-        <span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;WARN&quot;</span>
+    <span class="k">if</span> <span class="s2">"BLOCK"</span> <span class="ow">in</span> <span class="n">levels</span><span class="p">:</span>
+        <span class="n">status</span><span class="p">:</span> <span class="n">Level</span> <span class="o">=</span> <span class="s2">"BLOCK"</span>
+    <span class="k">elif</span> <span class="s2">"WARN"</span> <span class="ow">in</span> <span class="n">levels</span><span class="p">:</span>
+        <span class="n">status</span> <span class="o">=</span> <span class="s2">"WARN"</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;PASS&quot;</span>
-    <span class="n">text</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
-        <span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="n">finding</span><span class="o">.</span><span class="n">level</span><span class="si">}</span><span class="s2">] </span><span class="si">{</span><span class="n">finding</span><span class="o">.</span><span class="n">code</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">finding</span><span class="o">.</span><span class="n">message</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">finding</span> <span class="ow">in</span> <span class="n">findings</span>
+        <span class="n">status</span> <span class="o">=</span> <span class="s2">"PASS"</span>
+    <span class="n">text</span> <span class="o">=</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">"[</span><span class="si">{</span><span class="n">finding</span><span class="o">.</span><span class="n">level</span><span class="si">}</span><span class="s2">] </span><span class="si">{</span><span class="n">finding</span><span class="o">.</span><span class="n">code</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">finding</span><span class="o">.</span><span class="n">message</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">finding</span> <span class="ow">in</span> <span class="n">findings</span>
     <span class="p">)</span>
     <span class="k">return</span> <span class="n">status</span><span class="p">,</span> <span class="n">text</span></div>
 

@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Cell-Type Classification with HIPPIE &mdash; SpikeLab 0.1.1 documentation</title>
+  <title>Cell-Type Classification with HIPPIE &mdash; SpikeLab 0.1.2 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=a58bc63e"></script>
+      <script src="../_static/documentation_options.js?v=92734c54"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
@@ -505,7 +505,7 @@ cell-type discovery.</p>
 <section id="installation">
 <h2>Installation<a class="headerlink" href="#installation" title="Link to this heading"></a></h2>
 <p>HIPPIE is an optional dependency — install it alongside SpikeLab:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pip</span> <span class="n">install</span> <span class="s2">&quot;spikelab[hippie]&quot;</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pip</span> <span class="n">install</span> <span class="s2">"spikelab[hippie]"</span>
 </pre></div>
 </div>
 <p>This pulls in PyTorch, HuggingFace Hub, umap-learn, and hdbscan in addition
@@ -544,9 +544,9 @@ step — there is no MCP tool for it.  Use this path when scripting directly.</p
 
 <span class="c1"># 1. Load spike times from Kilosort output directory</span>
 <span class="n">sd</span> <span class="o">=</span> <span class="n">load_spikedata_from_kilosort</span><span class="p">(</span>
-    <span class="n">folder_path</span><span class="o">=</span><span class="s2">&quot;/path/to/kilosort_output/&quot;</span><span class="p">,</span>
+    <span class="n">folder_path</span><span class="o">=</span><span class="s2">"/path/to/kilosort_output/"</span><span class="p">,</span>
     <span class="n">fs_Hz</span><span class="o">=</span><span class="mi">30000</span><span class="p">,</span>                       <span class="c1"># Neuropixels default</span>
-    <span class="n">cluster_info_tsv</span><span class="o">=</span><span class="s2">&quot;cluster_info.tsv&quot;</span><span class="p">,</span>
+    <span class="n">cluster_info_tsv</span><span class="o">=</span><span class="s2">"cluster_info.tsv"</span><span class="p">,</span>
     <span class="n">include_noise</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
 <span class="p">)</span>
 
@@ -554,9 +554,9 @@ step — there is no MCP tool for it.  Use this path when scripting directly.</p
 <span class="c1">#    Shape must be (n_channels, n_samples).</span>
 <span class="c1">#    Use np.memmap for large files to avoid loading everything into RAM.</span>
 <span class="n">raw</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">memmap</span><span class="p">(</span>
-    <span class="s2">&quot;/path/to/recording.ap.bin&quot;</span><span class="p">,</span>
-    <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;int16&quot;</span><span class="p">,</span>
-    <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;r&quot;</span><span class="p">,</span>
+    <span class="s2">"/path/to/recording.ap.bin"</span><span class="p">,</span>
+    <span class="n">dtype</span><span class="o">=</span><span class="s2">"int16"</span><span class="p">,</span>
+    <span class="n">mode</span><span class="o">=</span><span class="s2">"r"</span><span class="p">,</span>
     <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">385</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">),</span>            <span class="c1"># adjust n_channels and n_samples</span>
 <span class="p">)</span>
 <span class="n">sd</span><span class="o">.</span><span class="n">raw_data</span> <span class="o">=</span> <span class="n">raw</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
@@ -574,21 +574,21 @@ step — there is no MCP tool for it.  Use this path when scripting directly.</p
 <span class="c1"># 4. Run HIPPIE: embed → UMAP → HDBSCAN</span>
 <span class="n">result</span> <span class="o">=</span> <span class="n">classify_neurons</span><span class="p">(</span>
     <span class="n">sd</span><span class="p">,</span>
-    <span class="n">tech_id</span><span class="o">=</span><span class="s2">&quot;neuropixels&quot;</span><span class="p">,</span>             <span class="c1"># or tech_id=0</span>
+    <span class="n">tech_id</span><span class="o">=</span><span class="s2">"neuropixels"</span><span class="p">,</span>             <span class="c1"># or tech_id=0</span>
     <span class="n">run_umap</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
     <span class="n">run_hdbscan</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-    <span class="n">hdbscan_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;min_cluster_size&quot;</span><span class="p">:</span> <span class="mi">5</span><span class="p">},</span>
+    <span class="n">hdbscan_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">"min_cluster_size"</span><span class="p">:</span> <span class="mi">5</span><span class="p">},</span>
 <span class="p">)</span>
 
 <span class="c1"># 5. Store results back into neuron_attributes</span>
-<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">&quot;hippie_cluster&quot;</span><span class="p">,</span>   <span class="n">result</span><span class="p">[</span><span class="s2">&quot;cluster_labels&quot;</span><span class="p">])</span>
-<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">&quot;hippie_umap_x&quot;</span><span class="p">,</span>    <span class="n">result</span><span class="p">[</span><span class="s2">&quot;umap_coords&quot;</span><span class="p">][:,</span> <span class="mi">0</span><span class="p">])</span>
-<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">&quot;hippie_umap_y&quot;</span><span class="p">,</span>    <span class="n">result</span><span class="p">[</span><span class="s2">&quot;umap_coords&quot;</span><span class="p">][:,</span> <span class="mi">1</span><span class="p">])</span>
-<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">&quot;hippie_embedding&quot;</span><span class="p">,</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;embeddings&quot;</span><span class="p">])</span>
+<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">"hippie_cluster"</span><span class="p">,</span>   <span class="n">result</span><span class="p">[</span><span class="s2">"cluster_labels"</span><span class="p">])</span>
+<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">"hippie_umap_x"</span><span class="p">,</span>    <span class="n">result</span><span class="p">[</span><span class="s2">"umap_coords"</span><span class="p">][:,</span> <span class="mi">0</span><span class="p">])</span>
+<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">"hippie_umap_y"</span><span class="p">,</span>    <span class="n">result</span><span class="p">[</span><span class="s2">"umap_coords"</span><span class="p">][:,</span> <span class="mi">1</span><span class="p">])</span>
+<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">"hippie_embedding"</span><span class="p">,</span> <span class="n">result</span><span class="p">[</span><span class="s2">"embeddings"</span><span class="p">])</span>
 
-<span class="n">n_clusters</span> <span class="o">=</span> <span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s2">&quot;cluster_labels&quot;</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="si">}</span><span class="s2"> neurons → </span><span class="si">{</span><span class="n">n_clusters</span><span class="si">}</span><span class="s2"> clustered, &quot;</span>
-      <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;cluster_labels&#39;</span><span class="p">]</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="si">}</span><span class="s2"> noise&quot;</span><span class="p">)</span>
+<span class="n">n_clusters</span> <span class="o">=</span> <span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s2">"cluster_labels"</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="si">}</span><span class="s2"> neurons → </span><span class="si">{</span><span class="n">n_clusters</span><span class="si">}</span><span class="s2"> clustered, "</span>
+      <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s1">'cluster_labels'</span><span class="p">]</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="si">}</span><span class="s2"> noise"</span><span class="p">)</span>
 </pre></div>
 </div>
 <section id="what-get-waveform-traces-does-in-step-3">
@@ -609,30 +609,30 @@ This is the only path that works end-to-end from the <strong>MCP / agent interfa
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.data_loaders</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_spikedata_from_nwb</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.spikedata.hippie_adapter</span><span class="w"> </span><span class="kn">import</span> <span class="n">classify_neurons</span>
 
-<span class="n">sd</span> <span class="o">=</span> <span class="n">load_spikedata_from_nwb</span><span class="p">(</span><span class="s2">&quot;/path/to/recording.nwb&quot;</span><span class="p">)</span>
+<span class="n">sd</span> <span class="o">=</span> <span class="n">load_spikedata_from_nwb</span><span class="p">(</span><span class="s2">"/path/to/recording.nwb"</span><span class="p">)</span>
 
 <span class="c1"># Extract waveforms for all units</span>
 <span class="n">sd</span><span class="o">.</span><span class="n">get_waveform_traces</span><span class="p">(</span><span class="n">unit</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ms_before</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">ms_after</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">store</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-<span class="n">result</span> <span class="o">=</span> <span class="n">classify_neurons</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">tech_id</span><span class="o">=</span><span class="s2">&quot;neuropixels&quot;</span><span class="p">)</span>
-<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">&quot;hippie_cluster&quot;</span><span class="p">,</span>   <span class="n">result</span><span class="p">[</span><span class="s2">&quot;cluster_labels&quot;</span><span class="p">])</span>
-<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">&quot;hippie_umap_x&quot;</span><span class="p">,</span>    <span class="n">result</span><span class="p">[</span><span class="s2">&quot;umap_coords&quot;</span><span class="p">][:,</span> <span class="mi">0</span><span class="p">])</span>
-<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">&quot;hippie_umap_y&quot;</span><span class="p">,</span>    <span class="n">result</span><span class="p">[</span><span class="s2">&quot;umap_coords&quot;</span><span class="p">][:,</span> <span class="mi">1</span><span class="p">])</span>
-<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">&quot;hippie_embedding&quot;</span><span class="p">,</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;embeddings&quot;</span><span class="p">])</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">classify_neurons</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">tech_id</span><span class="o">=</span><span class="s2">"neuropixels"</span><span class="p">)</span>
+<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">"hippie_cluster"</span><span class="p">,</span>   <span class="n">result</span><span class="p">[</span><span class="s2">"cluster_labels"</span><span class="p">])</span>
+<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">"hippie_umap_x"</span><span class="p">,</span>    <span class="n">result</span><span class="p">[</span><span class="s2">"umap_coords"</span><span class="p">][:,</span> <span class="mi">0</span><span class="p">])</span>
+<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">"hippie_umap_y"</span><span class="p">,</span>    <span class="n">result</span><span class="p">[</span><span class="s2">"umap_coords"</span><span class="p">][:,</span> <span class="mi">1</span><span class="p">])</span>
+<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">"hippie_embedding"</span><span class="p">,</span> <span class="n">result</span><span class="p">[</span><span class="s2">"embeddings"</span><span class="p">])</span>
 </pre></div>
 </div>
 </section>
 <section id="mcp-agent">
 <h3>MCP / agent<a class="headerlink" href="#mcp-agent" title="Link to this heading"></a></h3>
 <p>Give an agent these prompts in order:</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>1. &quot;Load the NWB file at /path/to/recording.nwb&quot;
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>1. "Load the NWB file at /path/to/recording.nwb"
 
-2. &quot;Extract waveforms for all N units with 1 ms before and 2 ms after the spike&quot;
+2. "Extract waveforms for all N units with 1 ms before and 2 ms after the spike"
    (the agent will call get_waveform_traces once per unit)
 
-3. &quot;Classify the neurons using HIPPIE with tech_id 0 (neuropixels)&quot;
+3. "Classify the neurons using HIPPIE with tech_id 0 (neuropixels)"
 
-4. &quot;How many clusters did HIPPIE find?  List cluster IDs and neuron counts.&quot;
+4. "How many clusters did HIPPIE find?  List cluster IDs and neuron counts."
 </pre></div>
 </div>
 <div class="admonition note">
@@ -651,20 +651,20 @@ previous session — skip straight to classification:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.spikedata.hippie_adapter</span><span class="w"> </span><span class="kn">import</span> <span class="n">classify_neurons</span>
 
 <span class="c1"># sd already has avg_waveform in neuron_attributes</span>
-<span class="n">result</span> <span class="o">=</span> <span class="n">classify_neurons</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">tech_id</span><span class="o">=</span><span class="s2">&quot;neuropixels&quot;</span><span class="p">)</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">classify_neurons</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">tech_id</span><span class="o">=</span><span class="s2">"neuropixels"</span><span class="p">)</span>
 
-<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">&quot;hippie_cluster&quot;</span><span class="p">,</span>   <span class="n">result</span><span class="p">[</span><span class="s2">&quot;cluster_labels&quot;</span><span class="p">])</span>
-<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">&quot;hippie_umap_x&quot;</span><span class="p">,</span>    <span class="n">result</span><span class="p">[</span><span class="s2">&quot;umap_coords&quot;</span><span class="p">][:,</span> <span class="mi">0</span><span class="p">])</span>
-<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">&quot;hippie_umap_y&quot;</span><span class="p">,</span>    <span class="n">result</span><span class="p">[</span><span class="s2">&quot;umap_coords&quot;</span><span class="p">][:,</span> <span class="mi">1</span><span class="p">])</span>
-<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">&quot;hippie_embedding&quot;</span><span class="p">,</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;embeddings&quot;</span><span class="p">])</span>
+<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">"hippie_cluster"</span><span class="p">,</span>   <span class="n">result</span><span class="p">[</span><span class="s2">"cluster_labels"</span><span class="p">])</span>
+<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">"hippie_umap_x"</span><span class="p">,</span>    <span class="n">result</span><span class="p">[</span><span class="s2">"umap_coords"</span><span class="p">][:,</span> <span class="mi">0</span><span class="p">])</span>
+<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">"hippie_umap_y"</span><span class="p">,</span>    <span class="n">result</span><span class="p">[</span><span class="s2">"umap_coords"</span><span class="p">][:,</span> <span class="mi">1</span><span class="p">])</span>
+<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">"hippie_embedding"</span><span class="p">,</span> <span class="n">result</span><span class="p">[</span><span class="s2">"embeddings"</span><span class="p">])</span>
 </pre></div>
 </div>
 <p>To check whether waveforms are already present before trying:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">waves</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">get_neuron_attribute</span><span class="p">(</span><span class="s2">&quot;avg_waveform&quot;</span><span class="p">)</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">waves</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">get_neuron_attribute</span><span class="p">(</span><span class="s2">"avg_waveform"</span><span class="p">)</span>
 <span class="k">if</span> <span class="n">waves</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">any</span><span class="p">(</span><span class="n">w</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">waves</span><span class="p">):</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Waveforms missing — run get_waveform_traces first&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"Waveforms missing — run get_waveform_traces first"</span><span class="p">)</span>
 <span class="k">else</span><span class="p">:</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Waveforms ready for </span><span class="si">{</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="si">}</span><span class="s2"> units&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Waveforms ready for </span><span class="si">{</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="si">}</span><span class="s2"> units"</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
@@ -674,15 +674,15 @@ previous session — skip straight to classification:</p>
 
 <span class="n">result</span> <span class="o">=</span> <span class="n">classify_neurons</span><span class="p">(</span>
     <span class="n">sd</span><span class="p">,</span>
-    <span class="n">tech_id</span><span class="o">=</span><span class="s2">&quot;neuropixels&quot;</span><span class="p">,</span>   <span class="c1"># or 0, 1, 2, 3  — see Technology IDs below</span>
+    <span class="n">tech_id</span><span class="o">=</span><span class="s2">"neuropixels"</span><span class="p">,</span>   <span class="c1"># or 0, 1, 2, 3  — see Technology IDs below</span>
     <span class="n">run_umap</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
     <span class="n">run_hdbscan</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">&quot;hippie_cluster&quot;</span><span class="p">,</span>   <span class="n">result</span><span class="p">[</span><span class="s2">&quot;cluster_labels&quot;</span><span class="p">])</span>
-<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">&quot;hippie_umap_x&quot;</span><span class="p">,</span>    <span class="n">result</span><span class="p">[</span><span class="s2">&quot;umap_coords&quot;</span><span class="p">][:,</span> <span class="mi">0</span><span class="p">])</span>
-<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">&quot;hippie_umap_y&quot;</span><span class="p">,</span>    <span class="n">result</span><span class="p">[</span><span class="s2">&quot;umap_coords&quot;</span><span class="p">][:,</span> <span class="mi">1</span><span class="p">])</span>
-<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">&quot;hippie_embedding&quot;</span><span class="p">,</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;embeddings&quot;</span><span class="p">])</span>
+<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">"hippie_cluster"</span><span class="p">,</span>   <span class="n">result</span><span class="p">[</span><span class="s2">"cluster_labels"</span><span class="p">])</span>
+<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">"hippie_umap_x"</span><span class="p">,</span>    <span class="n">result</span><span class="p">[</span><span class="s2">"umap_coords"</span><span class="p">][:,</span> <span class="mi">0</span><span class="p">])</span>
+<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">"hippie_umap_y"</span><span class="p">,</span>    <span class="n">result</span><span class="p">[</span><span class="s2">"umap_coords"</span><span class="p">][:,</span> <span class="mi">1</span><span class="p">])</span>
+<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">"hippie_embedding"</span><span class="p">,</span> <span class="n">result</span><span class="p">[</span><span class="s2">"embeddings"</span><span class="p">])</span>
 </pre></div>
 </div>
 <section id="return-values">
@@ -768,21 +768,21 @@ pretrained-model attributes (<code class="docutils literal notranslate"><span cl
 <span class="c1"># Step 1 — train on your data (requires avg_waveform in neuron_attributes)</span>
 <span class="n">compressor</span> <span class="o">=</span> <span class="n">train_vae_on_spikedata</span><span class="p">(</span>
     <span class="n">sd</span><span class="p">,</span>
-    <span class="n">output_dir</span><span class="o">=</span><span class="s2">&quot;./my_vae&quot;</span><span class="p">,</span>
+    <span class="n">output_dir</span><span class="o">=</span><span class="s2">"./my_vae"</span><span class="p">,</span>
     <span class="n">z_dim</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span>          <span class="c1"># latent dimensionality</span>
     <span class="n">n_epochs</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
     <span class="n">batch_size</span><span class="o">=</span><span class="mi">256</span><span class="p">,</span>
-    <span class="n">device</span><span class="o">=</span><span class="s2">&quot;cpu&quot;</span><span class="p">,</span>      <span class="c1"># or &quot;cuda&quot;</span>
+    <span class="n">device</span><span class="o">=</span><span class="s2">"cpu"</span><span class="p">,</span>      <span class="c1"># or "cuda"</span>
 <span class="p">)</span>
 <span class="c1"># Checkpoint saved to ./my_vae/vae_best.ckpt</span>
 
 <span class="c1"># Step 2 — compress (can reuse the returned compressor, or reload later)</span>
 <span class="n">result</span> <span class="o">=</span> <span class="n">compress_neurons</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">compressor</span><span class="p">,</span> <span class="n">run_umap</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">run_hdbscan</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">&quot;vae_cluster&quot;</span><span class="p">,</span>   <span class="n">result</span><span class="p">[</span><span class="s2">&quot;cluster_labels&quot;</span><span class="p">])</span>
-<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">&quot;vae_umap_x&quot;</span><span class="p">,</span>    <span class="n">result</span><span class="p">[</span><span class="s2">&quot;umap_coords&quot;</span><span class="p">][:,</span> <span class="mi">0</span><span class="p">])</span>
-<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">&quot;vae_umap_y&quot;</span><span class="p">,</span>    <span class="n">result</span><span class="p">[</span><span class="s2">&quot;umap_coords&quot;</span><span class="p">][:,</span> <span class="mi">1</span><span class="p">])</span>
-<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">&quot;vae_embedding&quot;</span><span class="p">,</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;embeddings&quot;</span><span class="p">])</span>
+<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">"vae_cluster"</span><span class="p">,</span>   <span class="n">result</span><span class="p">[</span><span class="s2">"cluster_labels"</span><span class="p">])</span>
+<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">"vae_umap_x"</span><span class="p">,</span>    <span class="n">result</span><span class="p">[</span><span class="s2">"umap_coords"</span><span class="p">][:,</span> <span class="mi">0</span><span class="p">])</span>
+<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">"vae_umap_y"</span><span class="p">,</span>    <span class="n">result</span><span class="p">[</span><span class="s2">"umap_coords"</span><span class="p">][:,</span> <span class="mi">1</span><span class="p">])</span>
+<span class="n">sd</span><span class="o">.</span><span class="n">set_neuron_attribute</span><span class="p">(</span><span class="s2">"vae_embedding"</span><span class="p">,</span> <span class="n">result</span><span class="p">[</span><span class="s2">"embeddings"</span><span class="p">])</span>
 </pre></div>
 </div>
 </section>
@@ -791,7 +791,7 @@ pretrained-model attributes (<code class="docutils literal notranslate"><span cl
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.spikedata.hippie_adapter</span><span class="w"> </span><span class="kn">import</span> <span class="n">compress_neurons</span>
 
 <span class="c1"># Load a previously trained checkpoint by path</span>
-<span class="n">result</span> <span class="o">=</span> <span class="n">compress_neurons</span><span class="p">(</span><span class="n">sd_new</span><span class="p">,</span> <span class="s2">&quot;./my_vae/vae_best.ckpt&quot;</span><span class="p">)</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">compress_neurons</span><span class="p">(</span><span class="n">sd_new</span><span class="p">,</span> <span class="s2">"./my_vae/vae_best.ckpt"</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
@@ -800,10 +800,10 @@ pretrained-model attributes (<code class="docutils literal notranslate"><span cl
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">hippie.vae</span><span class="w"> </span><span class="kn">import</span> <span class="n">train_vae</span><span class="p">,</span> <span class="n">VAECompressor</span>
 
 <span class="c1"># Train</span>
-<span class="n">compressor</span> <span class="o">=</span> <span class="n">train_vae</span><span class="p">(</span><span class="n">wave</span><span class="p">,</span> <span class="n">isi</span><span class="p">,</span> <span class="n">acg</span><span class="p">,</span> <span class="n">output_dir</span><span class="o">=</span><span class="s2">&quot;./my_vae&quot;</span><span class="p">,</span> <span class="n">z_dim</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">n_epochs</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+<span class="n">compressor</span> <span class="o">=</span> <span class="n">train_vae</span><span class="p">(</span><span class="n">wave</span><span class="p">,</span> <span class="n">isi</span><span class="p">,</span> <span class="n">acg</span><span class="p">,</span> <span class="n">output_dir</span><span class="o">=</span><span class="s2">"./my_vae"</span><span class="p">,</span> <span class="n">z_dim</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">n_epochs</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
 
 <span class="c1"># Or load an existing checkpoint</span>
-<span class="n">compressor</span> <span class="o">=</span> <span class="n">VAECompressor</span><span class="o">.</span><span class="n">from_checkpoint</span><span class="p">(</span><span class="s2">&quot;./my_vae/vae_best.ckpt&quot;</span><span class="p">)</span>
+<span class="n">compressor</span> <span class="o">=</span> <span class="n">VAECompressor</span><span class="o">.</span><span class="n">from_checkpoint</span><span class="p">(</span><span class="s2">"./my_vae/vae_best.ckpt"</span><span class="p">)</span>
 
 <span class="c1"># Encode</span>
 <span class="n">embeddings</span> <span class="o">=</span> <span class="n">compressor</span><span class="o">.</span><span class="n">get_embeddings</span><span class="p">(</span><span class="n">wave</span><span class="p">,</span> <span class="n">isi</span><span class="p">,</span> <span class="n">acg</span><span class="p">)</span>  <span class="c1"># (N, z_dim)</span>
@@ -814,14 +814,14 @@ pretrained-model attributes (<code class="docutils literal notranslate"><span cl
 </section>
 <section id="id1">
 <h3>MCP / agent<a class="headerlink" href="#id1" title="Link to this heading"></a></h3>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>1. &quot;Train an unconditioned VAE on the neurons in namespace &#39;probe0&#39;,
-   saving to ./my_vae, with 50 epochs.&quot;
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>1. "Train an unconditioned VAE on the neurons in namespace 'probe0',
+   saving to ./my_vae, with 50 epochs."
    → calls train_vae_hippie
 
-2. &quot;Compress the neurons in &#39;probe0&#39; using the checkpoint at ./my_vae/vae_best.ckpt.&quot;
+2. "Compress the neurons in 'probe0' using the checkpoint at ./my_vae/vae_best.ckpt."
    → calls compress_neurons_hippie
 
-3. &quot;How many clusters did the VAE find?&quot;
+3. "How many clusters did the VAE find?"
 </pre></div>
 </div>
 </section>
@@ -875,8 +875,8 @@ pretrained-model attributes (<code class="docutils literal notranslate"><span cl
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">result</span> <span class="o">=</span> <span class="n">classify_neurons</span><span class="p">(</span>
     <span class="n">sd</span><span class="p">,</span>
     <span class="n">tech_id</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
-    <span class="n">umap_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;n_neighbors&quot;</span><span class="p">:</span> <span class="mi">15</span><span class="p">,</span> <span class="s2">&quot;min_dist&quot;</span><span class="p">:</span> <span class="mf">0.05</span><span class="p">},</span>
-    <span class="n">hdbscan_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;min_cluster_size&quot;</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span> <span class="s2">&quot;min_samples&quot;</span><span class="p">:</span> <span class="mi">5</span><span class="p">},</span>
+    <span class="n">umap_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">"n_neighbors"</span><span class="p">:</span> <span class="mi">15</span><span class="p">,</span> <span class="s2">"min_dist"</span><span class="p">:</span> <span class="mf">0.05</span><span class="p">},</span>
+    <span class="n">hdbscan_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">"min_cluster_size"</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span> <span class="s2">"min_samples"</span><span class="p">:</span> <span class="mi">5</span><span class="p">},</span>
 <span class="p">)</span>
 </pre></div>
 </div>
@@ -886,7 +886,7 @@ pretrained-model attributes (<code class="docutils literal notranslate"><span cl
 <p>Useful when you want to inspect the latent space before deciding on
 clustering parameters:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">result</span> <span class="o">=</span> <span class="n">classify_neurons</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">run_umap</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">run_hdbscan</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-<span class="n">embeddings</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;embeddings&quot;</span><span class="p">]</span>   <span class="c1"># (N, 30)</span>
+<span class="n">embeddings</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s2">"embeddings"</span><span class="p">]</span>   <span class="c1"># (N, 30)</span>
 </pre></div>
 </div>
 </section>
@@ -896,7 +896,7 @@ clustering parameters:</p>
 <code class="xref py py-class docutils literal notranslate"><span class="pre">hippie.inference.HIPPIEClassifier</span></code> directly:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">hippie</span><span class="w"> </span><span class="kn">import</span> <span class="n">HIPPIEClassifier</span>
 
-<span class="n">clf</span> <span class="o">=</span> <span class="n">HIPPIEClassifier</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="s2">&quot;Jesusgf23/hippie&quot;</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s2">&quot;cpu&quot;</span><span class="p">)</span>
+<span class="n">clf</span> <span class="o">=</span> <span class="n">HIPPIEClassifier</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="s2">"Jesusgf23/hippie"</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s2">"cpu"</span><span class="p">)</span>
 
 <span class="c1"># Inputs must be preprocessed — see hippie_adapter.extract_features()</span>
 <span class="c1"># for the exact normalization applied to each modality.</span>
@@ -905,7 +905,7 @@ clustering parameters:</p>
 <span class="n">labels</span>      <span class="o">=</span> <span class="n">clf</span><span class="o">.</span><span class="n">hdbscan_cluster</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="n">min_cluster_size</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
 
 <span class="c1"># Load from a local checkpoint instead of HuggingFace</span>
-<span class="n">clf2</span> <span class="o">=</span> <span class="n">HIPPIEClassifier</span><span class="o">.</span><span class="n">from_checkpoint</span><span class="p">(</span><span class="s2">&quot;./my_trained_model.ckpt&quot;</span><span class="p">)</span>
+<span class="n">clf2</span> <span class="o">=</span> <span class="n">HIPPIEClassifier</span><span class="o">.</span><span class="n">from_checkpoint</span><span class="p">(</span><span class="s2">"./my_trained_model.ckpt"</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
@@ -919,15 +919,15 @@ writes <code class="docutils literal notranslate"><span class="pre">hippie_embed
 accessible to all downstream tools.</p>
 <section id="example-agent-prompts">
 <h3>Example agent prompts<a class="headerlink" href="#example-agent-prompts" title="Link to this heading"></a></h3>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>&quot;Classify the neurons in this recording using HIPPIE.&quot;
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>"Classify the neurons in this recording using HIPPIE."
 
-&quot;Run HIPPIE cell-type classification with tech_id 1 (silicon probe).&quot;
+"Run HIPPIE cell-type classification with tech_id 1 (silicon probe)."
 
-&quot;Embed the neurons with HIPPIE and cluster with HDBSCAN, minimum cluster size 10.&quot;
+"Embed the neurons with HIPPIE and cluster with HDBSCAN, minimum cluster size 10."
 
-&quot;What cell types did HIPPIE find? List the cluster IDs and neuron counts.&quot;
+"What cell types did HIPPIE find? List the cluster IDs and neuron counts."
 
-&quot;Plot the HIPPIE UMAP coloured by cluster label.&quot;
+"Plot the HIPPIE UMAP coloured by cluster label."
 </pre></div>
 </div>
 </section>

@@ -5,14 +5,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>spikelab.batch_jobs.models &mdash; SpikeLab 0.1.1 documentation</title>
+  <title>spikelab.batch_jobs.models &mdash; SpikeLab 0.1.2 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../../_static/documentation_options.js?v=a58bc63e"></script>
+      <script src="../../../_static/documentation_options.js?v=92734c54"></script>
       <script src="../../../_static/doctools.js?v=9bcbadda"></script>
       <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
@@ -492,7 +492,7 @@
            <div itemprop="articleBody">
              
   <h1>Source code for spikelab.batch_jobs.models</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;Typed models used by the batch job launcher.&quot;&quot;&quot;</span>
+<span></span><span class="sd">"""Typed models used by the batch job launcher."""</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
@@ -506,10 +506,10 @@
 <div class="viewcode-block" id="ContainerSpec">
 <a class="viewcode-back" href="../../../api/batch_jobs.html#spikelab.batch_jobs.models.ContainerSpec">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">ContainerSpec</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Container runtime details for a single-job pod.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Container runtime details for a single-job pod."""</span>
 
     <span class="n">image</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-    <span class="n">image_pull_policy</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;Always&quot;</span><span class="p">,</span> <span class="s2">&quot;IfNotPresent&quot;</span><span class="p">,</span> <span class="s2">&quot;Never&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;IfNotPresent&quot;</span>
+    <span class="n">image_pull_policy</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"Always"</span><span class="p">,</span> <span class="s2">"IfNotPresent"</span><span class="p">,</span> <span class="s2">"Never"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"IfNotPresent"</span>
     <span class="n">command</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
     <span class="n">args</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
     <span class="n">env</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span></div>
@@ -519,20 +519,20 @@
 <div class="viewcode-block" id="ResourceSpec">
 <a class="viewcode-back" href="../../../api/batch_jobs.html#spikelab.batch_jobs.models.ResourceSpec">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">ResourceSpec</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Resource requests/limits for a job container.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Resource requests/limits for a job container."""</span>
 
-    <span class="n">requests_cpu</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;1&quot;</span>
-    <span class="n">requests_memory</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;2Gi&quot;</span>
-    <span class="n">limits_cpu</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;1&quot;</span>
-    <span class="n">limits_memory</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;2Gi&quot;</span>
+    <span class="n">requests_cpu</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"1"</span>
+    <span class="n">requests_memory</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"2Gi"</span>
+    <span class="n">limits_cpu</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"1"</span>
+    <span class="n">limits_memory</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"2Gi"</span>
     <span class="n">requests_gpu</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
     <span class="n">limits_gpu</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
     <span class="n">node_selector</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
 
-    <span class="nd">@model_validator</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s2">&quot;after&quot;</span><span class="p">)</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_gpu_pairing</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ResourceSpec&quot;</span><span class="p">:</span>
+    <span class="nd">@model_validator</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s2">"after"</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_gpu_pairing</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"ResourceSpec"</span><span class="p">:</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">requests_gpu</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">limits_gpu</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;GPU requests and limits must match&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"GPU requests and limits must match"</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span></div>
 
 
@@ -540,7 +540,7 @@
 <div class="viewcode-block" id="VolumeMountSpec">
 <a class="viewcode-back" href="../../../api/batch_jobs.html#spikelab.batch_jobs.models.VolumeMountSpec">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">VolumeMountSpec</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Pod volume + mount target information.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Pod volume + mount target information."""</span>
 
     <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
     <span class="n">mount_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
@@ -549,10 +549,10 @@
     <span class="n">pvc_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">read_only</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
 
-    <span class="nd">@model_validator</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s2">&quot;after&quot;</span><span class="p">)</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_source</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;VolumeMountSpec&quot;</span><span class="p">:</span>
+    <span class="nd">@model_validator</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s2">"after"</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_source</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"VolumeMountSpec"</span><span class="p">:</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">secret_name</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">pvc_name</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Volume must reference either secret_name or pvc_name&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Volume must reference either secret_name or pvc_name"</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span></div>
 
 
@@ -560,9 +560,9 @@
 <div class="viewcode-block" id="NamespaceHookSpec">
 <a class="viewcode-back" href="../../../api/batch_jobs.html#spikelab.batch_jobs.models.NamespaceHookSpec">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">NamespaceHookSpec</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Per-namespace overrides applied when a job targets a specific namespace.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Per-namespace overrides applied when a job targets a specific namespace."""</span>
 
-    <span class="n">image_pull_policy</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;Always&quot;</span><span class="p">,</span> <span class="s2">&quot;IfNotPresent&quot;</span><span class="p">,</span> <span class="s2">&quot;Never&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">image_pull_policy</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Literal</span><span class="p">[</span><span class="s2">"Always"</span><span class="p">,</span> <span class="s2">"IfNotPresent"</span><span class="p">,</span> <span class="s2">"Never"</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">default_command</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
     <span class="n">required_volumes</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">VolumeMountSpec</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
     <span class="n">env_defaults</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span></div>
@@ -572,21 +572,21 @@
 <div class="viewcode-block" id="StoragePathTemplates">
 <a class="viewcode-back" href="../../../api/batch_jobs.html#spikelab.batch_jobs.models.StoragePathTemplates">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">StoragePathTemplates</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Python format-string templates for S3 artifact paths.</span>
+<span class="w">    </span><span class="sd">"""Python format-string templates for S3 artifact paths.</span>
 
 <span class="sd">    Available placeholders: ``{prefix}``, ``{run_id}``, ``{filename}``.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
-    <span class="n">inputs</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{prefix}</span><span class="s2">inputs/</span><span class="si">{run_id}</span><span class="s2">/</span><span class="si">{filename}</span><span class="s2">&quot;</span>
-    <span class="n">outputs</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{prefix}</span><span class="s2">outputs/</span><span class="si">{run_id}</span><span class="s2">/&quot;</span>
-    <span class="n">logs</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{prefix}</span><span class="s2">logs/</span><span class="si">{run_id}</span><span class="s2">/&quot;</span></div>
+    <span class="n">inputs</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"</span><span class="si">{prefix}</span><span class="s2">inputs/</span><span class="si">{run_id}</span><span class="s2">/</span><span class="si">{filename}</span><span class="s2">"</span>
+    <span class="n">outputs</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"</span><span class="si">{prefix}</span><span class="s2">outputs/</span><span class="si">{run_id}</span><span class="s2">/"</span>
+    <span class="n">logs</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"</span><span class="si">{prefix}</span><span class="s2">logs/</span><span class="si">{run_id}</span><span class="s2">/"</span></div>
 
 
 
 <div class="viewcode-block" id="PolicyConfig">
 <a class="viewcode-back" href="../../../api/batch_jobs.html#spikelab.batch_jobs.models.PolicyConfig">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">PolicyConfig</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Configurable thresholds for the cluster policy engine.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Configurable thresholds for the cluster policy engine."""</span>
 
     <span class="n">max_interactive_gpus</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
     <span class="n">max_runtime_seconds</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="mi">1_209_600</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># 14 days</span>
@@ -598,23 +598,23 @@
 
     <span class="c1"># as idle-placeholders. Separate from ``max_runtime_seconds``</span>
     <span class="c1"># because the check targets compute-masquerading sleeps, not</span>
-    <span class="c1"># the job&#39;s overall wall-clock budget.</span>
+    <span class="c1"># the job's overall wall-clock budget.</span>
 
 
 <div class="viewcode-block" id="JobSpec">
 <a class="viewcode-back" href="../../../api/batch_jobs.html#spikelab.batch_jobs.models.JobSpec">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">JobSpec</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;High-level description of a Kubernetes batch job.</span>
+<span class="w">    </span><span class="sd">"""High-level description of a Kubernetes batch job.</span>
 
 <span class="sd">    Single-container assumption: ``container`` is a single</span>
 <span class="sd">    :class:`ContainerSpec`, not a list. The rendered ``job.yaml.j2``</span>
 <span class="sd">    template targets one container per pod (named ``analysis``).</span>
 <span class="sd">    Multi-container patterns (sidecars for log shipping, init</span>
 <span class="sd">    containers for fetch) are not supported by the current template.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
-    <span class="n">name_prefix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;analysis-job&quot;</span>
-    <span class="n">namespace</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;default&quot;</span>
+    <span class="n">name_prefix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"analysis-job"</span>
+    <span class="n">namespace</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"default"</span>
     <span class="n">labels</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
     <span class="n">container</span><span class="p">:</span> <span class="n">ContainerSpec</span>
     <span class="n">resources</span><span class="p">:</span> <span class="n">ResourceSpec</span>
@@ -637,42 +637,42 @@
     <span class="n">backoff_limit</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
     <span class="n">active_deadline_seconds</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 
-    <span class="nd">@field_validator</span><span class="p">(</span><span class="s2">&quot;name_prefix&quot;</span><span class="p">)</span>
+    <span class="nd">@field_validator</span><span class="p">(</span><span class="s2">"name_prefix"</span><span class="p">)</span>
     <span class="nd">@classmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_validate_name_prefix</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="c1"># Unified validation: both whitespace-only and all-hyphen inputs</span>
-        <span class="c1"># produce a single &quot;no usable ASCII content&quot; message so operators</span>
-        <span class="c1"># don&#39;t see different errors for inputs that look equivalent.</span>
-        <span class="c1"># Previously ``&quot;   &quot;`` raised &quot;cannot be empty&quot; while ``&quot;---&quot;``</span>
-        <span class="c1"># raised &quot;empty after ASCII sanitization&quot; — same root cause,</span>
+        <span class="c1"># produce a single "no usable ASCII content" message so operators</span>
+        <span class="c1"># don't see different errors for inputs that look equivalent.</span>
+        <span class="c1"># Previously ``"   "`` raised "cannot be empty" while ``"---"``</span>
+        <span class="c1"># raised "empty after ASCII sanitization" — same root cause,</span>
         <span class="c1"># different wording, operator confusion.</span>
         <span class="n">stripped</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
-        <span class="c1"># Replace any character outside the RFC 1123 ASCII subset with &#39;-&#39;.</span>
-        <span class="n">safe</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;[^a-z0-9-]&quot;</span><span class="p">,</span> <span class="s2">&quot;-&quot;</span><span class="p">,</span> <span class="n">stripped</span><span class="p">)</span>
+        <span class="c1"># Replace any character outside the RFC 1123 ASCII subset with '-'.</span>
+        <span class="n">safe</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">"[^a-z0-9-]"</span><span class="p">,</span> <span class="s2">"-"</span><span class="p">,</span> <span class="n">stripped</span><span class="p">)</span>
         <span class="c1"># Collapse runs of hyphens.</span>
-        <span class="n">safe</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;-+&quot;</span><span class="p">,</span> <span class="s2">&quot;-&quot;</span><span class="p">,</span> <span class="n">safe</span><span class="p">)</span>
+        <span class="n">safe</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">"-+"</span><span class="p">,</span> <span class="s2">"-"</span><span class="p">,</span> <span class="n">safe</span><span class="p">)</span>
         <span class="c1"># Truncate, then strip leading/trailing hyphens so the result never</span>
-        <span class="c1"># ends in &#39;-&#39; after truncation (RFC 1123 violation).</span>
+        <span class="c1"># ends in '-' after truncation (RFC 1123 violation).</span>
         <span class="n">pre_truncate</span> <span class="o">=</span> <span class="n">safe</span>
-        <span class="n">safe</span> <span class="o">=</span> <span class="n">safe</span><span class="p">[:</span><span class="mi">40</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="s2">&quot;-&quot;</span><span class="p">)</span>
+        <span class="n">safe</span> <span class="o">=</span> <span class="n">safe</span><span class="p">[:</span><span class="mi">40</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="s2">"-"</span><span class="p">)</span>
         <span class="c1"># Warn when the input was meaningfully truncated. The operator</span>
         <span class="c1"># may have expected the full string to survive into the Job</span>
         <span class="c1"># name; surfacing the truncation lets them shorten the prefix</span>
         <span class="c1"># upstream rather than discovering a mangled name in kubectl.</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">pre_truncate</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">40</span> <span class="ow">and</span> <span class="n">safe</span> <span class="ow">and</span> <span class="n">safe</span> <span class="o">!=</span> <span class="n">pre_truncate</span><span class="p">:</span>
             <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;name_prefix=</span><span class="si">{</span><span class="n">value</span><span class="si">!r}</span><span class="s2"> truncated to </span><span class="si">{</span><span class="n">safe</span><span class="si">!r}</span><span class="s2"> to fit the &quot;</span>
-                <span class="s2">&quot;40-character RFC 1123 budget. Job names that need to &quot;</span>
-                <span class="s2">&quot;round-trip the full prefix should pass a shorter &quot;</span>
-                <span class="s2">&quot;name_prefix upstream.&quot;</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">"name_prefix=</span><span class="si">{</span><span class="n">value</span><span class="si">!r}</span><span class="s2"> truncated to </span><span class="si">{</span><span class="n">safe</span><span class="si">!r}</span><span class="s2"> to fit the "</span>
+                <span class="s2">"40-character RFC 1123 budget. Job names that need to "</span>
+                <span class="s2">"round-trip the full prefix should pass a shorter "</span>
+                <span class="s2">"name_prefix upstream."</span><span class="p">,</span>
                 <span class="ne">UserWarning</span><span class="p">,</span>
                 <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">safe</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;name_prefix=</span><span class="si">{</span><span class="n">value</span><span class="si">!r}</span><span class="s2"> has no usable ASCII content (after &quot;</span>
-                <span class="s2">&quot;stripping whitespace and reducing to RFC 1123 characters). &quot;</span>
-                <span class="s2">&quot;Pass a non-empty alphanumeric prefix.&quot;</span>
+                <span class="sa">f</span><span class="s2">"name_prefix=</span><span class="si">{</span><span class="n">value</span><span class="si">!r}</span><span class="s2"> has no usable ASCII content (after "</span>
+                <span class="s2">"stripping whitespace and reducing to RFC 1123 characters). "</span>
+                <span class="s2">"Pass a non-empty alphanumeric prefix."</span>
             <span class="p">)</span>
         <span class="k">return</span> <span class="n">safe</span></div>
 
@@ -681,14 +681,14 @@
 <div class="viewcode-block" id="ClusterProfile">
 <a class="viewcode-back" href="../../../api/batch_jobs.html#spikelab.batch_jobs.models.ClusterProfile">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">ClusterProfile</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Cluster defaults that can be merged with a JobSpec.</span>
+<span class="w">    </span><span class="sd">"""Cluster defaults that can be merged with a JobSpec.</span>
 
 <span class="sd">    All organisation-specific configuration (images, secrets, S3 buckets,</span>
 <span class="sd">    namespace hooks) belongs in profile YAML files, not in Python source.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="n">namespace</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;default&quot;</span>
+    <span class="n">namespace</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"default"</span>
     <span class="n">labels</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
     <span class="n">default_s3_prefix</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">affinity</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
@@ -717,7 +717,7 @@
 <div class="viewcode-block" id="SubmitResult">
 <a class="viewcode-back" href="../../../api/batch_jobs.html#spikelab.batch_jobs.models.SubmitResult">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">SubmitResult</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Result returned by job submission methods.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Result returned by job submission methods."""</span>
 
     <span class="n">job_name</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">manifest_yaml</span><span class="p">:</span> <span class="nb">str</span>
@@ -725,7 +725,7 @@
     <span class="n">uploaded_input_uri</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">output_prefix</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">logs_prefix</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="n">job_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;workspace&quot;</span><span class="p">,</span> <span class="s2">&quot;sorting&quot;</span><span class="p">,</span> <span class="s2">&quot;prepared&quot;</span><span class="p">]</span></div>
+    <span class="n">job_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"workspace"</span><span class="p">,</span> <span class="s2">"sorting"</span><span class="p">,</span> <span class="s2">"prepared"</span><span class="p">]</span></div>
 
 </pre></div>
 

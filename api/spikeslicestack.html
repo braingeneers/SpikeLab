@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SpikeSliceStack &mdash; SpikeLab 0.1.1 documentation</title>
+  <title>SpikeSliceStack &mdash; SpikeLab 0.1.2 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=a58bc63e"></script>
+      <script src="../_static/documentation_options.js?v=92734c54"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
@@ -504,7 +504,7 @@ and provides methods for converting to raster arrays of shape
 <dl class="py class">
 <dt class="sig sig-object py" id="spikelab.spikedata.spikeslicestack.SpikeSliceStack">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">spikelab.spikedata.spikeslicestack.</span></span><span class="sig-name descname"><span class="pre">SpikeSliceStack</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data_obj</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">times_start_to_end</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_peaks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_bounds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spike_stack</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">neuron_attributes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drop_slice_attributes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikeslicestack.html#SpikeSliceStack"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.spikeslicestack.SpikeSliceStack" title="Link to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/builtins/functions.html#object" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>A list of SpikeData objects, one per slice, with spike-based comparison capabilities.</p>
 <p>U is units (neurons) and S is slices (bursts, events, etc). Construct from
 either a single SpikeData with time specifications, or directly from a
@@ -514,23 +514,23 @@ pre-built list of SpikeData objects.</p>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>data_obj</strong> (<a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData"><em>SpikeData</em></a><em> or </em><em>None</em>) – A SpikeData object to slice. Provide
 either this or spike_stack, not both.</p></li>
-<li><p><strong>times_start_to_end</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em> or </em><em>None</em>) – Each entry is a tuple (start, end)
+<li><p><strong>times_start_to_end</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em> or </em><em>None</em>) – Each entry is a tuple (start, end)
 representing the start and end times of a desired slice. Each
 tuple must have the same duration.</p></li>
-<li><p><strong>time_peaks</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em> or </em><em>None</em>) – List of times as int or float where there
+<li><p><strong>time_peaks</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em> or </em><em>None</em>) – List of times as int or float where there
 is a burst peak or stimulation event. Must be paired with
 time_bounds. Alternative to times_start_to_end.</p></li>
-<li><p><strong>time_bounds</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em> or </em><em>None</em>) – Single tuple (left_bound, right_bound).
+<li><p><strong>time_bounds</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple" title="(in Python v3.15)"><em>tuple</em></a><em> or </em><em>None</em>) – Single tuple (left_bound, right_bound).
 For example, (250, 500) means 250 ms before peak and 500 ms
 after peak. Must be paired with time_peaks.</p></li>
-<li><p><strong>spike_stack</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em> or </em><em>None</em>) – List of SpikeData objects, one per slice.
+<li><p><strong>spike_stack</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em> or </em><em>None</em>) – List of SpikeData objects, one per slice.
 All must have the same number of units. Spike times must be
 relative to the slice (0-based or event-centered via
 start_time), not absolute recording times. Provide either this
 or data_obj, not both.</p></li>
-<li><p><strong>neuron_attributes</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em> or </em><em>None</em>) – List of attribute dicts, one per
+<li><p><strong>neuron_attributes</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em> or </em><em>None</em>) – List of attribute dicts, one per
 unit. If None, inherited from data_obj when available.</p></li>
-<li><p><strong>drop_slice_attributes</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – If True (default), neuron_attributes
+<li><p><strong>drop_slice_attributes</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – If True (default), neuron_attributes
 are removed from individual SpikeData slices after construction.
 The shared copy is stored at neuron_attributes. This avoids
 duplicating large per-unit data (e.g. waveform templates) across
@@ -548,7 +548,7 @@ run from -pre_ms to +post_ms with t=0 at the event. Use
 self.times for absolute recording time positions.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)">list</a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)">list</a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -561,7 +561,7 @@ absolute recording time, sorted chronologically. Length equals S.
 Example: [(100, 350), (500, 750), (1000, 1250)].</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)">list</a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)">list</a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -572,7 +572,7 @@ Example: [(100, 350), (500, 750), (1000, 1250)].</p>
 <dd><p>Number of units.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)">int</a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -586,7 +586,7 @@ unit. None if not provided. When drop_slice_attributes is True
 neuron_attributes set to None.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)">list</a> or None</p>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)">list</a> or None</p>
 </dd>
 </dl>
 </dd></dl>
@@ -602,7 +602,7 @@ neuron_attributes set to None.</p>
 <dd><p>Extract a subset of slices from the spike stack.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>slices</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – Slice index or list of slice indices to
+<dd class="field-odd"><p><strong>slices</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a><em> or </em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a>) – Slice index or list of slice indices to
 extract. Indices are kept in <strong>caller order</strong>;
 duplicates are deduplicated (first occurrence wins).
 Negative indices are accepted and resolved against
@@ -639,12 +639,12 @@ dedupe behaviour is consistent with the <code class="docutils literal notranslat
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>units</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, or </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – Unit indices to extract. If by is None,
+<li><p><strong>units</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em>, or </em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a>) – Unit indices to extract. If by is None,
 must be int(s). If by is set, values to match in
 neuron_attributes.</p></li>
-<li><p><strong>by</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><em>None</em>) – If set, select units by this neuron_attribute
+<li><p><strong>by</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> or </em><em>None</em>) – If set, select units by this neuron_attribute
 key instead of by index.</p></li>
-<li><p><strong>preserve_order</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – When False (default), output is
+<li><p><strong>preserve_order</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – When False (default), output is
 sorted ascending by index — consistent with the other
 SpikeLab data classes. When True, output respects the
 order of the input <code class="docutils literal notranslate"><span class="pre">units</span></code> list. Duplicates are
@@ -679,9 +679,9 @@ Trims along the time axis while preserving all slices and units.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>start_idx</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Start index in ms from slice start (inclusive).
+<li><p><strong>start_idx</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Start index in ms from slice start (inclusive).
 Supports negative indexing.</p></li>
-<li><p><strong>end_idx</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – End index in ms from slice start (exclusive).
+<li><p><strong>end_idx</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – End index in ms from slice start (exclusive).
 Supports negative indexing.</p></li>
 </ul>
 </dd>
@@ -698,7 +698,7 @@ to reflect the new absolute time bounds.</p>
 <dd class="field-odd"><p>result (<a class="reference internal" href="#spikelab.spikedata.spikeslicestack.SpikeSliceStack" title="spikelab.spikedata.spikeslicestack.SpikeSliceStack">SpikeSliceStack</a>)</p>
 </dd>
 <dt class="field-even">Raises<span class="colon">:</span></dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – If the underlying slice duration (<code class="docutils literal notranslate"><span class="pre">times[0][1]</span> <span class="pre">-</span>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#ValueError" title="(in Python v3.15)"><strong>ValueError</strong></a> – If the underlying slice duration (<code class="docutils literal notranslate"><span class="pre">times[0][1]</span> <span class="pre">-</span>
 &#160;&#160;&#160; <span class="pre">times[0][0]</span></code>) is not an integer number of milliseconds.
     Use <code class="docutils literal notranslate"><span class="pre">SpikeData.subtime()</span></code> with explicit ms bounds for
     non-integer windows.</p>
@@ -726,8 +726,8 @@ fired in time bin t of slice s.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>bin_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Time bin size in ms (default 1.0).</p></li>
-<li><p><strong>absolute_times</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – If False (default), time bin 0 corresponds
+<li><p><strong>bin_size</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Time bin size in ms (default 1.0).</p></li>
+<li><p><strong>absolute_times</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – If False (default), time bin 0 corresponds
 to the start of each slice (0-based). If True, each slice’s
 spikes are offset by its absolute start time from self.times,
 so bin indices reflect the original recording position. The T
@@ -764,12 +764,12 @@ to each slice’s time origin) and projected to each bin via
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>bin_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Raster bin size in milliseconds. Passed to
+<li><p><strong>bin_size</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Raster bin size in milliseconds. Passed to
 <code class="docutils literal notranslate"><span class="pre">to_raster_array</span></code>.</p></li>
-<li><p><strong>baseline_window_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>]</em>) – <code class="docutils literal notranslate"><span class="pre">(start_ms,</span> <span class="pre">end_ms)</span></code>
+<li><p><strong>baseline_window_ms</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple" title="(in Python v3.15)"><em>tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em>]</em>) – <code class="docutils literal notranslate"><span class="pre">(start_ms,</span> <span class="pre">end_ms)</span></code>
 window relative to slice origin used to estimate the
 per-slice baseline rate.</p></li>
-<li><p><strong>mode</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – <p>Normalization mode:</p>
+<li><p><strong>mode</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – <p>Normalization mode:</p>
 <ul>
 <li><p><code class="docutils literal notranslate"><span class="pre">&quot;subtract&quot;</span></code> (default) — counts above baseline expectation.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">&quot;ratio&quot;</span></code> — counts / expected_counts (NaN where expected
@@ -808,15 +808,15 @@ aggregated z-score exceeds <code class="docutils literal notranslate"><span clas
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>bin_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Raster bin size in milliseconds.</p></li>
-<li><p><strong>baseline_window_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>]</em>) – Baseline window
+<li><p><strong>bin_size</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Raster bin size in milliseconds.</p></li>
+<li><p><strong>baseline_window_ms</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple" title="(in Python v3.15)"><em>tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em>]</em>) – Baseline window
 <code class="docutils literal notranslate"><span class="pre">(start_ms,</span> <span class="pre">end_ms)</span></code> relative to slice origin used to
 estimate the per-slice baseline rate.</p></li>
-<li><p><strong>response_window_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>] or </em><em>None</em>) – Optional
+<li><p><strong>response_window_ms</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple" title="(in Python v3.15)"><em>tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em>] or </em><em>None</em>) – Optional
 response window <code class="docutils literal notranslate"><span class="pre">(start_ms,</span> <span class="pre">end_ms)</span></code> relative to slice
 origin. When None (default), the full slice is searched.</p></li>
-<li><p><strong>z_threshold</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Z-score threshold (default 2.0).</p></li>
-<li><p><strong>aggregator</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – How to combine z-scores across slices before
+<li><p><strong>z_threshold</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Z-score threshold (default 2.0).</p></li>
+<li><p><strong>aggregator</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – How to combine z-scores across slices before
 thresholding. <code class="docutils literal notranslate"><span class="pre">&quot;mean&quot;</span></code> (default) or <code class="docutils literal notranslate"><span class="pre">&quot;max&quot;</span></code>.</p></li>
 </ul>
 </dd>
@@ -851,18 +851,18 @@ runs cross-validated classifier decoding via
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>labels</strong> (<em>array-like</em>) – Per-slice labels of length <code class="docutils literal notranslate"><span class="pre">S</span></code>
 (e.g. stim electrode index, treatment category).</p></li>
-<li><p><strong>response_window_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>]</em>) – Window relative to
+<li><p><strong>response_window_ms</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple" title="(in Python v3.15)"><em>tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em>]</em>) – Window relative to
 slice origin over which response counts are summed.</p></li>
-<li><p><strong>bin_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Raster bin size in ms.</p></li>
-<li><p><strong>baseline_window_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>] or </em><em>None</em>) – Optional
+<li><p><strong>bin_size</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Raster bin size in ms.</p></li>
+<li><p><strong>baseline_window_ms</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple" title="(in Python v3.15)"><em>tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em>] or </em><em>None</em>) – Optional
 per-slice baseline window; when provided, counts are
 baseline-subtracted via <code class="docutils literal notranslate"><span class="pre">baseline_normalized_raster</span></code>.</p></li>
-<li><p><strong>classifier</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – <code class="docutils literal notranslate"><span class="pre">&quot;ridge&quot;</span></code> (default), <code class="docutils literal notranslate"><span class="pre">&quot;mlp&quot;</span></code>, or
+<li><p><strong>classifier</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – <code class="docutils literal notranslate"><span class="pre">&quot;ridge&quot;</span></code> (default), <code class="docutils literal notranslate"><span class="pre">&quot;mlp&quot;</span></code>, or
 <code class="docutils literal notranslate"><span class="pre">&quot;random_forest&quot;</span></code>.</p></li>
-<li><p><strong>cv</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – <code class="docutils literal notranslate"><span class="pre">&quot;loo&quot;</span></code> (default) or int <code class="docutils literal notranslate"><span class="pre">&gt;=</span> <span class="pre">2</span></code>.</p></li>
-<li><p><strong>classifier_kwargs</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em> or </em><em>None</em>) – Forwarded to the sklearn
+<li><p><strong>cv</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> or </em><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – <code class="docutils literal notranslate"><span class="pre">&quot;loo&quot;</span></code> (default) or int <code class="docutils literal notranslate"><span class="pre">&gt;=</span> <span class="pre">2</span></code>.</p></li>
+<li><p><strong>classifier_kwargs</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)"><em>dict</em></a><em> or </em><em>None</em>) – Forwarded to the sklearn
 classifier constructor.</p></li>
-<li><p><strong>random_state</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><em>None</em>) – Reproducibility seed.</p></li>
+<li><p><strong>random_state</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a><em> or </em><em>None</em>) – Reproducibility seed.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -876,7 +876,7 @@ classifier constructor.</p></li>
 </p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>result (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>)</p>
+<dd class="field-odd"><p>result (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)">dict</a>)</p>
 </dd>
 </dl>
 <p class="rubric">Notes</p>
@@ -901,9 +901,9 @@ are responses to different stims?”.</p>
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>stim_labels</strong> (<em>array-like</em>) – Per-slice stim label of length <code class="docutils literal notranslate"><span class="pre">S</span></code>.</p></li>
-<li><p><strong>metric</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – <code class="docutils literal notranslate"><span class="pre">&quot;cosine&quot;</span></code> (default), <code class="docutils literal notranslate"><span class="pre">&quot;pearson&quot;</span></code>,
+<li><p><strong>metric</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – <code class="docutils literal notranslate"><span class="pre">&quot;cosine&quot;</span></code> (default), <code class="docutils literal notranslate"><span class="pre">&quot;pearson&quot;</span></code>,
 <code class="docutils literal notranslate"><span class="pre">&quot;euclidean&quot;</span></code> (distance), or <code class="docutils literal notranslate"><span class="pre">&quot;cross_entropy&quot;</span></code>.</p></li>
-<li><p><strong>bin_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Raster bin size in ms (default 1.0).</p></li>
+<li><p><strong>bin_size</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Raster bin size in ms (default 1.0).</p></li>
 <li><p><strong>slice_indices</strong> (<em>array-like</em><em> or </em><em>None</em>) – Optional subset of slice
 indices to use (e.g. an “early-cycle” or “late-cycle”
 window). When None (default), uses all slices.</p></li>
@@ -940,13 +940,13 @@ responsiveness changes with intrinsic activity changes per unit.</p>
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>group_labels</strong> (<em>array-like</em>) – Per-slice cycle index of length <code class="docutils literal notranslate"><span class="pre">S</span></code>.</p></li>
-<li><p><strong>bin_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Raster bin size in ms.</p></li>
-<li><p><strong>baseline_window_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>]</em>) – Baseline window for
+<li><p><strong>bin_size</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Raster bin size in ms.</p></li>
+<li><p><strong>baseline_window_ms</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple" title="(in Python v3.15)"><em>tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em>]</em>) – Baseline window for
 Poisson z-score normalization.</p></li>
-<li><p><strong>response_window_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>] or </em><em>None</em>) – Optional
+<li><p><strong>response_window_ms</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple" title="(in Python v3.15)"><em>tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em>] or </em><em>None</em>) – Optional
 response window (default: full slice).</p></li>
-<li><p><strong>z_threshold</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Per-cycle z-threshold (default 2.0).</p></li>
-<li><p><strong>aggregator</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – <code class="docutils literal notranslate"><span class="pre">&quot;mean&quot;</span></code> (default) or <code class="docutils literal notranslate"><span class="pre">&quot;max&quot;</span></code> across
+<li><p><strong>z_threshold</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Per-cycle z-threshold (default 2.0).</p></li>
+<li><p><strong>aggregator</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – <code class="docutils literal notranslate"><span class="pre">&quot;mean&quot;</span></code> (default) or <code class="docutils literal notranslate"><span class="pre">&quot;max&quot;</span></code> across
 slices within each cycle.</p></li>
 </ul>
 </dd>
@@ -961,7 +961,7 @@ unit count, shape <code class="docutils literal notranslate"><span class="pre">(
 </p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>result (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>)</p>
+<dd class="field-odd"><p>result (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)">dict</a>)</p>
 </dd>
 </dl>
 </dd></dl>
@@ -980,12 +980,12 @@ stop being responsive (“lost”), or stay responsive (“preserved”).</p>
 <li><p><strong>group_labels</strong> (<em>array-like</em>) – Per-slice cycle index of length <code class="docutils literal notranslate"><span class="pre">S</span></code>.</p></li>
 <li><p><strong>early_groups</strong> (<em>array-like</em>) – Cycle indices for the early group.</p></li>
 <li><p><strong>late_groups</strong> (<em>array-like</em>) – Cycle indices for the late group.</p></li>
-<li><p><strong>bin_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Raster bin size in ms.</p></li>
-<li><p><strong>baseline_window_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>]</em>) – Baseline window.</p></li>
-<li><p><strong>response_window_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>] or </em><em>None</em>) – Response
+<li><p><strong>bin_size</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Raster bin size in ms.</p></li>
+<li><p><strong>baseline_window_ms</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple" title="(in Python v3.15)"><em>tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em>]</em>) – Baseline window.</p></li>
+<li><p><strong>response_window_ms</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple" title="(in Python v3.15)"><em>tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em>] or </em><em>None</em>) – Response
 window (default: full slice).</p></li>
-<li><p><strong>z_threshold</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Per-group z-threshold.</p></li>
-<li><p><strong>aggregator</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – <code class="docutils literal notranslate"><span class="pre">&quot;mean&quot;</span></code> (default) or <code class="docutils literal notranslate"><span class="pre">&quot;max&quot;</span></code>.</p></li>
+<li><p><strong>z_threshold</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Per-group z-threshold.</p></li>
+<li><p><strong>aggregator</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – <code class="docutils literal notranslate"><span class="pre">&quot;mean&quot;</span></code> (default) or <code class="docutils literal notranslate"><span class="pre">&quot;max&quot;</span></code>.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -1006,7 +1006,7 @@ in BOTH.</p></li>
 </p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>result (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>)</p>
+<dd class="field-odd"><p>result (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)">dict</a>)</p>
 </dd>
 </dl>
 <p class="rubric">Notes</p>
@@ -1028,10 +1028,10 @@ responsiveness changes track changes in baseline activity.</p></li>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>metric</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – One of <code class="docutils literal notranslate"><span class="pre">&quot;cosine&quot;</span></code> (default), <code class="docutils literal notranslate"><span class="pre">&quot;pearson&quot;</span></code>,
+<li><p><strong>metric</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – One of <code class="docutils literal notranslate"><span class="pre">&quot;cosine&quot;</span></code> (default), <code class="docutils literal notranslate"><span class="pre">&quot;pearson&quot;</span></code>,
 <code class="docutils literal notranslate"><span class="pre">&quot;euclidean&quot;</span></code> (distance), or <code class="docutils literal notranslate"><span class="pre">&quot;cross_entropy&quot;</span></code>
 (symmetric KL on normalized bin distributions).</p></li>
-<li><p><strong>bin_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Raster bin size in ms (default 1.0).</p></li>
+<li><p><strong>bin_size</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Raster bin size in ms (default 1.0).</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -1072,21 +1072,21 @@ intensities.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>bin_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Raster bin size in milliseconds (passed to
+<li><p><strong>bin_size</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Raster bin size in milliseconds (passed to
 <code class="docutils literal notranslate"><span class="pre">to_raster_array</span></code>).</p></li>
-<li><p><strong>response_window_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>]</em>) – <code class="docutils literal notranslate"><span class="pre">(start_ms,</span> <span class="pre">end_ms)</span></code>
+<li><p><strong>response_window_ms</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple" title="(in Python v3.15)"><em>tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em>]</em>) – <code class="docutils literal notranslate"><span class="pre">(start_ms,</span> <span class="pre">end_ms)</span></code>
 window relative to slice origin over which response counts
 are summed.</p></li>
 <li><p><strong>x_values</strong> (<em>array-like</em><em> or </em><em>None</em>) – Per-slice x values for the
 regression (e.g. cycle index, stimulus intensity). Length
 must equal the number of slices <code class="docutils literal notranslate"><span class="pre">S</span></code>. When None (default),
 uses <code class="docutils literal notranslate"><span class="pre">np.arange(S)</span></code>.</p></li>
-<li><p><strong>baseline_window_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>] or </em><em>None</em>) – Optional
+<li><p><strong>baseline_window_ms</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple" title="(in Python v3.15)"><em>tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em>] or </em><em>None</em>) – Optional
 baseline window for per-slice subtraction. When None
 (default), uses raw response counts; otherwise subtracts the
 expected count per bin (<code class="docutils literal notranslate"><span class="pre">baseline_rate</span> <span class="pre">*</span> <span class="pre">bin_size</span></code>) before
 summing.</p></li>
-<li><p><strong>min_valid_slices</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Minimum number of valid (non-NaN)
+<li><p><strong>min_valid_slices</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Minimum number of valid (non-NaN)
 <code class="docutils literal notranslate"><span class="pre">(x,</span> <span class="pre">y)</span></code> pairs required to fit a regression. Units with
 fewer return NaN for all coefficients. Default 3.</p></li>
 </ul>
@@ -1110,7 +1110,7 @@ amplitude (raw or baseline-subtracted).</p></li>
 </p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>result (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>)</p>
+<dd class="field-odd"><p>result (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)">dict</a>)</p>
 </dd>
 </dl>
 <p class="rubric">Notes</p>
@@ -1130,7 +1130,7 @@ amplitude (raw or baseline-subtracted).</p></li>
 spikes within that slice’s time window.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>min_spikes</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Minimum number of spikes for a unit to count as
+<dd class="field-odd"><p><strong>min_spikes</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Minimum number of spikes for a unit to count as
 active in a slice (default: 2).</p>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -1170,17 +1170,17 @@ and a low-activity group.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>agg_func</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – How to aggregate per-slice timing values across
+<li><p><strong>agg_func</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – How to aggregate per-slice timing values across
 slices. <code class="docutils literal notranslate"><span class="pre">&quot;median&quot;</span></code> (default) or <code class="docutils literal notranslate"><span class="pre">&quot;mean&quot;</span></code>.</p></li>
-<li><p><strong>timing</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Which spike time to extract per unit per slice.
+<li><p><strong>timing</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Which spike time to extract per unit per slice.
 <code class="docutils literal notranslate"><span class="pre">&quot;median&quot;</span></code> — median spike time within the slice (default).
 <code class="docutils literal notranslate"><span class="pre">&quot;mean&quot;</span></code> — mean spike time within the slice.
 <code class="docutils literal notranslate"><span class="pre">&quot;first&quot;</span></code> — first spike time (onset latency).
 Ignored when <code class="docutils literal notranslate"><span class="pre">timing_matrix</span></code> is provided.</p></li>
-<li><p><strong>min_spikes</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Minimum number of spikes for a unit to count as
+<li><p><strong>min_spikes</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Minimum number of spikes for a unit to count as
 active in a slice (default: 2). Ignored when <code class="docutils literal notranslate"><span class="pre">timing_matrix</span></code>
 is provided.</p></li>
-<li><p><strong>min_frac_active</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Minimum fraction of slices a unit
+<li><p><strong>min_frac_active</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> or </em><em>None</em>) – Minimum fraction of slices a unit
 must be active in to be placed in the highly-active group.
 <code class="docutils literal notranslate"><span class="pre">0.0</span></code> or <code class="docutils literal notranslate"><span class="pre">None</span></code> (default: 0.0) skips the split entirely
 and places all units in the highly-active group without
@@ -1220,7 +1220,7 @@ unit was active in.</p>
 </p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>reordered_stacks (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)">tuple</a>)</p>
+<dd class="field-odd"><p>reordered_stacks (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple" title="(in Python v3.15)">tuple</a>)</p>
 </dd>
 </dl>
 <p class="rubric">Notes</p>
@@ -1278,13 +1278,13 @@ then stacks the results into a <code class="docutils literal notranslate"><span 
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>metric</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Similarity metric to use. <code class="docutils literal notranslate"><span class="pre">&quot;ccg&quot;</span></code> for cross-correlogram
+<li><p><strong>metric</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Similarity metric to use. <code class="docutils literal notranslate"><span class="pre">&quot;ccg&quot;</span></code> for cross-correlogram
 on binned rasters (default), <code class="docutils literal notranslate"><span class="pre">&quot;sttc&quot;</span></code> for spike time tiling coefficient.</p></li>
-<li><p><strong>delt</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – STTC time window in milliseconds (default: 20.0).
+<li><p><strong>delt</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – STTC time window in milliseconds (default: 20.0).
 Only used when metric is <code class="docutils literal notranslate"><span class="pre">&quot;sttc&quot;</span></code>.</p></li>
-<li><p><strong>bin_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Bin size in milliseconds for the binary raster
+<li><p><strong>bin_size</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Bin size in milliseconds for the binary raster
 (default: 1.0). Only used when metric is <code class="docutils literal notranslate"><span class="pre">&quot;ccg&quot;</span></code>.</p></li>
-<li><p><strong>max_lag</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Maximum lag in milliseconds to search for the peak
+<li><p><strong>max_lag</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Maximum lag in milliseconds to search for the peak
 correlation (default: 350). Only used when metric is <code class="docutils literal notranslate"><span class="pre">&quot;ccg&quot;</span></code>.</p></li>
 </ul>
 </dd>
@@ -1323,17 +1323,17 @@ events?” Returns a <code class="docutils literal notranslate"><span class="pre
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>metric</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Similarity metric to use. <code class="docutils literal notranslate"><span class="pre">&quot;ccg&quot;</span></code> for cross-correlogram
+<li><p><strong>metric</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Similarity metric to use. <code class="docutils literal notranslate"><span class="pre">&quot;ccg&quot;</span></code> for cross-correlogram
 on binned rasters (default), <code class="docutils literal notranslate"><span class="pre">&quot;sttc&quot;</span></code> for spike time tiling coefficient.</p></li>
-<li><p><strong>delt</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – STTC time window in milliseconds (default: 20.0).
+<li><p><strong>delt</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – STTC time window in milliseconds (default: 20.0).
 Only used when metric is <code class="docutils literal notranslate"><span class="pre">&quot;sttc&quot;</span></code>.</p></li>
-<li><p><strong>bin_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Bin size in milliseconds for the binary raster
+<li><p><strong>bin_size</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Bin size in milliseconds for the binary raster
 (default: 1.0). Only used when metric is <code class="docutils literal notranslate"><span class="pre">&quot;ccg&quot;</span></code>.</p></li>
-<li><p><strong>max_lag</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Maximum lag in milliseconds to search for the peak
+<li><p><strong>max_lag</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Maximum lag in milliseconds to search for the peak
 correlation (default: 350). Only used when metric is <code class="docutils literal notranslate"><span class="pre">&quot;ccg&quot;</span></code>.</p></li>
-<li><p><strong>min_spikes</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Minimum number of spikes in a slice for a unit to
+<li><p><strong>min_spikes</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Minimum number of spikes in a slice for a unit to
 be considered valid in that slice (default: 2).</p></li>
-<li><p><strong>min_frac</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Maximum fraction of slices that can be invalid before
+<li><p><strong>min_frac</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Maximum fraction of slices that can be invalid before
 a unit’s average is set to NaN (default: 0.3).</p></li>
 <li><p><strong>frac_active</strong> (<em>np.ndarray</em><em> or </em><em>None</em>) – Optional pre-computed
 fraction-active array of shape <code class="docutils literal notranslate"><span class="pre">(U,)</span></code> to override the
@@ -1343,7 +1343,7 @@ When provided, a unit’s average is set to NaN if
 controls which individual slice pairs are computed.
 Compatible sources: <code class="docutils literal notranslate"><span class="pre">SpikeSliceStack.compute_frac_active</span></code>
 and <code class="docutils literal notranslate"><span class="pre">SpikeData.get_frac_active</span></code> (<code class="docutils literal notranslate"><span class="pre">frac_per_unit</span></code> output).</p></li>
-<li><p><strong>n_jobs</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Number of threads for parallel computation. -1 uses
+<li><p><strong>n_jobs</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Number of threads for parallel computation. -1 uses
 all cores (default), 1 disables parallelism, None is serial.</p></li>
 </ul>
 </dd>
@@ -1385,10 +1385,10 @@ fewer than min_spikes spikes in a slice are marked NaN.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>timing</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Which spike time to extract per unit per slice.
+<li><p><strong>timing</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Which spike time to extract per unit per slice.
 <code class="docutils literal notranslate"><span class="pre">&quot;median&quot;</span></code> (default), <code class="docutils literal notranslate"><span class="pre">&quot;mean&quot;</span></code>, or <code class="docutils literal notranslate"><span class="pre">&quot;first&quot;</span></code> (onset
 latency).</p></li>
-<li><p><strong>min_spikes</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Minimum number of spikes for a unit to count
+<li><p><strong>min_spikes</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Minimum number of spikes for a unit to count
 as active in a slice (default: 2).</p></li>
 </ul>
 </dd>
@@ -1436,24 +1436,24 @@ timing values per unit per slice. NaN entries mark inactive
 units. Typically produced by <code class="docutils literal notranslate"><span class="pre">get_unit_timing_per_slice</span></code>.
 When None, computed automatically using timing and
 min_spikes.</p></li>
-<li><p><strong>timing</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Which spike time to extract per unit per slice.
+<li><p><strong>timing</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Which spike time to extract per unit per slice.
 <code class="docutils literal notranslate"><span class="pre">&quot;median&quot;</span></code> (default), <code class="docutils literal notranslate"><span class="pre">&quot;mean&quot;</span></code>, or <code class="docutils literal notranslate"><span class="pre">&quot;first&quot;</span></code>. Only used
 when timing_matrix is None.</p></li>
-<li><p><strong>min_spikes</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Minimum spikes for activity (default: 2). Only
+<li><p><strong>min_spikes</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Minimum spikes for activity (default: 2). Only
 used when timing_matrix is None.</p></li>
-<li><p><strong>min_overlap</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Minimum number of units that must be active in
+<li><p><strong>min_overlap</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Minimum number of units that must be active in
 both slices (default: 3).</p></li>
-<li><p><strong>min_overlap_frac</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Minimum fraction of total units
+<li><p><strong>min_overlap_frac</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> or </em><em>None</em>) – Minimum fraction of total units
 that must be active in both slices (default: None). When
 provided, the effective threshold is
 <code class="docutils literal notranslate"><span class="pre">max(min_overlap,</span> <span class="pre">ceil(min_overlap_frac</span> <span class="pre">*</span> <span class="pre">U))</span></code>.</p></li>
-<li><p><strong>n_shuffles</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Number of shuffle iterations for z-scoring
+<li><p><strong>n_shuffles</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Number of shuffle iterations for z-scoring
 (default: 100). Set to 0 to return raw Spearman correlations.
 Values between 1 and 4 are rejected (minimum 5 required for
 a meaningful null distribution).</p></li>
-<li><p><strong>seed</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><em>None</em>) – Random seed for reproducibility of the shuffle
+<li><p><strong>seed</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a><em> or </em><em>None</em>) – Random seed for reproducibility of the shuffle
 (default: 1).</p></li>
-<li><p><strong>n_jobs</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Number of threads for parallel computation. -1 uses
+<li><p><strong>n_jobs</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Number of threads for parallel computation. -1 uses
 all cores (default), 1 disables parallelism, None is serial.</p></li>
 </ul>
 </dd>
@@ -1484,31 +1484,31 @@ to <code class="xref py py-func docutils literal notranslate"><span class="pre">
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>unit_idx</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Index of the unit to plot.</p></li>
+<li><p><strong>unit_idx</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Index of the unit to plot.</p></li>
 <li><p><strong>ax</strong> (<em>matplotlib.axes.Axes</em><em> or </em><em>None</em>) – Target axes. If None, a new
 figure and axes are created.</p></li>
 <li><p><strong>color_vals</strong> (<em>np.ndarray</em><em> or </em><em>None</em>) – Per-slice colour values.</p></li>
-<li><p><strong>color_label</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Colorbar label.</p></li>
-<li><p><strong>cmap</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Matplotlib colormap name.</p></li>
-<li><p><strong>time_offset</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Value subtracted from every spike time
+<li><p><strong>color_label</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Colorbar label.</p></li>
+<li><p><strong>cmap</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Matplotlib colormap name.</p></li>
+<li><p><strong>time_offset</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Value subtracted from every spike time
 before plotting. Slices from <code class="docutils literal notranslate"><span class="pre">align_to_events</span></code> are
 already event-centered (spike times in
 <code class="docutils literal notranslate"><span class="pre">[-pre_ms,</span> <span class="pre">+post_ms]</span></code>), so use the default
 <code class="docutils literal notranslate"><span class="pre">time_offset=0</span></code>. Only set a non-zero value when spike
 times are not already centered on the event.</p></li>
-<li><p><strong>xlabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – X-axis label.</p></li>
-<li><p><strong>ylabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Y-axis label.</p></li>
-<li><p><strong>x_range</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em> or </em><em>None</em>) – <code class="docutils literal notranslate"><span class="pre">(xmin,</span> <span class="pre">xmax)</span></code> for the x-axis.</p></li>
-<li><p><strong>vlines</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em>] or </em><em>None</em>) – Vertical reference lines. Each dict
+<li><p><strong>xlabel</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – X-axis label.</p></li>
+<li><p><strong>ylabel</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Y-axis label.</p></li>
+<li><p><strong>x_range</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple" title="(in Python v3.15)"><em>tuple</em></a><em> or </em><em>None</em>) – <code class="docutils literal notranslate"><span class="pre">(xmin,</span> <span class="pre">xmax)</span></code> for the x-axis.</p></li>
+<li><p><strong>vlines</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)"><em>dict</em></a><em>] or </em><em>None</em>) – Vertical reference lines. Each dict
 must contain <code class="docutils literal notranslate"><span class="pre">'x'</span></code> and may optionally include <code class="docutils literal notranslate"><span class="pre">'color'</span></code>,
 <code class="docutils literal notranslate"><span class="pre">'linestyle'</span></code>, <code class="docutils literal notranslate"><span class="pre">'linewidth'</span></code>.</p></li>
-<li><p><strong>show_colorbar</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Add a colorbar when color_vals is provided.</p></li>
-<li><p><strong>marker_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Scatter marker size.</p></li>
-<li><p><strong>font_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><em>None</em>) – Font size for labels/ticks.</p></li>
-<li><p><strong>style</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – <code class="docutils literal notranslate"><span class="pre">&quot;scatter&quot;</span></code> for dot markers, <code class="docutils literal notranslate"><span class="pre">&quot;eventplot&quot;</span></code> for
+<li><p><strong>show_colorbar</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Add a colorbar when color_vals is provided.</p></li>
+<li><p><strong>marker_size</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Scatter marker size.</p></li>
+<li><p><strong>font_size</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a><em> or </em><em>None</em>) – Font size for labels/ticks.</p></li>
+<li><p><strong>style</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – <code class="docutils literal notranslate"><span class="pre">&quot;scatter&quot;</span></code> for dot markers, <code class="docutils literal notranslate"><span class="pre">&quot;eventplot&quot;</span></code> for
 vertical line markers.</p></li>
-<li><p><strong>invert_y</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – If True, first slice at top, last at bottom.</p></li>
-<li><p><strong>linewidths</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Line width for eventplot markers.</p></li>
+<li><p><strong>invert_y</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – If True, first slice at top, last at bottom.</p></li>
+<li><p><strong>linewidths</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Line width for eventplot markers.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>

@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Curation &mdash; SpikeLab 0.1.1 documentation</title>
+  <title>Curation &mdash; SpikeLab 0.1.2 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=a58bc63e"></script>
+      <script src="../_static/documentation_options.js?v=92734c54"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
@@ -523,7 +523,7 @@ passed the curation criterion.</p></li>
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>sd</strong> (<a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData"><em>SpikeData</em></a>) – Source spike data.</p></li>
-<li><p><strong>min_spikes</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Minimum spike count threshold.</p></li>
+<li><p><strong>min_spikes</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Minimum spike count threshold.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -544,7 +544,7 @@ result (dict): <code class="docutils literal notranslate"><span class="pre">{&qu
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>sd</strong> (<a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData"><em>SpikeData</em></a>) – Source spike data.</p></li>
-<li><p><strong>min_rate_hz</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Minimum firing rate in Hz.</p></li>
+<li><p><strong>min_rate_hz</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Minimum firing rate in Hz.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -574,14 +574,14 @@ contaminated units.</p></li>
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>sd</strong> (<a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData"><em>SpikeData</em></a>) – Source spike data.</p></li>
-<li><p><strong>max_violation</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Maximum allowed metric. With
+<li><p><strong>max_violation</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Maximum allowed metric. With
 <code class="docutils literal notranslate"><span class="pre">method=&quot;percent&quot;</span></code> this is a fraction in <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">1]</span></code>
 (default <code class="docutils literal notranslate"><span class="pre">0.01</span></code> = 1 % of spikes). With <code class="docutils literal notranslate"><span class="pre">method=&quot;hill&quot;</span></code>
 it is a contamination ratio.</p></li>
-<li><p><strong>threshold_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Refractory period threshold in ms.</p></li>
-<li><p><strong>min_isi_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Minimum possible ISI enforced by hardware or
+<li><p><strong>threshold_ms</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Refractory period threshold in ms.</p></li>
+<li><p><strong>min_isi_ms</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Minimum possible ISI enforced by hardware or
 post-processing, in ms.</p></li>
-<li><p><strong>method</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – <code class="docutils literal notranslate"><span class="pre">&quot;percent&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;hill&quot;</span></code>.</p></li>
+<li><p><strong>method</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – <code class="docutils literal notranslate"><span class="pre">&quot;percent&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;hill&quot;</span></code>.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -611,10 +611,10 @@ available a <code class="docutils literal notranslate"><span class="pre">ValueEr
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>sd</strong> (<a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData"><em>SpikeData</em></a>) – Source spike data.</p></li>
-<li><p><strong>min_snr</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Minimum SNR threshold.</p></li>
-<li><p><strong>ms_before</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – ms before spike for waveform extraction
+<li><p><strong>min_snr</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Minimum SNR threshold.</p></li>
+<li><p><strong>ms_before</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – ms before spike for waveform extraction
 (only used when computing from raw_data).</p></li>
-<li><p><strong>ms_after</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – ms after spike for waveform extraction
+<li><p><strong>ms_after</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – ms after spike for waveform extraction
 (only used when computing from raw_data).</p></li>
 </ul>
 </dd>
@@ -644,15 +644,15 @@ the peak.</p>
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>sd</strong> (<a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData"><em>SpikeData</em></a>) – Source spike data.</p></li>
-<li><p><strong>max_std_norm</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Maximum allowed normalized STD.</p></li>
-<li><p><strong>at_peak</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Measure STD at peak sample only.</p></li>
-<li><p><strong>window_ms_before</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Window before peak for averaging STD
+<li><p><strong>max_std_norm</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Maximum allowed normalized STD.</p></li>
+<li><p><strong>at_peak</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Measure STD at peak sample only.</p></li>
+<li><p><strong>window_ms_before</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Window before peak for averaging STD
 (only used when <em>at_peak</em> is False).</p></li>
-<li><p><strong>window_ms_after</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Window after peak for averaging STD
+<li><p><strong>window_ms_after</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Window after peak for averaging STD
 (only used when <em>at_peak</em> is False).</p></li>
-<li><p><strong>ms_before</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – ms before spike for waveform extraction
+<li><p><strong>ms_before</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – ms before spike for waveform extraction
 (only used when computing from raw_data).</p></li>
-<li><p><strong>ms_after</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – ms after spike for waveform extraction
+<li><p><strong>ms_after</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – ms after spike for waveform extraction
 (only used when computing from raw_data).</p></li>
 </ul>
 </dd>
@@ -682,16 +682,16 @@ denominator with LFP energy.</p>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>sd</strong> (<a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData"><em>SpikeData</em></a>) – Source spike data.  Must have non-empty
 <code class="docutils literal notranslate"><span class="pre">raw_data</span></code>.</p></li>
-<li><p><strong>ms_before</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – ms before spike for waveform extraction.</p></li>
-<li><p><strong>ms_after</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – ms after spike for waveform extraction.</p></li>
-<li><p><strong>at_peak</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Measure STD at peak sample only.</p></li>
-<li><p><strong>window_ms_before</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Window before peak for averaging STD
+<li><p><strong>ms_before</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – ms before spike for waveform extraction.</p></li>
+<li><p><strong>ms_after</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – ms after spike for waveform extraction.</p></li>
+<li><p><strong>at_peak</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Measure STD at peak sample only.</p></li>
+<li><p><strong>window_ms_before</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Window before peak for averaging STD
 (only used when <em>at_peak</em> is False).</p></li>
-<li><p><strong>window_ms_after</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Window after peak for averaging STD
+<li><p><strong>window_ms_after</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Window after peak for averaging STD
 (only used when <em>at_peak</em> is False).</p></li>
-<li><p><strong>freq_min</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Low-cut frequency for bandpass filter (Hz).
+<li><p><strong>freq_min</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Low-cut frequency for bandpass filter (Hz).
 Defaults to 300 Hz (matches <code class="docutils literal notranslate"><span class="pre">_globals.FREQ_MIN</span></code>).</p></li>
-<li><p><strong>freq_max</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – High-cut frequency for bandpass filter (Hz).
+<li><p><strong>freq_max</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – High-cut frequency for bandpass filter (Hz).
 Defaults to 6000 Hz (matches <code class="docutils literal notranslate"><span class="pre">_globals.FREQ_MAX</span></code>).</p></li>
 </ul>
 </dd>
@@ -720,19 +720,19 @@ filtered SpikeData and a dict of per-criterion results.</p>
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>sd</strong> (<a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData"><em>SpikeData</em></a>) – Source spike data.</p></li>
-<li><p><strong>min_spikes</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><em>None</em>) – Minimum spike count.</p></li>
-<li><p><strong>min_rate_hz</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Minimum firing rate in Hz.</p></li>
-<li><p><strong>isi_max</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Maximum ISI violation metric.</p></li>
-<li><p><strong>isi_threshold_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Refractory period for ISI check.</p></li>
-<li><p><strong>isi_min_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Minimum possible ISI for ISI check.</p></li>
-<li><p><strong>isi_method</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – <code class="docutils literal notranslate"><span class="pre">&quot;percent&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;hill&quot;</span></code> for ISI check.</p></li>
-<li><p><strong>min_snr</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Minimum SNR.</p></li>
-<li><p><strong>max_std_norm</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Maximum normalized STD.</p></li>
-<li><p><strong>std_at_peak</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Measure STD at peak only.</p></li>
-<li><p><strong>std_window_ms_before</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Window before peak for STD averaging.</p></li>
-<li><p><strong>std_window_ms_after</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Window after peak for STD averaging.</p></li>
-<li><p><strong>snr_ms_before</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – ms before spike for waveform extraction.</p></li>
-<li><p><strong>snr_ms_after</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – ms after spike for waveform extraction.</p></li>
+<li><p><strong>min_spikes</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a><em> or </em><em>None</em>) – Minimum spike count.</p></li>
+<li><p><strong>min_rate_hz</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> or </em><em>None</em>) – Minimum firing rate in Hz.</p></li>
+<li><p><strong>isi_max</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> or </em><em>None</em>) – Maximum ISI violation metric.</p></li>
+<li><p><strong>isi_threshold_ms</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Refractory period for ISI check.</p></li>
+<li><p><strong>isi_min_ms</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Minimum possible ISI for ISI check.</p></li>
+<li><p><strong>isi_method</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – <code class="docutils literal notranslate"><span class="pre">&quot;percent&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;hill&quot;</span></code> for ISI check.</p></li>
+<li><p><strong>min_snr</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> or </em><em>None</em>) – Minimum SNR.</p></li>
+<li><p><strong>max_std_norm</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> or </em><em>None</em>) – Maximum normalized STD.</p></li>
+<li><p><strong>std_at_peak</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Measure STD at peak only.</p></li>
+<li><p><strong>std_window_ms_before</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Window before peak for STD averaging.</p></li>
+<li><p><strong>std_window_ms_after</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Window after peak for STD averaging.</p></li>
+<li><p><strong>snr_ms_before</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – ms before spike for waveform extraction.</p></li>
+<li><p><strong>snr_ms_after</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – ms after spike for waveform extraction.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -756,11 +756,11 @@ Kilosort2 pipeline, making it suitable for saving as JSON.</p>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>sd_original</strong> (<a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData"><em>SpikeData</em></a>) – The SpikeData <strong>before</strong> curation.</p></li>
 <li><p><strong>sd_curated</strong> (<a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData"><em>SpikeData</em></a>) – The SpikeData <strong>after</strong> curation.</p></li>
-<li><p><strong>results</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a>) – Results dict returned by <code class="docutils literal notranslate"><span class="pre">curate()</span></code> or
+<li><p><strong>results</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)"><em>dict</em></a>) – Results dict returned by <code class="docutils literal notranslate"><span class="pre">curate()</span></code> or
 assembled manually from individual <code class="docutils literal notranslate"><span class="pre">curate_by_*</span></code> calls.
 Keys are criterion names, values are dicts with <code class="docutils literal notranslate"><span class="pre">&quot;metric&quot;</span></code>
 and <code class="docutils literal notranslate"><span class="pre">&quot;passed&quot;</span></code> arrays.</p></li>
-<li><p><strong>parameters</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em> or </em><em>None</em>) – Curation parameter values to record.
+<li><p><strong>parameters</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)"><em>dict</em></a><em> or </em><em>None</em>) – Curation parameter values to record.
 If None, an empty dict is stored.</p></li>
 </ul>
 </dd>
@@ -773,7 +773,7 @@ If None, an empty dict is stored.</p></li>
 </p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>history (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>)</p>
+<dd class="field-odd"><p>history (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)">dict</a>)</p>
 </dd>
 </dl>
 </dd></dl>
@@ -798,17 +798,17 @@ trains rather than simply removing units.</p>
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>sd</strong> (<a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData"><em>SpikeData</em></a>) – spike data.</p></li>
-<li><p><strong>dist_um</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Maximum inter-electrode distance in µm to consider
+<li><p><strong>dist_um</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Maximum inter-electrode distance in µm to consider
 a pair as candidate duplicates.</p></li>
-<li><p><strong>max_violation_rate</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Maximum ISI violation rate (fraction,
+<li><p><strong>max_violation_rate</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Maximum ISI violation rate (fraction,
 not percent) for a unit to participate in a merge.</p></li>
-<li><p><strong>isi_threshold_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Refractory period threshold in ms.</p></li>
-<li><p><strong>cosine_threshold</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Minimum cosine similarity to merge a pair.</p></li>
-<li><p><strong>max_lag</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Maximum lag in samples for cosine similarity alignment.</p></li>
-<li><p><strong>delta_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Spike deduplication window in ms when merging trains.</p></li>
-<li><p><strong>max_isi_increase</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Maximum allowable absolute increase in ISI
+<li><p><strong>isi_threshold_ms</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Refractory period threshold in ms.</p></li>
+<li><p><strong>cosine_threshold</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Minimum cosine similarity to merge a pair.</p></li>
+<li><p><strong>max_lag</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Maximum lag in samples for cosine similarity alignment.</p></li>
+<li><p><strong>delta_ms</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Spike deduplication window in ms when merging trains.</p></li>
+<li><p><strong>max_isi_increase</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Maximum allowable absolute increase in ISI
 violation fraction after merging.</p></li>
-<li><p><strong>verbose</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Print per-pair merge decisions.</p></li>
+<li><p><strong>verbose</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Print per-pair merge decisions.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>

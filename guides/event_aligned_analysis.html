@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Event-Aligned Analysis &mdash; SpikeLab 0.1.1 documentation</title>
+  <title>Event-Aligned Analysis &mdash; SpikeLab 0.1.2 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=a58bc63e"></script>
+      <script src="../_static/documentation_options.js?v=92734c54"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
@@ -520,22 +520,22 @@ so that time zero corresponds to the event.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpikeData</span>
 
 <span class="c1"># sd is a SpikeData object; tburst is an array of burst peak times (ms)</span>
-<span class="c1"># kind=&quot;rate&quot; returns a RateSliceStack</span>
+<span class="c1"># kind="rate" returns a RateSliceStack</span>
 <span class="n">rss</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">align_to_events</span><span class="p">(</span>
     <span class="n">tburst</span><span class="p">,</span>              <span class="c1"># event times in ms</span>
     <span class="n">pre_ms</span><span class="o">=</span><span class="mi">250</span><span class="p">,</span>          <span class="c1"># window before each event</span>
     <span class="n">post_ms</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>         <span class="c1"># window after each event</span>
-    <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;rate&quot;</span><span class="p">,</span>         <span class="c1"># &quot;rate&quot; for RateSliceStack, &quot;spike&quot; for SpikeSliceStack</span>
-    <span class="n">bin_size_ms</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>     <span class="c1"># time bin width (only used for kind=&quot;rate&quot;)</span>
-    <span class="n">sigma_ms</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>         <span class="c1"># Gaussian smoothing sigma (only used for kind=&quot;rate&quot;)</span>
+    <span class="n">kind</span><span class="o">=</span><span class="s2">"rate"</span><span class="p">,</span>         <span class="c1"># "rate" for RateSliceStack, "spike" for SpikeSliceStack</span>
+    <span class="n">bin_size_ms</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>     <span class="c1"># time bin width (only used for kind="rate")</span>
+    <span class="n">sigma_ms</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>         <span class="c1"># Gaussian smoothing sigma (only used for kind="rate")</span>
 <span class="p">)</span>
 
-<span class="c1"># kind=&quot;spike&quot; returns a SpikeSliceStack</span>
+<span class="c1"># kind="spike" returns a SpikeSliceStack</span>
 <span class="n">sss</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">align_to_events</span><span class="p">(</span>
     <span class="n">tburst</span><span class="p">,</span>
     <span class="n">pre_ms</span><span class="o">=</span><span class="mi">250</span><span class="p">,</span>
     <span class="n">post_ms</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>
-    <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;spike&quot;</span><span class="p">,</span>
+    <span class="n">kind</span><span class="o">=</span><span class="s2">"spike"</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
 </div>
@@ -576,11 +576,11 @@ window extends outside the recording boundaries are dropped automatically
 
 <span class="n">plot_heatmap</span><span class="p">(</span>
     <span class="n">avg_rate</span><span class="p">,</span>
-    <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;hot&quot;</span><span class="p">,</span>
+    <span class="n">cmap</span><span class="o">=</span><span class="s2">"hot"</span><span class="p">,</span>
     <span class="n">extent</span><span class="o">=</span><span class="p">[</span><span class="o">-</span><span class="mi">250</span><span class="p">,</span> <span class="mi">500</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">avg_rate</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span>
-    <span class="n">xlabel</span><span class="o">=</span><span class="s2">&quot;Time from event (ms)&quot;</span><span class="p">,</span>
-    <span class="n">ylabel</span><span class="o">=</span><span class="s2">&quot;Unit&quot;</span><span class="p">,</span>
-    <span class="n">colorbar_label</span><span class="o">=</span><span class="s2">&quot;Rate (kHz)&quot;</span><span class="p">,</span>
+    <span class="n">xlabel</span><span class="o">=</span><span class="s2">"Time from event (ms)"</span><span class="p">,</span>
+    <span class="n">ylabel</span><span class="o">=</span><span class="s2">"Unit"</span><span class="p">,</span>
+    <span class="n">colorbar_label</span><span class="o">=</span><span class="s2">"Rate (kHz)"</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
 </div>
@@ -619,7 +619,7 @@ shape as a RateSliceStack:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
 <span class="c1"># Compute mean firing rate per slice</span>
-<span class="n">mean_rates</span> <span class="o">=</span> <span class="n">sss</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">sd</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">rates</span><span class="p">(</span><span class="n">unit</span><span class="o">=</span><span class="s2">&quot;Hz&quot;</span><span class="p">)))</span>
+<span class="n">mean_rates</span> <span class="o">=</span> <span class="n">sss</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">sd</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">rates</span><span class="p">(</span><span class="n">unit</span><span class="o">=</span><span class="s2">"Hz"</span><span class="p">)))</span>
 <span class="c1"># mean_rates.shape == (S,)</span>
 </pre></div>
 </div>
@@ -635,7 +635,7 @@ support subsetting along each of their dimensions.</p>
 <span class="n">sss_sub</span> <span class="o">=</span> <span class="n">sss</span><span class="o">.</span><span class="n">subset</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">])</span>
 
 <span class="c1"># Select by neuron attribute</span>
-<span class="n">rss_sub</span> <span class="o">=</span> <span class="n">rss</span><span class="o">.</span><span class="n">subset</span><span class="p">([</span><span class="mi">12</span><span class="p">,</span> <span class="mi">34</span><span class="p">],</span> <span class="n">by</span><span class="o">=</span><span class="s2">&quot;electrode&quot;</span><span class="p">)</span>
+<span class="n">rss_sub</span> <span class="o">=</span> <span class="n">rss</span><span class="o">.</span><span class="n">subset</span><span class="p">([</span><span class="mi">12</span><span class="p">,</span> <span class="mi">34</span><span class="p">],</span> <span class="n">by</span><span class="o">=</span><span class="s2">"electrode"</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>Select specific slices with <code class="docutils literal notranslate"><span class="pre">subslice</span></code>:</p>
@@ -660,11 +660,11 @@ visualize one unit’s spike times across all trials as a raster plot:</p>
     <span class="n">unit_idx</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
     <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span>
     <span class="n">x_range</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">250</span><span class="p">,</span> <span class="mi">500</span><span class="p">),</span>        <span class="c1"># time axis limits in ms</span>
-    <span class="n">style</span><span class="o">=</span><span class="s2">&quot;eventplot&quot;</span><span class="p">,</span>           <span class="c1"># &quot;scatter&quot; for dots, &quot;eventplot&quot; for line markers</span>
+    <span class="n">style</span><span class="o">=</span><span class="s2">"eventplot"</span><span class="p">,</span>           <span class="c1"># "scatter" for dots, "eventplot" for line markers</span>
     <span class="n">invert_y</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>               <span class="c1"># first trial at the top</span>
     <span class="n">linewidths</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
-    <span class="n">xlabel</span><span class="o">=</span><span class="s2">&quot;Time from burst peak (ms)&quot;</span><span class="p">,</span>
-    <span class="n">ylabel</span><span class="o">=</span><span class="s2">&quot;Burst&quot;</span><span class="p">,</span>
+    <span class="n">xlabel</span><span class="o">=</span><span class="s2">"Time from burst peak (ms)"</span><span class="p">,</span>
+    <span class="n">ylabel</span><span class="o">=</span><span class="s2">"Burst"</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
 </div>
@@ -741,10 +741,10 @@ across slices.</p>
 <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
 <span class="n">plot_lines</span><span class="p">(</span>
     <span class="n">ax</span><span class="p">,</span>
-    <span class="p">{</span><span class="s2">&quot;similarity&quot;</span><span class="p">:</span> <span class="n">av_corr_per_bin</span><span class="p">},</span>
+    <span class="p">{</span><span class="s2">"similarity"</span><span class="p">:</span> <span class="n">av_corr_per_bin</span><span class="p">},</span>
     <span class="n">x</span><span class="o">=</span><span class="n">t_axis</span><span class="p">,</span>
-    <span class="n">xlabel</span><span class="o">=</span><span class="s2">&quot;Time from event (ms)&quot;</span><span class="p">,</span>
-    <span class="n">ylabel</span><span class="o">=</span><span class="s2">&quot;Slice similarity&quot;</span><span class="p">,</span>
+    <span class="n">xlabel</span><span class="o">=</span><span class="s2">"Time from event (ms)"</span><span class="p">,</span>
+    <span class="n">ylabel</span><span class="o">=</span><span class="s2">"Slice similarity"</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
 </div>
@@ -810,10 +810,10 @@ to the resulting feature vectors.</p>
     <span class="n">ax</span><span class="p">,</span>
     <span class="n">pca_coords</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span>
     <span class="n">pca_coords</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span>
-    <span class="n">xlabel</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;PC1 (</span><span class="si">{</span><span class="n">var_explained</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="mi">100</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">%)&quot;</span><span class="p">,</span>
-    <span class="n">ylabel</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;PC2 (</span><span class="si">{</span><span class="n">var_explained</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">*</span><span class="mi">100</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">%)&quot;</span><span class="p">,</span>
+    <span class="n">xlabel</span><span class="o">=</span><span class="sa">f</span><span class="s2">"PC1 (</span><span class="si">{</span><span class="n">var_explained</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="mi">100</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">%)"</span><span class="p">,</span>
+    <span class="n">ylabel</span><span class="o">=</span><span class="sa">f</span><span class="s2">"PC2 (</span><span class="si">{</span><span class="n">var_explained</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">*</span><span class="mi">100</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">%)"</span><span class="p">,</span>
     <span class="n">groups</span><span class="o">=</span><span class="n">condition_index</span><span class="p">,</span>         <span class="c1"># integer array (S,) — condition per trial</span>
-    <span class="n">group_labels</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;D0&quot;</span><span class="p">,</span> <span class="s2">&quot;D3&quot;</span><span class="p">,</span> <span class="s2">&quot;D10&quot;</span><span class="p">,</span> <span class="s2">&quot;D30&quot;</span><span class="p">,</span> <span class="s2">&quot;D50&quot;</span><span class="p">],</span>
+    <span class="n">group_labels</span><span class="o">=</span><span class="p">[</span><span class="s2">"D0"</span><span class="p">,</span> <span class="s2">"D3"</span><span class="p">,</span> <span class="s2">"D10"</span><span class="p">,</span> <span class="s2">"D30"</span><span class="p">,</span> <span class="s2">"D50"</span><span class="p">],</span>
     <span class="n">marker_size</span><span class="o">=</span><span class="mi">15</span><span class="p">,</span>
     <span class="n">alpha</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span>
 <span class="p">)</span>
@@ -858,7 +858,7 @@ reproducibility of the activation order.</p>
 </div>
 <p>Using <code class="xref py py-class docutils literal notranslate"><span class="pre">SpikeSliceStack</span></code> (works on raw spike times):</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">timing_matrix</span> <span class="o">=</span> <span class="n">sss</span><span class="o">.</span><span class="n">get_unit_timing_per_slice</span><span class="p">(</span>
-    <span class="n">timing</span><span class="o">=</span><span class="s2">&quot;median&quot;</span><span class="p">,</span>    <span class="c1"># median spike time per unit per slice</span>
+    <span class="n">timing</span><span class="o">=</span><span class="s2">"median"</span><span class="p">,</span>    <span class="c1"># median spike time per unit per slice</span>
     <span class="n">min_spikes</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>       <span class="c1"># minimum spikes for a valid timing value</span>
 <span class="p">)</span>
 
@@ -869,7 +869,7 @@ reproducibility of the activation order.</p>
     <span class="n">seed</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Average rank-order correlation: </span><span class="si">{</span><span class="n">av_corr</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Average rank-order correlation: </span><span class="si">{</span><span class="n">av_corr</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>A high average correlation indicates that neurons tend to fire in the same
@@ -900,7 +900,7 @@ and stack the results:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
 <span class="c1"># Track mean firing rate across frames</span>
-<span class="n">mean_fr</span> <span class="o">=</span> <span class="n">sss_frames</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">sd</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">rates</span><span class="p">(</span><span class="n">unit</span><span class="o">=</span><span class="s2">&quot;Hz&quot;</span><span class="p">)))</span>
+<span class="n">mean_fr</span> <span class="o">=</span> <span class="n">sss_frames</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">sd</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">rates</span><span class="p">(</span><span class="n">unit</span><span class="o">=</span><span class="s2">"Hz"</span><span class="p">)))</span>
 <span class="c1"># mean_fr.shape == (S,)</span>
 </pre></div>
 </div>
@@ -929,11 +929,11 @@ and compare to the observed value:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">shuffle_stack</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">spike_shuffle_stack</span><span class="p">(</span><span class="n">n_shuffles</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
 
 <span class="n">shuffle_values</span> <span class="o">=</span> <span class="n">shuffle_stack</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
-    <span class="k">lambda</span> <span class="n">sd</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">rates</span><span class="p">(</span><span class="n">unit</span><span class="o">=</span><span class="s2">&quot;Hz&quot;</span><span class="p">))</span>
+    <span class="k">lambda</span> <span class="n">sd</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">rates</span><span class="p">(</span><span class="n">unit</span><span class="o">=</span><span class="s2">"Hz"</span><span class="p">))</span>
 <span class="p">)</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.spikedata.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">shuffle_z_score</span>
-<span class="n">observed</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">rates</span><span class="p">(</span><span class="n">unit</span><span class="o">=</span><span class="s2">&quot;Hz&quot;</span><span class="p">))</span>
+<span class="n">observed</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">rates</span><span class="p">(</span><span class="n">unit</span><span class="o">=</span><span class="s2">"Hz"</span><span class="p">))</span>
 <span class="n">z</span> <span class="o">=</span> <span class="n">shuffle_z_score</span><span class="p">(</span><span class="n">observed</span><span class="p">,</span> <span class="n">shuffle_values</span><span class="p">)</span>
 </pre></div>
 </div>

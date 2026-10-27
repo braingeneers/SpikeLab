@@ -5,14 +5,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>spikelab.spike_sorting.stim_sorting.preprocess &mdash; SpikeLab 0.1.1 documentation</title>
+  <title>spikelab.spike_sorting.stim_sorting.preprocess &mdash; SpikeLab 0.1.2 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../../../_static/documentation_options.js?v=a58bc63e"></script>
+      <script src="../../../../_static/documentation_options.js?v=92734c54"></script>
       <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
       <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/js/theme.js"></script>
@@ -492,7 +492,7 @@
            <div itemprop="articleBody">
              
   <h1>Source code for spikelab.spike_sorting.stim_sorting.preprocess</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;High-level stim artifact preprocessing.</span>
+<span></span><span class="sd">"""High-level stim artifact preprocessing.</span>
 
 <span class="sd">``preprocess_stim_artifacts`` wraps :func:`recenter_stim_times` and</span>
 <span class="sd">:func:`remove_stim_artifacts` into a single function that takes a</span>
@@ -502,11 +502,11 @@
 <span class="sd">The returned recording is usable with any downstream sorter.  When</span>
 <span class="sd">``output_path`` is given the cleaned traces are written to a float32</span>
 <span class="sd">binary file and the result is a ``BinaryRecordingExtractor`` — dumpable</span>
-<span class="sd">through SpikeInterface&#39;s JSON encoder, which is required for Docker-</span>
+<span class="sd">through SpikeInterface's JSON encoder, which is required for Docker-</span>
 <span class="sd">based sorters (Kilosort, IronClust).  With no ``output_path`` the</span>
 <span class="sd">result is an in-memory ``NumpyRecording`` — fine for local sorters and</span>
 <span class="sd">interactive exploration.</span>
-<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">"""</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
@@ -524,7 +524,7 @@
     <span class="n">stim_times_ms</span><span class="p">,</span>
     <span class="n">output_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
-    <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;polynomial&quot;</span><span class="p">,</span>
+    <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"polynomial"</span><span class="p">,</span>
     <span class="n">artifact_window_ms</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">10.0</span><span class="p">,</span>
     <span class="n">recenter</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="n">max_offset_ms</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">50.0</span><span class="p">,</span>
@@ -533,9 +533,9 @@
     <span class="n">baseline_threshold</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">artifact_window_only</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="n">return_scaled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-    <span class="n">dtype</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;float32&quot;</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="s2">&quot;BaseRecording&quot;</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]:</span>  <span class="c1"># noqa: F821</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Remove stim artifacts and return a new SpikeInterface recording.</span>
+    <span class="n">dtype</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"float32"</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="s2">"BaseRecording"</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]:</span>  <span class="c1"># noqa: F821</span>
+<span class="w">    </span><span class="sd">"""Remove stim artifacts and return a new SpikeInterface recording.</span>
 
 <span class="sd">    Materialises ``recording.get_traces()`` to an ndarray, optionally</span>
 <span class="sd">    recenters the stim times to their artifact peaks, runs</span>
@@ -562,13 +562,13 @@
 <span class="sd">        ``NumpyRecording`` is returned — NOT dumpable for Docker-based</span>
 <span class="sd">        sorters.</span>
 <span class="sd">    method : str</span>
-<span class="sd">        ``&quot;polynomial&quot;`` (default) or ``&quot;blank&quot;`` — see</span>
+<span class="sd">        ``"polynomial"`` (default) or ``"blank"`` — see</span>
 <span class="sd">        :func:`remove_stim_artifacts`.  Polynomial detrend preserves</span>
-<span class="sd">        spikes in the 0–10 ms post-stim window (the smooth fit can&#39;t</span>
+<span class="sd">        spikes in the 0–10 ms post-stim window (the smooth fit can't</span>
 <span class="sd">        capture a ~1 ms spike feature) and is safe by default thanks</span>
 <span class="sd">        to ``poly_clamp_factor`` — divergent fits at extreme stim</span>
 <span class="sd">        amplitudes are caught and downgraded to blank automatically,</span>
-<span class="sd">        with one summary warning per call.  Use ``&quot;blank&quot;`` only when</span>
+<span class="sd">        with one summary warning per call.  Use ``"blank"`` only when</span>
 <span class="sd">        the post-stim window is genuinely irrelevant to the analysis,</span>
 <span class="sd">        or when the clamp warning fires on a non-trivial fraction of</span>
 <span class="sd">        events (in which case a uniform blank is cleaner than mixing</span>
@@ -584,7 +584,7 @@
 <span class="sd">        Maximum recentering shift, passed to</span>
 <span class="sd">        :func:`recenter_stim_times`.  Default 50.0.</span>
 <span class="sd">    poly_order : int</span>
-<span class="sd">        Polynomial order for ``method=&quot;polynomial&quot;``.  Default 3.</span>
+<span class="sd">        Polynomial order for ``method="polynomial"``.  Default 3.</span>
 <span class="sd">    saturation_threshold, baseline_threshold : float, optional</span>
 <span class="sd">        Override the auto-detected thresholds used by</span>
 <span class="sd">        :func:`remove_stim_artifacts`.</span>
@@ -594,13 +594,13 @@
 <span class="sd">        applied (useful for very frequent stim protocols).</span>
 <span class="sd">    return_scaled : bool</span>
 <span class="sd">        Whether to materialise µV-scaled traces from ``recording``.</span>
-<span class="sd">        Default False — match the recording&#39;s native dtype/units.  Set</span>
+<span class="sd">        Default False — match the recording's native dtype/units.  Set</span>
 <span class="sd">        True to force a µV-scaled float output when the recording</span>
 <span class="sd">        exposes gains/offsets.  Forwarded as ``return_in_uV`` on newer</span>
 <span class="sd">        SpikeInterface versions and ``return_scaled`` on older ones.</span>
 <span class="sd">    dtype : str</span>
 <span class="sd">        dtype of the cleaned output (both for in-memory and on-disk</span>
-<span class="sd">        representations).  Default ``&quot;float32&quot;``.</span>
+<span class="sd">        representations).  Default ``"float32"``.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -616,7 +616,7 @@
 <span class="sd">          - ``blanked_fraction``: overall fraction of samples blanked</span>
 <span class="sd">          - ``blanked_fraction_per_channel``: per-channel blanked</span>
 <span class="sd">            fractions, shape ``(num_channels,)``</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">spikeinterface.core</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
         <span class="n">BaseRecording</span><span class="p">,</span>
         <span class="n">BinaryRecordingExtractor</span><span class="p">,</span>
@@ -628,13 +628,13 @@
 
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">recording</span><span class="p">,</span> <span class="n">BaseRecording</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;recording must be a SpikeInterface BaseRecording, &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">recording</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">"recording must be a SpikeInterface BaseRecording, "</span>
+            <span class="sa">f</span><span class="s2">"got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">recording</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">"</span>
         <span class="p">)</span>
     <span class="k">if</span> <span class="n">recording</span><span class="o">.</span><span class="n">get_num_segments</span><span class="p">()</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="s2">&quot;preprocess_stim_artifacts only supports single-segment &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;recordings, got </span><span class="si">{</span><span class="n">recording</span><span class="o">.</span><span class="n">get_num_segments</span><span class="p">()</span><span class="si">}</span><span class="s2"> segments&quot;</span>
+            <span class="s2">"preprocess_stim_artifacts only supports single-segment "</span>
+            <span class="sa">f</span><span class="s2">"recordings, got </span><span class="si">{</span><span class="n">recording</span><span class="o">.</span><span class="n">get_num_segments</span><span class="p">()</span><span class="si">}</span><span class="s2"> segments"</span>
         <span class="p">)</span>
 
     <span class="n">fs_Hz</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">recording</span><span class="o">.</span><span class="n">get_sampling_frequency</span><span class="p">())</span>
@@ -659,9 +659,9 @@
 
     <span class="n">extra_kwargs</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="k">if</span> <span class="n">saturation_threshold</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">extra_kwargs</span><span class="p">[</span><span class="s2">&quot;saturation_threshold&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">saturation_threshold</span>
+        <span class="n">extra_kwargs</span><span class="p">[</span><span class="s2">"saturation_threshold"</span><span class="p">]</span> <span class="o">=</span> <span class="n">saturation_threshold</span>
     <span class="k">if</span> <span class="n">baseline_threshold</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">extra_kwargs</span><span class="p">[</span><span class="s2">&quot;baseline_threshold&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">baseline_threshold</span>
+        <span class="n">extra_kwargs</span><span class="p">[</span><span class="s2">"baseline_threshold"</span><span class="p">]</span> <span class="o">=</span> <span class="n">baseline_threshold</span>
 
     <span class="n">cleaned</span><span class="p">,</span> <span class="n">blanked_mask</span> <span class="o">=</span> <span class="n">remove_stim_artifacts</span><span class="p">(</span>
         <span class="n">traces</span><span class="p">,</span>

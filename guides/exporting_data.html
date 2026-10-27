@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Exporting Data &mdash; SpikeLab 0.1.1 documentation</title>
+  <title>Exporting Data &mdash; SpikeLab 0.1.2 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=a58bc63e"></script>
+      <script src="../_static/documentation_options.js?v=92734c54"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
@@ -515,31 +515,31 @@ automatically.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.data_loaders.data_exporters</span><span class="w"> </span><span class="kn">import</span> <span class="n">export_spikedata_to_hdf5</span>
 
 <span class="c1"># Default ragged style (spike_times + spike_times_index)</span>
-<span class="n">export_spikedata_to_hdf5</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="s2">&quot;output.h5&quot;</span><span class="p">)</span>
+<span class="n">export_spikedata_to_hdf5</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="s2">"output.h5"</span><span class="p">)</span>
 
 <span class="c1"># Raster style</span>
 <span class="n">export_spikedata_to_hdf5</span><span class="p">(</span>
-    <span class="n">sd</span><span class="p">,</span> <span class="s2">&quot;output.h5&quot;</span><span class="p">,</span>
-    <span class="n">style</span><span class="o">=</span><span class="s2">&quot;raster&quot;</span><span class="p">,</span>
-    <span class="n">raster_dataset</span><span class="o">=</span><span class="s2">&quot;raster&quot;</span><span class="p">,</span>
+    <span class="n">sd</span><span class="p">,</span> <span class="s2">"output.h5"</span><span class="p">,</span>
+    <span class="n">style</span><span class="o">=</span><span class="s2">"raster"</span><span class="p">,</span>
+    <span class="n">raster_dataset</span><span class="o">=</span><span class="s2">"raster"</span><span class="p">,</span>
     <span class="n">raster_bin_size_ms</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
 <span class="p">)</span>
 
 <span class="c1"># Group-per-unit style</span>
 <span class="n">export_spikedata_to_hdf5</span><span class="p">(</span>
-    <span class="n">sd</span><span class="p">,</span> <span class="s2">&quot;output.h5&quot;</span><span class="p">,</span>
-    <span class="n">style</span><span class="o">=</span><span class="s2">&quot;group&quot;</span><span class="p">,</span>
-    <span class="n">group_per_unit</span><span class="o">=</span><span class="s2">&quot;units&quot;</span><span class="p">,</span>
-    <span class="n">group_time_unit</span><span class="o">=</span><span class="s2">&quot;s&quot;</span><span class="p">,</span>
+    <span class="n">sd</span><span class="p">,</span> <span class="s2">"output.h5"</span><span class="p">,</span>
+    <span class="n">style</span><span class="o">=</span><span class="s2">"group"</span><span class="p">,</span>
+    <span class="n">group_per_unit</span><span class="o">=</span><span class="s2">"units"</span><span class="p">,</span>
+    <span class="n">group_time_unit</span><span class="o">=</span><span class="s2">"s"</span><span class="p">,</span>
 <span class="p">)</span>
 
 <span class="c1"># Paired style</span>
 <span class="n">export_spikedata_to_hdf5</span><span class="p">(</span>
-    <span class="n">sd</span><span class="p">,</span> <span class="s2">&quot;output.h5&quot;</span><span class="p">,</span>
-    <span class="n">style</span><span class="o">=</span><span class="s2">&quot;paired&quot;</span><span class="p">,</span>
-    <span class="n">idces_dataset</span><span class="o">=</span><span class="s2">&quot;idces&quot;</span><span class="p">,</span>
-    <span class="n">times_dataset</span><span class="o">=</span><span class="s2">&quot;times&quot;</span><span class="p">,</span>
-    <span class="n">times_unit</span><span class="o">=</span><span class="s2">&quot;ms&quot;</span><span class="p">,</span>
+    <span class="n">sd</span><span class="p">,</span> <span class="s2">"output.h5"</span><span class="p">,</span>
+    <span class="n">style</span><span class="o">=</span><span class="s2">"paired"</span><span class="p">,</span>
+    <span class="n">idces_dataset</span><span class="o">=</span><span class="s2">"idces"</span><span class="p">,</span>
+    <span class="n">times_dataset</span><span class="o">=</span><span class="s2">"times"</span><span class="p">,</span>
+    <span class="n">times_unit</span><span class="o">=</span><span class="s2">"ms"</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
 </div>
@@ -566,10 +566,10 @@ styles (<code class="docutils literal notranslate"><span class="pre">group_time_
 <code class="xref py py-func docutils literal notranslate"><span class="pre">from_thresholding()</span></code>), you can
 include them in the HDF5 file:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">export_spikedata_to_hdf5</span><span class="p">(</span>
-    <span class="n">sd</span><span class="p">,</span> <span class="s2">&quot;output.h5&quot;</span><span class="p">,</span>
-    <span class="n">raw_dataset</span><span class="o">=</span><span class="s2">&quot;raw_data&quot;</span><span class="p">,</span>
-    <span class="n">raw_time_dataset</span><span class="o">=</span><span class="s2">&quot;raw_time&quot;</span><span class="p">,</span>
-    <span class="n">raw_time_unit</span><span class="o">=</span><span class="s2">&quot;ms&quot;</span><span class="p">,</span>
+    <span class="n">sd</span><span class="p">,</span> <span class="s2">"output.h5"</span><span class="p">,</span>
+    <span class="n">raw_dataset</span><span class="o">=</span><span class="s2">"raw_data"</span><span class="p">,</span>
+    <span class="n">raw_time_dataset</span><span class="o">=</span><span class="s2">"raw_time"</span><span class="p">,</span>
+    <span class="n">raw_time_unit</span><span class="o">=</span><span class="s2">"ms"</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
 </div>
@@ -582,14 +582,14 @@ Unit IDs, electrode assignments, and electrode locations are written when
 available in <code class="docutils literal notranslate"><span class="pre">neuron_attributes</span></code>.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.data_loaders.data_exporters</span><span class="w"> </span><span class="kn">import</span> <span class="n">export_spikedata_to_nwb</span>
 
-<span class="n">export_spikedata_to_nwb</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="s2">&quot;session.nwb&quot;</span><span class="p">)</span>
+<span class="n">export_spikedata_to_nwb</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="s2">"session.nwb"</span><span class="p">)</span>
 
 <span class="c1"># With custom dataset names</span>
 <span class="n">export_spikedata_to_nwb</span><span class="p">(</span>
-    <span class="n">sd</span><span class="p">,</span> <span class="s2">&quot;session.nwb&quot;</span><span class="p">,</span>
-    <span class="n">spike_times_dataset</span><span class="o">=</span><span class="s2">&quot;spike_times&quot;</span><span class="p">,</span>
-    <span class="n">spike_times_index_dataset</span><span class="o">=</span><span class="s2">&quot;spike_times_index&quot;</span><span class="p">,</span>
-    <span class="n">group</span><span class="o">=</span><span class="s2">&quot;units&quot;</span><span class="p">,</span>
+    <span class="n">sd</span><span class="p">,</span> <span class="s2">"session.nwb"</span><span class="p">,</span>
+    <span class="n">spike_times_dataset</span><span class="o">=</span><span class="s2">"spike_times"</span><span class="p">,</span>
+    <span class="n">spike_times_index_dataset</span><span class="o">=</span><span class="s2">"spike_times_index"</span><span class="p">,</span>
+    <span class="n">group</span><span class="o">=</span><span class="s2">"units"</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
 </div>
@@ -605,18 +605,18 @@ the target time unit (samples by default).</p>
 
 <span class="n">spike_times_path</span><span class="p">,</span> <span class="n">spike_clusters_path</span> <span class="o">=</span> <span class="n">export_spikedata_to_kilosort</span><span class="p">(</span>
     <span class="n">sd</span><span class="p">,</span>
-    <span class="s2">&quot;output_folder/&quot;</span><span class="p">,</span>
+    <span class="s2">"output_folder/"</span><span class="p">,</span>
     <span class="n">fs_Hz</span><span class="o">=</span><span class="mi">30000</span><span class="p">,</span>
 <span class="p">)</span>
 
 <span class="c1"># With custom options</span>
 <span class="n">export_spikedata_to_kilosort</span><span class="p">(</span>
     <span class="n">sd</span><span class="p">,</span>
-    <span class="s2">&quot;output_folder/&quot;</span><span class="p">,</span>
+    <span class="s2">"output_folder/"</span><span class="p">,</span>
     <span class="n">fs_Hz</span><span class="o">=</span><span class="mi">30000</span><span class="p">,</span>
-    <span class="n">time_unit</span><span class="o">=</span><span class="s2">&quot;samples&quot;</span><span class="p">,</span>
-    <span class="n">spike_times_file</span><span class="o">=</span><span class="s2">&quot;spike_times.npy&quot;</span><span class="p">,</span>
-    <span class="n">spike_clusters_file</span><span class="o">=</span><span class="s2">&quot;spike_clusters.npy&quot;</span><span class="p">,</span>
+    <span class="n">time_unit</span><span class="o">=</span><span class="s2">"samples"</span><span class="p">,</span>
+    <span class="n">spike_times_file</span><span class="o">=</span><span class="s2">"spike_times.npy"</span><span class="p">,</span>
+    <span class="n">spike_clusters_file</span><span class="o">=</span><span class="s2">"spike_clusters.npy"</span><span class="p">,</span>
     <span class="n">cluster_ids</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
@@ -629,15 +629,15 @@ Amazon S3.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.data_loaders.data_exporters</span><span class="w"> </span><span class="kn">import</span> <span class="n">export_to_pickle</span>
 
 <span class="c1"># Local file</span>
-<span class="n">path</span> <span class="o">=</span> <span class="n">export_to_pickle</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="s2">&quot;my_data.pkl&quot;</span><span class="p">)</span>
+<span class="n">path</span> <span class="o">=</span> <span class="n">export_to_pickle</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="s2">"my_data.pkl"</span><span class="p">)</span>
 
 <span class="c1"># Upload to S3</span>
 <span class="n">s3_url</span> <span class="o">=</span> <span class="n">export_to_pickle</span><span class="p">(</span>
     <span class="n">sd</span><span class="p">,</span>
-    <span class="s2">&quot;s3://my-bucket/my_data.pkl&quot;</span><span class="p">,</span>
+    <span class="s2">"s3://my-bucket/my_data.pkl"</span><span class="p">,</span>
     <span class="n">s3_upload</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-    <span class="n">aws_access_key_id</span><span class="o">=</span><span class="s2">&quot;...&quot;</span><span class="p">,</span>
-    <span class="n">aws_secret_access_key</span><span class="o">=</span><span class="s2">&quot;...&quot;</span><span class="p">,</span>
+    <span class="n">aws_access_key_id</span><span class="o">=</span><span class="s2">"..."</span><span class="p">,</span>
+    <span class="n">aws_secret_access_key</span><span class="o">=</span><span class="s2">"..."</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
 </div>

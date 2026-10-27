@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GPLVM Analysis &mdash; SpikeLab 0.1.1 documentation</title>
+  <title>GPLVM Analysis &mdash; SpikeLab 0.1.2 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=a58bc63e"></script>
+      <script src="../_static/documentation_options.js?v=92734c54"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
@@ -564,7 +564,7 @@ Higher entropy indicates greater uncertainty about the current state:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.spikedata.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">gplvm_state_entropy</span>
 
 <span class="n">entropy</span> <span class="o">=</span> <span class="n">gplvm_state_entropy</span><span class="p">(</span>
-    <span class="n">result</span><span class="p">[</span><span class="s2">&quot;decode_res&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">posterior_latent_marg</span><span class="p">,</span>
+    <span class="n">result</span><span class="p">[</span><span class="s2">"decode_res"</span><span class="p">]</span><span class="o">.</span><span class="n">posterior_latent_marg</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="c1"># entropy.shape == (T,)</span>
 </pre></div>
@@ -576,7 +576,7 @@ Higher entropy indicates greater uncertainty about the current state:</p>
 time bin to the next (i.e. no state transition):</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.spikedata.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">gplvm_continuity_prob</span>
 
-<span class="n">cont_prob</span> <span class="o">=</span> <span class="n">gplvm_continuity_prob</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s2">&quot;decode_res&quot;</span><span class="p">])</span>
+<span class="n">cont_prob</span> <span class="o">=</span> <span class="n">gplvm_continuity_prob</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s2">"decode_res"</span><span class="p">])</span>
 <span class="c1"># cont_prob.shape == (T,)</span>
 </pre></div>
 </div>
@@ -588,7 +588,7 @@ reveals which states dominate the recording:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.spikedata.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">gplvm_average_state_probability</span>
 
 <span class="n">avg_prob</span> <span class="o">=</span> <span class="n">gplvm_average_state_probability</span><span class="p">(</span>
-    <span class="n">result</span><span class="p">[</span><span class="s2">&quot;decode_res&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">posterior_latent_marg</span><span class="p">,</span>
+    <span class="n">result</span><span class="p">[</span><span class="s2">"decode_res"</span><span class="p">]</span><span class="o">.</span><span class="n">posterior_latent_marg</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="c1"># avg_prob.shape == (K,), where K = n_latent_bin</span>
 </pre></div>
@@ -603,7 +603,7 @@ the durations of high-continuity epochs:</p>
 <span class="n">durations</span> <span class="o">=</span> <span class="n">consecutive_durations</span><span class="p">(</span>
     <span class="n">cont_prob</span><span class="p">,</span>
     <span class="n">threshold</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span>
-    <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;above&quot;</span><span class="p">,</span>     <span class="c1"># runs where cont_prob &gt;= 0.8</span>
+    <span class="n">mode</span><span class="o">=</span><span class="s2">"above"</span><span class="p">,</span>     <span class="c1"># runs where cont_prob &gt;= 0.8</span>
     <span class="n">min_dur</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>         <span class="c1"># minimum run length to include</span>
 <span class="p">)</span>
 <span class="c1"># durations is a 1-D array of run lengths (in time bins)</span>

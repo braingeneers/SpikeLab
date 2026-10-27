@@ -5,14 +5,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>spikelab.spike_sorting.config &mdash; SpikeLab 0.1.1 documentation</title>
+  <title>spikelab.spike_sorting.config &mdash; SpikeLab 0.1.2 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../../_static/documentation_options.js?v=a58bc63e"></script>
+      <script src="../../../_static/documentation_options.js?v=92734c54"></script>
       <script src="../../../_static/doctools.js?v=9bcbadda"></script>
       <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
@@ -492,12 +492,12 @@
            <div itemprop="articleBody">
              
   <h1>Source code for spikelab.spike_sorting.config</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;Configuration dataclass for the spike sorting pipeline.</span>
+<span></span><span class="sd">"""Configuration dataclass for the spike sorting pipeline.</span>
 
 <span class="sd">Replaces the ~80 module-level globals in kilosort2.py with a single</span>
 <span class="sd">typed, inspectable configuration object that is passed explicitly to</span>
 <span class="sd">every pipeline function.</span>
-<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">"""</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
@@ -508,7 +508,7 @@
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting.config.RecordingConfig">[docs]</a>
 <span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">RecordingConfig</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Parameters for recording loading and preprocessing.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Parameters for recording loading and preprocessing."""</span>
 
     <span class="n">stream_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">hdf5_plugin_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
@@ -529,9 +529,9 @@
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting.config.SorterConfig">[docs]</a>
 <span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">SorterConfig</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Parameters for the spike sorter itself.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Parameters for the spike sorter itself."""</span>
 
-    <span class="n">sorter_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;kilosort2&quot;</span>
+    <span class="n">sorter_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"kilosort2"</span>
     <span class="n">sorter_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">sorter_params</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">use_docker</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span></div>
@@ -542,7 +542,7 @@
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting.config.RTSortConfig">[docs]</a>
 <span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">RTSortConfig</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Parameters for the RT-Sort detection and sorting backend.</span>
+<span class="w">    </span><span class="sd">"""Parameters for the RT-Sort detection and sorting backend.</span>
 
 <span class="sd">    RT-Sort is an action-potential-propagation-based spike sorter using</span>
 <span class="sd">    a deep learning detection model followed by codetection clustering</span>
@@ -556,9 +556,9 @@
 <span class="sd">            ``ModelSpikeSorter``.  When None, the bundled model</span>
 <span class="sd">            corresponding to ``probe`` is loaded.</span>
 <span class="sd">        probe (str): Which bundled pretrained model to use when</span>
-<span class="sd">            ``model_path`` is None.  ``&quot;mea&quot;`` or ``&quot;neuropixels&quot;``.</span>
-<span class="sd">        device (str): PyTorch device for inference.  ``&quot;cuda&quot;`` or</span>
-<span class="sd">            ``&quot;cpu&quot;``.</span>
+<span class="sd">            ``model_path`` is None.  ``"mea"`` or ``"neuropixels"``.</span>
+<span class="sd">        device (str): PyTorch device for inference.  ``"cuda"`` or</span>
+<span class="sd">            ``"cpu"``.</span>
 <span class="sd">        num_processes (int or None): Number of worker processes for</span>
 <span class="sd">            parallel detection/clustering stages.  None selects an</span>
 <span class="sd">            automatic value based on CPU count.</span>
@@ -584,11 +584,11 @@
 <span class="sd">            ``sort_offline``.  Decouples the detection-phase memory</span>
 <span class="sd">            ceiling from total recording length.  ``None`` uses the</span>
 <span class="sd">            full window for both phases (legacy behavior).</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="n">model_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">probe</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;mea&quot;</span>
-    <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;cuda&quot;</span>
+    <span class="n">probe</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"mea"</span>
+    <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"cuda"</span>
     <span class="n">num_processes</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">recording_window_ms</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">save_rt_sort_pickle</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
@@ -603,7 +603,7 @@
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting.config.WaveformConfig">[docs]</a>
 <span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">WaveformConfig</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Parameters for waveform extraction and template computation.</span>
+<span class="w">    </span><span class="sd">"""Parameters for waveform extraction and template computation.</span>
 
 <span class="sd">    Memory-budget note: the default extractor pre-allocates one</span>
 <span class="sd">    ``(n_spikes, nsamples, num_channels)`` ``.npy`` memmap per unit</span>
@@ -611,11 +611,11 @@
 <span class="sd">    high-density MEAs this grows to tens of GB (e.g. 400 units ×</span>
 <span class="sd">    1018 channels = ~39 GB).  When that exceeds host RAM, set</span>
 <span class="sd">    ``streaming=True`` to use a one-unit-at-a-time path that</span>
-<span class="sd">    discards each unit&#39;s waveforms after templates and metrics are</span>
-<span class="sd">    computed — peak RAM becomes one unit&#39;s buffer (~100 MB for</span>
+<span class="sd">    discards each unit's waveforms after templates and metrics are</span>
+<span class="sd">    computed — peak RAM becomes one unit's buffer (~100 MB for</span>
 <span class="sd">    MaxOne) regardless of total unit count.  Waveform files are</span>
 <span class="sd">    only written when ``save_waveform_files=True``.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="n">ms_before</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">2.0</span>
     <span class="n">ms_after</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">2.0</span>
@@ -636,14 +636,14 @@
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting.config.CurationConfig">[docs]</a>
 <span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">CurationConfig</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Parameters for unit quality-control curation.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Parameters for unit quality-control curation."""</span>
 
     <span class="n">curate_first</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
     <span class="n">curate_second</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
     <span class="n">curation_epoch</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">fr_min</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.05</span>
     <span class="n">isi_viol_max</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.01</span>
-    <span class="n">isi_violation_method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;percent&quot;</span>
+    <span class="n">isi_violation_method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"percent"</span>
     <span class="n">snr_min</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="mf">5.0</span>
     <span class="n">spikes_min_first</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">30</span>
     <span class="n">spikes_min_second</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">50</span>
@@ -655,7 +655,7 @@
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting.config.CompilationConfig">[docs]</a>
 <span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">CompilationConfig</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Parameters for result compilation and export.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Parameters for result compilation and export."""</span>
 
     <span class="n">compile_single_recording</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
     <span class="n">compile_to_mat</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
@@ -668,7 +668,7 @@
     <span class="n">save_dl_data</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
 
     <span class="c1"># When True, the compiler operates on the **pre-curation** SpikeData</span>
-    <span class="c1"># and uses ``curation_history`` to mark each unit&#39;s ``is_curated``</span>
+    <span class="c1"># and uses ``curation_history`` to mark each unit's ``is_curated``</span>
     <span class="c1"># flag. Failed units appear in the compiled output (``sorted.npz``/</span>
     <span class="c1"># ``sorted.mat``) alongside curated units, and the per-unit</span>
     <span class="c1"># templates figure styles them differently (``color_failed`` vs</span>
@@ -682,35 +682,35 @@
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting.config.FigureConfig">[docs]</a>
 <span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">FigureConfig</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Parameters for QC figure generation.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Parameters for QC figure generation."""</span>
 
     <span class="n">create_figures</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="n">create_unit_figures</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="n">dpi</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">font_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">12</span>
-    <span class="n">bar_x_label</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;Recording&quot;</span>
-    <span class="n">bar_y_label</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;Number of Units&quot;</span>
+    <span class="n">bar_x_label</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"Recording"</span>
+    <span class="n">bar_y_label</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"Number of Units"</span>
     <span class="n">bar_label_rotation</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
-    <span class="n">bar_total_label</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;First Curation&quot;</span>
-    <span class="n">bar_selected_label</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;Selected Curation&quot;</span>
+    <span class="n">bar_total_label</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"First Curation"</span>
+    <span class="n">bar_selected_label</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"Selected Curation"</span>
     <span class="n">scatter_std_max_units_per_recording</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">scatter_recording_colors</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span>
         <span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span>
-            <span class="s2">&quot;#f74343&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;#fccd56&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;#74fc56&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;#56fcf6&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;#1e1efa&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;#fa1ed2&quot;</span><span class="p">,</span>
+            <span class="s2">"#f74343"</span><span class="p">,</span>
+            <span class="s2">"#fccd56"</span><span class="p">,</span>
+            <span class="s2">"#74fc56"</span><span class="p">,</span>
+            <span class="s2">"#56fcf6"</span><span class="p">,</span>
+            <span class="s2">"#1e1efa"</span><span class="p">,</span>
+            <span class="s2">"#fa1ed2"</span><span class="p">,</span>
         <span class="p">]</span>
     <span class="p">)</span>
     <span class="n">scatter_recording_alpha</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span>
-    <span class="n">scatter_x_label</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;Number of Spikes&quot;</span>
-    <span class="n">scatter_y_label</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;avg. STD / amplitude&quot;</span>
+    <span class="n">scatter_x_label</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"Number of Spikes"</span>
+    <span class="n">scatter_y_label</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"avg. STD / amplitude"</span>
     <span class="n">scatter_x_max_buffer</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">300.0</span>
     <span class="n">scatter_y_max_buffer</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.2</span>
-    <span class="n">templates_color_curated</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;#000000&quot;</span>
-    <span class="n">templates_color_failed</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;#FF0000&quot;</span>
+    <span class="n">templates_color_curated</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"#000000"</span>
+    <span class="n">templates_color_failed</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"#FF0000"</span>
     <span class="n">templates_per_column</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">50</span>
     <span class="n">templates_y_spacing</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">50.0</span>
     <span class="n">templates_y_lim_buffer</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">10.0</span>
@@ -718,7 +718,7 @@
     <span class="n">templates_window_ms_after</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">5.0</span>
     <span class="n">templates_line_ms_before</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>
     <span class="n">templates_line_ms_after</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="mf">4.0</span>
-    <span class="n">templates_x_label</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;Time Rel. to Peak (ms)&quot;</span></div>
+    <span class="n">templates_x_label</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"Time Rel. to Peak (ms)"</span></div>
 
 
 
@@ -726,19 +726,19 @@
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting.config.ExecutionConfig">[docs]</a>
 <span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">ExecutionConfig</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Parameters for pipeline execution control.</span>
+<span class="w">    </span><span class="sd">"""Parameters for pipeline execution control.</span>
 
 <span class="sd">    Includes safety knobs for the host-memory watchdog and the</span>
 <span class="sd">    pre-loop preflight checks under</span>
 <span class="sd">    ``spikelab.spike_sorting.guards``. Defaults are tuned for a</span>
 <span class="sd">    32–64 GB workstation; bump the GB thresholds on smaller hosts.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="n">n_jobs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">8</span>
-    <span class="n">total_memory</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;16G&quot;</span>
+    <span class="n">total_memory</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"16G"</span>
     <span class="n">use_parallel_processing_for_raw_conversion</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
     <span class="n">save_script</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
-    <span class="n">out_file</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;sort_with_kilosort2.out&quot;</span>
+    <span class="n">out_file</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"sort_with_kilosort2.out"</span>
     <span class="n">random_seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
     <span class="n">recompute_recording</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="n">recompute_sorting</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
@@ -800,7 +800,7 @@
 
     <span class="c1"># Skip the canary entirely when the recording is shorter than</span>
     <span class="c1"># this many seconds. Below this threshold the full sort completes</span>
-    <span class="c1"># quickly enough that the canary&#39;s startup overhead outweighs its</span>
+    <span class="c1"># quickly enough that the canary's startup overhead outweighs its</span>
     <span class="c1"># smoke-test value, and very short recordings can crash internal</span>
     <span class="c1"># pipeline helpers (e.g. ``_get_noise_levels``, which samples</span>
     <span class="c1"># random ``chunk_size``-sample windows). Default is 120 s</span>
@@ -834,18 +834,18 @@
     <span class="n">io_stall_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">300.0</span>
     <span class="n">io_stall_poll_interval_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">10.0</span>
     <span class="c1"># Polling scope:</span>
-    <span class="c1">#   &quot;process&quot; (default) — track read/write byte counters of the</span>
+    <span class="c1">#   "process" (default) — track read/write byte counters of the</span>
     <span class="c1">#     orchestrating Python process and its descendants; immune</span>
     <span class="c1">#     to ambient I/O on the same disk. Default because the</span>
     <span class="c1">#     interesting failure mode is the sort process itself</span>
     <span class="c1">#     hanging, not the device hanging globally.</span>
-    <span class="c1">#   &quot;device&quot; — legacy mode; polls the volume-wide</span>
+    <span class="c1">#   "device" — legacy mode; polls the volume-wide</span>
     <span class="c1">#     ``disk_io_counters`` for the inter folder. Catches kernel</span>
     <span class="c1">#     I/O hangs that freeze the device, but background activity</span>
     <span class="c1">#     from unrelated processes can mask a stall in the sort.</span>
-    <span class="n">io_stall_mode</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;process&quot;</span>
-    <span class="c1"># When True (default) and ``io_stall_mode=&quot;process&quot;``, the</span>
-    <span class="c1"># watchdog walks each registered PID&#39;s descendants on every poll</span>
+    <span class="n">io_stall_mode</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"process"</span>
+    <span class="c1"># When True (default) and ``io_stall_mode="process"``, the</span>
+    <span class="c1"># watchdog walks each registered PID's descendants on every poll</span>
     <span class="c1"># so subprocesses spawned by the sort (spikeinterface workers,</span>
     <span class="c1"># KS2 MATLAB child) contribute to the byte counter.</span>
     <span class="n">io_stall_include_descendants</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
@@ -882,10 +882,10 @@
     <span class="c1"># generated. Only applied on the success path; failures always</span>
     <span class="c1"># keep the log so tracebacks are preserved for diagnosis.</span>
     <span class="c1">#</span>
-    <span class="c1">#   * &quot;keep&quot;               — leave the Tee log untouched</span>
-    <span class="c1">#   * &quot;gzip_on_success&quot;    — compress to ``.log.gz`` on success</span>
-    <span class="c1">#   * &quot;delete_on_success&quot;  — remove the Tee log on success</span>
-    <span class="n">tee_log_policy</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;delete_on_success&quot;</span>
+    <span class="c1">#   * "keep"               — leave the Tee log untouched</span>
+    <span class="c1">#   * "gzip_on_success"    — compress to ``.log.gz`` on success</span>
+    <span class="c1">#   * "delete_on_success"  — remove the Tee log on success</span>
+    <span class="n">tee_log_policy</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"delete_on_success"</span>
     <span class="n">generate_sorting_report</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span></div>
 
 
@@ -894,7 +894,7 @@
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting.config.SortingPipelineConfig">[docs]</a>
 <span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">SortingPipelineConfig</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Complete configuration for a spike sorting pipeline run.</span>
+<span class="w">    </span><span class="sd">"""Complete configuration for a spike sorting pipeline run.</span>
 
 <span class="sd">    Groups all parameters into typed sub-configs. Passed explicitly to</span>
 <span class="sd">    every pipeline function, replacing module-level globals.</span>
@@ -903,13 +903,13 @@
 <span class="sd">        recording (RecordingConfig): Recording loading and preprocessing.</span>
 <span class="sd">        sorter (SorterConfig): Spike sorter selection and parameters.</span>
 <span class="sd">        rt_sort (RTSortConfig): RT-Sort specific parameters (only used</span>
-<span class="sd">            when ``sorter.sorter_name == &quot;rt_sort&quot;``).</span>
+<span class="sd">            when ``sorter.sorter_name == "rt_sort"``).</span>
 <span class="sd">        waveform (WaveformConfig): Waveform extraction and templates.</span>
 <span class="sd">        curation (CurationConfig): Unit quality-control filters.</span>
 <span class="sd">        compilation (CompilationConfig): Result export options.</span>
 <span class="sd">        figures (FigureConfig): QC figure generation.</span>
 <span class="sd">        execution (ExecutionConfig): Pipeline control and parallelism.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="n">recording</span><span class="p">:</span> <span class="n">RecordingConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">RecordingConfig</span><span class="p">)</span>
     <span class="n">sorter</span><span class="p">:</span> <span class="n">SorterConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">SorterConfig</span><span class="p">)</span>
@@ -924,7 +924,7 @@
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting.config.SortingPipelineConfig.from_kwargs">[docs]</a>
     <span class="nd">@classmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">from_kwargs</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Build a config from flat keyword arguments.</span>
+<span class="w">        </span><span class="sd">"""Build a config from flat keyword arguments.</span>
 
 <span class="sd">        Maps the flat parameter names used by ``sort_with_kilosort2()``</span>
 <span class="sd">        to the nested sub-config fields. Unknown keys raise ``TypeError``.</span>
@@ -935,18 +935,18 @@
 
 <span class="sd">        Returns:</span>
 <span class="sd">            config (SortingPipelineConfig): Populated configuration.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">flat_map</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_build_flat_map</span><span class="p">()</span>
 
         <span class="n">sub_kwargs</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">&quot;recording&quot;</span><span class="p">:</span> <span class="p">{},</span>
-            <span class="s2">&quot;sorter&quot;</span><span class="p">:</span> <span class="p">{},</span>
-            <span class="s2">&quot;rt_sort&quot;</span><span class="p">:</span> <span class="p">{},</span>
-            <span class="s2">&quot;waveform&quot;</span><span class="p">:</span> <span class="p">{},</span>
-            <span class="s2">&quot;curation&quot;</span><span class="p">:</span> <span class="p">{},</span>
-            <span class="s2">&quot;compilation&quot;</span><span class="p">:</span> <span class="p">{},</span>
-            <span class="s2">&quot;figures&quot;</span><span class="p">:</span> <span class="p">{},</span>
-            <span class="s2">&quot;execution&quot;</span><span class="p">:</span> <span class="p">{},</span>
+            <span class="s2">"recording"</span><span class="p">:</span> <span class="p">{},</span>
+            <span class="s2">"sorter"</span><span class="p">:</span> <span class="p">{},</span>
+            <span class="s2">"rt_sort"</span><span class="p">:</span> <span class="p">{},</span>
+            <span class="s2">"waveform"</span><span class="p">:</span> <span class="p">{},</span>
+            <span class="s2">"curation"</span><span class="p">:</span> <span class="p">{},</span>
+            <span class="s2">"compilation"</span><span class="p">:</span> <span class="p">{},</span>
+            <span class="s2">"figures"</span><span class="p">:</span> <span class="p">{},</span>
+            <span class="s2">"execution"</span><span class="p">:</span> <span class="p">{},</span>
         <span class="p">}</span>
 
         <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
@@ -955,26 +955,26 @@
                 <span class="n">sub_kwargs</span><span class="p">[</span><span class="n">group</span><span class="p">][</span><span class="n">field_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Unknown parameter &#39;</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">&#39;. Check spelling or see &quot;</span>
-                    <span class="s2">&quot;SortingPipelineConfig for valid fields.&quot;</span>
+                    <span class="sa">f</span><span class="s2">"Unknown parameter '</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">'. Check spelling or see "</span>
+                    <span class="s2">"SortingPipelineConfig for valid fields."</span>
                 <span class="p">)</span>
 
         <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
-            <span class="n">recording</span><span class="o">=</span><span class="n">RecordingConfig</span><span class="p">(</span><span class="o">**</span><span class="n">sub_kwargs</span><span class="p">[</span><span class="s2">&quot;recording&quot;</span><span class="p">]),</span>
-            <span class="n">sorter</span><span class="o">=</span><span class="n">SorterConfig</span><span class="p">(</span><span class="o">**</span><span class="n">sub_kwargs</span><span class="p">[</span><span class="s2">&quot;sorter&quot;</span><span class="p">]),</span>
-            <span class="n">rt_sort</span><span class="o">=</span><span class="n">RTSortConfig</span><span class="p">(</span><span class="o">**</span><span class="n">sub_kwargs</span><span class="p">[</span><span class="s2">&quot;rt_sort&quot;</span><span class="p">]),</span>
-            <span class="n">waveform</span><span class="o">=</span><span class="n">WaveformConfig</span><span class="p">(</span><span class="o">**</span><span class="n">sub_kwargs</span><span class="p">[</span><span class="s2">&quot;waveform&quot;</span><span class="p">]),</span>
-            <span class="n">curation</span><span class="o">=</span><span class="n">CurationConfig</span><span class="p">(</span><span class="o">**</span><span class="n">sub_kwargs</span><span class="p">[</span><span class="s2">&quot;curation&quot;</span><span class="p">]),</span>
-            <span class="n">compilation</span><span class="o">=</span><span class="n">CompilationConfig</span><span class="p">(</span><span class="o">**</span><span class="n">sub_kwargs</span><span class="p">[</span><span class="s2">&quot;compilation&quot;</span><span class="p">]),</span>
-            <span class="n">figures</span><span class="o">=</span><span class="n">FigureConfig</span><span class="p">(</span><span class="o">**</span><span class="n">sub_kwargs</span><span class="p">[</span><span class="s2">&quot;figures&quot;</span><span class="p">]),</span>
-            <span class="n">execution</span><span class="o">=</span><span class="n">ExecutionConfig</span><span class="p">(</span><span class="o">**</span><span class="n">sub_kwargs</span><span class="p">[</span><span class="s2">&quot;execution&quot;</span><span class="p">]),</span>
+            <span class="n">recording</span><span class="o">=</span><span class="n">RecordingConfig</span><span class="p">(</span><span class="o">**</span><span class="n">sub_kwargs</span><span class="p">[</span><span class="s2">"recording"</span><span class="p">]),</span>
+            <span class="n">sorter</span><span class="o">=</span><span class="n">SorterConfig</span><span class="p">(</span><span class="o">**</span><span class="n">sub_kwargs</span><span class="p">[</span><span class="s2">"sorter"</span><span class="p">]),</span>
+            <span class="n">rt_sort</span><span class="o">=</span><span class="n">RTSortConfig</span><span class="p">(</span><span class="o">**</span><span class="n">sub_kwargs</span><span class="p">[</span><span class="s2">"rt_sort"</span><span class="p">]),</span>
+            <span class="n">waveform</span><span class="o">=</span><span class="n">WaveformConfig</span><span class="p">(</span><span class="o">**</span><span class="n">sub_kwargs</span><span class="p">[</span><span class="s2">"waveform"</span><span class="p">]),</span>
+            <span class="n">curation</span><span class="o">=</span><span class="n">CurationConfig</span><span class="p">(</span><span class="o">**</span><span class="n">sub_kwargs</span><span class="p">[</span><span class="s2">"curation"</span><span class="p">]),</span>
+            <span class="n">compilation</span><span class="o">=</span><span class="n">CompilationConfig</span><span class="p">(</span><span class="o">**</span><span class="n">sub_kwargs</span><span class="p">[</span><span class="s2">"compilation"</span><span class="p">]),</span>
+            <span class="n">figures</span><span class="o">=</span><span class="n">FigureConfig</span><span class="p">(</span><span class="o">**</span><span class="n">sub_kwargs</span><span class="p">[</span><span class="s2">"figures"</span><span class="p">]),</span>
+            <span class="n">execution</span><span class="o">=</span><span class="n">ExecutionConfig</span><span class="p">(</span><span class="o">**</span><span class="n">sub_kwargs</span><span class="p">[</span><span class="s2">"execution"</span><span class="p">]),</span>
         <span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="SortingPipelineConfig.override">
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting.config.SortingPipelineConfig.override">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">override</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a copy of this config with selected fields overridden.</span>
+<span class="w">        </span><span class="sd">"""Return a copy of this config with selected fields overridden.</span>
 
 <span class="sd">        Accepts the same flat keyword arguments as ``from_kwargs()``.</span>
 <span class="sd">        Unspecified fields retain their current values.</span>
@@ -984,7 +984,7 @@
 
 <span class="sd">        Returns:</span>
 <span class="sd">            config (SortingPipelineConfig): New config with overrides.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">copy</span><span class="w"> </span><span class="kn">import</span> <span class="n">deepcopy</span>
 
         <span class="n">new</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
@@ -993,8 +993,8 @@
         <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">flat_map</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Unknown parameter &#39;</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">&#39;. Check spelling or see &quot;</span>
-                    <span class="s2">&quot;SortingPipelineConfig for valid fields.&quot;</span>
+                    <span class="sa">f</span><span class="s2">"Unknown parameter '</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">'. Check spelling or see "</span>
+                    <span class="s2">"SortingPipelineConfig for valid fields."</span>
                 <span class="p">)</span>
             <span class="n">group</span><span class="p">,</span> <span class="n">field_name</span> <span class="o">=</span> <span class="n">flat_map</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
             <span class="n">sub_config</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">new</span><span class="p">,</span> <span class="n">group</span><span class="p">)</span>
@@ -1005,220 +1005,220 @@
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_build_flat_map</span><span class="p">():</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the flat kwarg → (group, field) mapping.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Return the flat kwarg → (group, field) mapping."""</span>
         <span class="k">return</span> <span class="p">{</span>
             <span class="c1"># RecordingConfig</span>
-            <span class="s2">&quot;stream_id&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;recording&quot;</span><span class="p">,</span> <span class="s2">&quot;stream_id&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;hdf5_plugin_path&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;recording&quot;</span><span class="p">,</span> <span class="s2">&quot;hdf5_plugin_path&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;first_n_mins&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;recording&quot;</span><span class="p">,</span> <span class="s2">&quot;first_n_mins&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;mea_y_max&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;recording&quot;</span><span class="p">,</span> <span class="s2">&quot;mea_y_max&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;gain_to_uv&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;recording&quot;</span><span class="p">,</span> <span class="s2">&quot;gain_to_uv&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;offset_to_uv&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;recording&quot;</span><span class="p">,</span> <span class="s2">&quot;offset_to_uv&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;rec_chunks&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;recording&quot;</span><span class="p">,</span> <span class="s2">&quot;rec_chunks&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;rec_chunks_s&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;recording&quot;</span><span class="p">,</span> <span class="s2">&quot;rec_chunks_s&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;start_time_s&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;recording&quot;</span><span class="p">,</span> <span class="s2">&quot;start_time_s&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;end_time_s&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;recording&quot;</span><span class="p">,</span> <span class="s2">&quot;end_time_s&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;freq_min&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;recording&quot;</span><span class="p">,</span> <span class="s2">&quot;freq_min&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;freq_max&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;recording&quot;</span><span class="p">,</span> <span class="s2">&quot;freq_max&quot;</span><span class="p">),</span>
+            <span class="s2">"stream_id"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"recording"</span><span class="p">,</span> <span class="s2">"stream_id"</span><span class="p">),</span>
+            <span class="s2">"hdf5_plugin_path"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"recording"</span><span class="p">,</span> <span class="s2">"hdf5_plugin_path"</span><span class="p">),</span>
+            <span class="s2">"first_n_mins"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"recording"</span><span class="p">,</span> <span class="s2">"first_n_mins"</span><span class="p">),</span>
+            <span class="s2">"mea_y_max"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"recording"</span><span class="p">,</span> <span class="s2">"mea_y_max"</span><span class="p">),</span>
+            <span class="s2">"gain_to_uv"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"recording"</span><span class="p">,</span> <span class="s2">"gain_to_uv"</span><span class="p">),</span>
+            <span class="s2">"offset_to_uv"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"recording"</span><span class="p">,</span> <span class="s2">"offset_to_uv"</span><span class="p">),</span>
+            <span class="s2">"rec_chunks"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"recording"</span><span class="p">,</span> <span class="s2">"rec_chunks"</span><span class="p">),</span>
+            <span class="s2">"rec_chunks_s"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"recording"</span><span class="p">,</span> <span class="s2">"rec_chunks_s"</span><span class="p">),</span>
+            <span class="s2">"start_time_s"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"recording"</span><span class="p">,</span> <span class="s2">"start_time_s"</span><span class="p">),</span>
+            <span class="s2">"end_time_s"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"recording"</span><span class="p">,</span> <span class="s2">"end_time_s"</span><span class="p">),</span>
+            <span class="s2">"freq_min"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"recording"</span><span class="p">,</span> <span class="s2">"freq_min"</span><span class="p">),</span>
+            <span class="s2">"freq_max"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"recording"</span><span class="p">,</span> <span class="s2">"freq_max"</span><span class="p">),</span>
             <span class="c1"># SorterConfig</span>
-            <span class="s2">&quot;kilosort_path&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;sorter&quot;</span><span class="p">,</span> <span class="s2">&quot;sorter_path&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;kilosort_params&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;sorter&quot;</span><span class="p">,</span> <span class="s2">&quot;sorter_params&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;use_docker&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;sorter&quot;</span><span class="p">,</span> <span class="s2">&quot;use_docker&quot;</span><span class="p">),</span>
+            <span class="s2">"kilosort_path"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"sorter"</span><span class="p">,</span> <span class="s2">"sorter_path"</span><span class="p">),</span>
+            <span class="s2">"kilosort_params"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"sorter"</span><span class="p">,</span> <span class="s2">"sorter_params"</span><span class="p">),</span>
+            <span class="s2">"use_docker"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"sorter"</span><span class="p">,</span> <span class="s2">"use_docker"</span><span class="p">),</span>
             <span class="c1"># RTSortConfig</span>
-            <span class="s2">&quot;rt_sort_model_path&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;rt_sort&quot;</span><span class="p">,</span> <span class="s2">&quot;model_path&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;rt_sort_probe&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;rt_sort&quot;</span><span class="p">,</span> <span class="s2">&quot;probe&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;rt_sort_device&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;rt_sort&quot;</span><span class="p">,</span> <span class="s2">&quot;device&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;rt_sort_num_processes&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;rt_sort&quot;</span><span class="p">,</span> <span class="s2">&quot;num_processes&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;rt_sort_recording_window_ms&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;rt_sort&quot;</span><span class="p">,</span> <span class="s2">&quot;recording_window_ms&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;rt_sort_save_pickle&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;rt_sort&quot;</span><span class="p">,</span> <span class="s2">&quot;save_rt_sort_pickle&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;rt_sort_delete_inter&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;rt_sort&quot;</span><span class="p">,</span> <span class="s2">&quot;delete_inter&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;rt_sort_verbose&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;rt_sort&quot;</span><span class="p">,</span> <span class="s2">&quot;verbose&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;rt_sort_params&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;rt_sort&quot;</span><span class="p">,</span> <span class="s2">&quot;params&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;rt_sort_detection_window_s&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;rt_sort&quot;</span><span class="p">,</span> <span class="s2">&quot;detection_window_s&quot;</span><span class="p">),</span>
+            <span class="s2">"rt_sort_model_path"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"rt_sort"</span><span class="p">,</span> <span class="s2">"model_path"</span><span class="p">),</span>
+            <span class="s2">"rt_sort_probe"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"rt_sort"</span><span class="p">,</span> <span class="s2">"probe"</span><span class="p">),</span>
+            <span class="s2">"rt_sort_device"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"rt_sort"</span><span class="p">,</span> <span class="s2">"device"</span><span class="p">),</span>
+            <span class="s2">"rt_sort_num_processes"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"rt_sort"</span><span class="p">,</span> <span class="s2">"num_processes"</span><span class="p">),</span>
+            <span class="s2">"rt_sort_recording_window_ms"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"rt_sort"</span><span class="p">,</span> <span class="s2">"recording_window_ms"</span><span class="p">),</span>
+            <span class="s2">"rt_sort_save_pickle"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"rt_sort"</span><span class="p">,</span> <span class="s2">"save_rt_sort_pickle"</span><span class="p">),</span>
+            <span class="s2">"rt_sort_delete_inter"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"rt_sort"</span><span class="p">,</span> <span class="s2">"delete_inter"</span><span class="p">),</span>
+            <span class="s2">"rt_sort_verbose"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"rt_sort"</span><span class="p">,</span> <span class="s2">"verbose"</span><span class="p">),</span>
+            <span class="s2">"rt_sort_params"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"rt_sort"</span><span class="p">,</span> <span class="s2">"params"</span><span class="p">),</span>
+            <span class="s2">"rt_sort_detection_window_s"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"rt_sort"</span><span class="p">,</span> <span class="s2">"detection_window_s"</span><span class="p">),</span>
             <span class="c1"># WaveformConfig</span>
-            <span class="s2">&quot;waveforms_ms_before&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;waveform&quot;</span><span class="p">,</span> <span class="s2">&quot;ms_before&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;waveforms_ms_after&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;waveform&quot;</span><span class="p">,</span> <span class="s2">&quot;ms_after&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;pos_peak_thresh&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;waveform&quot;</span><span class="p">,</span> <span class="s2">&quot;pos_peak_thresh&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;max_waveforms_per_unit&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;waveform&quot;</span><span class="p">,</span> <span class="s2">&quot;max_waveforms_per_unit&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;compiled_waveforms_ms_before&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;waveform&quot;</span><span class="p">,</span> <span class="s2">&quot;compiled_ms_before&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;compiled_waveforms_ms_after&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;waveform&quot;</span><span class="p">,</span> <span class="s2">&quot;compiled_ms_after&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;scale_compiled_waveforms&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;waveform&quot;</span><span class="p">,</span> <span class="s2">&quot;scale_compiled_waveforms&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;std_at_peak&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;waveform&quot;</span><span class="p">,</span> <span class="s2">&quot;std_at_peak&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;std_over_window_ms_before&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;waveform&quot;</span><span class="p">,</span> <span class="s2">&quot;std_over_window_ms_before&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;std_over_window_ms_after&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;waveform&quot;</span><span class="p">,</span> <span class="s2">&quot;std_over_window_ms_after&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;streaming_waveforms&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;waveform&quot;</span><span class="p">,</span> <span class="s2">&quot;streaming&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;save_waveform_files&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;waveform&quot;</span><span class="p">,</span> <span class="s2">&quot;save_waveform_files&quot;</span><span class="p">),</span>
+            <span class="s2">"waveforms_ms_before"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"waveform"</span><span class="p">,</span> <span class="s2">"ms_before"</span><span class="p">),</span>
+            <span class="s2">"waveforms_ms_after"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"waveform"</span><span class="p">,</span> <span class="s2">"ms_after"</span><span class="p">),</span>
+            <span class="s2">"pos_peak_thresh"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"waveform"</span><span class="p">,</span> <span class="s2">"pos_peak_thresh"</span><span class="p">),</span>
+            <span class="s2">"max_waveforms_per_unit"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"waveform"</span><span class="p">,</span> <span class="s2">"max_waveforms_per_unit"</span><span class="p">),</span>
+            <span class="s2">"compiled_waveforms_ms_before"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"waveform"</span><span class="p">,</span> <span class="s2">"compiled_ms_before"</span><span class="p">),</span>
+            <span class="s2">"compiled_waveforms_ms_after"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"waveform"</span><span class="p">,</span> <span class="s2">"compiled_ms_after"</span><span class="p">),</span>
+            <span class="s2">"scale_compiled_waveforms"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"waveform"</span><span class="p">,</span> <span class="s2">"scale_compiled_waveforms"</span><span class="p">),</span>
+            <span class="s2">"std_at_peak"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"waveform"</span><span class="p">,</span> <span class="s2">"std_at_peak"</span><span class="p">),</span>
+            <span class="s2">"std_over_window_ms_before"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"waveform"</span><span class="p">,</span> <span class="s2">"std_over_window_ms_before"</span><span class="p">),</span>
+            <span class="s2">"std_over_window_ms_after"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"waveform"</span><span class="p">,</span> <span class="s2">"std_over_window_ms_after"</span><span class="p">),</span>
+            <span class="s2">"streaming_waveforms"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"waveform"</span><span class="p">,</span> <span class="s2">"streaming"</span><span class="p">),</span>
+            <span class="s2">"save_waveform_files"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"waveform"</span><span class="p">,</span> <span class="s2">"save_waveform_files"</span><span class="p">),</span>
             <span class="c1"># CurationConfig</span>
-            <span class="s2">&quot;curate_first&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;curation&quot;</span><span class="p">,</span> <span class="s2">&quot;curate_first&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;curate_second&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;curation&quot;</span><span class="p">,</span> <span class="s2">&quot;curate_second&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;curation_epoch&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;curation&quot;</span><span class="p">,</span> <span class="s2">&quot;curation_epoch&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;fr_min&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;curation&quot;</span><span class="p">,</span> <span class="s2">&quot;fr_min&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;isi_viol_max&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;curation&quot;</span><span class="p">,</span> <span class="s2">&quot;isi_viol_max&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;isi_violation_method&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;curation&quot;</span><span class="p">,</span> <span class="s2">&quot;isi_violation_method&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;snr_min&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;curation&quot;</span><span class="p">,</span> <span class="s2">&quot;snr_min&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;spikes_min_first&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;curation&quot;</span><span class="p">,</span> <span class="s2">&quot;spikes_min_first&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;spikes_min_second&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;curation&quot;</span><span class="p">,</span> <span class="s2">&quot;spikes_min_second&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;std_norm_max&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;curation&quot;</span><span class="p">,</span> <span class="s2">&quot;std_norm_max&quot;</span><span class="p">),</span>
+            <span class="s2">"curate_first"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"curation"</span><span class="p">,</span> <span class="s2">"curate_first"</span><span class="p">),</span>
+            <span class="s2">"curate_second"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"curation"</span><span class="p">,</span> <span class="s2">"curate_second"</span><span class="p">),</span>
+            <span class="s2">"curation_epoch"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"curation"</span><span class="p">,</span> <span class="s2">"curation_epoch"</span><span class="p">),</span>
+            <span class="s2">"fr_min"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"curation"</span><span class="p">,</span> <span class="s2">"fr_min"</span><span class="p">),</span>
+            <span class="s2">"isi_viol_max"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"curation"</span><span class="p">,</span> <span class="s2">"isi_viol_max"</span><span class="p">),</span>
+            <span class="s2">"isi_violation_method"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"curation"</span><span class="p">,</span> <span class="s2">"isi_violation_method"</span><span class="p">),</span>
+            <span class="s2">"snr_min"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"curation"</span><span class="p">,</span> <span class="s2">"snr_min"</span><span class="p">),</span>
+            <span class="s2">"spikes_min_first"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"curation"</span><span class="p">,</span> <span class="s2">"spikes_min_first"</span><span class="p">),</span>
+            <span class="s2">"spikes_min_second"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"curation"</span><span class="p">,</span> <span class="s2">"spikes_min_second"</span><span class="p">),</span>
+            <span class="s2">"std_norm_max"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"curation"</span><span class="p">,</span> <span class="s2">"std_norm_max"</span><span class="p">),</span>
             <span class="c1"># CompilationConfig</span>
-            <span class="s2">&quot;compile_single_recording&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;compilation&quot;</span><span class="p">,</span> <span class="s2">&quot;compile_single_recording&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;compile_to_mat&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;compilation&quot;</span><span class="p">,</span> <span class="s2">&quot;compile_to_mat&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;compile_to_npz&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;compilation&quot;</span><span class="p">,</span> <span class="s2">&quot;compile_to_npz&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;compile_waveforms&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;compilation&quot;</span><span class="p">,</span> <span class="s2">&quot;compile_waveforms&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;save_electrodes&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;compilation&quot;</span><span class="p">,</span> <span class="s2">&quot;save_electrodes&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;save_spike_times&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;compilation&quot;</span><span class="p">,</span> <span class="s2">&quot;save_spike_times&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;save_raw_pkl&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;compilation&quot;</span><span class="p">,</span> <span class="s2">&quot;save_raw_pkl&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;save_dl_data&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;compilation&quot;</span><span class="p">,</span> <span class="s2">&quot;save_dl_data&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;include_failed_units&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;compilation&quot;</span><span class="p">,</span> <span class="s2">&quot;include_failed_units&quot;</span><span class="p">),</span>
+            <span class="s2">"compile_single_recording"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"compilation"</span><span class="p">,</span> <span class="s2">"compile_single_recording"</span><span class="p">),</span>
+            <span class="s2">"compile_to_mat"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"compilation"</span><span class="p">,</span> <span class="s2">"compile_to_mat"</span><span class="p">),</span>
+            <span class="s2">"compile_to_npz"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"compilation"</span><span class="p">,</span> <span class="s2">"compile_to_npz"</span><span class="p">),</span>
+            <span class="s2">"compile_waveforms"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"compilation"</span><span class="p">,</span> <span class="s2">"compile_waveforms"</span><span class="p">),</span>
+            <span class="s2">"save_electrodes"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"compilation"</span><span class="p">,</span> <span class="s2">"save_electrodes"</span><span class="p">),</span>
+            <span class="s2">"save_spike_times"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"compilation"</span><span class="p">,</span> <span class="s2">"save_spike_times"</span><span class="p">),</span>
+            <span class="s2">"save_raw_pkl"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"compilation"</span><span class="p">,</span> <span class="s2">"save_raw_pkl"</span><span class="p">),</span>
+            <span class="s2">"save_dl_data"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"compilation"</span><span class="p">,</span> <span class="s2">"save_dl_data"</span><span class="p">),</span>
+            <span class="s2">"include_failed_units"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"compilation"</span><span class="p">,</span> <span class="s2">"include_failed_units"</span><span class="p">),</span>
             <span class="c1"># FigureConfig</span>
-            <span class="s2">&quot;create_figures&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;figures&quot;</span><span class="p">,</span> <span class="s2">&quot;create_figures&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;create_unit_figures&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;figures&quot;</span><span class="p">,</span> <span class="s2">&quot;create_unit_figures&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;figures_dpi&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;figures&quot;</span><span class="p">,</span> <span class="s2">&quot;dpi&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;figures_font_size&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;figures&quot;</span><span class="p">,</span> <span class="s2">&quot;font_size&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;bar_x_label&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;figures&quot;</span><span class="p">,</span> <span class="s2">&quot;bar_x_label&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;bar_y_label&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;figures&quot;</span><span class="p">,</span> <span class="s2">&quot;bar_y_label&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;bar_label_rotation&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;figures&quot;</span><span class="p">,</span> <span class="s2">&quot;bar_label_rotation&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;bar_total_label&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;figures&quot;</span><span class="p">,</span> <span class="s2">&quot;bar_total_label&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;bar_selected_label&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;figures&quot;</span><span class="p">,</span> <span class="s2">&quot;bar_selected_label&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;scatter_std_max_units_per_recording&quot;</span><span class="p">:</span> <span class="p">(</span>
-                <span class="s2">&quot;figures&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;scatter_std_max_units_per_recording&quot;</span><span class="p">,</span>
+            <span class="s2">"create_figures"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"figures"</span><span class="p">,</span> <span class="s2">"create_figures"</span><span class="p">),</span>
+            <span class="s2">"create_unit_figures"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"figures"</span><span class="p">,</span> <span class="s2">"create_unit_figures"</span><span class="p">),</span>
+            <span class="s2">"figures_dpi"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"figures"</span><span class="p">,</span> <span class="s2">"dpi"</span><span class="p">),</span>
+            <span class="s2">"figures_font_size"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"figures"</span><span class="p">,</span> <span class="s2">"font_size"</span><span class="p">),</span>
+            <span class="s2">"bar_x_label"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"figures"</span><span class="p">,</span> <span class="s2">"bar_x_label"</span><span class="p">),</span>
+            <span class="s2">"bar_y_label"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"figures"</span><span class="p">,</span> <span class="s2">"bar_y_label"</span><span class="p">),</span>
+            <span class="s2">"bar_label_rotation"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"figures"</span><span class="p">,</span> <span class="s2">"bar_label_rotation"</span><span class="p">),</span>
+            <span class="s2">"bar_total_label"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"figures"</span><span class="p">,</span> <span class="s2">"bar_total_label"</span><span class="p">),</span>
+            <span class="s2">"bar_selected_label"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"figures"</span><span class="p">,</span> <span class="s2">"bar_selected_label"</span><span class="p">),</span>
+            <span class="s2">"scatter_std_max_units_per_recording"</span><span class="p">:</span> <span class="p">(</span>
+                <span class="s2">"figures"</span><span class="p">,</span>
+                <span class="s2">"scatter_std_max_units_per_recording"</span><span class="p">,</span>
             <span class="p">),</span>
-            <span class="s2">&quot;scatter_recording_colors&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;figures&quot;</span><span class="p">,</span> <span class="s2">&quot;scatter_recording_colors&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;scatter_recording_alpha&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;figures&quot;</span><span class="p">,</span> <span class="s2">&quot;scatter_recording_alpha&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;scatter_x_label&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;figures&quot;</span><span class="p">,</span> <span class="s2">&quot;scatter_x_label&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;scatter_y_label&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;figures&quot;</span><span class="p">,</span> <span class="s2">&quot;scatter_y_label&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;scatter_x_max_buffer&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;figures&quot;</span><span class="p">,</span> <span class="s2">&quot;scatter_x_max_buffer&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;scatter_y_max_buffer&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;figures&quot;</span><span class="p">,</span> <span class="s2">&quot;scatter_y_max_buffer&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;all_templates_color_curated&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;figures&quot;</span><span class="p">,</span> <span class="s2">&quot;templates_color_curated&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;all_templates_color_failed&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;figures&quot;</span><span class="p">,</span> <span class="s2">&quot;templates_color_failed&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;all_templates_per_column&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;figures&quot;</span><span class="p">,</span> <span class="s2">&quot;templates_per_column&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;all_templates_y_spacing&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;figures&quot;</span><span class="p">,</span> <span class="s2">&quot;templates_y_spacing&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;all_templates_y_lim_buffer&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;figures&quot;</span><span class="p">,</span> <span class="s2">&quot;templates_y_lim_buffer&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;all_templates_window_ms_before_peak&quot;</span><span class="p">:</span> <span class="p">(</span>
-                <span class="s2">&quot;figures&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;templates_window_ms_before&quot;</span><span class="p">,</span>
+            <span class="s2">"scatter_recording_colors"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"figures"</span><span class="p">,</span> <span class="s2">"scatter_recording_colors"</span><span class="p">),</span>
+            <span class="s2">"scatter_recording_alpha"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"figures"</span><span class="p">,</span> <span class="s2">"scatter_recording_alpha"</span><span class="p">),</span>
+            <span class="s2">"scatter_x_label"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"figures"</span><span class="p">,</span> <span class="s2">"scatter_x_label"</span><span class="p">),</span>
+            <span class="s2">"scatter_y_label"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"figures"</span><span class="p">,</span> <span class="s2">"scatter_y_label"</span><span class="p">),</span>
+            <span class="s2">"scatter_x_max_buffer"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"figures"</span><span class="p">,</span> <span class="s2">"scatter_x_max_buffer"</span><span class="p">),</span>
+            <span class="s2">"scatter_y_max_buffer"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"figures"</span><span class="p">,</span> <span class="s2">"scatter_y_max_buffer"</span><span class="p">),</span>
+            <span class="s2">"all_templates_color_curated"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"figures"</span><span class="p">,</span> <span class="s2">"templates_color_curated"</span><span class="p">),</span>
+            <span class="s2">"all_templates_color_failed"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"figures"</span><span class="p">,</span> <span class="s2">"templates_color_failed"</span><span class="p">),</span>
+            <span class="s2">"all_templates_per_column"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"figures"</span><span class="p">,</span> <span class="s2">"templates_per_column"</span><span class="p">),</span>
+            <span class="s2">"all_templates_y_spacing"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"figures"</span><span class="p">,</span> <span class="s2">"templates_y_spacing"</span><span class="p">),</span>
+            <span class="s2">"all_templates_y_lim_buffer"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"figures"</span><span class="p">,</span> <span class="s2">"templates_y_lim_buffer"</span><span class="p">),</span>
+            <span class="s2">"all_templates_window_ms_before_peak"</span><span class="p">:</span> <span class="p">(</span>
+                <span class="s2">"figures"</span><span class="p">,</span>
+                <span class="s2">"templates_window_ms_before"</span><span class="p">,</span>
             <span class="p">),</span>
-            <span class="s2">&quot;all_templates_window_ms_after_peak&quot;</span><span class="p">:</span> <span class="p">(</span>
-                <span class="s2">&quot;figures&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;templates_window_ms_after&quot;</span><span class="p">,</span>
+            <span class="s2">"all_templates_window_ms_after_peak"</span><span class="p">:</span> <span class="p">(</span>
+                <span class="s2">"figures"</span><span class="p">,</span>
+                <span class="s2">"templates_window_ms_after"</span><span class="p">,</span>
             <span class="p">),</span>
-            <span class="s2">&quot;all_templates_line_ms_before_peak&quot;</span><span class="p">:</span> <span class="p">(</span>
-                <span class="s2">&quot;figures&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;templates_line_ms_before&quot;</span><span class="p">,</span>
+            <span class="s2">"all_templates_line_ms_before_peak"</span><span class="p">:</span> <span class="p">(</span>
+                <span class="s2">"figures"</span><span class="p">,</span>
+                <span class="s2">"templates_line_ms_before"</span><span class="p">,</span>
             <span class="p">),</span>
-            <span class="s2">&quot;all_templates_line_ms_after_peak&quot;</span><span class="p">:</span> <span class="p">(</span>
-                <span class="s2">&quot;figures&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;templates_line_ms_after&quot;</span><span class="p">,</span>
+            <span class="s2">"all_templates_line_ms_after_peak"</span><span class="p">:</span> <span class="p">(</span>
+                <span class="s2">"figures"</span><span class="p">,</span>
+                <span class="s2">"templates_line_ms_after"</span><span class="p">,</span>
             <span class="p">),</span>
-            <span class="s2">&quot;all_templates_x_label&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;figures&quot;</span><span class="p">,</span> <span class="s2">&quot;templates_x_label&quot;</span><span class="p">),</span>
+            <span class="s2">"all_templates_x_label"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"figures"</span><span class="p">,</span> <span class="s2">"templates_x_label"</span><span class="p">),</span>
             <span class="c1"># ExecutionConfig</span>
-            <span class="s2">&quot;random_seed&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;random_seed&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;n_jobs&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;n_jobs&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;total_memory&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;total_memory&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;use_parallel_processing_for_raw_conversion&quot;</span><span class="p">:</span> <span class="p">(</span>
-                <span class="s2">&quot;execution&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;use_parallel_processing_for_raw_conversion&quot;</span><span class="p">,</span>
+            <span class="s2">"random_seed"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"execution"</span><span class="p">,</span> <span class="s2">"random_seed"</span><span class="p">),</span>
+            <span class="s2">"n_jobs"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"execution"</span><span class="p">,</span> <span class="s2">"n_jobs"</span><span class="p">),</span>
+            <span class="s2">"total_memory"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"execution"</span><span class="p">,</span> <span class="s2">"total_memory"</span><span class="p">),</span>
+            <span class="s2">"use_parallel_processing_for_raw_conversion"</span><span class="p">:</span> <span class="p">(</span>
+                <span class="s2">"execution"</span><span class="p">,</span>
+                <span class="s2">"use_parallel_processing_for_raw_conversion"</span><span class="p">,</span>
             <span class="p">),</span>
-            <span class="s2">&quot;save_script&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;save_script&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;out_file&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;out_file&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;recompute_recording&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;recompute_recording&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;recompute_sorting&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;recompute_sorting&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;reextract_waveforms&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;reextract_waveforms&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;recurate_first&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;recurate_first&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;recurate_second&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;recurate_second&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;recompile_single_recording&quot;</span><span class="p">:</span> <span class="p">(</span>
-                <span class="s2">&quot;execution&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;recompile_single_recording&quot;</span><span class="p">,</span>
+            <span class="s2">"save_script"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"execution"</span><span class="p">,</span> <span class="s2">"save_script"</span><span class="p">),</span>
+            <span class="s2">"out_file"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"execution"</span><span class="p">,</span> <span class="s2">"out_file"</span><span class="p">),</span>
+            <span class="s2">"recompute_recording"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"execution"</span><span class="p">,</span> <span class="s2">"recompute_recording"</span><span class="p">),</span>
+            <span class="s2">"recompute_sorting"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"execution"</span><span class="p">,</span> <span class="s2">"recompute_sorting"</span><span class="p">),</span>
+            <span class="s2">"reextract_waveforms"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"execution"</span><span class="p">,</span> <span class="s2">"reextract_waveforms"</span><span class="p">),</span>
+            <span class="s2">"recurate_first"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"execution"</span><span class="p">,</span> <span class="s2">"recurate_first"</span><span class="p">),</span>
+            <span class="s2">"recurate_second"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"execution"</span><span class="p">,</span> <span class="s2">"recurate_second"</span><span class="p">),</span>
+            <span class="s2">"recompile_single_recording"</span><span class="p">:</span> <span class="p">(</span>
+                <span class="s2">"execution"</span><span class="p">,</span>
+                <span class="s2">"recompile_single_recording"</span><span class="p">,</span>
             <span class="p">),</span>
-            <span class="s2">&quot;delete_inter&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;delete_inter&quot;</span><span class="p">),</span>
+            <span class="s2">"delete_inter"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"execution"</span><span class="p">,</span> <span class="s2">"delete_inter"</span><span class="p">),</span>
             <span class="c1"># ExecutionConfig — guards (host-memory watchdog)</span>
-            <span class="s2">&quot;host_ram_watchdog&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;host_ram_watchdog&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;host_ram_warn_pct&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;host_ram_warn_pct&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;host_ram_abort_pct&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;host_ram_abort_pct&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;host_ram_poll_interval_s&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;host_ram_poll_interval_s&quot;</span><span class="p">),</span>
+            <span class="s2">"host_ram_watchdog"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"execution"</span><span class="p">,</span> <span class="s2">"host_ram_watchdog"</span><span class="p">),</span>
+            <span class="s2">"host_ram_warn_pct"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"execution"</span><span class="p">,</span> <span class="s2">"host_ram_warn_pct"</span><span class="p">),</span>
+            <span class="s2">"host_ram_abort_pct"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"execution"</span><span class="p">,</span> <span class="s2">"host_ram_abort_pct"</span><span class="p">),</span>
+            <span class="s2">"host_ram_poll_interval_s"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"execution"</span><span class="p">,</span> <span class="s2">"host_ram_poll_interval_s"</span><span class="p">),</span>
             <span class="c1"># ExecutionConfig — guards (preflight)</span>
-            <span class="s2">&quot;preflight&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;preflight&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;preflight_strict&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;preflight_strict&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;preflight_min_free_inter_gb&quot;</span><span class="p">:</span> <span class="p">(</span>
-                <span class="s2">&quot;execution&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;preflight_min_free_inter_gb&quot;</span><span class="p">,</span>
+            <span class="s2">"preflight"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"execution"</span><span class="p">,</span> <span class="s2">"preflight"</span><span class="p">),</span>
+            <span class="s2">"preflight_strict"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"execution"</span><span class="p">,</span> <span class="s2">"preflight_strict"</span><span class="p">),</span>
+            <span class="s2">"preflight_min_free_inter_gb"</span><span class="p">:</span> <span class="p">(</span>
+                <span class="s2">"execution"</span><span class="p">,</span>
+                <span class="s2">"preflight_min_free_inter_gb"</span><span class="p">,</span>
             <span class="p">),</span>
-            <span class="s2">&quot;preflight_min_free_results_gb&quot;</span><span class="p">:</span> <span class="p">(</span>
-                <span class="s2">&quot;execution&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;preflight_min_free_results_gb&quot;</span><span class="p">,</span>
+            <span class="s2">"preflight_min_free_results_gb"</span><span class="p">:</span> <span class="p">(</span>
+                <span class="s2">"execution"</span><span class="p">,</span>
+                <span class="s2">"preflight_min_free_results_gb"</span><span class="p">,</span>
             <span class="p">),</span>
-            <span class="s2">&quot;preflight_min_available_ram_gb&quot;</span><span class="p">:</span> <span class="p">(</span>
-                <span class="s2">&quot;execution&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;preflight_min_available_ram_gb&quot;</span><span class="p">,</span>
+            <span class="s2">"preflight_min_available_ram_gb"</span><span class="p">:</span> <span class="p">(</span>
+                <span class="s2">"execution"</span><span class="p">,</span>
+                <span class="s2">"preflight_min_available_ram_gb"</span><span class="p">,</span>
             <span class="p">),</span>
-            <span class="s2">&quot;preflight_min_free_vram_gb&quot;</span><span class="p">:</span> <span class="p">(</span>
-                <span class="s2">&quot;execution&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;preflight_min_free_vram_gb&quot;</span><span class="p">,</span>
+            <span class="s2">"preflight_min_free_vram_gb"</span><span class="p">:</span> <span class="p">(</span>
+                <span class="s2">"execution"</span><span class="p">,</span>
+                <span class="s2">"preflight_min_free_vram_gb"</span><span class="p">,</span>
             <span class="p">),</span>
             <span class="c1"># ExecutionConfig — guards (sorter inactivity timeout)</span>
-            <span class="s2">&quot;sorter_inactivity_timeout&quot;</span><span class="p">:</span> <span class="p">(</span>
-                <span class="s2">&quot;execution&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;sorter_inactivity_timeout&quot;</span><span class="p">,</span>
+            <span class="s2">"sorter_inactivity_timeout"</span><span class="p">:</span> <span class="p">(</span>
+                <span class="s2">"execution"</span><span class="p">,</span>
+                <span class="s2">"sorter_inactivity_timeout"</span><span class="p">,</span>
             <span class="p">),</span>
-            <span class="s2">&quot;sorter_inactivity_base_s&quot;</span><span class="p">:</span> <span class="p">(</span>
-                <span class="s2">&quot;execution&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;sorter_inactivity_base_s&quot;</span><span class="p">,</span>
+            <span class="s2">"sorter_inactivity_base_s"</span><span class="p">:</span> <span class="p">(</span>
+                <span class="s2">"execution"</span><span class="p">,</span>
+                <span class="s2">"sorter_inactivity_base_s"</span><span class="p">,</span>
             <span class="p">),</span>
-            <span class="s2">&quot;sorter_inactivity_per_min_s&quot;</span><span class="p">:</span> <span class="p">(</span>
-                <span class="s2">&quot;execution&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;sorter_inactivity_per_min_s&quot;</span><span class="p">,</span>
+            <span class="s2">"sorter_inactivity_per_min_s"</span><span class="p">:</span> <span class="p">(</span>
+                <span class="s2">"execution"</span><span class="p">,</span>
+                <span class="s2">"sorter_inactivity_per_min_s"</span><span class="p">,</span>
             <span class="p">),</span>
-            <span class="s2">&quot;sorter_inactivity_max_s&quot;</span><span class="p">:</span> <span class="p">(</span>
-                <span class="s2">&quot;execution&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;sorter_inactivity_max_s&quot;</span><span class="p">,</span>
+            <span class="s2">"sorter_inactivity_max_s"</span><span class="p">:</span> <span class="p">(</span>
+                <span class="s2">"execution"</span><span class="p">,</span>
+                <span class="s2">"sorter_inactivity_max_s"</span><span class="p">,</span>
             <span class="p">),</span>
-            <span class="s2">&quot;sorter_inactivity_in_process_grace_s&quot;</span><span class="p">:</span> <span class="p">(</span>
-                <span class="s2">&quot;execution&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;sorter_inactivity_in_process_grace_s&quot;</span><span class="p">,</span>
+            <span class="s2">"sorter_inactivity_in_process_grace_s"</span><span class="p">:</span> <span class="p">(</span>
+                <span class="s2">"execution"</span><span class="p">,</span>
+                <span class="s2">"sorter_inactivity_in_process_grace_s"</span><span class="p">,</span>
             <span class="p">),</span>
             <span class="c1"># ExecutionConfig — OOM auto-retry</span>
-            <span class="s2">&quot;oom_retry_max&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;oom_retry_max&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;oom_retry_factor&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;oom_retry_factor&quot;</span><span class="p">),</span>
+            <span class="s2">"oom_retry_max"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"execution"</span><span class="p">,</span> <span class="s2">"oom_retry_max"</span><span class="p">),</span>
+            <span class="s2">"oom_retry_factor"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"execution"</span><span class="p">,</span> <span class="s2">"oom_retry_factor"</span><span class="p">),</span>
             <span class="c1"># ExecutionConfig — pipeline canary</span>
-            <span class="s2">&quot;canary_first_n_s&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;canary_first_n_s&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;canary_min_recording_s&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;canary_min_recording_s&quot;</span><span class="p">),</span>
+            <span class="s2">"canary_first_n_s"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"execution"</span><span class="p">,</span> <span class="s2">"canary_first_n_s"</span><span class="p">),</span>
+            <span class="s2">"canary_min_recording_s"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"execution"</span><span class="p">,</span> <span class="s2">"canary_min_recording_s"</span><span class="p">),</span>
             <span class="c1"># ExecutionConfig — Docker image digest pinning</span>
-            <span class="s2">&quot;docker_image_expected_digest&quot;</span><span class="p">:</span> <span class="p">(</span>
-                <span class="s2">&quot;execution&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;docker_image_expected_digest&quot;</span><span class="p">,</span>
+            <span class="s2">"docker_image_expected_digest"</span><span class="p">:</span> <span class="p">(</span>
+                <span class="s2">"execution"</span><span class="p">,</span>
+                <span class="s2">"docker_image_expected_digest"</span><span class="p">,</span>
             <span class="p">),</span>
             <span class="c1"># ExecutionConfig — disk watchdog</span>
-            <span class="s2">&quot;disk_watchdog&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;disk_watchdog&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;disk_warn_free_gb&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;disk_warn_free_gb&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;disk_abort_free_gb&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;disk_abort_free_gb&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;disk_poll_interval_s&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;disk_poll_interval_s&quot;</span><span class="p">),</span>
+            <span class="s2">"disk_watchdog"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"execution"</span><span class="p">,</span> <span class="s2">"disk_watchdog"</span><span class="p">),</span>
+            <span class="s2">"disk_warn_free_gb"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"execution"</span><span class="p">,</span> <span class="s2">"disk_warn_free_gb"</span><span class="p">),</span>
+            <span class="s2">"disk_abort_free_gb"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"execution"</span><span class="p">,</span> <span class="s2">"disk_abort_free_gb"</span><span class="p">),</span>
+            <span class="s2">"disk_poll_interval_s"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"execution"</span><span class="p">,</span> <span class="s2">"disk_poll_interval_s"</span><span class="p">),</span>
             <span class="c1"># ExecutionConfig — I/O stall watchdog</span>
-            <span class="s2">&quot;io_stall_watchdog&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;io_stall_watchdog&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;io_stall_s&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;io_stall_s&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;io_stall_poll_interval_s&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;io_stall_poll_interval_s&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;io_stall_mode&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;io_stall_mode&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;io_stall_include_descendants&quot;</span><span class="p">:</span> <span class="p">(</span>
-                <span class="s2">&quot;execution&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;io_stall_include_descendants&quot;</span><span class="p">,</span>
+            <span class="s2">"io_stall_watchdog"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"execution"</span><span class="p">,</span> <span class="s2">"io_stall_watchdog"</span><span class="p">),</span>
+            <span class="s2">"io_stall_s"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"execution"</span><span class="p">,</span> <span class="s2">"io_stall_s"</span><span class="p">),</span>
+            <span class="s2">"io_stall_poll_interval_s"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"execution"</span><span class="p">,</span> <span class="s2">"io_stall_poll_interval_s"</span><span class="p">),</span>
+            <span class="s2">"io_stall_mode"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"execution"</span><span class="p">,</span> <span class="s2">"io_stall_mode"</span><span class="p">),</span>
+            <span class="s2">"io_stall_include_descendants"</span><span class="p">:</span> <span class="p">(</span>
+                <span class="s2">"execution"</span><span class="p">,</span>
+                <span class="s2">"io_stall_include_descendants"</span><span class="p">,</span>
             <span class="p">),</span>
             <span class="c1"># ExecutionConfig — temp-file cleanup</span>
-            <span class="s2">&quot;cleanup_temp_files&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;cleanup_temp_files&quot;</span><span class="p">),</span>
+            <span class="s2">"cleanup_temp_files"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"execution"</span><span class="p">,</span> <span class="s2">"cleanup_temp_files"</span><span class="p">),</span>
             <span class="c1"># ExecutionConfig — Windows sleep prevention</span>
-            <span class="s2">&quot;prevent_system_sleep&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;prevent_system_sleep&quot;</span><span class="p">),</span>
+            <span class="s2">"prevent_system_sleep"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"execution"</span><span class="p">,</span> <span class="s2">"prevent_system_sleep"</span><span class="p">),</span>
             <span class="c1"># ExecutionConfig — GPU watchdog</span>
-            <span class="s2">&quot;gpu_watchdog&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;gpu_watchdog&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;gpu_warn_pct&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;gpu_warn_pct&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;gpu_abort_pct&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;gpu_abort_pct&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;gpu_poll_interval_s&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;gpu_poll_interval_s&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;gpu_warn_temp_c&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;gpu_warn_temp_c&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;gpu_abort_temp_c&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;gpu_abort_temp_c&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;gpu_monitor_throttle_reasons&quot;</span><span class="p">:</span> <span class="p">(</span>
-                <span class="s2">&quot;execution&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;gpu_monitor_throttle_reasons&quot;</span><span class="p">,</span>
+            <span class="s2">"gpu_watchdog"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"execution"</span><span class="p">,</span> <span class="s2">"gpu_watchdog"</span><span class="p">),</span>
+            <span class="s2">"gpu_warn_pct"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"execution"</span><span class="p">,</span> <span class="s2">"gpu_warn_pct"</span><span class="p">),</span>
+            <span class="s2">"gpu_abort_pct"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"execution"</span><span class="p">,</span> <span class="s2">"gpu_abort_pct"</span><span class="p">),</span>
+            <span class="s2">"gpu_poll_interval_s"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"execution"</span><span class="p">,</span> <span class="s2">"gpu_poll_interval_s"</span><span class="p">),</span>
+            <span class="s2">"gpu_warn_temp_c"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"execution"</span><span class="p">,</span> <span class="s2">"gpu_warn_temp_c"</span><span class="p">),</span>
+            <span class="s2">"gpu_abort_temp_c"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"execution"</span><span class="p">,</span> <span class="s2">"gpu_abort_temp_c"</span><span class="p">),</span>
+            <span class="s2">"gpu_monitor_throttle_reasons"</span><span class="p">:</span> <span class="p">(</span>
+                <span class="s2">"execution"</span><span class="p">,</span>
+                <span class="s2">"gpu_monitor_throttle_reasons"</span><span class="p">,</span>
             <span class="p">),</span>
             <span class="c1"># ExecutionConfig — sorting report + tee log lifecycle</span>
-            <span class="s2">&quot;tee_log_policy&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;tee_log_policy&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;generate_sorting_report&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;execution&quot;</span><span class="p">,</span> <span class="s2">&quot;generate_sorting_report&quot;</span><span class="p">),</span>
+            <span class="s2">"tee_log_policy"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"execution"</span><span class="p">,</span> <span class="s2">"tee_log_policy"</span><span class="p">),</span>
+            <span class="s2">"generate_sorting_report"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"execution"</span><span class="p">,</span> <span class="s2">"generate_sorting_report"</span><span class="p">),</span>
         <span class="p">}</span></div>
 
 
@@ -1248,8 +1248,8 @@
 <span class="c1"># that import the same preset inherit the mutated state:</span>
 <span class="c1">#</span>
 <span class="c1">#     KILOSORT2.curation.fr_min = 0.5                              # field assign</span>
-<span class="c1">#     KILOSORT2.figures.scatter_recording_colors.append(&quot;#000&quot;)    # list append</span>
-<span class="c1">#     KILOSORT2.rt_sort.params[&quot;stringent_thresh&quot;] = 0.2           # dict assign</span>
+<span class="c1">#     KILOSORT2.figures.scatter_recording_colors.append("#000")    # list append</span>
+<span class="c1">#     KILOSORT2.rt_sort.params["stringent_thresh"] = 0.2           # dict assign</span>
 <span class="c1">#</span>
 <span class="c1"># The dataclasses are intentionally not frozen because ``override()``</span>
 <span class="c1"># needs ``setattr`` on the deep-copy result. The contract is therefore</span>
@@ -1261,13 +1261,13 @@
 <span class="c1">#: Default configuration for Kilosort2.</span>
 <span class="c1">#: Parameters are compatible with Maxwell MEA and other probe types.</span>
 <span class="c1">#: Hardware-specific presets can be created by overriding parameters.</span>
-<span class="c1">#: See the &quot;Mutation contract&quot; comment above this block before</span>
+<span class="c1">#: See the "Mutation contract" comment above this block before</span>
 <span class="c1">#: modifying — use ``.override(...)`` to customise.</span>
 <span class="n">KILOSORT2</span> <span class="o">=</span> <span class="n">SortingPipelineConfig</span><span class="p">()</span>
 
 <span class="c1">#: Kilosort2 with Docker (no local MATLAB needed).</span>
 <span class="n">KILOSORT2_DOCKER</span> <span class="o">=</span> <span class="n">SortingPipelineConfig</span><span class="p">(</span>
-    <span class="n">sorter</span><span class="o">=</span><span class="n">SorterConfig</span><span class="p">(</span><span class="n">sorter_name</span><span class="o">=</span><span class="s2">&quot;kilosort2&quot;</span><span class="p">,</span> <span class="n">use_docker</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+    <span class="n">sorter</span><span class="o">=</span><span class="n">SorterConfig</span><span class="p">(</span><span class="n">sorter_name</span><span class="o">=</span><span class="s2">"kilosort2"</span><span class="p">,</span> <span class="n">use_docker</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
 <span class="p">)</span>
 
 <span class="c1">#: Default configuration for Kilosort4.</span>
@@ -1276,12 +1276,12 @@
 <span class="c1">#: other probe types.  Hardware-specific presets (e.g. for Maxwell</span>
 <span class="c1">#: MEAs) can be created by overriding detection/filtering parameters.</span>
 <span class="n">KILOSORT4</span> <span class="o">=</span> <span class="n">SortingPipelineConfig</span><span class="p">(</span>
-    <span class="n">sorter</span><span class="o">=</span><span class="n">SorterConfig</span><span class="p">(</span><span class="n">sorter_name</span><span class="o">=</span><span class="s2">&quot;kilosort4&quot;</span><span class="p">),</span>
+    <span class="n">sorter</span><span class="o">=</span><span class="n">SorterConfig</span><span class="p">(</span><span class="n">sorter_name</span><span class="o">=</span><span class="s2">"kilosort4"</span><span class="p">),</span>
 <span class="p">)</span>
 
 <span class="c1">#: Kilosort4 with Docker.</span>
 <span class="n">KILOSORT4_DOCKER</span> <span class="o">=</span> <span class="n">SortingPipelineConfig</span><span class="p">(</span>
-    <span class="n">sorter</span><span class="o">=</span><span class="n">SorterConfig</span><span class="p">(</span><span class="n">sorter_name</span><span class="o">=</span><span class="s2">&quot;kilosort4&quot;</span><span class="p">,</span> <span class="n">use_docker</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+    <span class="n">sorter</span><span class="o">=</span><span class="n">SorterConfig</span><span class="p">(</span><span class="n">sorter_name</span><span class="o">=</span><span class="s2">"kilosort4"</span><span class="p">,</span> <span class="n">use_docker</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
 <span class="p">)</span>
 
 <span class="c1">#: RT-Sort with the bundled MEA detection model.</span>
@@ -1289,26 +1289,26 @@
 <span class="c1">#: al. 2024, PLOS ONE) with the pretrained model tuned for Maxwell</span>
 <span class="c1">#: multi-electrode arrays.</span>
 <span class="n">RT_SORT_MEA</span> <span class="o">=</span> <span class="n">SortingPipelineConfig</span><span class="p">(</span>
-    <span class="n">sorter</span><span class="o">=</span><span class="n">SorterConfig</span><span class="p">(</span><span class="n">sorter_name</span><span class="o">=</span><span class="s2">&quot;rt_sort&quot;</span><span class="p">),</span>
-    <span class="n">rt_sort</span><span class="o">=</span><span class="n">RTSortConfig</span><span class="p">(</span><span class="n">probe</span><span class="o">=</span><span class="s2">&quot;mea&quot;</span><span class="p">),</span>
+    <span class="n">sorter</span><span class="o">=</span><span class="n">SorterConfig</span><span class="p">(</span><span class="n">sorter_name</span><span class="o">=</span><span class="s2">"rt_sort"</span><span class="p">),</span>
+    <span class="n">rt_sort</span><span class="o">=</span><span class="n">RTSortConfig</span><span class="p">(</span><span class="n">probe</span><span class="o">=</span><span class="s2">"mea"</span><span class="p">),</span>
 <span class="p">)</span>
 
 <span class="c1">#: RT-Sort with the bundled Neuropixels detection model.</span>
 <span class="c1">#: Uses Neuropixels-tuned detection thresholds and merge parameters.</span>
 <span class="n">RT_SORT_NEUROPIXELS</span> <span class="o">=</span> <span class="n">SortingPipelineConfig</span><span class="p">(</span>
-    <span class="n">sorter</span><span class="o">=</span><span class="n">SorterConfig</span><span class="p">(</span><span class="n">sorter_name</span><span class="o">=</span><span class="s2">&quot;rt_sort&quot;</span><span class="p">),</span>
+    <span class="n">sorter</span><span class="o">=</span><span class="n">SorterConfig</span><span class="p">(</span><span class="n">sorter_name</span><span class="o">=</span><span class="s2">"rt_sort"</span><span class="p">),</span>
     <span class="n">rt_sort</span><span class="o">=</span><span class="n">RTSortConfig</span><span class="p">(</span>
-        <span class="n">probe</span><span class="o">=</span><span class="s2">&quot;neuropixels&quot;</span><span class="p">,</span>
+        <span class="n">probe</span><span class="o">=</span><span class="s2">"neuropixels"</span><span class="p">,</span>
         <span class="n">params</span><span class="o">=</span><span class="p">{</span>
-            <span class="s2">&quot;stringent_thresh&quot;</span><span class="p">:</span> <span class="mf">0.175</span><span class="p">,</span>
-            <span class="s2">&quot;loose_thresh&quot;</span><span class="p">:</span> <span class="mf">0.075</span><span class="p">,</span>
-            <span class="s2">&quot;inference_scaling_numerator&quot;</span><span class="p">:</span> <span class="mf">15.4</span><span class="p">,</span>
-            <span class="s2">&quot;min_amp_dist_p&quot;</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span>
-            <span class="s2">&quot;max_latency_diff_spikes&quot;</span><span class="p">:</span> <span class="mf">2.5</span><span class="p">,</span>
-            <span class="s2">&quot;max_amp_median_diff_spikes&quot;</span><span class="p">:</span> <span class="mf">0.45</span><span class="p">,</span>
-            <span class="s2">&quot;max_latency_diff_sequences&quot;</span><span class="p">:</span> <span class="mf">2.5</span><span class="p">,</span>
-            <span class="s2">&quot;max_amp_median_diff_sequences&quot;</span><span class="p">:</span> <span class="mf">0.45</span><span class="p">,</span>
-            <span class="s2">&quot;max_root_amp_median_std_sequences&quot;</span><span class="p">:</span> <span class="mf">2.5</span><span class="p">,</span>
+            <span class="s2">"stringent_thresh"</span><span class="p">:</span> <span class="mf">0.175</span><span class="p">,</span>
+            <span class="s2">"loose_thresh"</span><span class="p">:</span> <span class="mf">0.075</span><span class="p">,</span>
+            <span class="s2">"inference_scaling_numerator"</span><span class="p">:</span> <span class="mf">15.4</span><span class="p">,</span>
+            <span class="s2">"min_amp_dist_p"</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span>
+            <span class="s2">"max_latency_diff_spikes"</span><span class="p">:</span> <span class="mf">2.5</span><span class="p">,</span>
+            <span class="s2">"max_amp_median_diff_spikes"</span><span class="p">:</span> <span class="mf">0.45</span><span class="p">,</span>
+            <span class="s2">"max_latency_diff_sequences"</span><span class="p">:</span> <span class="mf">2.5</span><span class="p">,</span>
+            <span class="s2">"max_amp_median_diff_sequences"</span><span class="p">:</span> <span class="mf">0.45</span><span class="p">,</span>
+            <span class="s2">"max_root_amp_median_std_sequences"</span><span class="p">:</span> <span class="mf">2.5</span><span class="p">,</span>
         <span class="p">},</span>
     <span class="p">),</span>
 <span class="p">)</span>

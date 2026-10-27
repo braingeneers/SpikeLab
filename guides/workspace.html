@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Workspace Persistence &mdash; SpikeLab 0.1.1 documentation</title>
+  <title>Workspace Persistence &mdash; SpikeLab 0.1.2 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=a58bc63e"></script>
+      <script src="../_static/documentation_options.js?v=92734c54"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
@@ -517,16 +517,16 @@ experimental condition as the namespace and the analysis result name as the
 key.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab</span><span class="w"> </span><span class="kn">import</span> <span class="n">AnalysisWorkspace</span>
 
-<span class="n">ws</span> <span class="o">=</span> <span class="n">AnalysisWorkspace</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;my_experiment&quot;</span><span class="p">)</span>
+<span class="n">ws</span> <span class="o">=</span> <span class="n">AnalysisWorkspace</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"my_experiment"</span><span class="p">)</span>
 
-<span class="c1"># Store a SpikeData object under namespace &quot;D0&quot;, key &quot;spikedata&quot;</span>
-<span class="n">ws</span><span class="o">.</span><span class="n">store</span><span class="p">(</span><span class="s2">&quot;D0&quot;</span><span class="p">,</span> <span class="s2">&quot;spikedata&quot;</span><span class="p">,</span> <span class="n">sd</span><span class="p">,</span> <span class="n">note</span><span class="o">=</span><span class="s2">&quot;Baseline recording, 120 units&quot;</span><span class="p">)</span>
+<span class="c1"># Store a SpikeData object under namespace "D0", key "spikedata"</span>
+<span class="n">ws</span><span class="o">.</span><span class="n">store</span><span class="p">(</span><span class="s2">"D0"</span><span class="p">,</span> <span class="s2">"spikedata"</span><span class="p">,</span> <span class="n">sd</span><span class="p">,</span> <span class="n">note</span><span class="o">=</span><span class="s2">"Baseline recording, 120 units"</span><span class="p">)</span>
 
 <span class="c1"># Store a pairwise matrix in the same namespace</span>
-<span class="n">ws</span><span class="o">.</span><span class="n">store</span><span class="p">(</span><span class="s2">&quot;D0&quot;</span><span class="p">,</span> <span class="s2">&quot;sttc_matrix&quot;</span><span class="p">,</span> <span class="n">sttc</span><span class="p">,</span> <span class="n">note</span><span class="o">=</span><span class="s2">&quot;STTC, delt=20 ms&quot;</span><span class="p">)</span>
+<span class="n">ws</span><span class="o">.</span><span class="n">store</span><span class="p">(</span><span class="s2">"D0"</span><span class="p">,</span> <span class="s2">"sttc_matrix"</span><span class="p">,</span> <span class="n">sttc</span><span class="p">,</span> <span class="n">note</span><span class="o">=</span><span class="s2">"STTC, delt=20 ms"</span><span class="p">)</span>
 
 <span class="c1"># Store a numpy array under a shared namespace</span>
-<span class="n">ws</span><span class="o">.</span><span class="n">store</span><span class="p">(</span><span class="s2">&quot;all&quot;</span><span class="p">,</span> <span class="s2">&quot;burst_times&quot;</span><span class="p">,</span> <span class="n">tburst</span><span class="p">,</span> <span class="n">note</span><span class="o">=</span><span class="s2">&quot;Burst peak times across all conditions&quot;</span><span class="p">)</span>
+<span class="n">ws</span><span class="o">.</span><span class="n">store</span><span class="p">(</span><span class="s2">"all"</span><span class="p">,</span> <span class="s2">"burst_times"</span><span class="p">,</span> <span class="n">tburst</span><span class="p">,</span> <span class="n">note</span><span class="o">=</span><span class="s2">"Burst peak times across all conditions"</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>The <code class="docutils literal notranslate"><span class="pre">note</span></code> parameter is optional free-text metadata that helps you remember
@@ -543,7 +543,7 @@ supported types).</p>
 <span class="c1"># summary is a nested dict: {namespace: {key: info_dict}}</span>
 <span class="k">for</span> <span class="n">ns</span><span class="p">,</span> <span class="n">keys</span> <span class="ow">in</span> <span class="n">summary</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
     <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">info</span> <span class="ow">in</span> <span class="n">keys</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">ns</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">info</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;shape&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">ns</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">info</span><span class="p">[</span><span class="s1">'type'</span><span class="p">]</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'shape'</span><span class="p">,</span><span class="w"> </span><span class="s1">''</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
@@ -553,20 +553,20 @@ supported types).</p>
 HDF5 file (<code class="docutils literal notranslate"><span class="pre">*.h5</span></code>) containing all data, and a JSON sidecar with workspace
 metadata.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Save to disk — creates workspace.h5 and workspace.json</span>
-<span class="n">ws</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;results/workspace&quot;</span><span class="p">)</span>
+<span class="n">ws</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">"results/workspace"</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>To reload the workspace in a later session:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ws</span> <span class="o">=</span> <span class="n">AnalysisWorkspace</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;results/workspace&quot;</span><span class="p">)</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ws</span> <span class="o">=</span> <span class="n">AnalysisWorkspace</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"results/workspace"</span><span class="p">)</span>
 
 <span class="c1"># All items are available immediately</span>
-<span class="n">sd</span> <span class="o">=</span> <span class="n">ws</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;D0&quot;</span><span class="p">,</span> <span class="s2">&quot;spikedata&quot;</span><span class="p">)</span>
-<span class="n">sttc</span> <span class="o">=</span> <span class="n">ws</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;D0&quot;</span><span class="p">,</span> <span class="s2">&quot;sttc_matrix&quot;</span><span class="p">)</span>
+<span class="n">sd</span> <span class="o">=</span> <span class="n">ws</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"D0"</span><span class="p">,</span> <span class="s2">"spikedata"</span><span class="p">)</span>
+<span class="n">sttc</span> <span class="o">=</span> <span class="n">ws</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"D0"</span><span class="p">,</span> <span class="s2">"sttc_matrix"</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>If you only need a single item and want to avoid loading the entire
 workspace into memory, use <code class="xref py py-meth docutils literal notranslate"><span class="pre">load_item()</span></code>:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">sttc</span> <span class="o">=</span> <span class="n">AnalysisWorkspace</span><span class="o">.</span><span class="n">load_item</span><span class="p">(</span><span class="s2">&quot;results/workspace&quot;</span><span class="p">,</span> <span class="s2">&quot;D0&quot;</span><span class="p">,</span> <span class="s2">&quot;sttc_matrix&quot;</span><span class="p">)</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">sttc</span> <span class="o">=</span> <span class="n">AnalysisWorkspace</span><span class="o">.</span><span class="n">load_item</span><span class="p">(</span><span class="s2">"results/workspace"</span><span class="p">,</span> <span class="s2">"D0"</span><span class="p">,</span> <span class="s2">"sttc_matrix"</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
@@ -576,39 +576,39 @@ workspace into memory, use <code class="xref py py-meth docutils literal notrans
 actual data:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># List all top-level namespaces</span>
 <span class="n">namespaces</span> <span class="o">=</span> <span class="n">ws</span><span class="o">.</span><span class="n">list_namespaces</span><span class="p">()</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">namespaces</span><span class="p">)</span>   <span class="c1"># [&#39;D0&#39;, &#39;D3&#39;, &#39;D10&#39;, &#39;D30&#39;, &#39;D50&#39;, &#39;all&#39;]</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">namespaces</span><span class="p">)</span>   <span class="c1"># ['D0', 'D3', 'D10', 'D30', 'D50', 'all']</span>
 
 <span class="c1"># List keys within a specific namespace</span>
-<span class="n">keys</span> <span class="o">=</span> <span class="n">ws</span><span class="o">.</span><span class="n">list_keys</span><span class="p">(</span><span class="s2">&quot;D0&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">keys</span><span class="p">)</span>         <span class="c1"># [&#39;spikedata&#39;, &#39;sttc_matrix&#39;, &#39;fr_corr_matrix&#39;, ...]</span>
+<span class="n">keys</span> <span class="o">=</span> <span class="n">ws</span><span class="o">.</span><span class="n">list_keys</span><span class="p">(</span><span class="s2">"D0"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">keys</span><span class="p">)</span>         <span class="c1"># ['spikedata', 'sttc_matrix', 'fr_corr_matrix', ...]</span>
 
 <span class="c1"># List keys across all namespaces</span>
 <span class="n">all_keys</span> <span class="o">=</span> <span class="n">ws</span><span class="o">.</span><span class="n">list_keys</span><span class="p">()</span>   <span class="c1"># returns {ns: [keys]} dict</span>
 <span class="k">for</span> <span class="n">ns</span><span class="p">,</span> <span class="n">ks</span> <span class="ow">in</span> <span class="n">all_keys</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">ns</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">ks</span><span class="p">)</span><span class="si">}</span><span class="s2"> items&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">ns</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">ks</span><span class="p">)</span><span class="si">}</span><span class="s2"> items"</span><span class="p">)</span>
 
 <span class="c1"># Get summary info for a single item (without loading the object)</span>
-<span class="n">info</span> <span class="o">=</span> <span class="n">ws</span><span class="o">.</span><span class="n">get_info</span><span class="p">(</span><span class="s2">&quot;D0&quot;</span><span class="p">,</span> <span class="s2">&quot;sttc_matrix&quot;</span><span class="p">)</span>
+<span class="n">info</span> <span class="o">=</span> <span class="n">ws</span><span class="o">.</span><span class="n">get_info</span><span class="p">(</span><span class="s2">"D0"</span><span class="p">,</span> <span class="s2">"sttc_matrix"</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">info</span><span class="p">)</span>
-<span class="c1"># {&#39;type&#39;: &#39;PairwiseCompMatrix&#39;, &#39;shape&#39;: (120, 120), &#39;created_at&#39;: ..., &#39;note&#39;: &#39;...&#39;}</span>
+<span class="c1"># {'type': 'PairwiseCompMatrix', 'shape': (120, 120), 'created_at': ..., 'note': '...'}</span>
 </pre></div>
 </div>
 <p>To retrieve the actual object:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">obj</span> <span class="o">=</span> <span class="n">ws</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;D0&quot;</span><span class="p">,</span> <span class="s2">&quot;sttc_matrix&quot;</span><span class="p">)</span>   <span class="c1"># returns the object, or None if not found</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">obj</span> <span class="o">=</span> <span class="n">ws</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"D0"</span><span class="p">,</span> <span class="s2">"sttc_matrix"</span><span class="p">)</span>   <span class="c1"># returns the object, or None if not found</span>
 </pre></div>
 </div>
 <p>Other management operations:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Rename a key</span>
-<span class="n">ws</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="s2">&quot;D0&quot;</span><span class="p">,</span> <span class="s2">&quot;sttc_matrix&quot;</span><span class="p">,</span> <span class="s2">&quot;sttc_delt20&quot;</span><span class="p">)</span>
+<span class="n">ws</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="s2">"D0"</span><span class="p">,</span> <span class="s2">"sttc_matrix"</span><span class="p">,</span> <span class="s2">"sttc_delt20"</span><span class="p">)</span>
 
 <span class="c1"># Add or update a note</span>
-<span class="n">ws</span><span class="o">.</span><span class="n">add_note</span><span class="p">(</span><span class="s2">&quot;D0&quot;</span><span class="p">,</span> <span class="s2">&quot;sttc_delt20&quot;</span><span class="p">,</span> <span class="s2">&quot;STTC with delt=20 ms, 120 units&quot;</span><span class="p">)</span>
+<span class="n">ws</span><span class="o">.</span><span class="n">add_note</span><span class="p">(</span><span class="s2">"D0"</span><span class="p">,</span> <span class="s2">"sttc_delt20"</span><span class="p">,</span> <span class="s2">"STTC with delt=20 ms, 120 units"</span><span class="p">)</span>
 
 <span class="c1"># Delete a single item</span>
-<span class="n">ws</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="s2">&quot;D0&quot;</span><span class="p">,</span> <span class="s2">&quot;sttc_delt20&quot;</span><span class="p">)</span>
+<span class="n">ws</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="s2">"D0"</span><span class="p">,</span> <span class="s2">"sttc_delt20"</span><span class="p">)</span>
 
 <span class="c1"># Delete an entire namespace</span>
-<span class="n">ws</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="s2">&quot;scratch&quot;</span><span class="p">)</span>
+<span class="n">ws</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="s2">"scratch"</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
@@ -621,20 +621,20 @@ the object to a temporary HDF5 file and releases it from memory, and each
 <code class="docutils literal notranslate"><span class="pre">get</span></code> call reads the object back from disk.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.workspace.workspace</span><span class="w"> </span><span class="kn">import</span> <span class="n">LazyAnalysisWorkspace</span>
 
-<span class="n">ws</span> <span class="o">=</span> <span class="n">LazyAnalysisWorkspace</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;large_experiment&quot;</span><span class="p">)</span>
+<span class="n">ws</span> <span class="o">=</span> <span class="n">LazyAnalysisWorkspace</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"large_experiment"</span><span class="p">)</span>
 
 <span class="c1"># Store writes to disk immediately — the object is not kept in RAM</span>
-<span class="n">ws</span><span class="o">.</span><span class="n">store</span><span class="p">(</span><span class="s2">&quot;D0&quot;</span><span class="p">,</span> <span class="s2">&quot;spikedata&quot;</span><span class="p">,</span> <span class="n">sd</span><span class="p">,</span> <span class="n">note</span><span class="o">=</span><span class="s2">&quot;Baseline recording&quot;</span><span class="p">)</span>
-<span class="n">ws</span><span class="o">.</span><span class="n">store</span><span class="p">(</span><span class="s2">&quot;D0&quot;</span><span class="p">,</span> <span class="s2">&quot;burst_rss&quot;</span><span class="p">,</span> <span class="n">rss</span><span class="p">,</span> <span class="n">note</span><span class="o">=</span><span class="s2">&quot;Burst-aligned RateSliceStack&quot;</span><span class="p">)</span>
+<span class="n">ws</span><span class="o">.</span><span class="n">store</span><span class="p">(</span><span class="s2">"D0"</span><span class="p">,</span> <span class="s2">"spikedata"</span><span class="p">,</span> <span class="n">sd</span><span class="p">,</span> <span class="n">note</span><span class="o">=</span><span class="s2">"Baseline recording"</span><span class="p">)</span>
+<span class="n">ws</span><span class="o">.</span><span class="n">store</span><span class="p">(</span><span class="s2">"D0"</span><span class="p">,</span> <span class="s2">"burst_rss"</span><span class="p">,</span> <span class="n">rss</span><span class="p">,</span> <span class="n">note</span><span class="o">=</span><span class="s2">"Burst-aligned RateSliceStack"</span><span class="p">)</span>
 
 <span class="c1"># get reads from disk on every call</span>
-<span class="n">rss</span> <span class="o">=</span> <span class="n">ws</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;D0&quot;</span><span class="p">,</span> <span class="s2">&quot;burst_rss&quot;</span><span class="p">)</span>
+<span class="n">rss</span> <span class="o">=</span> <span class="n">ws</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"D0"</span><span class="p">,</span> <span class="s2">"burst_rss"</span><span class="p">)</span>
 
 <span class="c1"># save copies the backing file to the target path</span>
-<span class="n">ws</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;results/workspace&quot;</span><span class="p">)</span>
+<span class="n">ws</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">"results/workspace"</span><span class="p">)</span>
 
 <span class="c1"># Load also returns a LazyAnalysisWorkspace when the file is large</span>
-<span class="n">ws</span> <span class="o">=</span> <span class="n">LazyAnalysisWorkspace</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;results/workspace&quot;</span><span class="p">)</span>
+<span class="n">ws</span> <span class="o">=</span> <span class="n">LazyAnalysisWorkspace</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"results/workspace"</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>All other operations
@@ -644,22 +644,22 @@ from an in-memory index and do not trigger disk reads.</p>
 scripts (where intermediate results accumulate and would exhaust RAM) and
 switch to the regular workspace for interactive exploration:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># During computation — use lazy to keep RAM under control</span>
-<span class="n">ws</span> <span class="o">=</span> <span class="n">LazyAnalysisWorkspace</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;compute_session&quot;</span><span class="p">)</span>
+<span class="n">ws</span> <span class="o">=</span> <span class="n">LazyAnalysisWorkspace</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"compute_session"</span><span class="p">)</span>
 
 <span class="k">for</span> <span class="n">condition</span> <span class="ow">in</span> <span class="n">conditions</span><span class="p">:</span>
     <span class="n">sd</span> <span class="o">=</span> <span class="n">load_my_data</span><span class="p">(</span><span class="n">condition</span><span class="p">)</span>
-    <span class="n">rss</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">align_to_events</span><span class="p">(</span><span class="n">tburst</span><span class="p">,</span> <span class="n">pre_ms</span><span class="o">=</span><span class="mi">250</span><span class="p">,</span> <span class="n">post_ms</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;rate&quot;</span><span class="p">)</span>
+    <span class="n">rss</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">align_to_events</span><span class="p">(</span><span class="n">tburst</span><span class="p">,</span> <span class="n">pre_ms</span><span class="o">=</span><span class="mi">250</span><span class="p">,</span> <span class="n">post_ms</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="s2">"rate"</span><span class="p">)</span>
     <span class="n">corr_stack</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">rss</span><span class="o">.</span><span class="n">get_slice_to_slice_unit_corr_from_stack</span><span class="p">()</span>
 
-    <span class="n">ws</span><span class="o">.</span><span class="n">store</span><span class="p">(</span><span class="n">condition</span><span class="p">,</span> <span class="s2">&quot;spikedata&quot;</span><span class="p">,</span> <span class="n">sd</span><span class="p">)</span>
-    <span class="n">ws</span><span class="o">.</span><span class="n">store</span><span class="p">(</span><span class="n">condition</span><span class="p">,</span> <span class="s2">&quot;burst_rss&quot;</span><span class="p">,</span> <span class="n">rss</span><span class="p">)</span>
-    <span class="n">ws</span><span class="o">.</span><span class="n">store</span><span class="p">(</span><span class="n">condition</span><span class="p">,</span> <span class="s2">&quot;burst_corr&quot;</span><span class="p">,</span> <span class="n">corr_stack</span><span class="p">)</span>
+    <span class="n">ws</span><span class="o">.</span><span class="n">store</span><span class="p">(</span><span class="n">condition</span><span class="p">,</span> <span class="s2">"spikedata"</span><span class="p">,</span> <span class="n">sd</span><span class="p">)</span>
+    <span class="n">ws</span><span class="o">.</span><span class="n">store</span><span class="p">(</span><span class="n">condition</span><span class="p">,</span> <span class="s2">"burst_rss"</span><span class="p">,</span> <span class="n">rss</span><span class="p">)</span>
+    <span class="n">ws</span><span class="o">.</span><span class="n">store</span><span class="p">(</span><span class="n">condition</span><span class="p">,</span> <span class="s2">"burst_corr"</span><span class="p">,</span> <span class="n">corr_stack</span><span class="p">)</span>
 
-<span class="n">ws</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;results/workspace&quot;</span><span class="p">)</span>
+<span class="n">ws</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">"results/workspace"</span><span class="p">)</span>
 
 <span class="c1"># Later, for interactive exploration — load everything into RAM</span>
-<span class="n">ws</span> <span class="o">=</span> <span class="n">AnalysisWorkspace</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;results/workspace&quot;</span><span class="p">)</span>
-<span class="n">sd</span> <span class="o">=</span> <span class="n">ws</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;D0&quot;</span><span class="p">,</span> <span class="s2">&quot;spikedata&quot;</span><span class="p">)</span>
+<span class="n">ws</span> <span class="o">=</span> <span class="n">AnalysisWorkspace</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"results/workspace"</span><span class="p">)</span>
+<span class="n">sd</span> <span class="o">=</span> <span class="n">ws</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"D0"</span><span class="p">,</span> <span class="s2">"spikedata"</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
@@ -668,18 +668,18 @@ switch to the regular workspace for interactive exploration:</p>
 <p>When analyses are run separately (e.g. by different scripts or on different
 machines), you can combine their results into a single workspace with
 <a class="reference internal" href="../api/workspace.html#spikelab.workspace.workspace.AnalysisWorkspace.merge_from" title="spikelab.workspace.workspace.AnalysisWorkspace.merge_from"><code class="xref py py-meth docutils literal notranslate"><span class="pre">merge_from()</span></code></a>:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ws_main</span> <span class="o">=</span> <span class="n">AnalysisWorkspace</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;combined&quot;</span><span class="p">)</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ws_main</span> <span class="o">=</span> <span class="n">AnalysisWorkspace</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"combined"</span><span class="p">)</span>
 
-<span class="n">ws_a</span> <span class="o">=</span> <span class="n">AnalysisWorkspace</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;results/analysis_a/workspace&quot;</span><span class="p">)</span>
-<span class="n">ws_b</span> <span class="o">=</span> <span class="n">AnalysisWorkspace</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;results/analysis_b/workspace&quot;</span><span class="p">)</span>
+<span class="n">ws_a</span> <span class="o">=</span> <span class="n">AnalysisWorkspace</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"results/analysis_a/workspace"</span><span class="p">)</span>
+<span class="n">ws_b</span> <span class="o">=</span> <span class="n">AnalysisWorkspace</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"results/analysis_b/workspace"</span><span class="p">)</span>
 
 <span class="n">result</span> <span class="o">=</span> <span class="n">ws_main</span><span class="o">.</span><span class="n">merge_from</span><span class="p">(</span><span class="n">ws_a</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Merged </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;merged&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> items from A&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Merged </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s1">'merged'</span><span class="p">]</span><span class="si">}</span><span class="s2"> items from A"</span><span class="p">)</span>
 
 <span class="n">result</span> <span class="o">=</span> <span class="n">ws_main</span><span class="o">.</span><span class="n">merge_from</span><span class="p">(</span><span class="n">ws_b</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Merged </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;merged&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> items from B, skipped </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;skipped&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Merged </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s1">'merged'</span><span class="p">]</span><span class="si">}</span><span class="s2"> items from B, skipped </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s1">'skipped'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
-<span class="n">ws_main</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;results/combined/workspace&quot;</span><span class="p">)</span>
+<span class="n">ws_main</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">"results/combined/workspace"</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>By default, existing keys are kept and incoming duplicates are skipped. Pass

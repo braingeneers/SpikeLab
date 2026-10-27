@@ -5,14 +5,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>spikelab.batch_jobs.validation &mdash; SpikeLab 0.1.1 documentation</title>
+  <title>spikelab.batch_jobs.validation &mdash; SpikeLab 0.1.2 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../../_static/documentation_options.js?v=a58bc63e"></script>
+      <script src="../../../_static/documentation_options.js?v=92734c54"></script>
       <script src="../../../_static/doctools.js?v=9bcbadda"></script>
       <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
@@ -492,7 +492,7 @@
            <div itemprop="articleBody">
              
   <h1>Source code for spikelab.batch_jobs.validation</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;Validation helpers for CLI/API job inputs.&quot;&quot;&quot;</span>
+<span></span><span class="sd">"""Validation helpers for CLI/API job inputs."""</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
@@ -506,7 +506,7 @@
 <div class="viewcode-block" id="validate_job_spec">
 <a class="viewcode-back" href="../../../api/batch_jobs.html#spikelab.batch_jobs.validation.validate_job_spec">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">validate_job_spec</span><span class="p">(</span><span class="n">payload</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">JobSpec</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Parse and validate a raw job spec payload.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Parse and validate a raw job spec payload."""</span>
     <span class="k">return</span> <span class="n">JobSpec</span><span class="o">.</span><span class="n">model_validate</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span></div>
 
 
@@ -514,21 +514,21 @@
 <div class="viewcode-block" id="summarize_validation_error">
 <a class="viewcode-back" href="../../../api/batch_jobs.html#spikelab.batch_jobs.validation.summarize_validation_error">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">summarize_validation_error</span><span class="p">(</span><span class="n">exc</span><span class="p">:</span> <span class="n">ValidationError</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return a human-readable validation summary.</span>
+<span class="w">    </span><span class="sd">"""Return a human-readable validation summary.</span>
 
-<span class="sd">    Each pydantic issue lands on its own line under an ``&quot;Invalid job</span>
-<span class="sd">    config:&quot;`` header so multi-issue errors stay scannable. Previously</span>
+<span class="sd">    Each pydantic issue lands on its own line under an ``"Invalid job</span>
+<span class="sd">    config:"`` header so multi-issue errors stay scannable. Previously</span>
 <span class="sd">    the issues were semicolon-joined into a single dense line, which</span>
 <span class="sd">    became hard to read once nested locations appeared.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">parts</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">for</span> <span class="n">issue</span> <span class="ow">in</span> <span class="n">exc</span><span class="o">.</span><span class="n">errors</span><span class="p">():</span>
-        <span class="n">loc</span> <span class="o">=</span> <span class="s2">&quot;.&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">item</span><span class="p">)</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">issue</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;loc&quot;</span><span class="p">,</span> <span class="p">[]))</span>
-        <span class="n">msg</span> <span class="o">=</span> <span class="n">issue</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;msg&quot;</span><span class="p">,</span> <span class="s2">&quot;invalid value&quot;</span><span class="p">)</span>
-        <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">loc</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">msg</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">loc</span> <span class="k">else</span> <span class="n">msg</span><span class="p">)</span>
+        <span class="n">loc</span> <span class="o">=</span> <span class="s2">"."</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">item</span><span class="p">)</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">issue</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"loc"</span><span class="p">,</span> <span class="p">[]))</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="n">issue</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"msg"</span><span class="p">,</span> <span class="s2">"invalid value"</span><span class="p">)</span>
+        <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">loc</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">msg</span><span class="si">}</span><span class="s2">"</span> <span class="k">if</span> <span class="n">loc</span> <span class="k">else</span> <span class="n">msg</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">parts</span><span class="p">:</span>
-        <span class="k">return</span> <span class="s2">&quot;Invalid job config&quot;</span>
-    <span class="k">return</span> <span class="s2">&quot;Invalid job config:</span><span class="se">\n</span><span class="s2">  - &quot;</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">  - &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="s2">"Invalid job config"</span>
+    <span class="k">return</span> <span class="s2">"Invalid job config:</span><span class="se">\n</span><span class="s2">  - "</span> <span class="o">+</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">  - "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span></div>
 
 </pre></div>
 

@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RateData &mdash; SpikeLab 0.1.1 documentation</title>
+  <title>RateData &mdash; SpikeLab 0.1.2 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=a58bc63e"></script>
+      <script src="../_static/documentation_options.js?v=92734c54"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
@@ -504,7 +504,7 @@ from a <code class="docutils literal notranslate"><span class="pre">SpikeData</s
 <dl class="py class">
 <dt class="sig sig-object py" id="spikelab.spikedata.ratedata.RateData">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">spikelab.spikedata.ratedata.</span></span><span class="sig-name descname"><span class="pre">RateData</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">inst_Frate_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">times</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">neuron_attributes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rate_unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/ratedata.html#RateData"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.ratedata.RateData" title="Link to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/builtins/functions.html#object" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>A 2D instantaneous firing rate matrix with unit-to-unit correlation capabilities.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -512,11 +512,11 @@ from a <code class="docutils literal notranslate"><span class="pre">SpikeData</s
 <li><p><strong>inst_Frate_data</strong> (<em>array</em>) – 2D array of shape (U, T). Each value is the
 instantaneous firing rate. U is the number of units/neurons and
 T is the number of time bins.</p></li>
-<li><p><strong>times</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – List of time values that each column index in
+<li><p><strong>times</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a>) – List of time values that each column index in
 inst_Frate_data represents. For example, times = [5, 10, 15]
 so inst_Frate_data column 0 is 5 ms, column 1 is 10 ms, and
 column 2 is 15 ms.</p></li>
-<li><p><strong>neuron_attributes</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em> or </em><em>None</em>) – List of dicts, one per unit,
+<li><p><strong>neuron_attributes</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em> or </em><em>None</em>) – List of dicts, one per unit,
 containing arbitrary metadata about each neuron. None if not
 provided.</p></li>
 </ul>
@@ -544,7 +544,7 @@ so inst_Frate_data column 0 is 5 ms, column 1 is 10 ms, and
 column 2 is 15 ms.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)">list</a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)">list</a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -557,7 +557,7 @@ containing arbitrary metadata about each neuron. None if not
 provided.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)">list</a> or None</p>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)">list</a> or None</p>
 </dd>
 </dl>
 </dd></dl>
@@ -568,7 +568,7 @@ provided.</p>
 <dd><p>Number of units in inst_Frate_data.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)">int</a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -588,9 +588,9 @@ Use <code class="docutils literal notranslate"><span class="pre">subtime_by_inde
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>inst_Frate_data</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><em>numpy.ndarray</em></a>) – Firing rate data, shape (N, T).</p></li>
-<li><p><strong>times</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><em>numpy.ndarray</em></a><em> or </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – Time points, length T.</p></li>
-<li><p><strong>neuron_attributes</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em> or </em><em>None</em>) – Per-unit attribute dicts.</p></li>
-<li><p><strong>rate_unit</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><em>None</em>) – Unit of the rate values. Typically
+<li><p><strong>times</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><em>numpy.ndarray</em></a><em> or </em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a>) – Time points, length T.</p></li>
+<li><p><strong>neuron_attributes</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em> or </em><em>None</em>) – Per-unit attribute dicts.</p></li>
+<li><p><strong>rate_unit</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> or </em><em>None</em>) – Unit of the rate values. Typically
 <code class="docutils literal notranslate"><span class="pre">&quot;Hz&quot;</span></code> (spikes/s) for <code class="docutils literal notranslate"><span class="pre">resampled_isi</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;kHz&quot;</span></code>
 (spikes/ms) for <code class="docutils literal notranslate"><span class="pre">sliding_rate</span></code>. When <em>None</em>, the unit
 is unspecified.</p></li>
@@ -606,14 +606,14 @@ is unspecified.</p></li>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>units</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em> or </em><em>array</em>) – Unit indices to extract. If by is None,
+<li><p><strong>units</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em> or </em><em>array</em>) – Unit indices to extract. If by is None,
 this should always be a list of ints. If by is not None,
 the list can contain ints or strings.</p></li>
-<li><p><strong>by</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><em>None</em>) – Neuron attribute key to match against. Only
+<li><p><strong>by</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> or </em><em>None</em>) – Neuron attribute key to match against. Only
 use this if you initialized the object with
 neuron_attributes. Set to the key that contains neuron_id
 values. None selects by index (default).</p></li>
-<li><p><strong>preserve_order</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – When False (default), output is
+<li><p><strong>preserve_order</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – When False (default), output is
 sorted ascending by index — consistent with the other
 SpikeLab data classes. When True, output respects the
 order of the input <code class="docutils literal notranslate"><span class="pre">units</span></code> list. Duplicates are
@@ -641,8 +641,8 @@ deduplicated either way.</p></li>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>start</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Starting time value (inclusive).</p></li>
-<li><p><strong>end</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Ending time value (exclusive).</p></li>
+<li><p><strong>start</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a><em> or </em><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Starting time value (inclusive).</p></li>
+<li><p><strong>end</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a><em> or </em><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Ending time value (exclusive).</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -672,8 +672,8 @@ indexing support, use <code class="docutils literal notranslate"><span class="pr
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>start_idx</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Starting time index (inclusive).</p></li>
-<li><p><strong>end_idx</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Ending time index (exclusive).</p></li>
+<li><p><strong>start_idx</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Starting time index (inclusive).</p></li>
+<li><p><strong>end_idx</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Ending time index (exclusive).</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -702,8 +702,8 @@ indexing support, use <code class="docutils literal notranslate"><span class="pr
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>length</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Length of each window in milliseconds.</p></li>
-<li><p><strong>overlap</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Overlap between consecutive windows in
+<li><p><strong>length</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Length of each window in milliseconds.</p></li>
+<li><p><strong>overlap</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Overlap between consecutive windows in
 milliseconds. Default 0. Must be in <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">length)</span></code>.</p></li>
 </ul>
 </dd>
@@ -735,9 +735,9 @@ stride.</p></li>
 <li><p><strong>compare_func</strong> (<em>callable</em>) – Comparison function from utils. Specify
 cross-correlation or cosine similarity. The default is cross
 correlation. See utils.py for details.</p></li>
-<li><p><strong>max_lag</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Max number of lag steps around 0 to consider for
+<li><p><strong>max_lag</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Max number of lag steps around 0 to consider for
 finding the max correlation. If None, lag is set to 0.</p></li>
-<li><p><strong>n_jobs</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Number of threads for parallel computation. -1 uses
+<li><p><strong>n_jobs</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Number of threads for parallel computation. -1 uses
 all cores (default), 1 disables parallelism, None is serial.</p></li>
 </ul>
 </dd>
@@ -768,9 +768,9 @@ unit i leads unit j (i fires earlier). Diagonal is always 0.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>method</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Which dimensionality reduction method to use.
+<li><p><strong>method</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Which dimensionality reduction method to use.
 Either <code class="docutils literal notranslate"><span class="pre">&quot;PCA&quot;</span></code> (default) or <code class="docutils literal notranslate"><span class="pre">&quot;UMAP&quot;</span></code>.</p></li>
-<li><p><strong>n_components</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Number of output dimensions to return
+<li><p><strong>n_components</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Number of output dimensions to return
 (default 2).</p></li>
 <li><p><strong>**kwargs</strong> – Additional options for UMAP. If method is <code class="docutils literal notranslate"><span class="pre">&quot;UMAP&quot;</span></code>,
 you can specify use_graph_communities (bool), return_labels
@@ -794,7 +794,7 @@ return_labels=True: <code class="docutils literal notranslate"><span class="pre"
 </p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>result (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)">tuple</a>)</p>
+<dd class="field-odd"><p>result (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple" title="(in Python v3.15)">tuple</a>)</p>
 </dd>
 </dl>
 <p class="rubric">Notes</p>

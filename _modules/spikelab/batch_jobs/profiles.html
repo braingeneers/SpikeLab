@@ -5,14 +5,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>spikelab.batch_jobs.profiles &mdash; SpikeLab 0.1.1 documentation</title>
+  <title>spikelab.batch_jobs.profiles &mdash; SpikeLab 0.1.2 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../../_static/documentation_options.js?v=a58bc63e"></script>
+      <script src="../../../_static/documentation_options.js?v=92734c54"></script>
       <script src="../../../_static/doctools.js?v=9bcbadda"></script>
       <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
@@ -492,7 +492,7 @@
            <div itemprop="articleBody">
              
   <h1>Source code for spikelab.batch_jobs.profiles</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;Load cluster profile presets for job execution.&quot;&quot;&quot;</span>
+<span></span><span class="sd">"""Load cluster profile presets for job execution."""</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
@@ -506,17 +506,17 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_read_yaml</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-    <span class="k">with</span> <span class="n">path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;r&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="k">with</span> <span class="n">path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">"r"</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
         <span class="n">data</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">safe_load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span> <span class="ow">or</span> <span class="p">{}</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid profile file: </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Invalid profile file: </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">data</span>
 
 
 <div class="viewcode-block" id="load_cluster_profile">
 <a class="viewcode-back" href="../../../api/batch_jobs.html#spikelab.batch_jobs.profiles.load_cluster_profile">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">load_cluster_profile</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ClusterProfile</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load a profile from an explicit YAML path.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Load a profile from an explicit YAML path."""</span>
     <span class="n">payload</span> <span class="o">=</span> <span class="n">_read_yaml</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
     <span class="k">return</span> <span class="n">ClusterProfile</span><span class="o">.</span><span class="n">model_validate</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span></div>
 
@@ -527,38 +527,38 @@
 <span class="c1">#: here so ``load_profile_from_name`` recognises them explicitly</span>
 <span class="c1">#: instead of silently falling back to ``defaults``.</span>
 <span class="n">_KNOWN_PROFILE_NAMES</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;nrp&quot;</span><span class="p">:</span> <span class="s2">&quot;nrp.yaml&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;nautilus&quot;</span><span class="p">:</span> <span class="s2">&quot;nrp.yaml&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;defaults&quot;</span><span class="p">:</span> <span class="s2">&quot;defaults.yaml&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="s2">&quot;defaults.yaml&quot;</span><span class="p">,</span>
+    <span class="s2">"nrp"</span><span class="p">:</span> <span class="s2">"nrp.yaml"</span><span class="p">,</span>
+    <span class="s2">"nautilus"</span><span class="p">:</span> <span class="s2">"nrp.yaml"</span><span class="p">,</span>
+    <span class="s2">"defaults"</span><span class="p">:</span> <span class="s2">"defaults.yaml"</span><span class="p">,</span>
+    <span class="s2">"default"</span><span class="p">:</span> <span class="s2">"defaults.yaml"</span><span class="p">,</span>
 <span class="p">}</span>
 
 
 <div class="viewcode-block" id="load_profile_from_name">
 <a class="viewcode-back" href="../../../api/batch_jobs.html#spikelab.batch_jobs.profiles.load_profile_from_name">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">load_profile_from_name</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ClusterProfile</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load one of the built-in profile files by name.</span>
+<span class="w">    </span><span class="sd">"""Load one of the built-in profile files by name.</span>
 
 <span class="sd">    Unknown names fall back to ``defaults.yaml`` for backward</span>
 <span class="sd">    compatibility, but emit a ``UserWarning`` listing the recognised</span>
-<span class="sd">    profile aliases so a typo doesn&#39;t silently land on the wrong</span>
+<span class="sd">    profile aliases so a typo doesn't silently land on the wrong</span>
 <span class="sd">    profile.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
 
     <span class="n">normalized</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
     <span class="n">filename</span> <span class="o">=</span> <span class="n">_KNOWN_PROFILE_NAMES</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">normalized</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">filename</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;Unknown profile name </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2">; falling back to &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;``defaults.yaml``. Recognised aliases: &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">_KNOWN_PROFILE_NAMES</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="si">}</span><span class="s2">. Pass &quot;</span>
-            <span class="s2">&quot;``--profile-file &lt;path&gt;`` to load an explicit YAML.&quot;</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"Unknown profile name </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2">; falling back to "</span>
+            <span class="sa">f</span><span class="s2">"``defaults.yaml``. Recognised aliases: "</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">_KNOWN_PROFILE_NAMES</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="si">}</span><span class="s2">. Pass "</span>
+            <span class="s2">"``--profile-file &lt;path&gt;`` to load an explicit YAML."</span><span class="p">,</span>
             <span class="ne">UserWarning</span><span class="p">,</span>
             <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="n">filename</span> <span class="o">=</span> <span class="s2">&quot;defaults.yaml&quot;</span>
-    <span class="n">base</span> <span class="o">=</span> <span class="n">files</span><span class="p">(</span><span class="s2">&quot;spikelab.batch_jobs&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="s2">&quot;profiles&quot;</span><span class="p">)</span>
+        <span class="n">filename</span> <span class="o">=</span> <span class="s2">"defaults.yaml"</span>
+    <span class="n">base</span> <span class="o">=</span> <span class="n">files</span><span class="p">(</span><span class="s2">"spikelab.batch_jobs"</span><span class="p">)</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="s2">"profiles"</span><span class="p">)</span>
     <span class="n">payload</span> <span class="o">=</span> <span class="n">_read_yaml</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">base</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="n">filename</span><span class="p">))))</span>
     <span class="k">return</span> <span class="n">ClusterProfile</span><span class="o">.</span><span class="n">model_validate</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span></div>
 

@@ -5,14 +5,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>spikelab.spikedata.rateslicestack &mdash; SpikeLab 0.1.1 documentation</title>
+  <title>spikelab.spikedata.rateslicestack &mdash; SpikeLab 0.1.2 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../../_static/documentation_options.js?v=a58bc63e"></script>
+      <script src="../../../_static/documentation_options.js?v=92734c54"></script>
       <script src="../../../_static/doctools.js?v=9bcbadda"></script>
       <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
@@ -494,7 +494,7 @@
   <h1>Source code for spikelab.spikedata.rateslicestack</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
-<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;RateSliceStack&quot;</span><span class="p">]</span>
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"RateSliceStack"</span><span class="p">]</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">.ratedata</span><span class="w"> </span><span class="kn">import</span> <span class="n">RateData</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">.spikedata</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpikeData</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
@@ -516,7 +516,7 @@
 <div class="viewcode-block" id="RateSliceStack">
 <a class="viewcode-back" href="../../../api/rateslicestack.html#spikelab.spikedata.rateslicestack.RateSliceStack">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">RateSliceStack</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;A 3D firing rate matrix of shape (U, T, S) with correlation and similarity capabilities.</span>
+<span class="w">    </span><span class="sd">"""A 3D firing rate matrix of shape (U, T, S) with correlation and similarity capabilities.</span>
 
 <span class="sd">    U is units (neurons), T is time bins, and S is slices (bursts, events, etc).</span>
 <span class="sd">    Construct from either a data_obj (SpikeData or RateData) with time</span>
@@ -557,7 +557,7 @@
 <span class="sd">            ms.</span>
 <span class="sd">        neuron_attributes (list or None): List of attribute objects, one per</span>
 <span class="sd">            unit, containing arbitrary metadata about each neuron.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
 <div class="viewcode-block" id="RateSliceStack.__init__">
 <a class="viewcode-back" href="../../../api/rateslicestack.html#spikelab.spikedata.rateslicestack.RateSliceStack.__init__">[docs]</a>
@@ -574,34 +574,34 @@
     <span class="p">):</span>
         <span class="k">if</span> <span class="p">(</span><span class="n">data_obj</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">event_matrix</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;Must input either data_obj (option 1) or event_matrix (option 2)&quot;</span>
+                <span class="s2">"Must input either data_obj (option 1) or event_matrix (option 2)"</span>
             <span class="p">)</span>
         <span class="k">if</span> <span class="p">(</span><span class="n">data_obj</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">event_matrix</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;Provide exactly one of data_obj or event_matrix, not both.&quot;</span>
+                <span class="s2">"Provide exactly one of data_obj or event_matrix, not both."</span>
             <span class="p">)</span>
 
         <span class="k">if</span> <span class="n">sigma_ms</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">sigma_ms</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;sigma_ms must be non-negative&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"sigma_ms must be non-negative"</span><span class="p">)</span>
 
         <span class="c1"># Option 1: Using data_obj</span>
         <span class="k">if</span> <span class="n">data_obj</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data_obj</span><span class="p">,</span> <span class="p">(</span><span class="n">SpikeData</span><span class="p">,</span> <span class="n">RateData</span><span class="p">)):</span>
                 <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-                    <span class="s2">&quot;data_obj must either be a SpikeData object or RateData object&quot;</span>
+                    <span class="s2">"data_obj must either be a SpikeData object or RateData object"</span>
                 <span class="p">)</span>
 
             <span class="c1"># This is to check that one of the time options is selected</span>
             <span class="k">if</span> <span class="n">times_start_to_end</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">time_peaks</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">time_bounds</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                     <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                        <span class="s2">&quot;Must provide either times_start_to_end or both times_peaks and time_bounds&quot;</span>
+                        <span class="s2">"Must provide either times_start_to_end or both times_peaks and time_bounds"</span>
                     <span class="p">)</span>
 
-                <span class="c1"># If we&#39;re using peaks+bounds, validate them</span>
+                <span class="c1"># If we're using peaks+bounds, validate them</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">time_bounds</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">time_bounds</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
                     <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-                        <span class="s2">&quot;time_bounds must be a tuple of (before, after) durations&quot;</span>
+                        <span class="s2">"time_bounds must be a tuple of (before, after) durations"</span>
                     <span class="p">)</span>
 
                 <span class="c1"># Convert peaks and bounds to start_to_end format</span>
@@ -644,7 +644,7 @@
                 <span class="c1"># non-uniform input could pass upstream validation. Use</span>
                 <span class="c1"># the median diff rather than ``times[1] - times[0]`` so a</span>
                 <span class="c1"># single anomalous gap or a duplicate-time pair at the</span>
-                <span class="c1"># start can&#39;t poison the step inference for the rest of</span>
+                <span class="c1"># start can't poison the step inference for the rest of</span>
                 <span class="c1"># the stack. The median is exact on a uniform grid.</span>
                 <span class="n">diffs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">data_obj</span><span class="o">.</span><span class="n">times</span><span class="p">))</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">step_size</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">diffs</span><span class="p">))</span>
@@ -670,10 +670,10 @@
         <span class="c1"># Option 2: Using event matrx</span>
         <span class="k">if</span> <span class="n">event_matrix</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">event_matrix</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
-                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;event_matrix must be a numpy array&quot;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">"event_matrix must be a numpy array"</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">event_matrix</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;event_matrix must be 3D (U x T x S), got </span><span class="si">{</span><span class="n">event_matrix</span><span class="o">.</span><span class="n">ndim</span><span class="si">}</span><span class="s2">D array&quot;</span>
+                    <span class="sa">f</span><span class="s2">"event_matrix must be 3D (U x T x S), got </span><span class="si">{</span><span class="n">event_matrix</span><span class="o">.</span><span class="n">ndim</span><span class="si">}</span><span class="s2">D array"</span>
                 <span class="p">)</span>
             <span class="k">if</span> <span class="n">step_size</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">step_size</span> <span class="o">=</span> <span class="mf">1.0</span>
@@ -692,7 +692,7 @@
                 <span class="c1"># Make sure there is a (start,end) tuple for each slice</span>
                 <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">times_start_to_end</span><span class="p">)</span> <span class="o">!=</span> <span class="n">event_matrix</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]:</span>
                     <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                        <span class="s2">&quot;times_start_to_end must have the same length as the last dimension of event_matrix&quot;</span>
+                        <span class="s2">"times_start_to_end must have the same length as the last dimension of event_matrix"</span>
                     <span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">event_stack</span> <span class="o">=</span> <span class="n">event_matrix</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">times</span> <span class="o">=</span> <span class="n">times_start_to_end</span>
@@ -702,33 +702,33 @@
         <span class="c1"># ``subslice([])`` (or any caller that filtered to no slices)</span>
         <span class="c1"># produce a zero-slice stack that downstream slice-aware</span>
         <span class="c1"># methods (``apply``, ``__getitem__``, similarity computations)</span>
-        <span class="c1"># weren&#39;t built to handle. Reject symmetric for predictable</span>
+        <span class="c1"># weren't built to handle. Reject symmetric for predictable</span>
         <span class="c1"># downstream behaviour. Callers that genuinely need a 0-slice</span>
         <span class="c1"># placeholder should manage that as ``None`` rather than a</span>
         <span class="c1"># degenerate stack.</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">event_stack</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;event_stack has zero time bins (T=0). &quot;</span>
-                <span class="s2">&quot;A RateSliceStack requires at least one time bin.&quot;</span>
+                <span class="s2">"event_stack has zero time bins (T=0). "</span>
+                <span class="s2">"A RateSliceStack requires at least one time bin."</span>
             <span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">event_stack</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;event_stack has zero slices (S=0). &quot;</span>
-                <span class="s2">&quot;A RateSliceStack requires at least one slice; &quot;</span>
-                <span class="s2">&quot;represent the no-slice case as ``None`` rather than &quot;</span>
-                <span class="s2">&quot;a degenerate stack.&quot;</span>
+                <span class="s2">"event_stack has zero slices (S=0). "</span>
+                <span class="s2">"A RateSliceStack requires at least one slice; "</span>
+                <span class="s2">"represent the no-slice case as ``None`` rather than "</span>
+                <span class="s2">"a degenerate stack."</span>
             <span class="p">)</span>
 
         <span class="k">if</span> <span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">data_obj</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">neuron_attributes</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">data_obj</span><span class="p">,</span> <span class="s2">&quot;neuron_attributes&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="n">neuron_attributes</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">data_obj</span><span class="p">,</span> <span class="s2">"neuron_attributes"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="o">=</span> <span class="n">neuron_attributes</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
             <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">neuron_attributes</span><span class="p">)</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">event_stack</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;neuron_attributes has </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">neuron_attributes</span><span class="p">)</span><span class="si">}</span><span class="s2"> items &quot;</span>
-                    <span class="sa">f</span><span class="s2">&quot;but event_stack has </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">event_stack</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> units&quot;</span>
+                    <span class="sa">f</span><span class="s2">"neuron_attributes has </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">neuron_attributes</span><span class="p">)</span><span class="si">}</span><span class="s2"> items "</span>
+                    <span class="sa">f</span><span class="s2">"but event_stack has </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">event_stack</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> units"</span>
                 <span class="p">)</span></div>
 
 
@@ -742,16 +742,16 @@
         <span class="n">frac_active</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">timing_matrix</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reorder units from earliest to latest peak firing rate across slices.</span>
+<span class="w">        </span><span class="sd">"""Reorder units from earliest to latest peak firing rate across slices.</span>
 
 <span class="sd">        Parameters:</span>
-<span class="sd">            agg_func (str): Either ``&quot;median&quot;`` or ``&quot;mean&quot;``. Used for</span>
+<span class="sd">            agg_func (str): Either ``"median"`` or ``"mean"``. Used for</span>
 <span class="sd">                calculating the median/mean time when each unit has peak</span>
 <span class="sd">                firing rate.</span>
 <span class="sd">            MIN_RATE_THRESHOLD (float): Minimum peak firing rate for a slice</span>
 <span class="sd">                to be included in the ordering calculation. Slices where a</span>
-<span class="sd">                unit&#39;s max rate is below this threshold are excluded from</span>
-<span class="sd">                that unit&#39;s typical peak time calculation. Ignored when</span>
+<span class="sd">                unit's max rate is below this threshold are excluded from</span>
+<span class="sd">                that unit's typical peak time calculation. Ignored when</span>
 <span class="sd">                timing_matrix is provided.</span>
 <span class="sd">            MIN_FRAC_ACTIVE (float): Minimum fraction of slices a unit must</span>
 <span class="sd">                be active in to be placed in the highly-active group.</span>
@@ -789,7 +789,7 @@
 <span class="sd">            - Call get_unit_timing_per_slice first to pre-compute the timing</span>
 <span class="sd">              matrix if you want to reuse it across multiple calls (e.g.</span>
 <span class="sd">              rank_order_correlation and this method).</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="c1"># burst_matrices is U x T x S</span>
         <span class="n">slice_matrices</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">event_stack</span>
         <span class="n">num_units</span> <span class="o">=</span> <span class="n">slice_matrices</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
@@ -799,8 +799,8 @@
             <span class="n">unit_max_indices_matrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">timing_matrix</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">unit_max_indices_matrix</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="p">(</span><span class="n">num_units</span><span class="p">,</span> <span class="n">num_slices</span><span class="p">):</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;timing_matrix must have shape (</span><span class="si">{</span><span class="n">num_units</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">num_slices</span><span class="si">}</span><span class="s2">), &quot;</span>
-                    <span class="sa">f</span><span class="s2">&quot;got </span><span class="si">{</span><span class="n">unit_max_indices_matrix</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="sa">f</span><span class="s2">"timing_matrix must have shape (</span><span class="si">{</span><span class="n">num_units</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">num_slices</span><span class="si">}</span><span class="s2">), "</span>
+                    <span class="sa">f</span><span class="s2">"got </span><span class="si">{</span><span class="n">unit_max_indices_matrix</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">"</span>
                 <span class="p">)</span>
             <span class="c1"># For frac_active fallback, derive mask from non-NaN entries</span>
             <span class="n">mask</span> <span class="o">=</span> <span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">unit_max_indices_matrix</span><span class="p">)</span>
@@ -813,14 +813,14 @@
         <span class="n">unit_std_indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanstd</span><span class="p">(</span><span class="n">unit_max_indices_matrix</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 
         <span class="c1"># This gives you a list of size N. Now you have median peak time for each neuron</span>
-        <span class="k">if</span> <span class="n">agg_func</span> <span class="o">==</span> <span class="s2">&quot;median&quot;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">agg_func</span> <span class="o">==</span> <span class="s2">"median"</span><span class="p">:</span>
             <span class="n">unit_peak_times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmedian</span><span class="p">(</span><span class="n">unit_max_indices_matrix</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 
-        <span class="k">elif</span> <span class="n">agg_func</span> <span class="o">==</span> <span class="s2">&quot;mean&quot;</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="n">agg_func</span> <span class="o">==</span> <span class="s2">"mean"</span><span class="p">:</span>
             <span class="n">unit_peak_times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">unit_max_indices_matrix</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">agg_func</span><span class="si">}</span><span class="s2"> is not a valid input option. Must be either median or mean&quot;</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">agg_func</span><span class="si">}</span><span class="s2"> is not a valid input option. Must be either median or mean"</span>
             <span class="p">)</span>
 
         <span class="c1"># Compute or validate frac_active only when splitting is requested</span>
@@ -835,8 +835,8 @@
                 <span class="n">frac_active</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">frac_active</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">frac_active</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="p">(</span><span class="n">num_units</span><span class="p">,):</span>
                     <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;frac_active must have shape (</span><span class="si">{</span><span class="n">num_units</span><span class="si">}</span><span class="s2">,), &quot;</span>
-                        <span class="sa">f</span><span class="s2">&quot;got </span><span class="si">{</span><span class="n">frac_active</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span>
+                        <span class="sa">f</span><span class="s2">"frac_active must have shape (</span><span class="si">{</span><span class="n">num_units</span><span class="si">}</span><span class="s2">,), "</span>
+                        <span class="sa">f</span><span class="s2">"got </span><span class="si">{</span><span class="n">frac_active</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">"</span>
                     <span class="p">)</span>
                 <span class="n">unit_frac_active</span> <span class="o">=</span> <span class="n">frac_active</span>
             <span class="k">else</span><span class="p">:</span>
@@ -895,7 +895,7 @@
         <span class="n">frac_active</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">n_jobs</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>
     <span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute slice-to-slice similarity along the unit axis of event_stack (U, T, S).</span>
+<span class="w">        </span><span class="sd">"""Compute slice-to-slice similarity along the unit axis of event_stack (U, T, S).</span>
 
 <span class="sd">        Output is a PairwiseCompMatrixStack of shape (S, S, U).</span>
 
@@ -912,7 +912,7 @@
 <span class="sd">            frac_active (np.ndarray or None): Optional pre-computed</span>
 <span class="sd">                fraction-active array of shape (U,) to override the internal</span>
 <span class="sd">                rate-based validity check for computing averages. When</span>
-<span class="sd">                provided, a unit&#39;s average is set to NaN if</span>
+<span class="sd">                provided, a unit's average is set to NaN if</span>
 <span class="sd">                frac_active[u] &lt; (1 - MIN_FRAC). MIN_RATE_THRESHOLD still</span>
 <span class="sd">                controls which individual slice pairs are computed.</span>
 <span class="sd">                Compatible sources: SpikeSliceStack.compute_frac_active and</span>
@@ -933,7 +933,7 @@
 <span class="sd">                Shape is (S, S, U) in the stack attribute.</span>
 <span class="sd">            av_slice_corr_scores (np.ndarray): Average correlation per neuron</span>
 <span class="sd">                across all valid slice pairs. Shape is (U,).</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="c1"># Get dimensions</span>
         <span class="n">event_stack</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">event_stack</span>
         <span class="n">num_units</span> <span class="o">=</span> <span class="n">event_stack</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># N</span>
@@ -945,15 +945,15 @@
             <span class="n">frac_active</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">frac_active</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">frac_active</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="p">(</span><span class="n">num_units</span><span class="p">,):</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;frac_active must have shape (</span><span class="si">{</span><span class="n">num_units</span><span class="si">}</span><span class="s2">,), &quot;</span>
-                    <span class="sa">f</span><span class="s2">&quot;got </span><span class="si">{</span><span class="n">frac_active</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="sa">f</span><span class="s2">"frac_active must have shape (</span><span class="si">{</span><span class="n">num_units</span><span class="si">}</span><span class="s2">,), "</span>
+                    <span class="sa">f</span><span class="s2">"got </span><span class="si">{</span><span class="n">frac_active</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">"</span>
                 <span class="p">)</span>
 
         <span class="c1"># Early return for single slice — pairwise comparison undefined (BUG-005)</span>
         <span class="k">if</span> <span class="n">num_slices</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
             <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-                <span class="s2">&quot;Cannot compute slice-to-slice unit correlation with fewer than &quot;</span>
-                <span class="s2">&quot;2 slices. Returning NaN.&quot;</span><span class="p">,</span>
+                <span class="s2">"Cannot compute slice-to-slice unit correlation with fewer than "</span>
+                <span class="s2">"2 slices. Returning NaN."</span><span class="p">,</span>
                 <span class="ne">RuntimeWarning</span><span class="p">,</span>
             <span class="p">)</span>
             <span class="n">av_slice_corr_scores</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">num_units</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
@@ -1086,7 +1086,7 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">get_slice_to_slice_time_corr_from_stack</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">compare_func</span><span class="o">=</span><span class="n">compute_cosine_similarity_with_lag</span><span class="p">,</span> <span class="n">max_lag</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=-</span><span class="mi">1</span>
     <span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute slice-to-slice similarity along the time axis of event_stack (U, T, S).</span>
+<span class="w">        </span><span class="sd">"""Compute slice-to-slice similarity along the time axis of event_stack (U, T, S).</span>
 
 <span class="sd">        Output is a PairwiseCompMatrixStack of shape (S, S, T).</span>
 
@@ -1105,7 +1105,7 @@
 <span class="sd">                Shape is (S, S, T) in the stack attribute.</span>
 <span class="sd">            av_slice_corr_scores (np.ndarray): Average correlation per time</span>
 <span class="sd">                bin across all valid slice pairs. Shape is (T,).</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="c1"># Get dimensions</span>
         <span class="n">event_stack</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">event_stack</span>
         <span class="n">num_time_bins</span> <span class="o">=</span> <span class="n">event_stack</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>  <span class="c1"># T</span>
@@ -1114,8 +1114,8 @@
         <span class="c1"># Early return for single slice — pairwise comparison undefined</span>
         <span class="k">if</span> <span class="n">num_slices</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
             <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-                <span class="s2">&quot;Cannot compute slice-to-slice time correlation with fewer than &quot;</span>
-                <span class="s2">&quot;2 slices. Returning NaN.&quot;</span><span class="p">,</span>
+                <span class="s2">"Cannot compute slice-to-slice time correlation with fewer than "</span>
+                <span class="s2">"2 slices. Returning NaN."</span><span class="p">,</span>
                 <span class="ne">RuntimeWarning</span><span class="p">,</span>
             <span class="p">)</span>
             <span class="n">av_slice_corr_scores</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">num_time_bins</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
@@ -1168,11 +1168,11 @@
 <div class="viewcode-block" id="RateSliceStack.convert_to_list_of_RateData">
 <a class="viewcode-back" href="../../../api/rateslicestack.html#spikelab.spikedata.rateslicestack.RateSliceStack.convert_to_list_of_RateData">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">convert_to_list_of_RateData</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a list of RateData objects from the 3D event_stack.</span>
+<span class="w">        </span><span class="sd">"""Create a list of RateData objects from the 3D event_stack.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            output (list): List of RateData objects. Length equals S.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">output</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="c1"># U x T x S</span>
         <span class="c1"># Pre-compute the relative-time vector ONCE outside the loop;</span>
@@ -1197,7 +1197,7 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">unit_to_unit_correlation</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">compare_func</span><span class="o">=</span><span class="n">compute_cross_correlation_with_lag</span><span class="p">,</span> <span class="n">max_lag</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=-</span><span class="mi">1</span>
     <span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute unit-to-unit similarity along the slice axis of event_stack (U, T, S).</span>
+<span class="w">        </span><span class="sd">"""Compute unit-to-unit similarity along the slice axis of event_stack (U, T, S).</span>
 
 <span class="sd">        Output is a PairwiseCompMatrixStack of shape (U, U, S).</span>
 
@@ -1221,15 +1221,15 @@
 <span class="sd">                all valid unit pairs. Shape is (S,).</span>
 <span class="sd">            av_max_corr_lag (np.ndarray): Average lag where correlation</span>
 <span class="sd">                between each pair is at its maximum. Shape is (S,).</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">num_units</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">event_stack</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
         <span class="n">num_slices</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">event_stack</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
 
         <span class="c1"># Early return for single unit — pairwise comparison undefined (BUG-005)</span>
         <span class="k">if</span> <span class="n">num_units</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
             <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-                <span class="s2">&quot;Cannot compute unit-to-unit correlation with fewer than &quot;</span>
-                <span class="s2">&quot;2 units. Returning NaN.&quot;</span><span class="p">,</span>
+                <span class="s2">"Cannot compute unit-to-unit correlation with fewer than "</span>
+                <span class="s2">"2 units. Returning NaN."</span><span class="p">,</span>
                 <span class="ne">RuntimeWarning</span><span class="p">,</span>
             <span class="p">)</span>
             <span class="n">nan_stack</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">num_units</span><span class="p">,</span> <span class="n">num_units</span><span class="p">,</span> <span class="n">num_slices</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
@@ -1281,7 +1281,7 @@
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="n">U</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span> <span class="n">S</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">event_stack</span><span class="o">.</span><span class="n">shape</span>
-        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;RateSliceStack(U=</span><span class="si">{</span><span class="n">U</span><span class="si">}</span><span class="s2">, T=</span><span class="si">{</span><span class="n">T</span><span class="si">}</span><span class="s2">, S=</span><span class="si">{</span><span class="n">S</span><span class="si">}</span><span class="s2">)&quot;</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">"RateSliceStack(U=</span><span class="si">{</span><span class="n">U</span><span class="si">}</span><span class="s2">, T=</span><span class="si">{</span><span class="n">T</span><span class="si">}</span><span class="s2">, S=</span><span class="si">{</span><span class="n">S</span><span class="si">}</span><span class="s2">)"</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">event_stack</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
@@ -1291,16 +1291,16 @@
 
 <div class="viewcode-block" id="RateSliceStack.slice_to_slice_similarity">
 <a class="viewcode-back" href="../../../api/rateslicestack.html#spikelab.spikedata.rateslicestack.RateSliceStack.slice_to_slice_similarity">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">slice_to_slice_similarity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">metric</span><span class="o">=</span><span class="s2">&quot;cosine&quot;</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Pairwise similarity between slice-wise rate vectors.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">slice_to_slice_similarity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">metric</span><span class="o">=</span><span class="s2">"cosine"</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Pairwise similarity between slice-wise rate vectors.</span>
 
 <span class="sd">        Each slice is flattened from ``(U, T)`` to ``(U * T,)`` and a</span>
 <span class="sd">        square ``(S, S)`` similarity matrix is computed using the</span>
 <span class="sd">        requested metric.</span>
 
 <span class="sd">        Parameters:</span>
-<span class="sd">            metric (str): One of ``&quot;cosine&quot;`` (default), ``&quot;pearson&quot;``,</span>
-<span class="sd">                ``&quot;euclidean&quot;`` (distance), or ``&quot;cross_entropy&quot;``</span>
+<span class="sd">            metric (str): One of ``"cosine"`` (default), ``"pearson"``,</span>
+<span class="sd">                ``"euclidean"`` (distance), or ``"cross_entropy"``</span>
 <span class="sd">                (symmetric KL on rate distributions normalized to sum 1).</span>
 
 <span class="sd">        Returns:</span>
@@ -1314,15 +1314,15 @@
 <span class="sd">              ``(U, T, S)`` rate array).</span>
 <span class="sd">            - Use ``PairwiseCompMatrix.extract_lower_triangle()`` for</span>
 <span class="sd">              feature extraction.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">sim</span> <span class="o">=</span> <span class="n">_slice_to_slice_similarity_matrix</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">event_stack</span><span class="p">,</span> <span class="n">metric</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">PairwiseCompMatrix</span><span class="p">(</span><span class="n">matrix</span><span class="o">=</span><span class="n">sim</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;metric&quot;</span><span class="p">:</span> <span class="n">metric</span><span class="p">})</span></div>
+        <span class="k">return</span> <span class="n">PairwiseCompMatrix</span><span class="p">(</span><span class="n">matrix</span><span class="o">=</span><span class="n">sim</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">"metric"</span><span class="p">:</span> <span class="n">metric</span><span class="p">})</span></div>
 
 
 <div class="viewcode-block" id="RateSliceStack.subset">
 <a class="viewcode-back" href="../../../api/rateslicestack.html#spikelab.spikedata.rateslicestack.RateSliceStack.subset">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">subset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">units</span><span class="p">,</span> <span class="n">by</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">preserve_order</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Extract a subset of units/neurons from the rate slice stack.</span>
+<span class="w">        </span><span class="sd">"""Extract a subset of units/neurons from the rate slice stack.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            units (list or array): Unit indices to extract. If by is None,</span>
@@ -1341,7 +1341,7 @@
 <span class="sd">        Returns:</span>
 <span class="sd">            result (RateSliceStack): New RateSliceStack object containing</span>
 <span class="sd">                only the specified units.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">N</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">event_stack</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">units</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
             <span class="n">units</span> <span class="o">=</span> <span class="p">[</span><span class="n">units</span><span class="p">]</span>
@@ -1354,13 +1354,13 @@
             <span class="c1"># because the value list has no positional correspondence</span>
             <span class="c1"># to unit indices.</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;can&#39;t use `by` without `neuron_attributes`&quot;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"can't use `by` without `neuron_attributes`"</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">preserve_order</span><span class="p">:</span>
                 <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-                    <span class="s2">&quot;preserve_order=True has no effect when by= is set; &quot;</span>
-                    <span class="s2">&quot;the by-path returns matching units in index order. &quot;</span>
-                    <span class="s2">&quot;Drop preserve_order=True or use index-based subset() &quot;</span>
-                    <span class="s2">&quot;to silence this warning.&quot;</span><span class="p">,</span>
+                    <span class="s2">"preserve_order=True has no effect when by= is set; "</span>
+                    <span class="s2">"the by-path returns matching units in index order. "</span>
+                    <span class="s2">"Drop preserve_order=True or use index-based subset() "</span>
+                    <span class="s2">"to silence this warning."</span><span class="p">,</span>
                     <span class="ne">UserWarning</span><span class="p">,</span>
                     <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
                 <span class="p">)</span>
@@ -1374,9 +1374,9 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">units</span><span class="p">:</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">)):</span>
-                    <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unit index must be an integer, got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">u</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                    <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unit index must be an integer, got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">u</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">u</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">u</span> <span class="o">&gt;=</span> <span class="n">N</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unit index </span><span class="si">{</span><span class="n">u</span><span class="si">}</span><span class="s2"> out of range for </span><span class="si">{</span><span class="n">N</span><span class="si">}</span><span class="s2"> units.&quot;</span><span class="p">)</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unit index </span><span class="si">{</span><span class="n">u</span><span class="si">}</span><span class="s2"> out of range for </span><span class="si">{</span><span class="n">N</span><span class="si">}</span><span class="s2"> units."</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">preserve_order</span><span class="p">:</span>
                 <span class="n">seen</span><span class="p">:</span> <span class="nb">set</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
                 <span class="n">ordered</span> <span class="o">=</span> <span class="p">[]</span>
@@ -1405,7 +1405,7 @@
 <div class="viewcode-block" id="RateSliceStack.subtime_by_index">
 <a class="viewcode-back" href="../../../api/rateslicestack.html#spikelab.spikedata.rateslicestack.RateSliceStack.subtime_by_index">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">subtime_by_index</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start_idx</span><span class="p">,</span> <span class="n">end_idx</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Extract a subset of time bins from every slice using index values.</span>
+<span class="w">        </span><span class="sd">"""Extract a subset of time bins from every slice using index values.</span>
 
 <span class="sd">        Trims along the time axis (T dimension) while preserving all slices</span>
 <span class="sd">        (S dimension).</span>
@@ -1426,16 +1426,16 @@
 <span class="sd">              shifted-to-zero timestamps, create a new RateSliceStack.</span>
 <span class="sd">            - All slices, neuron_attributes, and step_size are carried over</span>
 <span class="sd">              from the original.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">T</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">event_stack</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">start_idx</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">start_idx</span> <span class="o">+=</span> <span class="n">T</span>
         <span class="k">if</span> <span class="n">end_idx</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">end_idx</span> <span class="o">+=</span> <span class="n">T</span>
         <span class="k">if</span> <span class="n">start_idx</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">start_idx</span> <span class="o">&gt;=</span> <span class="n">T</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;start_idx </span><span class="si">{</span><span class="n">start_idx</span><span class="si">}</span><span class="s2"> out of range for T=</span><span class="si">{</span><span class="n">T</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"start_idx </span><span class="si">{</span><span class="n">start_idx</span><span class="si">}</span><span class="s2"> out of range for T=</span><span class="si">{</span><span class="n">T</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">end_idx</span> <span class="o">&lt;=</span> <span class="n">start_idx</span> <span class="ow">or</span> <span class="n">end_idx</span> <span class="o">&gt;</span> <span class="n">T</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;end_idx </span><span class="si">{</span><span class="n">end_idx</span><span class="si">}</span><span class="s2"> invalid&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"end_idx </span><span class="si">{</span><span class="n">end_idx</span><span class="si">}</span><span class="s2"> invalid"</span><span class="p">)</span>
 
         <span class="n">new_stack</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">event_stack</span><span class="p">[:,</span> <span class="n">start_idx</span><span class="p">:</span><span class="n">end_idx</span><span class="p">,</span> <span class="p">:]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
 
@@ -1456,7 +1456,7 @@
 <div class="viewcode-block" id="RateSliceStack.subslice">
 <a class="viewcode-back" href="../../../api/rateslicestack.html#spikelab.spikedata.rateslicestack.RateSliceStack.subslice">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">subslice</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">slices</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Extract a subset of slices from the event stack using index values.</span>
+<span class="w">        </span><span class="sd">"""Extract a subset of slices from the event stack using index values.</span>
 
 <span class="sd">        Trims along the slice axis (S dimension) while preserving all time</span>
 <span class="sd">        bins (T dimension).</span>
@@ -1482,18 +1482,18 @@
 <span class="sd">              concatenation got the wrong layout. The caller-order +</span>
 <span class="sd">              dedupe behaviour is consistent with the ``subset(...,</span>
 <span class="sd">              preserve_order=True)`` design family.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">length</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">event_stack</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">slices</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
             <span class="n">slices</span> <span class="o">=</span> <span class="p">[</span><span class="n">slices</span><span class="p">]</span>
         <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">slices</span><span class="p">:</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">)):</span>
                 <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Slice indices must be integers, got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">s</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">s</span><span class="si">!r}</span><span class="s2">&quot;</span>
+                    <span class="sa">f</span><span class="s2">"Slice indices must be integers, got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">s</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">s</span><span class="si">!r}</span><span class="s2">"</span>
                 <span class="p">)</span>
             <span class="k">if</span> <span class="n">s</span> <span class="o">&gt;=</span> <span class="n">length</span> <span class="ow">or</span> <span class="n">s</span> <span class="o">&lt;</span> <span class="o">-</span><span class="n">length</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;One or more slice indices out of range for S=</span><span class="si">{</span><span class="n">length</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="sa">f</span><span class="s2">"One or more slice indices out of range for S=</span><span class="si">{</span><span class="n">length</span><span class="si">}</span><span class="s2">"</span>
                 <span class="p">)</span>
         <span class="c1"># Preserve caller order and deduplicate (first occurrence wins).</span>
         <span class="c1"># Negative indices are normalised against the current S so that</span>
@@ -1519,7 +1519,7 @@
 <div class="viewcode-block" id="RateSliceStack.get_unit_timing_per_slice">
 <a class="viewcode-back" href="../../../api/rateslicestack.html#spikelab.spikedata.rateslicestack.RateSliceStack.get_unit_timing_per_slice">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_unit_timing_per_slice</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">MIN_RATE_THRESHOLD</span><span class="o">=</span><span class="mf">0.1</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute the peak firing rate time bin for each unit in each slice.</span>
+<span class="w">        </span><span class="sd">"""Compute the peak firing rate time bin for each unit in each slice.</span>
 
 <span class="sd">        Returns a ``(U, S)`` matrix where entry ``[u, s]`` is the time bin</span>
 <span class="sd">        index of the peak firing rate for unit u in slice s. Units whose</span>
@@ -1542,7 +1542,7 @@
 <span class="sd">              ``rank_order_correlation`` produces identical results either way.</span>
 <span class="sd">            - The returned matrix can be passed to ``rank_order_correlation``</span>
 <span class="sd">              to compute Spearman rank correlations between slice pairs.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">slice_matrices</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">event_stack</span>
         <span class="n">unit_max_indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">slice_matrices</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
         <span class="n">unit_max_rates</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">slice_matrices</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
@@ -1568,7 +1568,7 @@
         <span class="n">seed</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
         <span class="n">n_jobs</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>
     <span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute Spearman rank-order correlation of unit timing between all slice pairs.</span>
+<span class="w">        </span><span class="sd">"""Compute Spearman rank-order correlation of unit timing between all slice pairs.</span>
 
 <span class="sd">        For each pair of slices, only units active in both slices (non-NaN in</span>
 <span class="sd">        both columns of the timing matrix) are included. If the overlap falls</span>
@@ -1608,7 +1608,7 @@
 <span class="sd">                lower-triangle pairs.</span>
 <span class="sd">            overlap_matrix (PairwiseCompMatrix): Matrix of shape ``(S, S)``</span>
 <span class="sd">                with fraction of units active in both slices.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">_rank_order_correlation_from_timing</span>
 
         <span class="k">if</span> <span class="n">timing_matrix</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>

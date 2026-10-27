@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Loading Data &mdash; SpikeLab 0.1.1 documentation</title>
+  <title>Loading Data &mdash; SpikeLab 0.1.2 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=a58bc63e"></script>
+      <script src="../_static/documentation_options.js?v=92734c54"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
@@ -512,20 +512,20 @@ load it with the standard library or with the SpikeLab convenience loader.</p>
 <p>Using the standard library:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">pickle</span>
 
-<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;my_data.pkl&quot;</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">"my_data.pkl"</span><span class="p">,</span> <span class="s2">"rb"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
     <span class="n">sd</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>Using the SpikeLab loader (which also supports S3 URLs):</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.data_loaders.data_loaders</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_spikedata_from_pickle</span>
 
-<span class="n">sd</span> <span class="o">=</span> <span class="n">load_spikedata_from_pickle</span><span class="p">(</span><span class="s2">&quot;my_data.pkl&quot;</span><span class="p">)</span>
+<span class="n">sd</span> <span class="o">=</span> <span class="n">load_spikedata_from_pickle</span><span class="p">(</span><span class="s2">"my_data.pkl"</span><span class="p">)</span>
 
 <span class="c1"># Load from S3</span>
 <span class="n">sd</span> <span class="o">=</span> <span class="n">load_spikedata_from_pickle</span><span class="p">(</span>
-    <span class="s2">&quot;s3://my-bucket/my_data.pkl&quot;</span><span class="p">,</span>
-    <span class="n">aws_access_key_id</span><span class="o">=</span><span class="s2">&quot;...&quot;</span><span class="p">,</span>
-    <span class="n">aws_secret_access_key</span><span class="o">=</span><span class="s2">&quot;...&quot;</span><span class="p">,</span>
+    <span class="s2">"s3://my-bucket/my_data.pkl"</span><span class="p">,</span>
+    <span class="n">aws_access_key_id</span><span class="o">=</span><span class="s2">"..."</span><span class="p">,</span>
+    <span class="n">aws_secret_access_key</span><span class="o">=</span><span class="s2">"..."</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
 </div>
@@ -548,32 +548,32 @@ Exactly one style must be specified per call.</p>
 
 <span class="c1"># Raster style</span>
 <span class="n">sd</span> <span class="o">=</span> <span class="n">load_spikedata_from_hdf5</span><span class="p">(</span>
-    <span class="s2">&quot;recording.h5&quot;</span><span class="p">,</span>
-    <span class="n">raster_dataset</span><span class="o">=</span><span class="s2">&quot;raster&quot;</span><span class="p">,</span>
+    <span class="s2">"recording.h5"</span><span class="p">,</span>
+    <span class="n">raster_dataset</span><span class="o">=</span><span class="s2">"raster"</span><span class="p">,</span>
     <span class="n">raster_bin_size_ms</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
 <span class="p">)</span>
 
 <span class="c1"># Ragged style (spike_times + spike_times_index)</span>
 <span class="n">sd</span> <span class="o">=</span> <span class="n">load_spikedata_from_hdf5</span><span class="p">(</span>
-    <span class="s2">&quot;recording.h5&quot;</span><span class="p">,</span>
-    <span class="n">spike_times_dataset</span><span class="o">=</span><span class="s2">&quot;spike_times&quot;</span><span class="p">,</span>
-    <span class="n">spike_times_index_dataset</span><span class="o">=</span><span class="s2">&quot;spike_times_index&quot;</span><span class="p">,</span>
-    <span class="n">spike_times_unit</span><span class="o">=</span><span class="s2">&quot;s&quot;</span><span class="p">,</span>       <span class="c1"># times in the file are in seconds</span>
+    <span class="s2">"recording.h5"</span><span class="p">,</span>
+    <span class="n">spike_times_dataset</span><span class="o">=</span><span class="s2">"spike_times"</span><span class="p">,</span>
+    <span class="n">spike_times_index_dataset</span><span class="o">=</span><span class="s2">"spike_times_index"</span><span class="p">,</span>
+    <span class="n">spike_times_unit</span><span class="o">=</span><span class="s2">"s"</span><span class="p">,</span>       <span class="c1"># times in the file are in seconds</span>
 <span class="p">)</span>
 
 <span class="c1"># Group-per-unit style</span>
 <span class="n">sd</span> <span class="o">=</span> <span class="n">load_spikedata_from_hdf5</span><span class="p">(</span>
-    <span class="s2">&quot;recording.h5&quot;</span><span class="p">,</span>
-    <span class="n">group_per_unit</span><span class="o">=</span><span class="s2">&quot;units&quot;</span><span class="p">,</span>
-    <span class="n">group_time_unit</span><span class="o">=</span><span class="s2">&quot;s&quot;</span><span class="p">,</span>
+    <span class="s2">"recording.h5"</span><span class="p">,</span>
+    <span class="n">group_per_unit</span><span class="o">=</span><span class="s2">"units"</span><span class="p">,</span>
+    <span class="n">group_time_unit</span><span class="o">=</span><span class="s2">"s"</span><span class="p">,</span>
 <span class="p">)</span>
 
 <span class="c1"># Paired style (idces + times)</span>
 <span class="n">sd</span> <span class="o">=</span> <span class="n">load_spikedata_from_hdf5</span><span class="p">(</span>
-    <span class="s2">&quot;recording.h5&quot;</span><span class="p">,</span>
-    <span class="n">idces_dataset</span><span class="o">=</span><span class="s2">&quot;idces&quot;</span><span class="p">,</span>
-    <span class="n">times_dataset</span><span class="o">=</span><span class="s2">&quot;times&quot;</span><span class="p">,</span>
-    <span class="n">times_unit</span><span class="o">=</span><span class="s2">&quot;ms&quot;</span><span class="p">,</span>
+    <span class="s2">"recording.h5"</span><span class="p">,</span>
+    <span class="n">idces_dataset</span><span class="o">=</span><span class="s2">"idces"</span><span class="p">,</span>
+    <span class="n">times_dataset</span><span class="o">=</span><span class="s2">"times"</span><span class="p">,</span>
+    <span class="n">times_unit</span><span class="o">=</span><span class="s2">"ms"</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
 </div>
@@ -596,11 +596,11 @@ and electrode positions (<code class="docutils literal notranslate"><span class=
 file.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.data_loaders.data_loaders</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_spikedata_from_nwb</span>
 
-<span class="n">sd</span> <span class="o">=</span> <span class="n">load_spikedata_from_nwb</span><span class="p">(</span><span class="s2">&quot;session.nwb&quot;</span><span class="p">)</span>
+<span class="n">sd</span> <span class="o">=</span> <span class="n">load_spikedata_from_nwb</span><span class="p">(</span><span class="s2">"session.nwb"</span><span class="p">)</span>
 
 <span class="c1"># Optionally control the backend and recording length</span>
 <span class="n">sd</span> <span class="o">=</span> <span class="n">load_spikedata_from_nwb</span><span class="p">(</span>
-    <span class="s2">&quot;session.nwb&quot;</span><span class="p">,</span>
+    <span class="s2">"session.nwb"</span><span class="p">,</span>
     <span class="n">prefer_pynwb</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>    <span class="c1"># try pynwb first, fall back to h5py</span>
     <span class="n">length_ms</span><span class="o">=</span><span class="mf">600000.0</span><span class="p">,</span>   <span class="c1"># truncate to first 10 minutes</span>
 <span class="p">)</span>
@@ -620,18 +620,18 @@ that sample indices can be converted to milliseconds.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.data_loaders.data_loaders</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_spikedata_from_kilosort</span>
 
 <span class="n">sd</span> <span class="o">=</span> <span class="n">load_spikedata_from_kilosort</span><span class="p">(</span>
-    <span class="s2">&quot;path/to/kilosort_output/&quot;</span><span class="p">,</span>
+    <span class="s2">"path/to/kilosort_output/"</span><span class="p">,</span>
     <span class="n">fs_Hz</span><span class="o">=</span><span class="mi">30000</span><span class="p">,</span>
 <span class="p">)</span>
 
 <span class="c1"># With cluster filtering and custom file names</span>
 <span class="n">sd</span> <span class="o">=</span> <span class="n">load_spikedata_from_kilosort</span><span class="p">(</span>
-    <span class="s2">&quot;path/to/kilosort_output/&quot;</span><span class="p">,</span>
+    <span class="s2">"path/to/kilosort_output/"</span><span class="p">,</span>
     <span class="n">fs_Hz</span><span class="o">=</span><span class="mi">30000</span><span class="p">,</span>
-    <span class="n">cluster_info_tsv</span><span class="o">=</span><span class="s2">&quot;cluster_info.tsv&quot;</span><span class="p">,</span>
+    <span class="n">cluster_info_tsv</span><span class="o">=</span><span class="s2">"cluster_info.tsv"</span><span class="p">,</span>
     <span class="n">include_noise</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-    <span class="n">spike_times_file</span><span class="o">=</span><span class="s2">&quot;spike_times.npy&quot;</span><span class="p">,</span>
-    <span class="n">spike_clusters_file</span><span class="o">=</span><span class="s2">&quot;spike_clusters.npy&quot;</span><span class="p">,</span>
+    <span class="n">spike_times_file</span><span class="o">=</span><span class="s2">"spike_times.npy"</span><span class="p">,</span>
+    <span class="n">spike_clusters_file</span><span class="o">=</span><span class="s2">"spike_clusters.npy"</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
 </div>
@@ -665,7 +665,7 @@ which applies threshold detection to the raw traces:</p>
     <span class="n">threshold_sigma</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span>
     <span class="nb">filter</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
     <span class="n">hysteresis</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-    <span class="n">direction</span><span class="o">=</span><span class="s2">&quot;both&quot;</span><span class="p">,</span>
+    <span class="n">direction</span><span class="o">=</span><span class="s2">"both"</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
 </div>
@@ -678,7 +678,7 @@ locations, waveform templates, and quality metrics. Load these with:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.data_loaders.data_loaders</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_spikedata_from_spikelab_sorted_npz</span>
 
 <span class="n">sd</span> <span class="o">=</span> <span class="n">load_spikedata_from_spikelab_sorted_npz</span><span class="p">(</span>
-    <span class="s2">&quot;sorted_results.npz&quot;</span><span class="p">,</span>
+    <span class="s2">"sorted_results.npz"</span><span class="p">,</span>
     <span class="n">length_ms</span><span class="o">=</span><span class="mf">600000.0</span><span class="p">,</span>  <span class="c1"># optional; inferred from latest spike if omitted</span>
 <span class="p">)</span>
 </pre></div>
@@ -695,7 +695,7 @@ requires the <code class="docutils literal notranslate"><span class="pre">one-ap
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.data_loaders.data_loaders</span><span class="w"> </span><span class="kn">import</span> <span class="n">query_ibl_probes</span>
 
 <span class="n">probes</span><span class="p">,</span> <span class="n">stats_df</span> <span class="o">=</span> <span class="n">query_ibl_probes</span><span class="p">(</span>
-    <span class="n">target_regions</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;MOs&quot;</span><span class="p">,</span> <span class="s2">&quot;MOp&quot;</span><span class="p">],</span>   <span class="c1"># Beryl atlas region names</span>
+    <span class="n">target_regions</span><span class="o">=</span><span class="p">[</span><span class="s2">"MOs"</span><span class="p">,</span> <span class="s2">"MOp"</span><span class="p">],</span>   <span class="c1"># Beryl atlas region names</span>
     <span class="n">min_units</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>                     <span class="c1"># minimum good units per probe</span>
     <span class="n">min_fraction_in_target</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>       <span class="c1"># at least 50% of units in target regions</span>
 <span class="p">)</span>
@@ -748,7 +748,7 @@ you can detect spikes using a threshold crossing method:</p>
     <span class="n">threshold_sigma</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span>
     <span class="nb">filter</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>           <span class="c1"># 300-6000 Hz Butterworth bandpass</span>
     <span class="n">hysteresis</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-    <span class="n">direction</span><span class="o">=</span><span class="s2">&quot;both&quot;</span><span class="p">,</span>      <span class="c1"># detect both positive and negative crossings</span>
+    <span class="n">direction</span><span class="o">=</span><span class="s2">"both"</span><span class="p">,</span>      <span class="c1"># detect both positive and negative crossings</span>
 <span class="p">)</span>
 </pre></div>
 </div>

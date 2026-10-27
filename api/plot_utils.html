@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Plotting Utilities &mdash; SpikeLab 0.1.1 documentation</title>
+  <title>Plotting Utilities &mdash; SpikeLab 0.1.2 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=a58bc63e"></script>
+      <script src="../_static/documentation_options.js?v=92734c54"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
@@ -519,25 +519,25 @@ and <code class="docutils literal notranslate"><span class="pre">plot_spatial_ne
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>ax</strong> (<em>matplotlib.axes.Axes</em>) – Target axes (caller creates).</p></li>
-<li><p><strong>metric_data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><em>np.ndarray</em><em>] or </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><em>np.ndarray</em><em>]</em>) – Condition-labelled
+<li><p><strong>metric_data</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em>, </em><em>np.ndarray</em><em>] or </em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em>[</em><em>np.ndarray</em><em>]</em>) – Condition-labelled
 or ordered collection of per-unit value arrays. NaN values are
 stripped automatically before plotting.</p></li>
-<li><p><strong>labels</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>] or </em><em>None</em>) – Ordered condition labels. If None, uses
+<li><p><strong>labels</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em>] or </em><em>None</em>) – Ordered condition labels. If None, uses
 dict keys (for dict input) or integer indices (for list input).</p></li>
-<li><p><strong>colors</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>] or </em><em>None</em>) – Per-condition colours. If None, uses
+<li><p><strong>colors</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em>] or </em><em>None</em>) – Per-condition colours. If None, uses
 the default matplotlib colour cycle.</p></li>
-<li><p><strong>ylabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Y-axis label.</p></li>
-<li><p><strong>xlabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – X-axis label.</p></li>
-<li><p><strong>style</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – <code class="docutils literal notranslate"><span class="pre">&quot;violin&quot;</span></code> (default) or <code class="docutils literal notranslate"><span class="pre">&quot;boxplot&quot;</span></code>.</p></li>
-<li><p><strong>show_median</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Overlay a median dot on each distribution.</p></li>
-<li><p><strong>show_quartiles</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Overlay IQR lines (25th-75th percentile) on
+<li><p><strong>ylabel</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Y-axis label.</p></li>
+<li><p><strong>xlabel</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – X-axis label.</p></li>
+<li><p><strong>style</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – <code class="docutils literal notranslate"><span class="pre">&quot;violin&quot;</span></code> (default) or <code class="docutils literal notranslate"><span class="pre">&quot;boxplot&quot;</span></code>.</p></li>
+<li><p><strong>show_median</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Overlay a median dot on each distribution.</p></li>
+<li><p><strong>show_quartiles</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Overlay IQR lines (25th-75th percentile) on
 each distribution.</p></li>
-<li><p><strong>show_data</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Overlay individual data points on each distribution,
+<li><p><strong>show_data</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Overlay individual data points on each distribution,
 jittered horizontally to reduce overlap.</p></li>
-<li><p><strong>data_alpha</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Alpha transparency for overlaid data points.</p></li>
-<li><p><strong>data_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Marker size for overlaid data points.</p></li>
-<li><p><strong>log_scale</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Use a log scale on the y-axis.</p></li>
-<li><p><strong>font_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><em>None</em>) – Font size for labels and ticks. If None,
+<li><p><strong>data_alpha</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Alpha transparency for overlaid data points.</p></li>
+<li><p><strong>data_size</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Marker size for overlaid data points.</p></li>
+<li><p><strong>log_scale</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Use a log scale on the y-axis.</p></li>
+<li><p><strong>font_size</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a><em> or </em><em>None</em>) – Font size for labels and ticks. If None,
 uses current rcParams.</p></li>
 </ul>
 </dd>
@@ -549,7 +549,7 @@ uses current rcParams.</p></li>
 </p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>parts (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>)</p>
+<dd class="field-odd"><p>parts (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)">dict</a>)</p>
 </dd>
 </dl>
 <p class="rubric">Notes</p>
@@ -577,22 +577,22 @@ should be NaN (they are rendered in black).</p></li>
 <li><p><strong>sig_matrix</strong> (<em>np.ndarray</em><em> or </em><em>None</em>) – (K, K) boolean – True where the
 comparison is significant. If None, computed as
 <code class="docutils literal notranslate"><span class="pre">pval_matrix</span> <span class="pre">&lt;</span> <span class="pre">0.05</span></code>.</p></li>
-<li><p><strong>labels</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>] or </em><em>None</em>) – Tick labels for each group. If None,
+<li><p><strong>labels</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em>] or </em><em>None</em>) – Tick labels for each group. If None,
 integer indices are used.</p></li>
 <li><p><strong>ax</strong> (<em>matplotlib.axes.Axes</em><em> or </em><em>None</em>) – Target axes for standalone mode.</p></li>
 <li><p><strong>parent_ax</strong> (<em>matplotlib.axes.Axes</em><em> or </em><em>None</em>) – Parent axes on which to
 create an inset.</p></li>
-<li><p><strong>inset_loc</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Location string for <code class="docutils literal notranslate"><span class="pre">inset_axes</span></code> (e.g.
+<li><p><strong>inset_loc</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Location string for <code class="docutils literal notranslate"><span class="pre">inset_axes</span></code> (e.g.
 <code class="docutils literal notranslate"><span class="pre">&quot;upper</span> <span class="pre">left&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;lower</span> <span class="pre">left&quot;</span></code>). Only used in inset mode.</p></li>
-<li><p><strong>inset_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Width and height of the inset as a percentage of
+<li><p><strong>inset_size</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Width and height of the inset as a percentage of
 the parent (e.g. <code class="docutils literal notranslate"><span class="pre">&quot;30%&quot;</span></code>). Only used in inset mode.</p></li>
-<li><p><strong>inset_offset</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Horizontal offset of the inset bounding box
+<li><p><strong>inset_offset</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Horizontal offset of the inset bounding box
 from the parent axes edge. Only used in inset mode.</p></li>
-<li><p><strong>cmap</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Matplotlib colormap name.</p></li>
-<li><p><strong>sig_marker_color</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Colour for significance markers.</p></li>
-<li><p><strong>sig_marker_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Marker size for significance dots.</p></li>
-<li><p><strong>show_colorbar</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Show a <code class="docutils literal notranslate"><span class="pre">-log10(P)</span></code> colorbar.</p></li>
-<li><p><strong>font_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><em>None</em>) – Font size for labels and ticks. If None,
+<li><p><strong>cmap</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Matplotlib colormap name.</p></li>
+<li><p><strong>sig_marker_color</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Colour for significance markers.</p></li>
+<li><p><strong>sig_marker_size</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Marker size for significance dots.</p></li>
+<li><p><strong>show_colorbar</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Show a <code class="docutils literal notranslate"><span class="pre">-log10(P)</span></code> colorbar.</p></li>
+<li><p><strong>font_size</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a><em> or </em><em>None</em>) – Font size for labels and ticks. If None,
 uses current rcParams.</p></li>
 </ul>
 </dd>
@@ -628,37 +628,37 @@ each group separately with its own legend entry.</p></li>
 <li><p><strong>ax</strong> (<em>matplotlib.axes.Axes</em>) – Target axes (caller creates).</p></li>
 <li><p><strong>x</strong> (<em>np.ndarray</em>) – X-axis values.</p></li>
 <li><p><strong>y</strong> (<em>np.ndarray</em>) – Y-axis values.</p></li>
-<li><p><strong>xlabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – X-axis label.</p></li>
-<li><p><strong>ylabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Y-axis label.</p></li>
-<li><p><strong>color_vals</strong> (<em>np.ndarray</em><em> or </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><em>None</em>) – Per-point values for continuous
+<li><p><strong>xlabel</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – X-axis label.</p></li>
+<li><p><strong>ylabel</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Y-axis label.</p></li>
+<li><p><strong>color_vals</strong> (<em>np.ndarray</em><em> or </em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> or </em><em>None</em>) – Per-point values for continuous
 color mapping. Pass the string <code class="docutils literal notranslate"><span class="pre">&quot;density&quot;</span></code> to auto-compute KDE
 density and sort points so dense regions render on top (requires
 scipy). If None and <code class="docutils literal notranslate"><span class="pre">groups</span></code> is also None, all points are drawn
 in a uniform colour.</p></li>
-<li><p><strong>color_label</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Colorbar label (continuous mode only).</p></li>
-<li><p><strong>cmap</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Matplotlib colormap name (continuous mode only).</p></li>
-<li><p><strong>vmin</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Colormap minimum (continuous mode only).</p></li>
-<li><p><strong>vmax</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Colormap maximum (continuous mode only).</p></li>
-<li><p><strong>show_identity</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Plot the x = y identity line.</p></li>
-<li><p><strong>show_colorbar</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Add a colorbar when color_vals is provided
+<li><p><strong>color_label</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Colorbar label (continuous mode only).</p></li>
+<li><p><strong>cmap</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Matplotlib colormap name (continuous mode only).</p></li>
+<li><p><strong>vmin</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> or </em><em>None</em>) – Colormap minimum (continuous mode only).</p></li>
+<li><p><strong>vmax</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> or </em><em>None</em>) – Colormap maximum (continuous mode only).</p></li>
+<li><p><strong>show_identity</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Plot the x = y identity line.</p></li>
+<li><p><strong>show_colorbar</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Add a colorbar when color_vals is provided
 (continuous mode only).</p></li>
-<li><p><strong>fit</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><em>None</em>) – Regression to overlay. <code class="docutils literal notranslate"><span class="pre">&quot;linear&quot;</span></code> or None.</p></li>
-<li><p><strong>show_ci</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Show confidence interval band on the fit.</p></li>
-<li><p><strong>show_r2</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Annotate R-squared on the plot.</p></li>
-<li><p><strong>marker_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Scatter marker size.</p></li>
-<li><p><strong>alpha</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Scatter alpha.</p></li>
+<li><p><strong>fit</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> or </em><em>None</em>) – Regression to overlay. <code class="docutils literal notranslate"><span class="pre">&quot;linear&quot;</span></code> or None.</p></li>
+<li><p><strong>show_ci</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Show confidence interval band on the fit.</p></li>
+<li><p><strong>show_r2</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Annotate R-squared on the plot.</p></li>
+<li><p><strong>marker_size</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Scatter marker size.</p></li>
+<li><p><strong>alpha</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Scatter alpha.</p></li>
 <li><p><strong>groups</strong> (<em>array-like</em><em> or </em><em>None</em>) – Per-point integer group index for discrete
 colouring. Each unique value is rendered as a separate scatter
 series with its own colour and legend entry.</p></li>
-<li><p><strong>group_labels</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>] or </em><em>None</em>) – Label for each unique group value,
+<li><p><strong>group_labels</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em>] or </em><em>None</em>) – Label for each unique group value,
 ordered by <code class="docutils literal notranslate"><span class="pre">np.unique(groups)</span></code>. If None, the group values are
 used as labels.</p></li>
-<li><p><strong>group_colors</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>] or </em><em>None</em>) – Colour for each unique group value,
+<li><p><strong>group_colors</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em>] or </em><em>None</em>) – Colour for each unique group value,
 ordered by <code class="docutils literal notranslate"><span class="pre">np.unique(groups)</span></code>. If None, uses the default
 matplotlib colour cycle.</p></li>
-<li><p><strong>show_legend</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Show legend when <code class="docutils literal notranslate"><span class="pre">groups</span></code> is provided. Default
+<li><p><strong>show_legend</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Show legend when <code class="docutils literal notranslate"><span class="pre">groups</span></code> is provided. Default
 True.</p></li>
-<li><p><strong>font_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><em>None</em>) – Font size for labels/ticks. If None, uses
+<li><p><strong>font_size</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a><em> or </em><em>None</em>) – Font size for labels/ticks. If None, uses
 current rcParams.</p></li>
 </ul>
 </dd>
@@ -671,7 +671,7 @@ mode, a list of scatter artists (one per group).</p>
 </p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>sc (PathCollection or <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)">list</a>[PathCollection])</p>
+<dd class="field-odd"><p>sc (PathCollection or <a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)">list</a>[PathCollection])</p>
 </dd>
 </dl>
 <p class="rubric">Notes</p>
@@ -698,16 +698,16 @@ histogram rather than on the scatter axes.</p>
 <li><p><strong>fig</strong> (<em>matplotlib.Figure</em>) – Parent figure.</p></li>
 <li><p><strong>x</strong> (<em>np.ndarray</em>) – X-axis values.</p></li>
 <li><p><strong>y</strong> (<em>np.ndarray</em>) – Y-axis values.</p></li>
-<li><p><strong>xlabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – X-axis label for the scatter.</p></li>
-<li><p><strong>ylabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Y-axis label for the scatter.</p></li>
-<li><p><strong>title</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><em>None</em>) – Title placed above the top marginal histogram.</p></li>
-<li><p><strong>marginal_bins</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Number of histogram bins.</p></li>
-<li><p><strong>marginal_color</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Histogram bar colour.</p></li>
-<li><p><strong>show_zero_lines</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Draw vertical/horizontal zero reference lines
+<li><p><strong>xlabel</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – X-axis label for the scatter.</p></li>
+<li><p><strong>ylabel</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Y-axis label for the scatter.</p></li>
+<li><p><strong>title</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> or </em><em>None</em>) – Title placed above the top marginal histogram.</p></li>
+<li><p><strong>marginal_bins</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Number of histogram bins.</p></li>
+<li><p><strong>marginal_color</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Histogram bar colour.</p></li>
+<li><p><strong>show_zero_lines</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Draw vertical/horizontal zero reference lines
 on the marginal histograms.</p></li>
-<li><p><strong>height_ratios</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em> or </em><em>None</em>) – <code class="docutils literal notranslate"><span class="pre">[hist,</span> <span class="pre">scatter]</span></code> height ratios.
+<li><p><strong>height_ratios</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em> or </em><em>None</em>) – <code class="docutils literal notranslate"><span class="pre">[hist,</span> <span class="pre">scatter]</span></code> height ratios.
 Default <code class="docutils literal notranslate"><span class="pre">[1,</span> <span class="pre">4]</span></code>.</p></li>
-<li><p><strong>width_ratios</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em> or </em><em>None</em>) – <code class="docutils literal notranslate"><span class="pre">[scatter,</span> <span class="pre">hist]</span></code> width ratios.
+<li><p><strong>width_ratios</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em> or </em><em>None</em>) – <code class="docutils literal notranslate"><span class="pre">[scatter,</span> <span class="pre">hist]</span></code> width ratios.
 Default <code class="docutils literal notranslate"><span class="pre">[4,</span> <span class="pre">1]</span></code>.</p></li>
 <li><p><strong>**scatter_kwargs</strong> – Additional keyword arguments forwarded to
 <a class="reference internal" href="#spikelab.spikedata.plot_utils.plot_scatter" title="spikelab.spikedata.plot_utils.plot_scatter"><code class="xref py py-func docutils literal notranslate"><span class="pre">plot_scatter()</span></code></a> (e.g. <code class="docutils literal notranslate"><span class="pre">color_vals</span></code>, <code class="docutils literal notranslate"><span class="pre">show_identity</span></code>,
@@ -744,36 +744,36 @@ before the foreground, useful for separating non-event from event points
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>ax</strong> (<em>matplotlib.axes.Axes</em>) – Target axes (caller creates).</p></li>
 <li><p><strong>embedding</strong> (<em>np.ndarray</em>) – Shape <code class="docutils literal notranslate"><span class="pre">(T,</span> <span class="pre">&gt;=2)</span></code> embedding coordinates.</p></li>
-<li><p><strong>pc_x</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Column index for the x-axis. Default 0.</p></li>
-<li><p><strong>pc_y</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Column index for the y-axis. Default 1.</p></li>
+<li><p><strong>pc_x</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Column index for the x-axis. Default 0.</p></li>
+<li><p><strong>pc_y</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Column index for the y-axis. Default 1.</p></li>
 <li><p><strong>var_explained</strong> (<em>np.ndarray</em><em> or </em><em>None</em>) – Explained variance ratio per
 component. When provided, axis labels are auto-generated as
 <code class="docutils literal notranslate"><span class="pre">&quot;PC{n}</span> <span class="pre">(X.X%)&quot;</span></code>; overridden by explicit <code class="docutils literal notranslate"><span class="pre">xlabel</span></code>/<code class="docutils literal notranslate"><span class="pre">ylabel</span></code>.</p></li>
 <li><p><strong>bg_mask</strong> (<em>np.ndarray</em><em> or </em><em>None</em>) – Boolean mask, shape <code class="docutils literal notranslate"><span class="pre">(T,)</span></code>. True for
 background points. These are drawn first in <code class="docutils literal notranslate"><span class="pre">bg_color</span></code>.</p></li>
-<li><p><strong>bg_color</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Colour for background points.</p></li>
-<li><p><strong>bg_alpha</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Alpha for background points.</p></li>
-<li><p><strong>bg_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Marker size for background points.</p></li>
-<li><p><strong>color_vals</strong> (<em>np.ndarray</em><em> or </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><em>None</em>) – Per-point values for
+<li><p><strong>bg_color</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Colour for background points.</p></li>
+<li><p><strong>bg_alpha</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Alpha for background points.</p></li>
+<li><p><strong>bg_size</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Marker size for background points.</p></li>
+<li><p><strong>color_vals</strong> (<em>np.ndarray</em><em> or </em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> or </em><em>None</em>) – Per-point values for
 continuous colour mapping (foreground only). Pass <code class="docutils literal notranslate"><span class="pre">&quot;density&quot;</span></code>
 for KDE-based density colouring.</p></li>
-<li><p><strong>color_label</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Colorbar label (continuous mode).</p></li>
-<li><p><strong>cmap</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Matplotlib colourmap name (continuous mode).</p></li>
-<li><p><strong>vmin</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Colourmap minimum.</p></li>
-<li><p><strong>vmax</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Colourmap maximum.</p></li>
+<li><p><strong>color_label</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Colorbar label (continuous mode).</p></li>
+<li><p><strong>cmap</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Matplotlib colourmap name (continuous mode).</p></li>
+<li><p><strong>vmin</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> or </em><em>None</em>) – Colourmap minimum.</p></li>
+<li><p><strong>vmax</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> or </em><em>None</em>) – Colourmap maximum.</p></li>
 <li><p><strong>groups</strong> (<em>array-like</em><em> or </em><em>None</em>) – Per-point integer group index for
 discrete colouring (foreground only).</p></li>
-<li><p><strong>group_labels</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>] or </em><em>None</em>) – Labels per unique group value.</p></li>
-<li><p><strong>group_colors</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>] or </em><em>None</em>) – Colours per unique group value.</p></li>
-<li><p><strong>marker_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Marker size for foreground points. Default 4.</p></li>
-<li><p><strong>alpha</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Alpha for foreground points.</p></li>
-<li><p><strong>show_colorbar</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Add a colorbar (continuous mode only).</p></li>
-<li><p><strong>show_legend</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Show a legend (group mode only).</p></li>
-<li><p><strong>xlabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><em>None</em>) – X-axis label. Overrides auto-label from
+<li><p><strong>group_labels</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em>] or </em><em>None</em>) – Labels per unique group value.</p></li>
+<li><p><strong>group_colors</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em>] or </em><em>None</em>) – Colours per unique group value.</p></li>
+<li><p><strong>marker_size</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Marker size for foreground points. Default 4.</p></li>
+<li><p><strong>alpha</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Alpha for foreground points.</p></li>
+<li><p><strong>show_colorbar</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Add a colorbar (continuous mode only).</p></li>
+<li><p><strong>show_legend</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Show a legend (group mode only).</p></li>
+<li><p><strong>xlabel</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> or </em><em>None</em>) – X-axis label. Overrides auto-label from
 <code class="docutils literal notranslate"><span class="pre">var_explained</span></code>.</p></li>
-<li><p><strong>ylabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><em>None</em>) – Y-axis label. Overrides auto-label from
+<li><p><strong>ylabel</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> or </em><em>None</em>) – Y-axis label. Overrides auto-label from
 <code class="docutils literal notranslate"><span class="pre">var_explained</span></code>.</p></li>
-<li><p><strong>font_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><em>None</em>) – Font size for labels and ticks. If None,
+<li><p><strong>font_size</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a><em> or </em><em>None</em>) – Font size for labels and ticks. If None,
 uses current rcParams.</p></li>
 </ul>
 </dd>
@@ -799,22 +799,22 @@ Useful for adding shared colorbars or custom legends.</p>
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>ax</strong> (<em>matplotlib.axes.Axes</em>) – Target axes (caller creates).</p></li>
-<li><p><strong>traces</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><em>np.ndarray</em><em>] or </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><em>np.ndarray</em><em>]</em>) – Line data. Dict
+<li><p><strong>traces</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em>, </em><em>np.ndarray</em><em>] or </em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em>[</em><em>np.ndarray</em><em>]</em>) – Line data. Dict
 keys are used as labels; for list input, supply <code class="docutils literal notranslate"><span class="pre">labels</span></code>
 separately.</p></li>
 <li><p><strong>x</strong> (<em>np.ndarray</em><em> or </em><em>None</em>) – Shared x-axis values. If None, integer
 indices (<code class="docutils literal notranslate"><span class="pre">0</span> <span class="pre">…</span> <span class="pre">len-1</span></code>) are used.</p></li>
-<li><p><strong>labels</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>] or </em><em>None</em>) – Per-trace labels. Required for list
+<li><p><strong>labels</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em>] or </em><em>None</em>) – Per-trace labels. Required for list
 input; ignored for dict input (keys are used instead).</p></li>
-<li><p><strong>colors</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>] or </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>] or </em><em>None</em>) – Per-trace colours.
+<li><p><strong>colors</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em>] or </em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em>] or </em><em>None</em>) – Per-trace colours.
 For dict <code class="docutils literal notranslate"><span class="pre">traces</span></code>, may be a dict keyed by the same labels or a
 list in the same order.  If None, uses the default matplotlib
 colour cycle.</p></li>
-<li><p><strong>xlabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – X-axis label.</p></li>
-<li><p><strong>ylabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Y-axis label.</p></li>
-<li><p><strong>linewidth</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Line width for all traces.</p></li>
-<li><p><strong>show_legend</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Show legend. Default True.</p></li>
-<li><p><strong>font_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><em>None</em>) – Font size for labels and ticks. If None,
+<li><p><strong>xlabel</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – X-axis label.</p></li>
+<li><p><strong>ylabel</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Y-axis label.</p></li>
+<li><p><strong>linewidth</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Line width for all traces.</p></li>
+<li><p><strong>show_legend</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Show legend. Default True.</p></li>
+<li><p><strong>font_size</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a><em> or </em><em>None</em>) – Font size for labels and ticks. If None,
 uses current rcParams.</p></li>
 </ul>
 </dd>
@@ -822,7 +822,7 @@ uses current rcParams.</p></li>
 <dd class="field-even"><p>The line artists.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>lines (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)">list</a>[Line2D])</p>
+<dd class="field-odd"><p>lines (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)">list</a>[Line2D])</p>
 </dd>
 </dl>
 </dd></dl>
@@ -838,37 +838,37 @@ normalized relative to the first group using symmetric normalization:
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>ax</strong> (<em>matplotlib.axes.Axes</em>) – Target axes (caller creates).</p></li>
-<li><p><strong>metric_data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><em>np.ndarray</em><em>] or </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><em>np.ndarray</em><em>]</em>) – Per-condition
+<li><p><strong>metric_data</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em>, </em><em>np.ndarray</em><em>] or </em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em>[</em><em>np.ndarray</em><em>]</em>) – Per-condition
 1-D arrays of per-unit values. Dict keys or <code class="docutils literal notranslate"><span class="pre">labels</span></code> define the
 x-axis order.</p></li>
-<li><p><strong>labels</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>] or </em><em>None</em>) – Ordered condition labels. If None, uses
+<li><p><strong>labels</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em>] or </em><em>None</em>) – Ordered condition labels. If None, uses
 dict keys (for dict input) or integer indices (for list input).</p></li>
-<li><p><strong>normalize</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Apply symmetric normalization to the first group.
+<li><p><strong>normalize</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Apply symmetric normalization to the first group.
 Units with non-positive or NaN baseline values are excluded.</p></li>
-<li><p><strong>summary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Summary line type: <code class="docutils literal notranslate"><span class="pre">&quot;mean&quot;</span></code> (default) or <code class="docutils literal notranslate"><span class="pre">&quot;median&quot;</span></code>.</p></li>
-<li><p><strong>bands</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em>]</em><em>] or </em><em>None</em>) – Percentile band definitions as
+<li><p><strong>summary</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Summary line type: <code class="docutils literal notranslate"><span class="pre">&quot;mean&quot;</span></code> (default) or <code class="docutils literal notranslate"><span class="pre">&quot;median&quot;</span></code>.</p></li>
+<li><p><strong>bands</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple" title="(in Python v3.15)"><em>tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a><em>]</em><em>] or </em><em>None</em>) – Percentile band definitions as
 <code class="docutils literal notranslate"><span class="pre">(lo,</span> <span class="pre">hi)</span></code> pairs, ordered from widest to narrowest. Default is
 <code class="docutils literal notranslate"><span class="pre">[(5,</span> <span class="pre">95),</span> <span class="pre">(10,</span> <span class="pre">90),</span> <span class="pre">(25,</span> <span class="pre">75)]</span></code>.</p></li>
-<li><p><strong>band_color</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Fill colour for all bands.</p></li>
-<li><p><strong>band_alphas</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>] or </em><em>None</em>) – Alpha transparency per band. Must
+<li><p><strong>band_color</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Fill colour for all bands.</p></li>
+<li><p><strong>band_alphas</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em>] or </em><em>None</em>) – Alpha transparency per band. Must
 match length of <code class="docutils literal notranslate"><span class="pre">bands</span></code>. Default is linearly increasing from
 0.15 to 0.40.</p></li>
-<li><p><strong>style</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – <code class="docutils literal notranslate"><span class="pre">&quot;bands&quot;</span></code> (default) draws shaded percentile regions;
+<li><p><strong>style</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – <code class="docutils literal notranslate"><span class="pre">&quot;bands&quot;</span></code> (default) draws shaded percentile regions;
 <code class="docutils literal notranslate"><span class="pre">&quot;lines&quot;</span></code> draws one line per unit.</p></li>
-<li><p><strong>line_color</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Line colour when <code class="docutils literal notranslate"><span class="pre">style=&quot;lines&quot;</span></code>.</p></li>
-<li><p><strong>line_alpha</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Line alpha when <code class="docutils literal notranslate"><span class="pre">style=&quot;lines&quot;</span></code>.</p></li>
-<li><p><strong>line_width</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Line width when <code class="docutils literal notranslate"><span class="pre">style=&quot;lines&quot;</span></code>.</p></li>
-<li><p><strong>summary_color</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Colour for the summary line.</p></li>
-<li><p><strong>summary_linewidth</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Line width for the summary line.</p></li>
-<li><p><strong>show_zero_line</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Draw a dashed horizontal line at y=0 when
+<li><p><strong>line_color</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Line colour when <code class="docutils literal notranslate"><span class="pre">style=&quot;lines&quot;</span></code>.</p></li>
+<li><p><strong>line_alpha</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Line alpha when <code class="docutils literal notranslate"><span class="pre">style=&quot;lines&quot;</span></code>.</p></li>
+<li><p><strong>line_width</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Line width when <code class="docutils literal notranslate"><span class="pre">style=&quot;lines&quot;</span></code>.</p></li>
+<li><p><strong>summary_color</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Colour for the summary line.</p></li>
+<li><p><strong>summary_linewidth</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Line width for the summary line.</p></li>
+<li><p><strong>show_zero_line</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Draw a dashed horizontal line at y=0 when
 <code class="docutils literal notranslate"><span class="pre">normalize=True</span></code>.</p></li>
-<li><p><strong>xlabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – X-axis label.</p></li>
-<li><p><strong>ylabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Y-axis label.</p></li>
-<li><p><strong>ylim_range</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Symmetric y-axis limits <code class="docutils literal notranslate"><span class="pre">(-val,</span> <span class="pre">val)</span></code>.
+<li><p><strong>xlabel</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – X-axis label.</p></li>
+<li><p><strong>ylabel</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Y-axis label.</p></li>
+<li><p><strong>ylim_range</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> or </em><em>None</em>) – Symmetric y-axis limits <code class="docutils literal notranslate"><span class="pre">(-val,</span> <span class="pre">val)</span></code>.
 If None and <code class="docutils literal notranslate"><span class="pre">normalize=True</span></code>, derived from the 5th/95th
 percentile of the data.</p></li>
-<li><p><strong>show_legend</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Show legend.</p></li>
-<li><p><strong>font_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><em>None</em>) – Font size for labels and ticks. If None,
+<li><p><strong>show_legend</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Show legend.</p></li>
+<li><p><strong>font_size</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a><em> or </em><em>None</em>) – Font size for labels and ticks. If None,
 uses current rcParams.</p></li>
 </ul>
 </dd>
@@ -880,7 +880,7 @@ uses current rcParams.</p></li>
 </p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>artists (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>)</p>
+<dd class="field-odd"><p>artists (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)">dict</a>)</p>
 </dd>
 </dl>
 </dd></dl>
@@ -907,7 +907,7 @@ line plots and single-condition 2-D heatmaps. For multi-condition
 2-D heatmaps this parameter is ignored and a new figure is created
 (pass None explicitly in that case).</p></li>
 <li><p><strong>thresholds</strong> (<em>np.ndarray</em>) – 1-D array of threshold values (x-axis).</p></li>
-<li><p><strong>burst_counts</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><em>np.ndarray</em><em>] or </em><em>np.ndarray</em>) – Burst counts per
+<li><p><strong>burst_counts</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em>, </em><em>np.ndarray</em><em>] or </em><em>np.ndarray</em>) – Burst counts per
 condition. Dict mapping condition labels to arrays, or a bare
 <code class="docutils literal notranslate"><span class="pre">np.ndarray</span></code> for a single unnamed condition. Arrays can be 1-D
 (line plot) or 2-D of shape
@@ -915,18 +915,18 @@ condition. Dict mapping condition labels to arrays, or a bare
 <li><p><strong>dist_values</strong> (<em>np.ndarray</em><em> or </em><em>None</em>) – 1-D array of distance parameter
 values. Required when burst counts are 2-D (used as y-axis tick
 labels on the heatmap). Ignored for 1-D line plots.</p></li>
-<li><p><strong>labels</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>] or </em><em>None</em>) – Ordered condition labels. If None, uses
+<li><p><strong>labels</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em>] or </em><em>None</em>) – Ordered condition labels. If None, uses
 dict keys.</p></li>
-<li><p><strong>colors</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>] or </em><em>None</em>) – Per-condition line colours (line plots
+<li><p><strong>colors</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em>] or </em><em>None</em>) – Per-condition line colours (line plots
 only). If None, uses the default matplotlib colour cycle.</p></li>
-<li><p><strong>xlabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – X-axis label.</p></li>
-<li><p><strong>ylabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Y-axis label. For 2-D heatmaps, defaults to
+<li><p><strong>xlabel</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – X-axis label.</p></li>
+<li><p><strong>ylabel</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Y-axis label. For 2-D heatmaps, defaults to
 <code class="docutils literal notranslate"><span class="pre">&quot;Min.</span> <span class="pre">burst</span> <span class="pre">dist.</span> <span class="pre">(bins)&quot;</span></code> when not explicitly changed from the
 default.</p></li>
-<li><p><strong>show_legend</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Whether to show a legend (line plots only).</p></li>
-<li><p><strong>show_colorbar</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Whether to show a colorbar (heatmaps only).</p></li>
-<li><p><strong>cmap</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Colormap for heatmaps.</p></li>
-<li><p><strong>font_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><em>None</em>) – Font size for labels/ticks. If None, uses
+<li><p><strong>show_legend</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Whether to show a legend (line plots only).</p></li>
+<li><p><strong>show_colorbar</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Whether to show a colorbar (heatmaps only).</p></li>
+<li><p><strong>cmap</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Colormap for heatmaps.</p></li>
+<li><p><strong>font_size</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a><em> or </em><em>None</em>) – Font size for labels/ticks. If None, uses
 current rcParams.</p></li>
 </ul>
 </dd>
@@ -955,35 +955,35 @@ alignment point. Optionally colour-codes rows by a per-slice variable.</p>
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>ax</strong> (<em>matplotlib.axes.Axes</em>) – Target axes (caller creates).</p></li>
-<li><p><strong>spike_times_per_slice</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><em>np.ndarray</em><em>]</em>) – List of 1-D arrays, one per
+<li><p><strong>spike_times_per_slice</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em>[</em><em>np.ndarray</em><em>]</em>) – List of 1-D arrays, one per
 slice, containing spike times relative to the alignment point.</p></li>
 <li><p><strong>color_vals</strong> (<em>np.ndarray</em><em> or </em><em>None</em>) – Per-slice colour values. If None,
 all spikes are drawn in black.</p></li>
-<li><p><strong>color_label</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Colorbar label.</p></li>
-<li><p><strong>cmap</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Matplotlib colormap name.</p></li>
-<li><p><strong>time_offset</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Value subtracted from every spike time before
+<li><p><strong>color_label</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Colorbar label.</p></li>
+<li><p><strong>cmap</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Matplotlib colormap name.</p></li>
+<li><p><strong>time_offset</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Value subtracted from every spike time before
 plotting. Slices from <code class="docutils literal notranslate"><span class="pre">align_to_events</span></code> are already
 event-centered (spike times in <code class="docutils literal notranslate"><span class="pre">[-pre_ms,</span> <span class="pre">+post_ms]</span></code>), so
 use the default <code class="docutils literal notranslate"><span class="pre">time_offset=0</span></code>. Only set a non-zero value
 when spike times are not already centered on the event.</p></li>
-<li><p><strong>xlabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – X-axis label.</p></li>
-<li><p><strong>ylabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Y-axis label.</p></li>
-<li><p><strong>x_range</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em> or </em><em>None</em>) – <code class="docutils literal notranslate"><span class="pre">(xmin,</span> <span class="pre">xmax)</span></code> for the x-axis. If None,
+<li><p><strong>xlabel</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – X-axis label.</p></li>
+<li><p><strong>ylabel</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Y-axis label.</p></li>
+<li><p><strong>x_range</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple" title="(in Python v3.15)"><em>tuple</em></a><em> or </em><em>None</em>) – <code class="docutils literal notranslate"><span class="pre">(xmin,</span> <span class="pre">xmax)</span></code> for the x-axis. If None,
 auto-scales to the data.</p></li>
-<li><p><strong>vlines</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em>] or </em><em>None</em>) – Vertical reference lines. Each dict
+<li><p><strong>vlines</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)"><em>dict</em></a><em>] or </em><em>None</em>) – Vertical reference lines. Each dict
 must contain <code class="docutils literal notranslate"><span class="pre">'x'</span></code> (required) and may optionally include
 <code class="docutils literal notranslate"><span class="pre">'color'</span></code> (default <code class="docutils literal notranslate"><span class="pre">'red'</span></code>), <code class="docutils literal notranslate"><span class="pre">'linestyle'</span></code> (default
 <code class="docutils literal notranslate"><span class="pre">'--'</span></code>), and <code class="docutils literal notranslate"><span class="pre">'linewidth'</span></code> (default <code class="docutils literal notranslate"><span class="pre">1.5</span></code>).</p></li>
-<li><p><strong>show_colorbar</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Add a colorbar when color_vals is provided.</p></li>
-<li><p><strong>marker_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Scatter marker size (only used when
+<li><p><strong>show_colorbar</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Add a colorbar when color_vals is provided.</p></li>
+<li><p><strong>marker_size</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Scatter marker size (only used when
 <code class="docutils literal notranslate"><span class="pre">style=&quot;scatter&quot;</span></code>).</p></li>
-<li><p><strong>font_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><em>None</em>) – Font size for labels/ticks. If None, uses
+<li><p><strong>font_size</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a><em> or </em><em>None</em>) – Font size for labels/ticks. If None, uses
 current rcParams.</p></li>
-<li><p><strong>style</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – <code class="docutils literal notranslate"><span class="pre">&quot;scatter&quot;</span></code> for dot markers (default), or
+<li><p><strong>style</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – <code class="docutils literal notranslate"><span class="pre">&quot;scatter&quot;</span></code> for dot markers (default), or
 <code class="docutils literal notranslate"><span class="pre">&quot;eventplot&quot;</span></code> for vertical line markers.</p></li>
-<li><p><strong>invert_y</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – If True, the first slice is plotted at the top and
+<li><p><strong>invert_y</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – If True, the first slice is plotted at the top and
 the last at the bottom. Default False (first slice at bottom).</p></li>
-<li><p><strong>linewidths</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Line width for eventplot markers (only used when
+<li><p><strong>linewidths</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Line width for eventplot markers (only used when
 <code class="docutils literal notranslate"><span class="pre">style=&quot;eventplot&quot;</span></code>). Default 0.5.</p></li>
 </ul>
 </dd>
@@ -1010,29 +1010,29 @@ the last at the bottom. Default False (first slice at bottom).</p></li>
 <li><p><strong>data_mat</strong> (<em>np.ndarray</em>) – 2-D array to display, shape <code class="docutils literal notranslate"><span class="pre">(rows,</span> <span class="pre">cols)</span></code>.</p></li>
 <li><p><strong>ax</strong> (<em>matplotlib.axes.Axes</em><em> or </em><em>None</em>) – Target axes. If None a standalone
 figure is created.</p></li>
-<li><p><strong>norm</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a><em> or </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Row normalisation. <code class="docutils literal notranslate"><span class="pre">False</span></code> for none, <code class="docutils literal notranslate"><span class="pre">'row'</span></code>
+<li><p><strong>norm</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a><em> or </em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Row normalisation. <code class="docutils literal notranslate"><span class="pre">False</span></code> for none, <code class="docutils literal notranslate"><span class="pre">'row'</span></code>
 to scale each row to [0, 1].</p></li>
-<li><p><strong>vmin</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Colormap minimum.</p></li>
-<li><p><strong>vmax</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Colormap maximum.</p></li>
-<li><p><strong>cmap</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Matplotlib colormap name.</p></li>
-<li><p><strong>aspect</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Aspect ratio passed to <code class="docutils literal notranslate"><span class="pre">imshow</span></code>. <code class="docutils literal notranslate"><span class="pre">&quot;auto&quot;</span></code> stretches
+<li><p><strong>vmin</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> or </em><em>None</em>) – Colormap minimum.</p></li>
+<li><p><strong>vmax</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> or </em><em>None</em>) – Colormap maximum.</p></li>
+<li><p><strong>cmap</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Matplotlib colormap name.</p></li>
+<li><p><strong>aspect</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Aspect ratio passed to <code class="docutils literal notranslate"><span class="pre">imshow</span></code>. <code class="docutils literal notranslate"><span class="pre">&quot;auto&quot;</span></code> stretches
 to fill the axes, <code class="docutils literal notranslate"><span class="pre">&quot;equal&quot;</span></code> preserves square pixels.</p></li>
-<li><p><strong>origin</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Origin for <code class="docutils literal notranslate"><span class="pre">imshow</span></code>. <code class="docutils literal notranslate"><span class="pre">&quot;upper&quot;</span></code> places row 0 at the
+<li><p><strong>origin</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Origin for <code class="docutils literal notranslate"><span class="pre">imshow</span></code>. <code class="docutils literal notranslate"><span class="pre">&quot;upper&quot;</span></code> places row 0 at the
 top (default), <code class="docutils literal notranslate"><span class="pre">&quot;lower&quot;</span></code> places row 0 at the bottom.</p></li>
-<li><p><strong>extent</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em> or </em><em>None</em>) – <code class="docutils literal notranslate"><span class="pre">(left,</span> <span class="pre">right,</span> <span class="pre">bottom,</span> <span class="pre">top)</span></code> passed to
+<li><p><strong>extent</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple" title="(in Python v3.15)"><em>tuple</em></a><em> or </em><em>None</em>) – <code class="docutils literal notranslate"><span class="pre">(left,</span> <span class="pre">right,</span> <span class="pre">bottom,</span> <span class="pre">top)</span></code> passed to
 <code class="docutils literal notranslate"><span class="pre">imshow</span></code>. If None, pixel indices are used.</p></li>
-<li><p><strong>xlabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – X-axis label.</p></li>
-<li><p><strong>ylabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Y-axis label.</p></li>
-<li><p><strong>xticks</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em> or </em><em>None</em>) – <code class="docutils literal notranslate"><span class="pre">(locations,</span> <span class="pre">labels)</span></code> for x-axis ticks.</p></li>
-<li><p><strong>yticks</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em> or </em><em>None</em>) – <code class="docutils literal notranslate"><span class="pre">(locations,</span> <span class="pre">labels)</span></code> for y-axis ticks.</p></li>
-<li><p><strong>vlines</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em>] or </em><em>None</em>) – Vertical lines. Each dict may contain
+<li><p><strong>xlabel</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – X-axis label.</p></li>
+<li><p><strong>ylabel</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Y-axis label.</p></li>
+<li><p><strong>xticks</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple" title="(in Python v3.15)"><em>tuple</em></a><em> or </em><em>None</em>) – <code class="docutils literal notranslate"><span class="pre">(locations,</span> <span class="pre">labels)</span></code> for x-axis ticks.</p></li>
+<li><p><strong>yticks</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple" title="(in Python v3.15)"><em>tuple</em></a><em> or </em><em>None</em>) – <code class="docutils literal notranslate"><span class="pre">(locations,</span> <span class="pre">labels)</span></code> for y-axis ticks.</p></li>
+<li><p><strong>vlines</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)"><em>dict</em></a><em>] or </em><em>None</em>) – Vertical lines. Each dict may contain
 <code class="docutils literal notranslate"><span class="pre">'x'</span></code>, <code class="docutils literal notranslate"><span class="pre">'color'</span></code>, <code class="docutils literal notranslate"><span class="pre">'linestyle'</span></code>, <code class="docutils literal notranslate"><span class="pre">'linewidth'</span></code>.</p></li>
-<li><p><strong>hlines</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em>] or </em><em>None</em>) – Horizontal lines (same keys as vlines
+<li><p><strong>hlines</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)"><em>dict</em></a><em>] or </em><em>None</em>) – Horizontal lines (same keys as vlines
 but with <code class="docutils literal notranslate"><span class="pre">'y'</span></code>).</p></li>
-<li><p><strong>show_colorbar</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Whether to draw a colorbar.</p></li>
-<li><p><strong>colorbar_label</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Label for the colorbar.</p></li>
-<li><p><strong>font_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Font size for labels and ticks.</p></li>
-<li><p><strong>save_path</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><em>None</em>) – If provided (and <code class="docutils literal notranslate"><span class="pre">ax</span></code> is None), save the
+<li><p><strong>show_colorbar</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Whether to draw a colorbar.</p></li>
+<li><p><strong>colorbar_label</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Label for the colorbar.</p></li>
+<li><p><strong>font_size</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Font size for labels and ticks.</p></li>
+<li><p><strong>save_path</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> or </em><em>None</em>) – If provided (and <code class="docutils literal notranslate"><span class="pre">ax</span></code> is None), save the
 figure to this path and close it.</p></li>
 </ul>
 </dd>
@@ -1063,24 +1063,24 @@ also provided it is overlaid on the same axes.</p></li>
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>sd</strong> (<a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData"><em>SpikeData</em></a>) – Source spike data object.</p></li>
-<li><p><strong>show_raster</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Include the spike raster panel.</p></li>
-<li><p><strong>show_pop_rate</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Include the population-rate panel. Automatically
+<li><p><strong>show_raster</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Include the spike raster panel.</p></li>
+<li><p><strong>show_pop_rate</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Include the population-rate panel. Automatically
 enabled when <code class="docutils literal notranslate"><span class="pre">pop_rate</span></code> or <code class="docutils literal notranslate"><span class="pre">cont_prob</span></code> is provided.</p></li>
-<li><p><strong>show_fr_rates</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Include the firing-rate heatmap. Automatically
+<li><p><strong>show_fr_rates</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Include the firing-rate heatmap. Automatically
 enabled when <code class="docutils literal notranslate"><span class="pre">fr_rates</span></code> is provided.</p></li>
-<li><p><strong>show_model_states</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Include the model-states panel.
+<li><p><strong>show_model_states</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Include the model-states panel.
 Automatically enabled when <code class="docutils literal notranslate"><span class="pre">model_states</span></code> is provided.</p></li>
 <li><p><strong>pop_rate</strong> (<em>np.ndarray</em><em> or </em><em>None</em>) – Pre-computed smoothed population rate
 in spikes per bin (as returned by <code class="docutils literal notranslate"><span class="pre">sd.get_pop_rate()</span></code>), shape
 <code class="docutils literal notranslate"><span class="pre">(T,)</span></code>. Automatically converted to Hz/unit for display. If None
 and panel is enabled, computed via <code class="docutils literal notranslate"><span class="pre">sd.get_pop_rate()</span></code>.</p></li>
-<li><p><strong>pop_rate_params</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em> or </em><em>None</em>) – Keyword arguments forwarded to
+<li><p><strong>pop_rate_params</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)"><em>dict</em></a><em> or </em><em>None</em>) – Keyword arguments forwarded to
 <code class="docutils literal notranslate"><span class="pre">sd.get_pop_rate()</span></code> when <code class="docutils literal notranslate"><span class="pre">pop_rate</span></code> is None. Defaults:
 <code class="docutils literal notranslate"><span class="pre">square_width=8,</span> <span class="pre">gauss_sigma=8</span></code>.</p></li>
 <li><p><strong>fr_rates</strong> (<em>np.ndarray</em><em> or </em><em>None</em>) – Pre-computed per-unit instantaneous
 firing rates, shape <code class="docutils literal notranslate"><span class="pre">(U,</span> <span class="pre">T)</span></code>. If None and <code class="docutils literal notranslate"><span class="pre">show_fr_rates</span></code> is
 True, computed via <code class="docutils literal notranslate"><span class="pre">sd.resampled_isi()</span></code>.</p></li>
-<li><p><strong>fr_rate_sigma_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Gaussian sigma in ms for
+<li><p><strong>fr_rate_sigma_ms</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Gaussian sigma in ms for
 <code class="docutils literal notranslate"><span class="pre">sd.resampled_isi()</span></code> when auto-computing firing rates.</p></li>
 <li><p><strong>model_states</strong> (<em>np.ndarray</em><em> or </em><em>None</em>) – Latent-state posterior, shape
 <code class="docutils literal notranslate"><span class="pre">(S,</span> <span class="pre">T)</span></code> where S is the number of latent states. If None and
@@ -1088,24 +1088,24 @@ True, computed via <code class="docutils literal notranslate"><span class="pre">
 <li><p><strong>cont_prob</strong> (<em>np.ndarray</em><em> or </em><em>None</em>) – Continuous-dynamics probability,
 shape <code class="docutils literal notranslate"><span class="pre">(T,)</span></code>. Overlaid on the population-rate panel. If None
 and <code class="docutils literal notranslate"><span class="pre">gplvm_result</span></code> is provided, extracted automatically.</p></li>
-<li><p><strong>gplvm_result</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em> or </em><em>None</em>) – Result dictionary from
+<li><p><strong>gplvm_result</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)"><em>dict</em></a><em> or </em><em>None</em>) – Result dictionary from
 <code class="docutils literal notranslate"><span class="pre">SpikeData.fit_gplvm()</span></code>. Used to auto-extract <code class="docutils literal notranslate"><span class="pre">model_states</span></code>
 and <code class="docutils literal notranslate"><span class="pre">cont_prob</span></code> when those are not provided directly.</p></li>
-<li><p><strong>time_range</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em> or </em><em>None</em>) – <code class="docutils literal notranslate"><span class="pre">(start_ms,</span> <span class="pre">end_ms)</span></code> display window.
+<li><p><strong>time_range</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple" title="(in Python v3.15)"><em>tuple</em></a><em> or </em><em>None</em>) – <code class="docutils literal notranslate"><span class="pre">(start_ms,</span> <span class="pre">end_ms)</span></code> display window.
 None shows the full recording.</p></li>
 <li><p><strong>sort_indices</strong> (<em>np.ndarray</em><em> or </em><em>None</em>) – Unit reordering indices applied to
 the raster and firing-rate heatmap.</p></li>
-<li><p><strong>raster_style</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – <code class="docutils literal notranslate"><span class="pre">'eventplot'</span></code> (default) or <code class="docutils literal notranslate"><span class="pre">'imshow'</span></code>. Controls
+<li><p><strong>raster_style</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – <code class="docutils literal notranslate"><span class="pre">'eventplot'</span></code> (default) or <code class="docutils literal notranslate"><span class="pre">'imshow'</span></code>. Controls
 how the raster panel is rendered. Both styles display unit 0 at the
 top, but achieve this differently: <code class="docutils literal notranslate"><span class="pre">'imshow'</span></code> uses
 <code class="docutils literal notranslate"><span class="pre">origin='upper'</span></code> while <code class="docutils literal notranslate"><span class="pre">'eventplot'</span></code> inverts the y-axis. As a
 result, y-coordinates are reversed in eventplot mode (ylim goes
 from N to 0). Keep this in mind when overlaying custom artists.</p></li>
-<li><p><strong>raster_bin_size_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Bin size in ms for the raster (used for
+<li><p><strong>raster_bin_size_ms</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Bin size in ms for the raster (used for
 both eventplot and imshow styles). When <code class="docutils literal notranslate"><span class="pre">absolute_xticks=True</span></code>,
 tick values are computed as <code class="docutils literal notranslate"><span class="pre">bin_index</span> <span class="pre">*</span> <span class="pre">raster_bin_size_ms</span> <span class="pre">+</span>
 <span class="pre">offset</span></code>, which is exact only when <code class="docutils literal notranslate"><span class="pre">raster_bin_size_ms=1.0</span></code>.</p></li>
-<li><p><strong>raster_vmax</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Maximum spike count for colormap when
+<li><p><strong>raster_vmax</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Maximum spike count for colormap when
 <code class="docutils literal notranslate"><span class="pre">raster_style='imshow'</span></code>. Default is 5.</p></li>
 <li><p><strong>burst_times</strong> (<em>np.ndarray</em><em> or </em><em>None</em>) – Burst peak positions as raster bin
 indices (as returned by <code class="docutils literal notranslate"><span class="pre">get_bursts</span></code>), plotted as markers on the
@@ -1119,19 +1119,19 @@ burst (length B, matching <code class="docutils literal notranslate"><span class
 When provided, each burst span and peak marker is drawn in its
 assigned color. When None, spans default to blue and peaks to
 black.</p></li>
-<li><p><strong>vmin_heatmap</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Colormap minimum for the FR heatmap.</p></li>
-<li><p><strong>vmax_heatmap</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Colormap maximum for the FR heatmap.
+<li><p><strong>vmin_heatmap</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> or </em><em>None</em>) – Colormap minimum for the FR heatmap.</p></li>
+<li><p><strong>vmax_heatmap</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> or </em><em>None</em>) – Colormap maximum for the FR heatmap.
 When None, clipped to <code class="docutils literal notranslate"><span class="pre">heatmap_clip_pct</span></code> percentile of the data.</p></li>
-<li><p><strong>heatmap_clip_pct</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Fraction of the data maximum (as a
+<li><p><strong>heatmap_clip_pct</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> or </em><em>None</em>) – Fraction of the data maximum (as a
 percentage) used as the colormap maximum when <code class="docutils literal notranslate"><span class="pre">vmax_heatmap</span></code> is
 None. Default 80 (i.e. 80% of the max value). Set to None to use
 the absolute maximum.</p></li>
-<li><p><strong>norm_heatmap</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a><em> or </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Row normalisation for the FR heatmap
+<li><p><strong>norm_heatmap</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a><em> or </em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Row normalisation for the FR heatmap
 (<code class="docutils literal notranslate"><span class="pre">False</span></code> or <code class="docutils literal notranslate"><span class="pre">'row'</span></code>).</p></li>
-<li><p><strong>model_states_cmap</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Colormap for the model-states panel.</p></li>
-<li><p><strong>model_states_vmin</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Colormap minimum for model states.</p></li>
-<li><p><strong>model_states_vmax</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Colormap maximum for model states.</p></li>
-<li><p><strong>axes</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em> or </em><em>None</em>) – Pre-created axes to plot onto instead of
+<li><p><strong>model_states_cmap</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Colormap for the model-states panel.</p></li>
+<li><p><strong>model_states_vmin</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Colormap minimum for model states.</p></li>
+<li><p><strong>model_states_vmax</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Colormap maximum for model states.</p></li>
+<li><p><strong>axes</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em> or </em><em>None</em>) – Pre-created axes to plot onto instead of
 creating a new figure. Must be a list of <code class="docutils literal notranslate"><span class="pre">(ax_panel,</span> <span class="pre">ax_cbar)</span></code>
 tuples, one per enabled panel, in display order (raster,
 pop_rate, fr_heatmap, model_states – only those that are
@@ -1141,16 +1141,16 @@ panel. When provided, the function skips figure creation,
 <code class="docutils literal notranslate"><span class="pre">tight_layout</span></code>, <code class="docutils literal notranslate"><span class="pre">show</span></code>, and <code class="docutils literal notranslate"><span class="pre">save_path</span></code>. <code class="docutils literal notranslate"><span class="pre">figsize</span></code> and
 <code class="docutils literal notranslate"><span class="pre">height_ratios</span></code> are ignored. Raises <code class="docutils literal notranslate"><span class="pre">ValueError</span></code> if the
 length does not match the number of enabled panels.</p></li>
-<li><p><strong>figsize</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em> or </em><em>None</em>) – Figure size <code class="docutils literal notranslate"><span class="pre">(width,</span> <span class="pre">height)</span></code>.
+<li><p><strong>figsize</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple" title="(in Python v3.15)"><em>tuple</em></a><em> or </em><em>None</em>) – Figure size <code class="docutils literal notranslate"><span class="pre">(width,</span> <span class="pre">height)</span></code>.
 Ignored when <code class="docutils literal notranslate"><span class="pre">axes</span></code> is provided.</p></li>
-<li><p><strong>height_ratios</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em> or </em><em>None</em>) – Relative panel heights. Length must
+<li><p><strong>height_ratios</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em> or </em><em>None</em>) – Relative panel heights. Length must
 match the number of enabled panels.</p></li>
-<li><p><strong>absolute_xticks</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – If True, x-tick labels show absolute seconds
+<li><p><strong>absolute_xticks</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – If True, x-tick labels show absolute seconds
 from recording start. If False, labels are relative to the display
 window.</p></li>
-<li><p><strong>font_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Font size for labels and tick labels.</p></li>
-<li><p><strong>show</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – If True and <code class="docutils literal notranslate"><span class="pre">save_path</span></code> is None, call <code class="docutils literal notranslate"><span class="pre">plt.show()</span></code>.</p></li>
-<li><p><strong>save_path</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><em>None</em>) – Save figure to this path and close it.</p></li>
+<li><p><strong>font_size</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Font size for labels and tick labels.</p></li>
+<li><p><strong>show</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – If True and <code class="docutils literal notranslate"><span class="pre">save_path</span></code> is None, call <code class="docutils literal notranslate"><span class="pre">plt.show()</span></code>.</p></li>
+<li><p><strong>save_path</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> or </em><em>None</em>) – Save figure to this path and close it.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -1188,20 +1188,20 @@ falls in the top percentile, with alpha proportional to edge strength.</p>
 <code class="docutils literal notranslate"><span class="pre">[x,</span> <span class="pre">y]</span></code> in micrometres.</p></li>
 <li><p><strong>matrix</strong> (<em>np.ndarray</em>) – Symmetric <code class="docutils literal notranslate"><span class="pre">(N,</span> <span class="pre">N)</span></code> pairwise matrix (e.g.
 correlation, STTC). Diagonal values are ignored.</p></li>
-<li><p><strong>edge_threshold</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Minimum matrix value to draw an edge.</p></li>
-<li><p><strong>top_pct</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Percentage of top edges to draw (e.g.
+<li><p><strong>edge_threshold</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> or </em><em>None</em>) – Minimum matrix value to draw an edge.</p></li>
+<li><p><strong>top_pct</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> or </em><em>None</em>) – Percentage of top edges to draw (e.g.
 <code class="docutils literal notranslate"><span class="pre">1.0</span></code> draws the top 1 %).</p></li>
-<li><p><strong>node_size_range</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a>) – <code class="docutils literal notranslate"><span class="pre">(min_size,</span> <span class="pre">max_size)</span></code> in points squared
+<li><p><strong>node_size_range</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple" title="(in Python v3.15)"><em>tuple</em></a>) – <code class="docutils literal notranslate"><span class="pre">(min_size,</span> <span class="pre">max_size)</span></code> in points squared
 for the scatter markers.</p></li>
-<li><p><strong>node_cmap</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Matplotlib colourmap for node colour.</p></li>
-<li><p><strong>node_linewidth</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Outline width of node markers.</p></li>
-<li><p><strong>edge_color</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Colour for network edges.</p></li>
-<li><p><strong>edge_linewidth</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Line width for network edges.</p></li>
-<li><p><strong>edge_alpha_range</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a>) – <code class="docutils literal notranslate"><span class="pre">(min_alpha,</span> <span class="pre">max_alpha)</span></code> for edge
+<li><p><strong>node_cmap</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Matplotlib colourmap for node colour.</p></li>
+<li><p><strong>node_linewidth</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Outline width of node markers.</p></li>
+<li><p><strong>edge_color</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Colour for network edges.</p></li>
+<li><p><strong>edge_linewidth</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Line width for network edges.</p></li>
+<li><p><strong>edge_alpha_range</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple" title="(in Python v3.15)"><em>tuple</em></a>) – <code class="docutils literal notranslate"><span class="pre">(min_alpha,</span> <span class="pre">max_alpha)</span></code> for edge
 transparency, scaled by edge strength.</p></li>
-<li><p><strong>scale_bar_um</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Length of the spatial scale bar in micrometres.
+<li><p><strong>scale_bar_um</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Length of the spatial scale bar in micrometres.
 Set to 0 or None to omit.</p></li>
-<li><p><strong>font_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><em>None</em>) – Font size for scale bar label. If None,
+<li><p><strong>font_size</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a><em> or </em><em>None</em>) – Font size for scale bar label. If None,
 uses the current rcParams default.</p></li>
 </ul>
 </dd>
@@ -1238,52 +1238,52 @@ in micrometres.</p></li>
 per unit, each shape <code class="docutils literal notranslate"><span class="pre">(n_samples,</span> <span class="pre">n_channels)</span></code>, in microvolts.
 Pass <code class="docutils literal notranslate"><span class="pre">None</span></code> for a unit to skip it (the corresponding subplot
 is hidden and a warning is emitted).</p></li>
-<li><p><strong>primary_channels</strong> (<em>sequence</em><em> of </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Primary-channel index for each
+<li><p><strong>primary_channels</strong> (<em>sequence</em><em> of </em><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Primary-channel index for each
 unit. Out-of-range entries cause that unit to be skipped with
 a warning.</p></li>
 <li><p><strong>unit_labels</strong> (<em>sequence</em><em> or </em><em>None</em>) – Labels used in subplot titles. If
 <code class="docutils literal notranslate"><span class="pre">None</span></code>, units are titled by index.</p></li>
-<li><p><strong>min_amplitude_uv</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Per-channel peak-to-peak amplitude
+<li><p><strong>min_amplitude_uv</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Per-channel peak-to-peak amplitude
 threshold in microvolts. Channels below this are omitted (the
 primary channel is always kept as anchor).</p></li>
-<li><p><strong>waveform_box_um</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em> of </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – <code class="docutils literal notranslate"><span class="pre">(width,</span> <span class="pre">height)</span></code> of
+<li><p><strong>waveform_box_um</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple" title="(in Python v3.15)"><em>tuple</em></a><em> of </em><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> or </em><em>None</em>) – <code class="docutils literal notranslate"><span class="pre">(width,</span> <span class="pre">height)</span></code> of
 each embedded waveform glyph in micrometres. Defaults to
 <code class="docutils literal notranslate"><span class="pre">0.8</span> <span class="pre">*</span> <span class="pre">median_inter_channel_pitch</span></code>.</p></li>
-<li><p><strong>waveform_color</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Colour for non-primary waveform traces.</p></li>
-<li><p><strong>waveform_alpha</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Alpha for waveform traces.</p></li>
-<li><p><strong>waveform_lw</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Line width for waveform traces.</p></li>
-<li><p><strong>primary_color</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Colour for the primary-channel waveform.</p></li>
-<li><p><strong>bg_dot_color</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Colour for channel-position reference dots.</p></li>
-<li><p><strong>bg_dot_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Marker size for reference dots.</p></li>
-<li><p><strong>bg_dot_alpha</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Alpha for reference dots.</p></li>
-<li><p><strong>n_cols_grid</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><em>None</em>) – Number of subplot columns. Defaults to
+<li><p><strong>waveform_color</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Colour for non-primary waveform traces.</p></li>
+<li><p><strong>waveform_alpha</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Alpha for waveform traces.</p></li>
+<li><p><strong>waveform_lw</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Line width for waveform traces.</p></li>
+<li><p><strong>primary_color</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Colour for the primary-channel waveform.</p></li>
+<li><p><strong>bg_dot_color</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Colour for channel-position reference dots.</p></li>
+<li><p><strong>bg_dot_size</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Marker size for reference dots.</p></li>
+<li><p><strong>bg_dot_alpha</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Alpha for reference dots.</p></li>
+<li><p><strong>n_cols_grid</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a><em> or </em><em>None</em>) – Number of subplot columns. Defaults to
 <code class="docutils literal notranslate"><span class="pre">ceil(sqrt(n_units))</span></code>.</p></li>
 <li><p><strong>fig</strong> (<em>matplotlib.figure.Figure</em><em> or </em><em>None</em>) – External figure. When
 given without <code class="docutils literal notranslate"><span class="pre">axes</span></code>, a new grid of axes is added to it.</p></li>
 <li><p><strong>axes</strong> (<em>sequence</em><em> of </em><em>Axes</em><em> or </em><em>None</em>) – External axes (one per unit).
 Length must equal the number of units.</p></li>
-<li><p><strong>pad_um</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Padding in micrometres around the bounding box of
+<li><p><strong>pad_um</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Padding in micrometres around the bounding box of
 the plotted channels for each subplot. Ignored when
 <code class="docutils literal notranslate"><span class="pre">view_radius_um</span></code> is set.</p></li>
-<li><p><strong>view_radius_um</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – When set, each subplot is forced
+<li><p><strong>view_radius_um</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> or </em><em>None</em>) – When set, each subplot is forced
 to a window of <code class="docutils literal notranslate"><span class="pre">primary_x</span> <span class="pre">±</span> <span class="pre">view_radius_um</span></code> by
 <code class="docutils literal notranslate"><span class="pre">primary_y</span> <span class="pre">±</span> <span class="pre">view_radius_um</span></code> centred on that unit’s primary
 channel. Useful for keeping every footprint at the same
 spatial scale regardless of how many channels pass the
 amplitude threshold.</p></li>
-<li><p><strong>title_fontsize</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Title font size for each subplot.</p></li>
-<li><p><strong>title_format</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Format string for each subplot title. Available
+<li><p><strong>title_fontsize</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Title font size for each subplot.</p></li>
+<li><p><strong>title_format</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Format string for each subplot title. Available
 keys: <code class="docutils literal notranslate"><span class="pre">label</span></code> (the unit label), <code class="docutils literal notranslate"><span class="pre">primary</span></code> (primary channel
 index), <code class="docutils literal notranslate"><span class="pre">n_kept</span></code> (number of channels above threshold),
 <code class="docutils literal notranslate"><span class="pre">min_amp</span></code> (the threshold). Pass <code class="docutils literal notranslate"><span class="pre">&quot;unit</span> <span class="pre">{label}&quot;</span></code> for the
 minimal title or <code class="docutils literal notranslate"><span class="pre">&quot;&quot;</span></code> to suppress.</p></li>
-<li><p><strong>show_amplitude_scale_bar</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – If True, draw a vertical scale
+<li><p><strong>show_amplitude_scale_bar</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – If True, draw a vertical scale
 bar in the lower-right of each subplot whose visual length
 equals half the waveform glyph height (<code class="docutils literal notranslate"><span class="pre">box_h</span> <span class="pre">/</span> <span class="pre">2</span></code>) and
 whose label is the µV value that height represents — i.e.
 the bar represents 0 → <code class="docutils literal notranslate"><span class="pre">ymax</span></code> µV (per-subplot <code class="docutils literal notranslate"><span class="pre">ymax</span></code> by
 default, or <code class="docutils literal notranslate"><span class="pre">waveform_scale_uv</span></code> when set).</p></li>
-<li><p><strong>waveform_scale_uv</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Forces all subplots to use
+<li><p><strong>waveform_scale_uv</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> or </em><em>None</em>) – Forces all subplots to use
 this value (in µV) as the y-scaling reference, so that the
 same physical voltage maps to the same visual height in
 every subplot. Combined with <code class="docutils literal notranslate"><span class="pre">show_amplitude_scale_bar</span></code>,
@@ -1291,11 +1291,11 @@ this gives a consistent-size scale bar across the whole
 figure. Strong waveforms may overflow their glyph box. When
 <code class="docutils literal notranslate"><span class="pre">None</span></code> (default), each subplot scales to its own peak
 amplitude.</p></li>
-<li><p><strong>scale_bar_color</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Colour for the scale bar and label.</p></li>
-<li><p><strong>scale_bar_lw</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Line width for the scale bar.</p></li>
-<li><p><strong>scale_bar_fontsize</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Font size for the scale-bar label.</p></li>
-<li><p><strong>save_path</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><em>None</em>) – Save the figure to this path and close it.</p></li>
-<li><p><strong>show</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Call <code class="docutils literal notranslate"><span class="pre">plt.show()</span></code> when <code class="docutils literal notranslate"><span class="pre">save_path</span></code> is None.</p></li>
+<li><p><strong>scale_bar_color</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Colour for the scale bar and label.</p></li>
+<li><p><strong>scale_bar_lw</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Line width for the scale bar.</p></li>
+<li><p><strong>scale_bar_fontsize</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Font size for the scale-bar label.</p></li>
+<li><p><strong>save_path</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> or </em><em>None</em>) – Save the figure to this path and close it.</p></li>
+<li><p><strong>show</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Call <code class="docutils literal notranslate"><span class="pre">plt.show()</span></code> when <code class="docutils literal notranslate"><span class="pre">save_path</span></code> is None.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -1344,19 +1344,19 @@ over samples <code class="docutils literal notranslate"><span class="pre">s</spa
 whose mean probability per (class, _) is subtracted from
 every cell. When None, raw probabilities are shown.</p></li>
 <li><p><strong>ax</strong> (<em>matplotlib.axes.Axes</em><em> or </em><em>None</em>) – Heatmap axes. Created when None.</p></li>
-<li><p><strong>cmap</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><em>None</em>) – Matplotlib colormap. Defaults to <code class="docutils literal notranslate"><span class="pre">&quot;viridis&quot;</span></code>
+<li><p><strong>cmap</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> or </em><em>None</em>) – Matplotlib colormap. Defaults to <code class="docutils literal notranslate"><span class="pre">&quot;viridis&quot;</span></code>
 for raw probabilities and <code class="docutils literal notranslate"><span class="pre">&quot;RdBu_r&quot;</span></code> for baseline-relative.</p></li>
-<li><p><strong>show_colorbar</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Add a colorbar to the heatmap.</p></li>
+<li><p><strong>show_colorbar</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Add a colorbar to the heatmap.</p></li>
 <li><p><strong>bar_ax</strong> (<em>matplotlib.axes.Axes</em><em> or </em><em>None</em>) – Optional companion bar plot
 axes. When provided alongside <code class="docutils literal notranslate"><span class="pre">bar_groups</span></code>, plots the
 mean ± std prediction probability for each group.</p></li>
-<li><p><strong>bar_groups</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><em>array-like</em><em>] or </em><em>None</em>) – List of cycle index
+<li><p><strong>bar_groups</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em>[</em><em>array-like</em><em>] or </em><em>None</em>) – List of cycle index
 groups. Each group is averaged and plotted as a bar with std
 error bars. Required when <code class="docutils literal notranslate"><span class="pre">bar_ax</span></code> is provided.</p></li>
-<li><p><strong>bar_group_labels</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>] or </em><em>None</em>) – Per-group labels for the bar
+<li><p><strong>bar_group_labels</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em>] or </em><em>None</em>) – Per-group labels for the bar
 plot. Defaults to indices.</p></li>
-<li><p><strong>bar_colors</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em> or </em><em>None</em>) – Per-group bar colors.</p></li>
-<li><p><strong>cbar_label</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><em>None</em>) – Colorbar label override. Defaults to
+<li><p><strong>bar_colors</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em> or </em><em>None</em>) – Per-group bar colors.</p></li>
+<li><p><strong>cbar_label</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> or </em><em>None</em>) – Colorbar label override. Defaults to
 “P(correct)” or “ΔP vs baseline”.</p></li>
 </ul>
 </dd>
@@ -1371,7 +1371,7 @@ labels).</p>
 </p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>result (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>)</p>
+<dd class="field-odd"><p>result (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)">dict</a>)</p>
 </dd>
 </dl>
 <p class="rubric">Notes</p>
@@ -1414,21 +1414,21 @@ colouring; the mask still controls which units are drawn
 positions of other stimulation electrodes to mark with green
 X markers.</p></li>
 <li><p><strong>ax</strong> (<em>matplotlib.axes.Axes</em><em> or </em><em>None</em>) – Plot axes. Created when None.</p></li>
-<li><p><strong>cmap</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Colormap when <code class="docutils literal notranslate"><span class="pre">color_values</span></code> is provided.</p></li>
+<li><p><strong>cmap</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Colormap when <code class="docutils literal notranslate"><span class="pre">color_values</span></code> is provided.</p></li>
 <li><p><strong>vmax</strong> (<em>vmin /</em>) – Color scale limits. Defaults to a
 symmetric range around 0 for diverging metrics.</p></li>
-<li><p><strong>show_colorbar</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Add a colorbar when <code class="docutils literal notranslate"><span class="pre">color_values</span></code> is
+<li><p><strong>show_colorbar</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Add a colorbar when <code class="docutils literal notranslate"><span class="pre">color_values</span></code> is
 provided.</p></li>
-<li><p><strong>cbar_label</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Colorbar label.</p></li>
-<li><p><strong>nonresponsive_color</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Marker color for non-responsive units
+<li><p><strong>cbar_label</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Colorbar label.</p></li>
+<li><p><strong>nonresponsive_color</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Marker color for non-responsive units
 in mask mode.</p></li>
-<li><p><strong>responsive_color</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Marker color for responsive units in mask
+<li><p><strong>responsive_color</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Marker color for responsive units in mask
 mode.</p></li>
-<li><p><strong>target_marker_color</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Color of the target-stim X marker.</p></li>
-<li><p><strong>other_target_marker_color</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Color of other-stim X markers.</p></li>
-<li><p><strong>unit_marker_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Scatter marker size for units.</p></li>
-<li><p><strong>target_marker_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Marker size for the target stim X.</p></li>
-<li><p><strong>other_target_marker_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Marker size for other-stim X.</p></li>
+<li><p><strong>target_marker_color</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Color of the target-stim X marker.</p></li>
+<li><p><strong>other_target_marker_color</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Color of other-stim X markers.</p></li>
+<li><p><strong>unit_marker_size</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Scatter marker size for units.</p></li>
+<li><p><strong>target_marker_size</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Marker size for the target stim X.</p></li>
+<li><p><strong>other_target_marker_size</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Marker size for other-stim X.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -1442,7 +1442,7 @@ and <code class="docutils literal notranslate"><span class="pre">&quot;other_tar
 </p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>result (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>)</p>
+<dd class="field-odd"><p>result (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)">dict</a>)</p>
 </dd>
 </dl>
 <p class="rubric">Notes</p>

@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Pairwise Comparisons &mdash; SpikeLab 0.1.1 documentation</title>
+  <title>Pairwise Comparisons &mdash; SpikeLab 0.1.2 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=a58bc63e"></script>
+      <script src="../_static/documentation_options.js?v=92734c54"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
@@ -507,7 +507,7 @@ across multiple conditions or time windows.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="spikelab.spikedata.pairwise.PairwiseCompMatrix">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">spikelab.spikedata.pairwise.</span></span><span class="sig-name descname"><span class="pre">PairwiseCompMatrix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">matrix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">labels=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata=&lt;factory&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/pairwise.html#PairwiseCompMatrix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.pairwise.PairwiseCompMatrix" title="Link to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/builtins/functions.html#object" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>A data class for n x n pairwise comparison matrices (e.g., correlation, STTC).</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="spikelab.spikedata.pairwise.PairwiseCompMatrix.matrix">
@@ -526,7 +526,7 @@ across multiple conditions or time windows.</p>
 <dd><p>Labels for the rows/columns (e.g., unit IDs).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)">list</a> or None</p>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)">list</a> or None</p>
 </dd>
 </dl>
 </dd></dl>
@@ -537,7 +537,7 @@ across multiple conditions or time windows.</p>
 <dd><p>Additional information about the matrix.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)">dict</a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -545,7 +545,7 @@ across multiple conditions or time windows.</p>
 <p class="rubric">Examples</p>
 <p>Creating a PairwiseCompMatrix:</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">matrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">]])</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">pcm</span> <span class="o">=</span> <span class="n">PairwiseCompMatrix</span><span class="p">(</span><span class="n">matrix</span><span class="o">=</span><span class="n">matrix</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">pcm</span> <span class="o">=</span> <span class="n">PairwiseCompMatrix</span><span class="p">(</span><span class="n">matrix</span><span class="o">=</span><span class="n">matrix</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="p">[</span><span class="s2">"A"</span><span class="p">,</span> <span class="s2">"B"</span><span class="p">])</span>
 </pre></div>
 </div>
 <p>Exporting to NetworkX:</p>
@@ -565,13 +565,13 @@ across multiple conditions or time windows.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>threshold</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – If provided, only edges with absolute
+<li><p><strong>threshold</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> or </em><em>None</em>) – If provided, only edges with absolute
 weight &gt; threshold will be included. <code class="docutils literal notranslate"><span class="pre">None</span></code> means “no
 threshold” (every non-NaN off-diagonal entry becomes an
-edge). NaN/Inf raise <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ValueError</span></code></a> — a NaN threshold
+edge). NaN/Inf raise <a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#ValueError" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ValueError</span></code></a> — a NaN threshold
 silently produced an edge-free graph in earlier versions
 because <code class="docutils literal notranslate"><span class="pre">abs(weight)</span> <span class="pre">&gt;</span> <span class="pre">NaN</span></code> is always False.</p></li>
-<li><p><strong>invert_weights</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – If True, edge weights are set to
+<li><p><strong>invert_weights</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – If True, edge weights are set to
 (1 - value) instead of value. This is useful for weighted
 network metrics like shortest path length, where strong
 correlations (e.g., 0.9) should represent short/cheap paths
@@ -585,7 +585,7 @@ rather than long/expensive paths.</p></li>
 <dd class="field-odd"><p>G (networkx.Graph)</p>
 </dd>
 <dt class="field-even">Raises<span class="colon">:</span></dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">threshold</span></code> is NaN or infinite.</p>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#ValueError" title="(in Python v3.15)"><strong>ValueError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">threshold</span></code> is NaN or infinite.</p>
 </dd>
 </dl>
 <p class="rubric">Notes</p>
@@ -604,9 +604,9 @@ strong relationships, set <code class="docutils literal notranslate"><span class
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>threshold</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Values with absolute value &gt; threshold become
+<li><p><strong>threshold</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Values with absolute value &gt; threshold become
 1, otherwise 0.</p></li>
-<li><p><strong>preserve_nan</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – When <code class="docutils literal notranslate"><span class="pre">False</span></code> (default), NaN values in the
+<li><p><strong>preserve_nan</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – When <code class="docutils literal notranslate"><span class="pre">False</span></code> (default), NaN values in the
 input are treated as below threshold and become 0 in the
 output — matches the historical behaviour. When <code class="docutils literal notranslate"><span class="pre">True</span></code>,
 NaN values propagate to NaN in the output, keeping “missing”
@@ -644,12 +644,12 @@ distinguishable from “below threshold” in the binary result.</p></li>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>method</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Normalization method. One of
+<li><p><strong>method</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Normalization method. One of
 <code class="docutils literal notranslate"><span class="pre">&quot;min_max&quot;</span></code> (scale to [0, 1]),
 <code class="docutils literal notranslate"><span class="pre">&quot;z_score&quot;</span></code> (subtract mean, divide by std),
 <code class="docutils literal notranslate"><span class="pre">&quot;row&quot;</span></code> (per-row min-max), or
 <code class="docutils literal notranslate"><span class="pre">&quot;col&quot;</span></code> (per-column min-max).</p></li>
-<li><p><strong>axis</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><em>None</em>) – When set to <code class="docutils literal notranslate"><span class="pre">&quot;row&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;col&quot;</span></code>,
+<li><p><strong>axis</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> or </em><em>None</em>) – When set to <code class="docutils literal notranslate"><span class="pre">&quot;row&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;col&quot;</span></code>,
 normalization is applied per-row or per-column instead
 of globally.  When None (default), the entire matrix
 is normalized at once.</p></li>
@@ -687,13 +687,13 @@ from <em>self</em>.</p>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>condition</strong> (<a class="reference internal" href="#spikelab.spikedata.pairwise.PairwiseCompMatrix" title="spikelab.spikedata.pairwise.PairwiseCompMatrix"><em>PairwiseCompMatrix</em></a>) – Matrix to evaluate the comparison on.
 Must have the same shape as self.</p></li>
-<li><p><strong>op</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Comparison operator applied element-wise to the condition
+<li><p><strong>op</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Comparison operator applied element-wise to the condition
 matrix. Standard: <code class="docutils literal notranslate"><span class="pre">&quot;lt&quot;</span></code> (&lt;), <code class="docutils literal notranslate"><span class="pre">&quot;le&quot;</span></code> (&lt;=), <code class="docutils literal notranslate"><span class="pre">&quot;gt&quot;</span></code> (&gt;),
 <code class="docutils literal notranslate"><span class="pre">&quot;ge&quot;</span></code> (&gt;=), <code class="docutils literal notranslate"><span class="pre">&quot;eq&quot;</span></code> (==), <code class="docutils literal notranslate"><span class="pre">&quot;ne&quot;</span></code> (!=). Absolute-value
 variants: <code class="docutils literal notranslate"><span class="pre">&quot;abs_lt&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;abs_le&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;abs_gt&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;abs_ge&quot;</span></code>
 — these compare <code class="docutils literal notranslate"><span class="pre">|condition|</span></code> against the threshold.</p></li>
-<li><p><strong>threshold</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Threshold value for the comparison.</p></li>
-<li><p><strong>fill</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Replacement value for removed entries (default: NaN).</p></li>
+<li><p><strong>threshold</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Threshold value for the comparison.</p></li>
+<li><p><strong>fill</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Replacement value for removed entries (default: NaN).</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -737,17 +737,17 @@ preserved from self.</p>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>ax</strong> (<em>matplotlib.axes.Axes</em><em> or </em><em>None</em>) – Target axes. If None a standalone
 figure is created.</p></li>
-<li><p><strong>cmap</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><em>None</em>) – Matplotlib colormap name. If None,
+<li><p><strong>cmap</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> or </em><em>None</em>) – Matplotlib colormap name. If None,
 auto-selects <code class="docutils literal notranslate"><span class="pre">&quot;RdBu_r&quot;</span></code> for diverging data (contains both
 negative and positive values) or <code class="docutils literal notranslate"><span class="pre">&quot;viridis&quot;</span></code> otherwise.</p></li>
-<li><p><strong>vmin</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Colormap minimum.</p></li>
-<li><p><strong>vmax</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Colormap maximum.</p></li>
-<li><p><strong>colorbar_label</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Label for the colorbar.</p></li>
-<li><p><strong>font_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Font size for labels and ticks.</p></li>
-<li><p><strong>tick_labels</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>] or </em><em>None</em>) – Custom tick labels for both axes.
+<li><p><strong>vmin</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> or </em><em>None</em>) – Colormap minimum.</p></li>
+<li><p><strong>vmax</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> or </em><em>None</em>) – Colormap maximum.</p></li>
+<li><p><strong>colorbar_label</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Label for the colorbar.</p></li>
+<li><p><strong>font_size</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Font size for labels and ticks.</p></li>
+<li><p><strong>tick_labels</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em>] or </em><em>None</em>) – Custom tick labels for both axes.
 If None, uses <code class="docutils literal notranslate"><span class="pre">self.labels</span></code> (or integer indices when labels
 are not set).</p></li>
-<li><p><strong>save_path</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><em>None</em>) – If provided (and <code class="docutils literal notranslate"><span class="pre">ax</span></code> is None), save the
+<li><p><strong>save_path</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> or </em><em>None</em>) – If provided (and <code class="docutils literal notranslate"><span class="pre">ax</span></code> is None), save the
 figure to this path and close it.</p></li>
 </ul>
 </dd>
@@ -786,7 +786,7 @@ tests.</p>
 </p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>groups (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>)</p>
+<dd class="field-odd"><p>groups (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)">dict</a>)</p>
 </dd>
 </dl>
 </dd></dl>
@@ -805,19 +805,19 @@ tests.</p>
 <li><p><strong>ax</strong> (<em>matplotlib.axes.Axes</em>) – Target axes.</p></li>
 <li><p><strong>positions</strong> (<em>np.ndarray</em>) – Unit positions, shape <code class="docutils literal notranslate"><span class="pre">(N,</span> <span class="pre">2)</span></code> with
 columns <code class="docutils literal notranslate"><span class="pre">[x,</span> <span class="pre">y]</span></code> in micrometres.</p></li>
-<li><p><strong>edge_threshold</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Minimum matrix value to draw an
+<li><p><strong>edge_threshold</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> or </em><em>None</em>) – Minimum matrix value to draw an
 edge.</p></li>
-<li><p><strong>top_pct</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Percentage of top edges to draw.</p></li>
-<li><p><strong>node_size_range</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a>) – <code class="docutils literal notranslate"><span class="pre">(min_size,</span> <span class="pre">max_size)</span></code> in points² for
+<li><p><strong>top_pct</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> or </em><em>None</em>) – Percentage of top edges to draw.</p></li>
+<li><p><strong>node_size_range</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple" title="(in Python v3.15)"><em>tuple</em></a>) – <code class="docutils literal notranslate"><span class="pre">(min_size,</span> <span class="pre">max_size)</span></code> in points² for
 scatter markers.</p></li>
-<li><p><strong>node_cmap</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Matplotlib colourmap for node colour.</p></li>
-<li><p><strong>node_linewidth</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Outline width of node markers.</p></li>
-<li><p><strong>edge_color</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Colour for network edges.</p></li>
-<li><p><strong>edge_linewidth</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Line width for network edges.</p></li>
-<li><p><strong>edge_alpha_range</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a>) – <code class="docutils literal notranslate"><span class="pre">(min_alpha,</span> <span class="pre">max_alpha)</span></code> for edge
+<li><p><strong>node_cmap</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Matplotlib colourmap for node colour.</p></li>
+<li><p><strong>node_linewidth</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Outline width of node markers.</p></li>
+<li><p><strong>edge_color</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Colour for network edges.</p></li>
+<li><p><strong>edge_linewidth</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Line width for network edges.</p></li>
+<li><p><strong>edge_alpha_range</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple" title="(in Python v3.15)"><em>tuple</em></a>) – <code class="docutils literal notranslate"><span class="pre">(min_alpha,</span> <span class="pre">max_alpha)</span></code> for edge
 transparency.</p></li>
-<li><p><strong>scale_bar_um</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Scale bar length in micrometres (0 to omit).</p></li>
-<li><p><strong>font_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><em>None</em>) – Font size for scale bar label.</p></li>
+<li><p><strong>scale_bar_um</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Scale bar length in micrometres (0 to omit).</p></li>
+<li><p><strong>font_size</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a><em> or </em><em>None</em>) – Font size for scale bar label.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -846,7 +846,7 @@ transparency.</p></li>
 <dl class="py class">
 <dt class="sig sig-object py" id="spikelab.spikedata.pairwise.PairwiseCompMatrixStack">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">spikelab.spikedata.pairwise.</span></span><span class="sig-name descname"><span class="pre">PairwiseCompMatrixStack</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">stack</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">labels=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">times=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata=&lt;factory&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/pairwise.html#PairwiseCompMatrixStack"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.pairwise.PairwiseCompMatrixStack" title="Link to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/builtins/functions.html#object" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>A data class for a stack of n x n pairwise comparison matrices (e.g., across slices or time bins).</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="spikelab.spikedata.pairwise.PairwiseCompMatrixStack.stack">
@@ -866,7 +866,7 @@ S is the number of slices.</p>
 <dd><p>Labels for the rows/columns (e.g., unit IDs).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)">list</a> or None</p>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)">list</a> or None</p>
 </dd>
 </dl>
 </dd></dl>
@@ -878,7 +878,7 @@ S is the number of slices.</p>
 with each matrix in the stack.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)">list</a> of <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)">tuple</a> or None</p>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)">list</a> of <a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple" title="(in Python v3.15)">tuple</a> or None</p>
 </dd>
 </dl>
 </dd></dl>
@@ -889,7 +889,7 @@ with each matrix in the stack.</p>
 <dd><p>Additional information about the stack.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)">dict</a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -940,7 +940,7 @@ with each matrix in the stack.</p>
 <dd><p>Select specific slices from the stack by their indices.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>indices</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em> of </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – List of slice indices to select.</p>
+<dd class="field-odd"><p><strong>indices</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em> of </em><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – List of slice indices to select.</p>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
@@ -968,9 +968,9 @@ with each matrix in the stack.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>threshold</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Values with absolute value &gt; threshold become
+<li><p><strong>threshold</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Values with absolute value &gt; threshold become
 1, otherwise 0.</p></li>
-<li><p><strong>preserve_nan</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – When <code class="docutils literal notranslate"><span class="pre">False</span></code> (default), NaN values in the
+<li><p><strong>preserve_nan</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – When <code class="docutils literal notranslate"><span class="pre">False</span></code> (default), NaN values in the
 input are treated as below threshold and become 0 in the
 output — matches the historical behaviour. When <code class="docutils literal notranslate"><span class="pre">True</span></code>,
 NaN values propagate to NaN in the output, keeping “missing”
@@ -1002,13 +1002,13 @@ distinguishable from “below threshold” in the binary result.</p></li>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>method</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Normalization method (<code class="docutils literal notranslate"><span class="pre">&quot;min_max&quot;</span></code>,
+<li><p><strong>method</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Normalization method (<code class="docutils literal notranslate"><span class="pre">&quot;min_max&quot;</span></code>,
 <code class="docutils literal notranslate"><span class="pre">&quot;z_score&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;row&quot;</span></code>, or <code class="docutils literal notranslate"><span class="pre">&quot;col&quot;</span></code>).  See
 <code class="docutils literal notranslate"><span class="pre">PairwiseCompMatrix.normalize</span></code> for details.</p></li>
-<li><p><strong>axis</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><em>None</em>) – <code class="docutils literal notranslate"><span class="pre">&quot;row&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;col&quot;</span></code> for per-row /
+<li><p><strong>axis</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> or </em><em>None</em>) – <code class="docutils literal notranslate"><span class="pre">&quot;row&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;col&quot;</span></code> for per-row /
 per-column normalization within each N x N slice, or
 None for global normalization.</p></li>
-<li><p><strong>per_slice</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – When True, each slice is normalized
+<li><p><strong>per_slice</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – When True, each slice is normalized
 independently.  When False (default), statistics are
 computed across the entire stack.</p></li>
 </ul>
@@ -1041,13 +1041,13 @@ stack to evaluate the comparison on. A single
 <code class="docutils literal notranslate"><span class="pre">PairwiseCompMatrix</span></code> is broadcast across all slices. A
 <code class="docutils literal notranslate"><span class="pre">PairwiseCompMatrixStack</span></code> must have the same shape
 <code class="docutils literal notranslate"><span class="pre">(N,</span> <span class="pre">N,</span> <span class="pre">S)</span></code> as self.</p></li>
-<li><p><strong>op</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Comparison operator applied element-wise to the condition.
+<li><p><strong>op</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Comparison operator applied element-wise to the condition.
 Standard: <code class="docutils literal notranslate"><span class="pre">&quot;lt&quot;</span></code> (&lt;), <code class="docutils literal notranslate"><span class="pre">&quot;le&quot;</span></code> (&lt;=), <code class="docutils literal notranslate"><span class="pre">&quot;gt&quot;</span></code> (&gt;),
 <code class="docutils literal notranslate"><span class="pre">&quot;ge&quot;</span></code> (&gt;=), <code class="docutils literal notranslate"><span class="pre">&quot;eq&quot;</span></code> (==), <code class="docutils literal notranslate"><span class="pre">&quot;ne&quot;</span></code> (!=). Absolute-value
 variants: <code class="docutils literal notranslate"><span class="pre">&quot;abs_lt&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;abs_le&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;abs_gt&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;abs_ge&quot;</span></code>
 — these compare <code class="docutils literal notranslate"><span class="pre">|condition|</span></code> against the threshold.</p></li>
-<li><p><strong>threshold</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Threshold value for the comparison.</p></li>
-<li><p><strong>fill</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Replacement value for removed entries (default: NaN).</p></li>
+<li><p><strong>threshold</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Threshold value for the comparison.</p></li>
+<li><p><strong>fill</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Replacement value for removed entries (default: NaN).</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -1070,7 +1070,7 @@ and metadata are preserved from self.</p>
 <dd><p>Compute the mean matrix across the stack.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>ignore_nan</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Whether to use np.nanmean to ignore NaN values
+<dd class="field-odd"><p><strong>ignore_nan</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Whether to use np.nanmean to ignore NaN values
 in the average.</p>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -1097,17 +1097,17 @@ to <code class="docutils literal notranslate"><span class="pre">PairwiseCompMatr
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>ax</strong> (<em>matplotlib.axes.Axes</em><em> or </em><em>None</em>) – Target axes. If None a standalone
 figure is created.</p></li>
-<li><p><strong>ignore_nan</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Use <code class="docutils literal notranslate"><span class="pre">np.nanmean</span></code> to ignore NaN values.</p></li>
-<li><p><strong>cmap</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><em>None</em>) – Matplotlib colormap name. If None,
+<li><p><strong>ignore_nan</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Use <code class="docutils literal notranslate"><span class="pre">np.nanmean</span></code> to ignore NaN values.</p></li>
+<li><p><strong>cmap</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> or </em><em>None</em>) – Matplotlib colormap name. If None,
 auto-selects based on whether the mean matrix is diverging.</p></li>
-<li><p><strong>vmin</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Colormap minimum.</p></li>
-<li><p><strong>vmax</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Colormap maximum.</p></li>
-<li><p><strong>colorbar_label</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Label for the colorbar.</p></li>
-<li><p><strong>font_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Font size for labels and ticks.</p></li>
-<li><p><strong>tick_labels</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>] or </em><em>None</em>) – Custom tick labels for both axes.
+<li><p><strong>vmin</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> or </em><em>None</em>) – Colormap minimum.</p></li>
+<li><p><strong>vmax</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> or </em><em>None</em>) – Colormap maximum.</p></li>
+<li><p><strong>colorbar_label</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Label for the colorbar.</p></li>
+<li><p><strong>font_size</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Font size for labels and ticks.</p></li>
+<li><p><strong>tick_labels</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em>] or </em><em>None</em>) – Custom tick labels for both axes.
 If None, uses <code class="docutils literal notranslate"><span class="pre">self.labels</span></code> (or integer indices when labels
 are not set).</p></li>
-<li><p><strong>save_path</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><em>None</em>) – If provided (and <code class="docutils literal notranslate"><span class="pre">ax</span></code> is None), save the
+<li><p><strong>save_path</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> or </em><em>None</em>) – If provided (and <code class="docutils literal notranslate"><span class="pre">ax</span></code> is None), save the
 figure to this path and close it.</p></li>
 </ul>
 </dd>
@@ -1146,9 +1146,9 @@ matrix. F = n*(n-1)/2 (number of unique pairs).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>method</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Dimensionality reduction method to use. <code class="docutils literal notranslate"><span class="pre">&quot;PCA&quot;</span></code>
+<li><p><strong>method</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Dimensionality reduction method to use. <code class="docutils literal notranslate"><span class="pre">&quot;PCA&quot;</span></code>
 (default) or <code class="docutils literal notranslate"><span class="pre">&quot;UMAP&quot;</span></code>.</p></li>
-<li><p><strong>n_components</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Number of components (dimensions) in the
+<li><p><strong>n_components</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Number of components (dimensions) in the
 output manifold.</p></li>
 <li><p><strong>**kwargs</strong> – Additional keyword arguments passed through to UMAP when
 <code class="docutils literal notranslate"><span class="pre">method='UMAP'</span></code> (e.g., <code class="docutils literal notranslate"><span class="pre">n_neighbors</span></code>, <code class="docutils literal notranslate"><span class="pre">min_dist</span></code>,
@@ -1168,7 +1168,7 @@ a float in [0, 1].</p>
 </p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>result (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)">tuple</a>)</p>
+<dd class="field-odd"><p>result (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple" title="(in Python v3.15)">tuple</a>)</p>
 </dd>
 </dl>
 </dd></dl>

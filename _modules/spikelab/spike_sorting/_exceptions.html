@@ -5,14 +5,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>spikelab.spike_sorting._exceptions &mdash; SpikeLab 0.1.1 documentation</title>
+  <title>spikelab.spike_sorting._exceptions &mdash; SpikeLab 0.1.2 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../../_static/documentation_options.js?v=a58bc63e"></script>
+      <script src="../../../_static/documentation_options.js?v=92734c54"></script>
       <script src="../../../_static/doctools.js?v=9bcbadda"></script>
       <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
@@ -492,7 +492,7 @@
            <div itemprop="articleBody">
              
   <h1>Source code for spikelab.spike_sorting._exceptions</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;Classified spike-sorting exceptions shared across runners and curation.</span>
+<span></span><span class="sd">"""Classified spike-sorting exceptions shared across runners and curation.</span>
 
 <span class="sd">Failures from Kilosort2, Kilosort4, and the downstream curation/waveform</span>
 <span class="sd">code are grouped into three categories so callers can implement retry /</span>
@@ -515,7 +515,7 @@
 <span class="sd">chains to re-raise generic failures as one of the specific types below.</span>
 <span class="sd">The classes are also usable directly from non-classifier paths (e.g.</span>
 <span class="sd">curation code that already knows the exact condition).</span>
-<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">"""</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Optional</span>
@@ -524,34 +524,34 @@
 <div class="viewcode-block" id="SpikeSortingClassifiedError">
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.SpikeSortingClassifiedError">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">SpikeSortingClassifiedError</span><span class="p">(</span><span class="ne">RuntimeError</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Base class for all classified sort-pipeline failures.</span>
+<span class="w">    </span><span class="sd">"""Base class for all classified sort-pipeline failures.</span>
 
 <span class="sd">    Catch this when you want to treat any identified failure uniformly.</span>
 <span class="sd">    Prefer catching the more specific categorical bases</span>
 <span class="sd">    (:class:`BiologicalSortFailure`, :class:`EnvironmentSortFailure`,</span>
 <span class="sd">    :class:`ResourceSortFailure`) when the policy differs by category.</span>
-<span class="sd">    &quot;&quot;&quot;</span></div>
+<span class="sd">    """</span></div>
 
 
 
 <div class="viewcode-block" id="BiologicalSortFailure">
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.BiologicalSortFailure">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">BiologicalSortFailure</span><span class="p">(</span><span class="n">SpikeSortingClassifiedError</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Failure caused by the recording itself (too little signal).&quot;&quot;&quot;</span></div>
+<span class="w">    </span><span class="sd">"""Failure caused by the recording itself (too little signal)."""</span></div>
 
 
 
 <div class="viewcode-block" id="EnvironmentSortFailure">
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.EnvironmentSortFailure">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">EnvironmentSortFailure</span><span class="p">(</span><span class="n">SpikeSortingClassifiedError</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Failure caused by host or container environment misconfiguration.&quot;&quot;&quot;</span></div>
+<span class="w">    </span><span class="sd">"""Failure caused by host or container environment misconfiguration."""</span></div>
 
 
 
 <div class="viewcode-block" id="ResourceSortFailure">
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.ResourceSortFailure">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">ResourceSortFailure</span><span class="p">(</span><span class="n">SpikeSortingClassifiedError</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Failure caused by exhausting a machine resource.&quot;&quot;&quot;</span></div>
+<span class="w">    </span><span class="sd">"""Failure caused by exhausting a machine resource."""</span></div>
 
 
 
@@ -563,7 +563,7 @@
 <div class="viewcode-block" id="InsufficientActivityError">
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.InsufficientActivityError">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">InsufficientActivityError</span><span class="p">(</span><span class="n">BiologicalSortFailure</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Sorting crashed because the recording has too little spiking activity.</span>
+<span class="w">    </span><span class="sd">"""Sorting crashed because the recording has too little spiking activity.</span>
 
 <span class="sd">    Kilosort2, Kilosort4, and RT-Sort all fail on near-silent recordings,</span>
 <span class="sd">    but in different ways:</span>
@@ -574,7 +574,7 @@
 <span class="sd">      architectures (compute capability ≥ 12) reject them with</span>
 <span class="sd">      ``CUDA error: invalid configuration argument``.</span>
 
-<span class="sd">    * **Kilosort4:** sklearn&#39;s ``TruncatedSVD`` rejects an empty feature</span>
+<span class="sd">    * **Kilosort4:** sklearn's ``TruncatedSVD`` rejects an empty feature</span>
 <span class="sd">      matrix, or ``KMeans`` fails the ``n_samples &gt;= n_clusters`` check,</span>
 <span class="sd">      when the initial spike-detection pass finds essentially no events.</span>
 
@@ -594,8 +594,8 @@
 <span class="sd">            template-optimization step.</span>
 <span class="sd">        log_path: Sorter log file carrying the full trace when located.</span>
 <span class="sd">        sorter: Short identifier of the sorter that raised</span>
-<span class="sd">            (``&quot;kilosort2&quot;``, ``&quot;kilosort4&quot;``, ``&quot;rt_sort&quot;``).</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">            (``"kilosort2"``, ``"kilosort4"``, ``"rt_sort"``).</span>
+<span class="sd">    """</span>
 
 <div class="viewcode-block" id="InsufficientActivityError.__init__">
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.InsufficientActivityError.__init__">[docs]</a>
@@ -622,10 +622,10 @@
 <div class="viewcode-block" id="NoGoodChannelsError">
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.NoGoodChannelsError">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">NoGoodChannelsError</span><span class="p">(</span><span class="n">BiologicalSortFailure</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;All channels were flagged as bad by the sorter&#39;s good-channel check.</span>
+<span class="w">    </span><span class="sd">"""All channels were flagged as bad by the sorter's good-channel check.</span>
 
 <span class="sd">    Distinct from :class:`InsufficientActivityError`: the signal may be</span>
-<span class="sd">    noisy/present but no channel passes the sorter&#39;s ``minfr_goodchannels``</span>
+<span class="sd">    noisy/present but no channel passes the sorter's ``minfr_goodchannels``</span>
 <span class="sd">    (or equivalent) firing-rate threshold.</span>
 
 <span class="sd">    Attributes:</span>
@@ -633,7 +633,7 @@
 <span class="sd">        bad_channels: Channels flagged as bad.</span>
 <span class="sd">        log_path: Sorter log file carrying the full trace when located.</span>
 <span class="sd">        sorter: Short identifier of the sorter that raised.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
 <div class="viewcode-block" id="NoGoodChannelsError.__init__">
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.NoGoodChannelsError.__init__">[docs]</a>
@@ -658,7 +658,7 @@
 <div class="viewcode-block" id="SaturatedSignalError">
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.SaturatedSignalError">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">SaturatedSignalError</span><span class="p">(</span><span class="n">BiologicalSortFailure</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Recording appears flat or rail-saturated across all channels.</span>
+<span class="w">    </span><span class="sd">"""Recording appears flat or rail-saturated across all channels.</span>
 
 <span class="sd">    Typical causes: disconnected electrodes, loss of fluid contact, broken</span>
 <span class="sd">    amplifier front-end, or a saved recording that never received real</span>
@@ -675,7 +675,7 @@
 <span class="sd">        channels_saturated: Number of channels identified as saturated,</span>
 <span class="sd">            when the caller provides this.</span>
 <span class="sd">        total_channels: Total channel count in the recording.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
 <div class="viewcode-block" id="SaturatedSignalError.__init__">
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.SaturatedSignalError.__init__">[docs]</a>
@@ -696,7 +696,7 @@
 <div class="viewcode-block" id="EmptyWaveformMetricsError">
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.EmptyWaveformMetricsError">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">EmptyWaveformMetricsError</span><span class="p">(</span><span class="n">BiologicalSortFailure</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Waveform metrics (SNR, std-norm) cannot be computed.</span>
+<span class="w">    </span><span class="sd">"""Waveform metrics (SNR, std-norm) cannot be computed.</span>
 
 <span class="sd">    Raised when curation requests a waveform-based metric but no</span>
 <span class="sd">    precomputed values exist and ``raw_data`` on the ``SpikeData`` is</span>
@@ -705,7 +705,7 @@
 <span class="sd">    This is biology-adjacent: it typically means the upstream sorter</span>
 <span class="sd">    produced units that have no usable waveform evidence attached, or</span>
 <span class="sd">    that the pipeline skipped the waveform-extraction stage. Callers</span>
-<span class="sd">    should treat it as &quot;cannot curate this target&quot; rather than retry.</span>
+<span class="sd">    should treat it as "cannot curate this target" rather than retry.</span>
 
 <span class="sd">    Inherits from both :class:`BiologicalSortFailure` (for</span>
 <span class="sd">    category-aware handling) and :class:`ValueError` (for backward</span>
@@ -714,7 +714,7 @@
 
 <span class="sd">    Attributes:</span>
 <span class="sd">        metric_name: The metric that could not be computed.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
 <div class="viewcode-block" id="EmptyWaveformMetricsError.__init__">
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.EmptyWaveformMetricsError.__init__">[docs]</a>
@@ -733,13 +733,13 @@
 <div class="viewcode-block" id="ConcurrentSortError">
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.ConcurrentSortError">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">ConcurrentSortError</span><span class="p">(</span><span class="n">EnvironmentSortFailure</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Another sort is already in progress on the same intermediate folder.</span>
+<span class="w">    </span><span class="sd">"""Another sort is already in progress on the same intermediate folder.</span>
 
 <span class="sd">    Raised by</span>
 <span class="sd">    :func:`spikelab.spike_sorting.guards.acquire_sort_lock` when a</span>
 <span class="sd">    pre-existing lock file points at an alive PID on the same host.</span>
 <span class="sd">    Two concurrent sorts against the same intermediate folder would</span>
-<span class="sd">    corrupt each other&#39;s binary artefacts (KS2 ``.dat`` file,</span>
+<span class="sd">    corrupt each other's binary artefacts (KS2 ``.dat`` file,</span>
 <span class="sd">    RT-Sort scaled traces, curation cache), so the second sort</span>
 <span class="sd">    fails fast rather than racing.</span>
 
@@ -755,7 +755,7 @@
 <span class="sd">            readable).</span>
 <span class="sd">        started_at: ISO timestamp recorded when the holder acquired</span>
 <span class="sd">            the lock.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
 <div class="viewcode-block" id="ConcurrentSortError.__init__">
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.ConcurrentSortError.__init__">[docs]</a>
@@ -780,7 +780,7 @@
 <div class="viewcode-block" id="HDF5PluginMissingError">
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.HDF5PluginMissingError">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">HDF5PluginMissingError</span><span class="p">(</span><span class="n">EnvironmentSortFailure</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;HDF5 filter plugin is missing or the plugin path is misconfigured.</span>
+<span class="w">    </span><span class="sd">"""HDF5 filter plugin is missing or the plugin path is misconfigured.</span>
 
 <span class="sd">    Typical signatures in the underlying exception chain: h5py / HDF5</span>
 <span class="sd">    errors about being unable to open a compressed dataset, or the</span>
@@ -789,13 +789,13 @@
 
 <span class="sd">    Recommended remediation (operator, not the library): set</span>
 <span class="sd">    ``HDF5_PLUGIN_PATH`` to a directory containing the compression</span>
-<span class="sd">    plugin required by the recording&#39;s HDF5 build before any h5py import.</span>
+<span class="sd">    plugin required by the recording's HDF5 build before any h5py import.</span>
 <span class="sd">    The exact directory and plugin name are deployment-specific.</span>
 
 <span class="sd">    Attributes:</span>
 <span class="sd">        configured_path: The value of ``HDF5_PLUGIN_PATH`` at failure</span>
 <span class="sd">            time, if known.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
 <div class="viewcode-block" id="HDF5PluginMissingError.__init__">
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.HDF5PluginMissingError.__init__">[docs]</a>
@@ -809,7 +809,7 @@
 <div class="viewcode-block" id="DockerEnvironmentError">
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.DockerEnvironmentError">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">DockerEnvironmentError</span><span class="p">(</span><span class="n">EnvironmentSortFailure</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Docker daemon, client library, or image is unusable for sorting.</span>
+<span class="w">    </span><span class="sd">"""Docker daemon, client library, or image is unusable for sorting.</span>
 
 <span class="sd">    The ``reason`` string narrows the failure mode so callers can render</span>
 <span class="sd">    better diagnostics or choose different remediations without catching</span>
@@ -817,19 +817,19 @@
 
 <span class="sd">    Recognized ``reason`` values:</span>
 
-<span class="sd">    * ``&quot;daemon_down&quot;`` — Cannot connect to the Docker daemon.</span>
-<span class="sd">    * ``&quot;client_missing&quot;`` — The Python ``docker`` client library is not</span>
+<span class="sd">    * ``"daemon_down"`` — Cannot connect to the Docker daemon.</span>
+<span class="sd">    * ``"client_missing"`` — The Python ``docker`` client library is not</span>
 <span class="sd">      installed in the sorting env.</span>
-<span class="sd">    * ``&quot;image_pull_failed&quot;`` — Image pull returned an error (network,</span>
+<span class="sd">    * ``"image_pull_failed"`` — Image pull returned an error (network,</span>
 <span class="sd">      auth, or manifest-not-found).</span>
-<span class="sd">    * ``&quot;permission_denied&quot;`` — Socket permission denied; user not in</span>
+<span class="sd">    * ``"permission_denied"`` — Socket permission denied; user not in</span>
 <span class="sd">      the ``docker`` group or equivalent.</span>
-<span class="sd">    * ``&quot;other&quot;`` — Docker is broken in a way that did not match any</span>
+<span class="sd">    * ``"other"`` — Docker is broken in a way that did not match any</span>
 <span class="sd">      known signature; inspect ``__cause__`` for details.</span>
 
 <span class="sd">    Attributes:</span>
 <span class="sd">        reason: One of the strings above.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
 <div class="viewcode-block" id="DockerEnvironmentError.__init__">
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.DockerEnvironmentError.__init__">[docs]</a>
@@ -843,9 +843,9 @@
 <div class="viewcode-block" id="ModelLoadingError">
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.ModelLoadingError">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">ModelLoadingError</span><span class="p">(</span><span class="n">EnvironmentSortFailure</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Detection model could not be loaded or is unusable.</span>
+<span class="w">    </span><span class="sd">"""Detection model could not be loaded or is unusable.</span>
 
-<span class="sd">    Raised when RT-Sort&#39;s ``ModelSpikeSorter.load()`` fails — typically</span>
+<span class="sd">    Raised when RT-Sort's ``ModelSpikeSorter.load()`` fails — typically</span>
 <span class="sd">    because PyTorch is missing, weights are corrupt, the model folder</span>
 <span class="sd">    does not exist, or the architecture parameters do not match the</span>
 <span class="sd">    saved state dict.</span>
@@ -853,7 +853,7 @@
 <span class="sd">    Attributes:</span>
 <span class="sd">        model_path: Path that was attempted, when known.</span>
 <span class="sd">        sorter: Short identifier of the sorter that raised.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
 <div class="viewcode-block" id="ModelLoadingError.__init__">
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.ModelLoadingError.__init__">[docs]</a>
@@ -861,7 +861,7 @@
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="o">*</span><span class="p">,</span>
-        <span class="n">sorter</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;rt_sort&quot;</span><span class="p">,</span>
+        <span class="n">sorter</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"rt_sort"</span><span class="p">,</span>
         <span class="n">model_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
@@ -879,7 +879,7 @@
 <div class="viewcode-block" id="GPUOutOfMemoryError">
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.GPUOutOfMemoryError">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">GPUOutOfMemoryError</span><span class="p">(</span><span class="n">ResourceSortFailure</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;The sorter exhausted GPU memory.</span>
+<span class="w">    </span><span class="sd">"""The sorter exhausted GPU memory.</span>
 
 <span class="sd">    Raised when either a PyTorch ``CUDA out of memory`` error (KS4) or a</span>
 <span class="sd">    MATLAB/mex ``CUDA_ERROR_OUT_OF_MEMORY`` diagnostic (KS2) appears in</span>
@@ -892,7 +892,7 @@
 <span class="sd">    Attributes:</span>
 <span class="sd">        sorter: Short identifier of the sorter that raised.</span>
 <span class="sd">        log_path: Sorter log file carrying the full trace when located.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
 <div class="viewcode-block" id="GPUOutOfMemoryError.__init__">
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.GPUOutOfMemoryError.__init__">[docs]</a>
@@ -913,11 +913,11 @@
 <div class="viewcode-block" id="SorterTimeoutError">
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.SorterTimeoutError">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">SorterTimeoutError</span><span class="p">(</span><span class="n">ResourceSortFailure</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;The sorter subprocess produced no output for too long.</span>
+<span class="w">    </span><span class="sd">"""The sorter subprocess produced no output for too long.</span>
 
 <span class="sd">    Raised by</span>
 <span class="sd">    :class:`spikelab.spike_sorting.guards.LogInactivityWatchdog` when</span>
-<span class="sd">    the sorter&#39;s log file has not been updated within the configured</span>
+<span class="sd">    the sorter's log file has not been updated within the configured</span>
 <span class="sd">    inactivity tolerance. Distinct from a hard wall-clock timeout:</span>
 <span class="sd">    this fires only when the sort has stopped making progress (no log</span>
 <span class="sd">    writes), so legitimate long sorts on dense MEAs / multi-hour</span>
@@ -935,7 +935,7 @@
 <span class="sd">            the trip, in seconds.</span>
 <span class="sd">        log_path: Path to the sorter log file the watchdog was</span>
 <span class="sd">            polling, when known.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
 <div class="viewcode-block" id="SorterTimeoutError.__init__">
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.SorterTimeoutError.__init__">[docs]</a>
@@ -958,7 +958,7 @@
 <div class="viewcode-block" id="DiskExhaustionError">
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.DiskExhaustionError">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">DiskExhaustionError</span><span class="p">(</span><span class="n">ResourceSortFailure</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Free disk space crossed the watchdog abort threshold mid-sort.</span>
+<span class="w">    </span><span class="sd">"""Free disk space crossed the watchdog abort threshold mid-sort.</span>
 
 <span class="sd">    Raised by :class:`spikelab.spike_sorting.guards.DiskUsageWatchdog`</span>
 <span class="sd">    when ``shutil.disk_usage(folder).free`` drops below the configured</span>
@@ -972,7 +972,7 @@
 
 <span class="sd">    Recommended remediation: free disk space (or shorten the</span>
 <span class="sd">    recording window via ``RTSortConfig.recording_window_ms`` /</span>
-<span class="sd">    ``first_n_mins``) and rerun. The report&#39;s ``top_consumers`` field</span>
+<span class="sd">    ``first_n_mins``) and rerun. The report's ``top_consumers`` field</span>
 <span class="sd">    flags the largest existing files in the watched folder so the</span>
 <span class="sd">    operator can clean up safely.</span>
 
@@ -983,7 +983,7 @@
 <span class="sd">        report: Optional :class:`DiskExhaustionReport` with the full</span>
 <span class="sd">            diagnostic payload. ``None`` only when the report could</span>
 <span class="sd">            not be assembled (e.g. ``os.walk`` failed).</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
 <div class="viewcode-block" id="DiskExhaustionError.__init__">
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.DiskExhaustionError.__init__">[docs]</a>
@@ -1008,7 +1008,7 @@
 <div class="viewcode-block" id="GpuMemoryWatchdogError">
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.GpuMemoryWatchdogError">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">GpuMemoryWatchdogError</span><span class="p">(</span><span class="n">ResourceSortFailure</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;GPU VRAM crossed the watchdog abort threshold mid-sort.</span>
+<span class="w">    </span><span class="sd">"""GPU VRAM crossed the watchdog abort threshold mid-sort.</span>
 
 <span class="sd">    Raised by :class:`spikelab.spike_sorting.guards.GpuMemoryWatchdog`</span>
 <span class="sd">    when free VRAM on the device-in-use drops below the configured</span>
@@ -1030,7 +1030,7 @@
 <span class="sd">        used_pct_at_trip: GPU memory used percentage at the moment</span>
 <span class="sd">            of the trip.</span>
 <span class="sd">        abort_pct: Configured abort percentage threshold.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
 <div class="viewcode-block" id="GpuMemoryWatchdogError.__init__">
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.GpuMemoryWatchdogError.__init__">[docs]</a>
@@ -1053,11 +1053,11 @@
 <div class="viewcode-block" id="GpuThermalWatchdogError">
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.GpuThermalWatchdogError">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">GpuThermalWatchdogError</span><span class="p">(</span><span class="n">ResourceSortFailure</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;GPU temperature crossed the watchdog abort threshold mid-sort.</span>
+<span class="w">    </span><span class="sd">"""GPU temperature crossed the watchdog abort threshold mid-sort.</span>
 
 <span class="sd">    Raised by :class:`spikelab.spike_sorting.guards.GpuMemoryWatchdog`</span>
-<span class="sd">    when the device&#39;s reported temperature crosses the configured</span>
-<span class="sd">    abort threshold. Sustained operation above the GPU&#39;s thermal</span>
+<span class="sd">    when the device's reported temperature crosses the configured</span>
+<span class="sd">    abort threshold. Sustained operation above the GPU's thermal</span>
 <span class="sd">    junction limit risks driver-level throttling that produces</span>
 <span class="sd">    silently degraded output, or in extreme cases a hardware</span>
 <span class="sd">    shutdown that loses the in-progress sort.</span>
@@ -1073,7 +1073,7 @@
 <span class="sd">        temperature_c_at_trip: Reported device temperature in degrees</span>
 <span class="sd">            Celsius at the moment of the trip.</span>
 <span class="sd">        abort_temp_c: Configured abort temperature threshold.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
 <div class="viewcode-block" id="GpuThermalWatchdogError.__init__">
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.GpuThermalWatchdogError.__init__">[docs]</a>
@@ -1096,13 +1096,13 @@
 <div class="viewcode-block" id="IOStallError">
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.IOStallError">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">IOStallError</span><span class="p">(</span><span class="n">ResourceSortFailure</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Disk I/O stalled mid-sort.</span>
+<span class="w">    </span><span class="sd">"""Disk I/O stalled mid-sort.</span>
 
 <span class="sd">    Raised by</span>
 <span class="sd">    :class:`spikelab.spike_sorting.guards.IOStallWatchdog` when</span>
 <span class="sd">    ``psutil.disk_io_counters()`` for the watched volume shows no</span>
 <span class="sd">    byte-counter movement for the configured tolerance — typical</span>
-<span class="sd">    of a hung NFS / SMB / S3-fuse mount that&#39;s still accepting</span>
+<span class="sd">    of a hung NFS / SMB / S3-fuse mount that's still accepting</span>
 <span class="sd">    file handles but not actually reading or writing.</span>
 
 <span class="sd">    The inactivity watchdog catches some I/O stalls (no log</span>
@@ -1112,9 +1112,9 @@
 <span class="sd">    progress.</span>
 
 <span class="sd">    Attributes:</span>
-<span class="sd">        device: Volume identifier (e.g. ``&quot;sda1&quot;``, ``&quot;C:&quot;``).</span>
+<span class="sd">        device: Volume identifier (e.g. ``"sda1"``, ``"C:"``).</span>
 <span class="sd">        stall_s: Configured stall tolerance at the time of the trip.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
 <div class="viewcode-block" id="IOStallError.__init__">
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.IOStallError.__init__">[docs]</a>
@@ -1135,7 +1135,7 @@
 <div class="viewcode-block" id="HostMemoryWatchdogError">
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.HostMemoryWatchdogError">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">HostMemoryWatchdogError</span><span class="p">(</span><span class="n">ResourceSortFailure</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Host RAM pressure exceeded the watchdog abort threshold.</span>
+<span class="w">    </span><span class="sd">"""Host RAM pressure exceeded the watchdog abort threshold.</span>
 
 <span class="sd">    Raised by :class:`spikelab.spike_sorting.guards.HostMemoryWatchdog`</span>
 <span class="sd">    when ``psutil.virtual_memory().percent`` crosses the configured</span>
@@ -1155,7 +1155,7 @@
 <span class="sd">        percent_at_trip: ``psutil`` system memory percentage at the</span>
 <span class="sd">            moment the watchdog tripped.</span>
 <span class="sd">        abort_pct: Configured abort threshold.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
 <div class="viewcode-block" id="HostMemoryWatchdogError.__init__">
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting._exceptions.HostMemoryWatchdogError.__init__">[docs]</a>

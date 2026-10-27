@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Data Loaders &mdash; SpikeLab 0.1.1 documentation</title>
+  <title>Data Loaders &mdash; SpikeLab 0.1.2 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=a58bc63e"></script>
+      <script src="../_static/documentation_options.js?v=92734c54"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
@@ -522,36 +522,36 @@ matrix, ragged arrays, group-per-unit, and paired arrays.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>filepath</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Path to the HDF5 file.</p></li>
-<li><p><strong>raster_dataset</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – Dataset path for a 2D raster/counts matrix
+<li><p><strong>filepath</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Path to the HDF5 file.</p></li>
+<li><p><strong>raster_dataset</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> | </em><em>None</em>) – Dataset path for a 2D raster/counts matrix
 (units x time). Activates raster style.</p></li>
-<li><p><strong>raster_bin_size_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> | </em><em>None</em>) – Bin width in milliseconds. Required
+<li><p><strong>raster_bin_size_ms</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> | </em><em>None</em>) – Bin width in milliseconds. Required
 for raster style.</p></li>
-<li><p><strong>spike_times_dataset</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – Dataset path for flat concatenated
+<li><p><strong>spike_times_dataset</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> | </em><em>None</em>) – Dataset path for flat concatenated
 spike times. Activates ragged style (requires
 spike_times_index_dataset).</p></li>
-<li><p><strong>spike_times_index_dataset</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – Dataset path for cumulative
+<li><p><strong>spike_times_index_dataset</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> | </em><em>None</em>) – Dataset path for cumulative
 end-of-unit indices into the flat spike times array.</p></li>
-<li><p><strong>spike_times_unit</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Time unit for ragged spike times
+<li><p><strong>spike_times_unit</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Time unit for ragged spike times
 (‘s’, ‘ms’, or ‘samples’).</p></li>
-<li><p><strong>fs_Hz</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> | </em><em>None</em>) – Sampling frequency in Hz. Required when any
+<li><p><strong>fs_Hz</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> | </em><em>None</em>) – Sampling frequency in Hz. Required when any
 time unit is ‘samples’.</p></li>
-<li><p><strong>group_per_unit</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – HDF5 group path containing one dataset
+<li><p><strong>group_per_unit</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> | </em><em>None</em>) – HDF5 group path containing one dataset
 per unit. Activates group-per-unit style.</p></li>
-<li><p><strong>group_time_unit</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Time unit for group-per-unit datasets
+<li><p><strong>group_time_unit</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Time unit for group-per-unit datasets
 (‘s’, ‘ms’, or ‘samples’).</p></li>
-<li><p><strong>idces_dataset</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – Dataset path for unit index array.
+<li><p><strong>idces_dataset</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> | </em><em>None</em>) – Dataset path for unit index array.
 Activates paired-arrays style (requires times_dataset).</p></li>
-<li><p><strong>times_dataset</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – Dataset path for spike times array
+<li><p><strong>times_dataset</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> | </em><em>None</em>) – Dataset path for spike times array
 (paired with idces_dataset).</p></li>
-<li><p><strong>times_unit</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Time unit for paired spike times
+<li><p><strong>times_unit</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Time unit for paired spike times
 (‘s’, ‘ms’, or ‘samples’).</p></li>
-<li><p><strong>raw_dataset</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – Dataset path for optional raw analog data.</p></li>
-<li><p><strong>raw_time_dataset</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – Dataset path for the raw data time
+<li><p><strong>raw_dataset</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> | </em><em>None</em>) – Dataset path for optional raw analog data.</p></li>
+<li><p><strong>raw_time_dataset</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> | </em><em>None</em>) – Dataset path for the raw data time
 vector.</p></li>
-<li><p><strong>raw_time_unit</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Time unit for the raw time vector
+<li><p><strong>raw_time_unit</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Time unit for the raw time vector
 (‘s’, ‘ms’, or ‘samples’).</p></li>
-<li><p><strong>length_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> | </em><em>None</em>) – Recording duration in milliseconds. If not
+<li><p><strong>length_ms</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> | </em><em>None</em>) – Recording duration in milliseconds. If not
 provided, inferred from the latest spike time.</p></li>
 <li><p><strong>metadata</strong> (<em>Mapping</em><em> | </em><em>None</em>) – Additional metadata to attach to the
 resulting SpikeData.</p></li>
@@ -564,7 +564,7 @@ resulting SpikeData.</p></li>
 <dd class="field-odd"><p>sd (<a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData">SpikeData</a>)</p>
 </dd>
 <dt class="field-even">Raises<span class="colon">:</span></dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – If not exactly one input style is specified, or if
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#ValueError" title="(in Python v3.15)"><strong>ValueError</strong></a> – If not exactly one input style is specified, or if
     required arguments are missing.</p>
 </dd>
 </dl>
@@ -577,15 +577,15 @@ resulting SpikeData.</p></li>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>filepath</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Path to HDF5 file.</p></li>
-<li><p><strong>dataset</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – HDF5 dataset path containing raw traces shaped
+<li><p><strong>filepath</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Path to HDF5 file.</p></li>
+<li><p><strong>dataset</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – HDF5 dataset path containing raw traces shaped
 (channels, time).</p></li>
-<li><p><strong>fs_Hz</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Sampling frequency in Hz.</p></li>
-<li><p><strong>threshold_sigma</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Threshold in units of per-channel standard deviation.</p></li>
-<li><p><strong>filter</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em> | </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – If True, apply default Butterworth bandpass;
+<li><p><strong>fs_Hz</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Sampling frequency in Hz.</p></li>
+<li><p><strong>threshold_sigma</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Threshold in units of per-channel standard deviation.</p></li>
+<li><p><strong>filter</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)"><em>dict</em></a><em> | </em><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – If True, apply default Butterworth bandpass;
 if dict, pass to filter; if False, no filtering.</p></li>
-<li><p><strong>hysteresis</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Use rising-edge detection if True.</p></li>
-<li><p><strong>direction</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – ‘both’ | ‘up’ | ‘down’.</p></li>
+<li><p><strong>hysteresis</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Use rising-edge detection if True.</p></li>
+<li><p><strong>direction</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – ‘both’ | ‘up’ | ‘down’.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -604,19 +604,19 @@ if dict, pass to filter; if False, no filtering.</p></li>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>filepath</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Path to the NWB file.</p></li>
-<li><p><strong>prefer_pynwb</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – If True, try pynwb first; if False, try h5py.</p></li>
-<li><p><strong>length_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> | </em><em>None</em>) – Recording duration in milliseconds.
+<li><p><strong>filepath</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Path to the NWB file.</p></li>
+<li><p><strong>prefer_pynwb</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – If True, try pynwb first; if False, try h5py.</p></li>
+<li><p><strong>length_ms</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> | </em><em>None</em>) – Recording duration in milliseconds.
 When <code class="docutils literal notranslate"><span class="pre">None</span></code>, reads from the file-level <code class="docutils literal notranslate"><span class="pre">length_ms</span></code>
 attribute (written by <code class="docutils literal notranslate"><span class="pre">export_spikedata_to_nwb</span></code>); falls
 back to inferring from the latest spike time if the
 attribute is absent.</p></li>
-<li><p><strong>start_time_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> | </em><em>None</em>) – Recording start time in
+<li><p><strong>start_time_ms</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> | </em><em>None</em>) – Recording start time in
 milliseconds. When <code class="docutils literal notranslate"><span class="pre">None</span></code>, reads from the file-level
 <code class="docutils literal notranslate"><span class="pre">start_time</span></code> attribute (written by
 <code class="docutils literal notranslate"><span class="pre">export_spikedata_to_nwb</span></code>); falls back to 0.0 if the
 attribute is absent. Mirrors the <code class="docutils literal notranslate"><span class="pre">length_ms</span></code> ladder.</p></li>
-<li><p><strong>allow_no_units</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – When <code class="docutils literal notranslate"><span class="pre">True</span></code>, files without a Units table
+<li><p><strong>allow_no_units</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – When <code class="docutils literal notranslate"><span class="pre">True</span></code>, files without a Units table
 return a <code class="docutils literal notranslate"><span class="pre">SpikeData</span></code> with <code class="docutils literal notranslate"><span class="pre">N=0</span></code> and empty trains rather
 than raising <code class="docutils literal notranslate"><span class="pre">ValueError</span></code>. The file-level metadata in
 <code class="docutils literal notranslate"><span class="pre">sd.metadata</span></code> is still populated. Useful for metadata-
@@ -660,18 +660,18 @@ the only file-level attrs it carries.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>folder</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Path to the KiloSort/Phy output directory.</p></li>
-<li><p><strong>fs_Hz</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Sampling frequency in Hz.</p></li>
-<li><p><strong>spike_times_file</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Path to the spike_times.npy file.</p></li>
-<li><p><strong>spike_clusters_file</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Path to the spike_clusters.npy file.</p></li>
-<li><p><strong>cluster_info_tsv</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – Path to the cluster info TSV file.</p></li>
-<li><p><strong>time_unit</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Unit of the spike times (‘samples’, ‘s’, or ‘ms’).</p></li>
-<li><p><strong>include_noise</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – If True, include noise clusters.</p></li>
-<li><p><strong>length_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> | </em><em>None</em>) – Recording duration in milliseconds.</p></li>
-<li><p><strong>channel_map_file</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Filename of the channel map file relative
+<li><p><strong>folder</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Path to the KiloSort/Phy output directory.</p></li>
+<li><p><strong>fs_Hz</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Sampling frequency in Hz.</p></li>
+<li><p><strong>spike_times_file</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Path to the spike_times.npy file.</p></li>
+<li><p><strong>spike_clusters_file</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Path to the spike_clusters.npy file.</p></li>
+<li><p><strong>cluster_info_tsv</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> | </em><em>None</em>) – Path to the cluster info TSV file.</p></li>
+<li><p><strong>time_unit</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Unit of the spike times (‘samples’, ‘s’, or ‘ms’).</p></li>
+<li><p><strong>include_noise</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – If True, include noise clusters.</p></li>
+<li><p><strong>length_ms</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> | </em><em>None</em>) – Recording duration in milliseconds.</p></li>
+<li><p><strong>channel_map_file</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Filename of the channel map file relative
 to folder. Expected format: 1D numpy array mapping cluster
 indices to channel numbers.</p></li>
-<li><p><strong>channel_positions_file</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Filename of the channel positions
+<li><p><strong>channel_positions_file</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Filename of the channel positions
 file relative to folder. Expected format: 2D numpy array of
 shape (channels, 3) containing channel positions.</p></li>
 </ul>
@@ -699,14 +699,14 @@ times per cluster and converts to ms using fs_Hz.</p></li>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>sorting</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><em>object</em></a>) – Exposes get_unit_ids(),
+<li><p><strong>sorting</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#object" title="(in Python v3.15)"><em>object</em></a>) – Exposes get_unit_ids(),
 get_sampling_frequency(), get_unit_spike_train(…).</p></li>
-<li><p><strong>sampling_frequency</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> | </em><em>None</em>) – Optional override for sampling
+<li><p><strong>sampling_frequency</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> | </em><em>None</em>) – Optional override for sampling
 frequency (Hz).</p></li>
 <li><p><strong>unit_ids</strong> (<em>Sequence</em><em> | </em><em>None</em>) – Optional subset of unit IDs to include.
 When provided, the order of the returned SpikeData’s units
 follows the caller’s order (after presence validation).</p></li>
-<li><p><strong>segment_index</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Segment index for multi-segment sortings.</p></li>
+<li><p><strong>segment_index</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Segment index for multi-segment sortings.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -739,14 +739,14 @@ source ID irrespective of the order convention.</p></li>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>recording</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><em>object</em></a>) – Exposes get_traces(segment_index=…),
+<li><p><strong>recording</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#object" title="(in Python v3.15)"><em>object</em></a>) – Exposes get_traces(segment_index=…),
 get_sampling_frequency(), get_num_channels().</p></li>
-<li><p><strong>segment_index</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Segment index for multi-segment recordings.</p></li>
-<li><p><strong>threshold_sigma</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Threshold in units of per-channel standard deviation.</p></li>
-<li><p><strong>filter</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em> | </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – If True, apply default Butterworth bandpass;
+<li><p><strong>segment_index</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Segment index for multi-segment recordings.</p></li>
+<li><p><strong>threshold_sigma</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Threshold in units of per-channel standard deviation.</p></li>
+<li><p><strong>filter</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)"><em>dict</em></a><em> | </em><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – If True, apply default Butterworth bandpass;
 if dict, pass to filter; if False, no filtering.</p></li>
-<li><p><strong>hysteresis</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Use rising-edge detection if True.</p></li>
-<li><p><strong>direction</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – ‘both’ | ‘up’ | ‘down’.</p></li>
+<li><p><strong>hysteresis</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Use rising-edge detection if True.</p></li>
+<li><p><strong>direction</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – ‘both’ | ‘up’ | ‘down’.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -774,20 +774,20 @@ subsequent isinstance check. Remote (S3) loads require
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>filepath</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Path to the pickle file, or an S3 URL
+<li><p><strong>filepath</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Path to the pickle file, or an S3 URL
 (s3://bucket/key). Remote URLs require <code class="docutils literal notranslate"><span class="pre">allow_remote=True</span></code>.</p></li>
-<li><p><strong>allow_remote</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – When <code class="docutils literal notranslate"><span class="pre">False</span></code> (default), S3 URLs are
+<li><p><strong>allow_remote</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – When <code class="docutils literal notranslate"><span class="pre">False</span></code> (default), S3 URLs are
 rejected with a <code class="docutils literal notranslate"><span class="pre">ValueError</span></code>. Pass <code class="docutils literal notranslate"><span class="pre">True</span></code> to opt in to
 loading a pickle from a remote bucket; a <code class="docutils literal notranslate"><span class="pre">UserWarning</span></code>
 is also emitted at the call site so the risk surfaces in
 batch-job logs.</p></li>
-<li><p><strong>aws_access_key_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – AWS access key ID for S3
+<li><p><strong>aws_access_key_id</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> | </em><em>None</em>) – AWS access key ID for S3
 downloads.</p></li>
-<li><p><strong>aws_secret_access_key</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – AWS secret access key for
+<li><p><strong>aws_secret_access_key</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> | </em><em>None</em>) – AWS secret access key for
 S3 downloads.</p></li>
-<li><p><strong>aws_session_token</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – AWS session token for temporary
+<li><p><strong>aws_session_token</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> | </em><em>None</em>) – AWS session token for temporary
 credentials.</p></li>
-<li><p><strong>region_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – AWS region name for S3 access.</p></li>
+<li><p><strong>region_name</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> | </em><em>None</em>) – AWS region name for S3 access.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -811,11 +811,11 @@ milliseconds.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>eid</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – IBL experiment ID (UUID string).</p></li>
-<li><p><strong>pid</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – IBL probe ID (UUID string).</p></li>
-<li><p><strong>length_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> | </em><em>None</em>) – Recording duration in milliseconds.
+<li><p><strong>eid</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – IBL experiment ID (UUID string).</p></li>
+<li><p><strong>pid</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – IBL probe ID (UUID string).</p></li>
+<li><p><strong>length_ms</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> | </em><em>None</em>) – Recording duration in milliseconds.
 If not provided, the maximum spike time across all units is used.</p></li>
-<li><p><strong>collection</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – If provided, skip the heuristic
+<li><p><strong>collection</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> | </em><em>None</em>) – If provided, skip the heuristic
 collection search and load spikes directly from this
 collection (e.g. <code class="docutils literal notranslate"><span class="pre">&quot;alf/probe00/pykilosort&quot;</span></code>). Saves 3-4
 network round-trips per call when the caller already knows
@@ -902,12 +902,12 @@ pairs alongside a per-probe statistics DataFrame.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>target_regions</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>] </em><em>| </em><em>None</em>) – Beryl atlas region names to
+<li><p><strong>target_regions</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em>] </em><em>| </em><em>None</em>) – Beryl atlas region names to
 filter by (e.g. <code class="docutils literal notranslate"><span class="pre">[&quot;MOs&quot;,</span> <span class="pre">&quot;MOp&quot;]</span></code>). If None, no region
 filter is applied.</p></li>
-<li><p><strong>min_units</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Minimum number of good units required per probe.
+<li><p><strong>min_units</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Minimum number of good units required per probe.
 Default <code class="docutils literal notranslate"><span class="pre">0</span></code> (no minimum).</p></li>
-<li><p><strong>min_fraction_in_target</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Minimum fraction (0–1) of good units
+<li><p><strong>min_fraction_in_target</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Minimum fraction (0–1) of good units
 that must fall within <code class="docutils literal notranslate"><span class="pre">target_regions</span></code>. Ignored when
 <code class="docutils literal notranslate"><span class="pre">target_regions</span></code> is <code class="docutils literal notranslate"><span class="pre">None</span></code>. Default <code class="docutils literal notranslate"><span class="pre">0.0</span></code>.</p></li>
 </ul>
@@ -923,7 +923,7 @@ is not <code class="docutils literal notranslate"><span class="pre">None</span><
 </p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>probes (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)">list</a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)">tuple</a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a>, <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a>]])</p>
+<dd class="field-odd"><p>probes (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)">list</a>[<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple" title="(in Python v3.15)">tuple</a>[<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)">str</a>, <a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)">str</a>]])</p>
 </dd>
 </dl>
 <p class="rubric">Notes</p>
@@ -947,34 +947,34 @@ for the actual NWB parsing. DANDI provenance fields are added to
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>asset_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Either a DANDI asset UUID (the
+<li><p><strong>asset_id</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Either a DANDI asset UUID (the
 <code class="docutils literal notranslate"><span class="pre">asset_id</span></code> field from <a class="reference internal" href="#spikelab.data_loaders.data_loaders.list_dandi_assets" title="spikelab.data_loaders.data_loaders.list_dandi_assets"><code class="xref py py-func docutils literal notranslate"><span class="pre">list_dandi_assets()</span></code></a>) or a
 fully-qualified asset download URL.</p></li>
-<li><p><strong>dandiset_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – Owning dandiset id (e.g. <code class="docutils literal notranslate"><span class="pre">&quot;000006&quot;</span></code>).
+<li><p><strong>dandiset_id</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> | </em><em>None</em>) – Owning dandiset id (e.g. <code class="docutils literal notranslate"><span class="pre">&quot;000006&quot;</span></code>).
 Used to build the <code class="docutils literal notranslate"><span class="pre">source_reference</span></code> provenance string;
 optional when only the asset_id is known.</p></li>
-<li><p><strong>version</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Dandiset version. Recorded on metadata.</p></li>
-<li><p><strong>download_dir</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – Directory the downloaded file lives
-in. When <code class="docutils literal notranslate"><span class="pre">None</span></code>, a <a class="reference external" href="https://docs.python.org/3/library/tempfile.html#tempfile.TemporaryDirectory" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">tempfile.TemporaryDirectory</span></code></a>
+<li><p><strong>version</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Dandiset version. Recorded on metadata.</p></li>
+<li><p><strong>download_dir</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> | </em><em>None</em>) – Directory the downloaded file lives
+in. When <code class="docutils literal notranslate"><span class="pre">None</span></code>, a <a class="reference external" href="https://docs.python.org/3/library/tempfile.html#tempfile.TemporaryDirectory" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">tempfile.TemporaryDirectory</span></code></a>
 is used and the file is deleted after the load. When a
 path is supplied, the directory is created if needed and
 the file is kept — caller manages cleanup. The file path
 is then recorded on <code class="docutils literal notranslate"><span class="pre">SpikeData.metadata</span></code> as
 <code class="docutils literal notranslate"><span class="pre">downloaded_path</span></code>.</p></li>
-<li><p><strong>api_token</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – Personal access token. Required for
+<li><p><strong>api_token</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> | </em><em>None</em>) – Personal access token. Required for
 embargoed dandisets. Defaults to the <code class="docutils literal notranslate"><span class="pre">DANDI_API_TOKEN</span></code>
 env var when not supplied.</p></li>
-<li><p><strong>api_base</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – API root override.</p></li>
-<li><p><strong>request_timeout_seconds</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Per-API-call timeout (asset
+<li><p><strong>api_base</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – API root override.</p></li>
+<li><p><strong>request_timeout_seconds</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Per-API-call timeout (asset
 detail lookup, etc.).</p></li>
-<li><p><strong>download_timeout_seconds</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Per-download timeout. Default
+<li><p><strong>download_timeout_seconds</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Per-download timeout. Default
 10 min covers ~50 GB at 100 Mbps; raise for very large
 assets on slow links.</p></li>
-<li><p><strong>allow_no_units</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Passed through to
+<li><p><strong>allow_no_units</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Passed through to
 <a class="reference internal" href="#spikelab.data_loaders.data_loaders.load_spikedata_from_nwb" title="spikelab.data_loaders.data_loaders.load_spikedata_from_nwb"><code class="xref py py-func docutils literal notranslate"><span class="pre">load_spikedata_from_nwb()</span></code></a>. <code class="docutils literal notranslate"><span class="pre">True</span></code> lets metadata-
 only callers load files without a Units table.</p></li>
-<li><p><strong>length_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> | </em><em>None</em>) – Passed through.</p></li>
-<li><p><strong>start_time_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> | </em><em>None</em>) – Passed through.</p></li>
+<li><p><strong>length_ms</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> | </em><em>None</em>) – Passed through.</p></li>
+<li><p><strong>start_time_ms</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> | </em><em>None</em>) – Passed through.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -993,7 +993,7 @@ DANDI-specific fields: <code class="docutils literal notranslate"><span class="p
 </dd>
 <dt class="field-even">Raises<span class="colon">:</span></dt>
 <dd class="field-even"><ul class="simple">
-<li><p><a class="reference external" href="https://docs.python.org/3/library/urllib.error.html#urllib.error.URLError" title="(in Python v3.14)"><strong>urllib.error.URLError</strong></a> – On network / HTTP failure.</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/library/urllib.error.html#urllib.error.URLError" title="(in Python v3.15)"><strong>urllib.error.URLError</strong></a> – On network / HTTP failure.</p></li>
 <li><p><strong>ValueError / ImportError</strong> – From the delegated NWB load.</p></li>
 </ul>
 </dd>
@@ -1025,22 +1025,22 @@ that case.</p>
 <dl class="field-list">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>dandiset_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Six-digit DANDI identifier (e.g. <code class="docutils literal notranslate"><span class="pre">&quot;000006&quot;</span></code>).
+<li><p><strong>dandiset_id</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Six-digit DANDI identifier (e.g. <code class="docutils literal notranslate"><span class="pre">&quot;000006&quot;</span></code>).
 Leading zeros matter.</p></li>
-<li><p><strong>version</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Dandiset version. <code class="docutils literal notranslate"><span class="pre">&quot;draft&quot;</span></code> (default) is the
+<li><p><strong>version</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Dandiset version. <code class="docutils literal notranslate"><span class="pre">&quot;draft&quot;</span></code> (default) is the
 in-progress version; published versions are tagged like
 <code class="docutils literal notranslate"><span class="pre">&quot;0.231012.0&quot;</span></code>.</p></li>
-<li><p><strong>path_glob</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – Optional <code class="docutils literal notranslate"><span class="pre">glob</span></code> pattern (e.g.
+<li><p><strong>path_glob</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> | </em><em>None</em>) – Optional <code class="docutils literal notranslate"><span class="pre">glob</span></code> pattern (e.g.
 <code class="docutils literal notranslate"><span class="pre">&quot;*.nwb&quot;</span></code>) the API filters on server-side. Cheaper than
 client-side filtering when most assets aren’t of interest.</p></li>
-<li><p><strong>api_token</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – Personal access token. Required for
+<li><p><strong>api_token</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> | </em><em>None</em>) – Personal access token. Required for
 embargoed dandisets. Defaults to the <code class="docutils literal notranslate"><span class="pre">DANDI_API_TOKEN</span></code>
 env var when not supplied; public dandisets work without one.</p></li>
-<li><p><strong>api_base</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – API root. Override for staging or self-hosted DANDI.</p></li>
-<li><p><strong>page_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Per-page result count. Default 100 — the
+<li><p><strong>api_base</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – API root. Override for staging or self-hosted DANDI.</p></li>
+<li><p><strong>page_size</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Per-page result count. Default 100 — the
 iterator pages internally, so this only affects request
 granularity.</p></li>
-<li><p><strong>request_timeout_seconds</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Per-request timeout.</p></li>
+<li><p><strong>request_timeout_seconds</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Per-request timeout.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Yields<span class="colon">:</span></dt>
@@ -1075,34 +1075,34 @@ sorter run later — can re-open via
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>asset_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – DANDI asset UUID or a fully-qualified asset URL.
+<li><p><strong>asset_id</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – DANDI asset UUID or a fully-qualified asset URL.
 Same shapes accepted by <a class="reference internal" href="#spikelab.data_loaders.data_loaders.load_spikedata_from_dandi" title="spikelab.data_loaders.data_loaders.load_spikedata_from_dandi"><code class="xref py py-func docutils literal notranslate"><span class="pre">load_spikedata_from_dandi()</span></code></a>.</p></li>
-<li><p><strong>zarr_dest</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Target Zarr directory. Created if absent.</p></li>
-<li><p><strong>dandiset_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – Owning dandiset id, used for the
+<li><p><strong>zarr_dest</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Target Zarr directory. Created if absent.</p></li>
+<li><p><strong>dandiset_id</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> | </em><em>None</em>) – Owning dandiset id, used for the
 <code class="docutils literal notranslate"><span class="pre">source_reference</span></code> provenance string.</p></li>
-<li><p><strong>version</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Dandiset version. Recorded on metadata.</p></li>
-<li><p><strong>electrical_series_path</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – When the NWB file has
+<li><p><strong>version</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Dandiset version. Recorded on metadata.</p></li>
+<li><p><strong>electrical_series_path</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> | </em><em>None</em>) – When the NWB file has
 multiple ElectricalSeries objects, the HDMF location of the
 one to convert (e.g. <code class="docutils literal notranslate"><span class="pre">&quot;acquisition/ElectricalSeriesAP&quot;</span></code>).
 <code class="docutils literal notranslate"><span class="pre">None</span></code> (default) lets SpikeInterface auto-pick — works
 when there’s exactly one.</p></li>
-<li><p><strong>overwrite</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – When <code class="docutils literal notranslate"><span class="pre">True</span></code>, an existing <code class="docutils literal notranslate"><span class="pre">zarr_dest</span></code> is
+<li><p><strong>overwrite</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – When <code class="docutils literal notranslate"><span class="pre">True</span></code>, an existing <code class="docutils literal notranslate"><span class="pre">zarr_dest</span></code> is
 removed first. When <code class="docutils literal notranslate"><span class="pre">False</span></code> (default), an existing target
 raises.</p></li>
-<li><p><strong>download_dir</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – Directory the downloaded <code class="docutils literal notranslate"><span class="pre">.nwb</span></code>
+<li><p><strong>download_dir</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> | </em><em>None</em>) – Directory the downloaded <code class="docutils literal notranslate"><span class="pre">.nwb</span></code>
 lives in. <code class="docutils literal notranslate"><span class="pre">None</span></code> uses a tempdir. The NWB is removed after
 the Zarr write unless <code class="docutils literal notranslate"><span class="pre">keep_nwb=True</span></code>.</p></li>
-<li><p><strong>keep_nwb</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – When <code class="docutils literal notranslate"><span class="pre">True</span></code>, the downloaded <code class="docutils literal notranslate"><span class="pre">.nwb</span></code> is left
+<li><p><strong>keep_nwb</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – When <code class="docutils literal notranslate"><span class="pre">True</span></code>, the downloaded <code class="docutils literal notranslate"><span class="pre">.nwb</span></code> is left
 on disk after the Zarr is written. Useful for callers that
 want to content-hash the original bytes (e.g. gateway
 ingestion). The downloaded path is included in the return
 dict under <code class="docutils literal notranslate"><span class="pre">downloaded_nwb_path</span></code>.</p></li>
-<li><p><strong>api_token</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – DANDI personal access token. Defaults
+<li><p><strong>api_token</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> | </em><em>None</em>) – DANDI personal access token. Defaults
 to <code class="docutils literal notranslate"><span class="pre">DANDI_API_TOKEN</span></code> env var.</p></li>
-<li><p><strong>api_base</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – API root override.</p></li>
-<li><p><strong>request_timeout_seconds</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Per-API-call timeout.</p></li>
-<li><p><strong>download_timeout_seconds</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Per-download timeout.</p></li>
-<li><p><strong>save_kwargs</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em> | </em><em>None</em>) – Forwarded to
+<li><p><strong>api_base</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – API root override.</p></li>
+<li><p><strong>request_timeout_seconds</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Per-API-call timeout.</p></li>
+<li><p><strong>download_timeout_seconds</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Per-download timeout.</p></li>
+<li><p><strong>save_kwargs</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)"><em>dict</em></a><em> | </em><em>None</em>) – Forwarded to
 <code class="xref py py-meth docutils literal notranslate"><span class="pre">BaseRecording.save()</span></code> — e.g. <code class="docutils literal notranslate"><span class="pre">{&quot;n_jobs&quot;:</span> <span class="pre">4,</span>
 <span class="pre">&quot;chunk_duration_s&quot;:</span> <span class="pre">1.0}</span></code>. Defaults to <code class="docutils literal notranslate"><span class="pre">{}</span></code>.</p></li>
 </ul>
@@ -1130,15 +1130,15 @@ re-open the Zarr just to check.</p></li>
 </p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)">dict</a></p>
 </dd>
 <dt class="field-even">Raises<span class="colon">:</span></dt>
 <dd class="field-even"><ul class="simple">
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ImportError" title="(in Python v3.14)"><strong>ImportError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">spikeinterface</span></code> (or its NWB extractor) isn’t
+<li><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#ImportError" title="(in Python v3.15)"><strong>ImportError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">spikeinterface</span></code> (or its NWB extractor) isn’t
     installed.</p></li>
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – If asset detail fetch fails or the NWB file has no
+<li><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#ValueError" title="(in Python v3.15)"><strong>ValueError</strong></a> – If asset detail fetch fails or the NWB file has no
     ElectricalSeries the extractor can resolve.</p></li>
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#FileExistsError" title="(in Python v3.14)"><strong>FileExistsError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">zarr_dest</span></code> exists and <code class="docutils literal notranslate"><span class="pre">overwrite=False</span></code>.</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#FileExistsError" title="(in Python v3.15)"><strong>FileExistsError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">zarr_dest</span></code> exists and <code class="docutils literal notranslate"><span class="pre">overwrite=False</span></code>.</p></li>
 </ul>
 </dd>
 </dl>
@@ -1165,8 +1165,8 @@ locations, waveform templates, and quality metrics.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>filepath</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Path to the <code class="docutils literal notranslate"><span class="pre">.npz</span></code> file.</p></li>
-<li><p><strong>length_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> | </em><em>None</em>) – Recording duration in milliseconds.
+<li><p><strong>filepath</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Path to the <code class="docutils literal notranslate"><span class="pre">.npz</span></code> file.</p></li>
+<li><p><strong>length_ms</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> | </em><em>None</em>) – Recording duration in milliseconds.
 Inferred from the latest spike time when <em>None</em>.</p></li>
 </ul>
 </dd>

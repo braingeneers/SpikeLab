@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Spike Sorting and Curation &mdash; SpikeLab 0.1.1 documentation</title>
+  <title>Spike Sorting and Curation &mdash; SpikeLab 0.1.2 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=a58bc63e"></script>
+      <script src="../_static/documentation_options.js?v=92734c54"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
@@ -576,13 +576,13 @@ accepts a list of recording files and returns a list of
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.spike_sorting</span><span class="w"> </span><span class="kn">import</span> <span class="n">sort_recording</span>
 
 <span class="n">results</span> <span class="o">=</span> <span class="n">sort_recording</span><span class="p">(</span>
-    <span class="n">recording_files</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;session1.raw.h5&quot;</span><span class="p">],</span>
-    <span class="n">sorter</span><span class="o">=</span><span class="s2">&quot;kilosort4&quot;</span><span class="p">,</span>
+    <span class="n">recording_files</span><span class="o">=</span><span class="p">[</span><span class="s2">"session1.raw.h5"</span><span class="p">],</span>
+    <span class="n">sorter</span><span class="o">=</span><span class="s2">"kilosort4"</span><span class="p">,</span>
 <span class="p">)</span>
 
 <span class="n">sd</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="p">,</span> <span class="s2">&quot;units&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">length</span> <span class="o">/</span> <span class="mi">1000</span><span class="p">,</span> <span class="s2">&quot;seconds&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="p">,</span> <span class="s2">"units"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">length</span> <span class="o">/</span> <span class="mi">1000</span><span class="p">,</span> <span class="s2">"seconds"</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>The <code class="docutils literal notranslate"><span class="pre">sorter</span></code> parameter selects the algorithm: <code class="docutils literal notranslate"><span class="pre">&quot;kilosort2&quot;</span></code>,
@@ -596,7 +596,7 @@ waveform extraction, and execution. Pre-built presets provide sensible defaults:
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.spike_sorting.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">KILOSORT4</span>
 
 <span class="n">results</span> <span class="o">=</span> <span class="n">sort_recording</span><span class="p">(</span>
-    <span class="n">recording_files</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;session1.raw.h5&quot;</span><span class="p">],</span>
+    <span class="n">recording_files</span><span class="o">=</span><span class="p">[</span><span class="s2">"session1.raw.h5"</span><span class="p">],</span>
     <span class="n">config</span><span class="o">=</span><span class="n">KILOSORT4</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
@@ -606,17 +606,17 @@ waveform extraction, and execution. Pre-built presets provide sensible defaults:
     <span class="n">fr_min</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>             <span class="c1"># stricter minimum firing rate (Hz)</span>
     <span class="n">snr_min</span><span class="o">=</span><span class="mf">6.0</span><span class="p">,</span>            <span class="c1"># stricter SNR threshold</span>
     <span class="n">n_jobs</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span>
-    <span class="n">total_memory</span><span class="o">=</span><span class="s2">&quot;32G&quot;</span><span class="p">,</span>
+    <span class="n">total_memory</span><span class="o">=</span><span class="s2">"32G"</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="n">results</span> <span class="o">=</span> <span class="n">sort_recording</span><span class="p">([</span><span class="s2">&quot;session1.raw.h5&quot;</span><span class="p">],</span> <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">)</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">sort_recording</span><span class="p">([</span><span class="s2">"session1.raw.h5"</span><span class="p">],</span> <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>Individual parameters can also be passed directly as keyword arguments to
 <code class="docutils literal notranslate"><span class="pre">sort_recording</span></code>, which builds a config internally:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">results</span> <span class="o">=</span> <span class="n">sort_recording</span><span class="p">(</span>
-    <span class="n">recording_files</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;session1.raw.h5&quot;</span><span class="p">],</span>
-    <span class="n">sorter</span><span class="o">=</span><span class="s2">&quot;kilosort2&quot;</span><span class="p">,</span>
-    <span class="n">kilosort_path</span><span class="o">=</span><span class="s2">&quot;/opt/Kilosort2&quot;</span><span class="p">,</span>
+    <span class="n">recording_files</span><span class="o">=</span><span class="p">[</span><span class="s2">"session1.raw.h5"</span><span class="p">],</span>
+    <span class="n">sorter</span><span class="o">=</span><span class="s2">"kilosort2"</span><span class="p">,</span>
+    <span class="n">kilosort_path</span><span class="o">=</span><span class="s2">"/opt/Kilosort2"</span><span class="p">,</span>
     <span class="n">fr_min</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
     <span class="n">n_jobs</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span>
 <span class="p">)</span>
@@ -630,13 +630,13 @@ waveform extraction, and execution. Pre-built presets provide sensible defaults:
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.spike_sorting</span><span class="w"> </span><span class="kn">import</span> <span class="n">sort_multistream</span>
 
 <span class="n">stream_results</span> <span class="o">=</span> <span class="n">sort_multistream</span><span class="p">(</span>
-    <span class="n">recording</span><span class="o">=</span><span class="s2">&quot;multiwell.raw.h5&quot;</span><span class="p">,</span>
-    <span class="n">stream_ids</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;well000&quot;</span><span class="p">,</span> <span class="s2">&quot;well001&quot;</span><span class="p">],</span>
-    <span class="n">sorter</span><span class="o">=</span><span class="s2">&quot;kilosort4&quot;</span><span class="p">,</span>
+    <span class="n">recording</span><span class="o">=</span><span class="s2">"multiwell.raw.h5"</span><span class="p">,</span>
+    <span class="n">stream_ids</span><span class="o">=</span><span class="p">[</span><span class="s2">"well000"</span><span class="p">,</span> <span class="s2">"well001"</span><span class="p">],</span>
+    <span class="n">sorter</span><span class="o">=</span><span class="s2">"kilosort4"</span><span class="p">,</span>
 <span class="p">)</span>
 
 <span class="k">for</span> <span class="n">stream_id</span><span class="p">,</span> <span class="n">sds</span> <span class="ow">in</span> <span class="n">stream_results</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">stream_id</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">sds</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">N</span><span class="si">}</span><span class="s2"> units&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">stream_id</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">sds</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">N</span><span class="si">}</span><span class="s2"> units"</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>This returns a dict mapping stream IDs to lists of <code class="docutils literal notranslate"><span class="pre">SpikeData</span></code> objects.</p>
@@ -646,8 +646,8 @@ waveform extraction, and execution. Pre-built presets provide sensible defaults:
 <p>The pipeline caches intermediate files (binary recordings, sorting output,
 waveforms). Control which stages are re-run with the <code class="docutils literal notranslate"><span class="pre">recompute_*</span></code> flags:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">results</span> <span class="o">=</span> <span class="n">sort_recording</span><span class="p">(</span>
-    <span class="n">recording_files</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;session1.raw.h5&quot;</span><span class="p">],</span>
-    <span class="n">sorter</span><span class="o">=</span><span class="s2">&quot;kilosort4&quot;</span><span class="p">,</span>
+    <span class="n">recording_files</span><span class="o">=</span><span class="p">[</span><span class="s2">"session1.raw.h5"</span><span class="p">],</span>
+    <span class="n">sorter</span><span class="o">=</span><span class="s2">"kilosort4"</span><span class="p">,</span>
     <span class="n">recompute_recording</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>   <span class="c1"># reuse existing binary</span>
     <span class="n">recompute_sorting</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>      <span class="c1"># force re-sort</span>
     <span class="n">reextract_waveforms</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>    <span class="c1"># force waveform re-extraction</span>
@@ -691,7 +691,7 @@ seconds rather than hours.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.spike_sorting.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">KILOSORT4</span>
 
 <span class="n">config</span> <span class="o">=</span> <span class="n">KILOSORT4</span><span class="o">.</span><span class="n">override</span><span class="p">(</span><span class="n">canary_first_n_s</span><span class="o">=</span><span class="mf">30.0</span><span class="p">)</span>
-<span class="n">results</span> <span class="o">=</span> <span class="n">sort_recording</span><span class="p">([</span><span class="s2">&quot;session1.raw.h5&quot;</span><span class="p">],</span> <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">)</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">sort_recording</span><span class="p">([</span><span class="s2">"session1.raw.h5"</span><span class="p">],</span> <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>A canary failure that maps to a
@@ -728,7 +728,7 @@ to find the true artifact onset:</p>
     <span class="n">traces</span><span class="p">,</span>                    <span class="c1"># (channels, samples) raw voltage</span>
     <span class="n">stim_times_ms</span><span class="p">,</span>             <span class="c1"># logged stim times in ms</span>
     <span class="n">fs_Hz</span><span class="o">=</span><span class="mi">20000</span><span class="p">,</span>
-    <span class="n">peak_mode</span><span class="o">=</span><span class="s2">&quot;down_edge&quot;</span><span class="p">,</span>     <span class="c1"># alignment mode for biphasic pulses</span>
+    <span class="n">peak_mode</span><span class="o">=</span><span class="s2">"down_edge"</span><span class="p">,</span>     <span class="c1"># alignment mode for biphasic pulses</span>
 <span class="p">)</span>
 
 <span class="c1"># Remove artifacts</span>
@@ -736,7 +736,7 @@ to find the true artifact onset:</p>
     <span class="n">traces</span><span class="p">,</span>
     <span class="n">corrected_times</span><span class="p">,</span>
     <span class="n">fs_Hz</span><span class="o">=</span><span class="mi">20000</span><span class="p">,</span>
-    <span class="n">method</span><span class="o">=</span><span class="s2">&quot;polynomial&quot;</span><span class="p">,</span>
+    <span class="n">method</span><span class="o">=</span><span class="s2">"polynomial"</span><span class="p">,</span>
     <span class="n">artifact_window_ms</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span>   <span class="c1"># max tail duration after desaturation</span>
     <span class="n">poly_order</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>              <span class="c1"># cubic polynomial (default)</span>
 <span class="p">)</span>
@@ -777,9 +777,9 @@ twice.</p></li>
 </ul>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">corrected_times</span> <span class="o">=</span> <span class="n">recenter_stim_times</span><span class="p">(</span>
     <span class="n">traces</span><span class="p">,</span> <span class="n">stim_times_ms</span><span class="p">,</span> <span class="n">fs_Hz</span><span class="o">=</span><span class="mi">20000</span><span class="p">,</span>
-    <span class="n">peak_mode</span><span class="o">=</span><span class="s2">&quot;down_edge&quot;</span><span class="p">,</span>
+    <span class="n">peak_mode</span><span class="o">=</span><span class="s2">"down_edge"</span><span class="p">,</span>
     <span class="n">multi_peak</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-    <span class="n">multi_peak_select</span><span class="o">=</span><span class="s2">&quot;first&quot;</span><span class="p">,</span>
+    <span class="n">multi_peak_select</span><span class="o">=</span><span class="s2">"first"</span><span class="p">,</span>
     <span class="n">multi_peak_threshold</span><span class="o">=</span><span class="mf">0.6</span><span class="p">,</span>
     <span class="n">multi_peak_min_separation_ms</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span>
 <span class="p">)</span>
@@ -848,8 +848,8 @@ similarity, then greedily merges accepted pairs:</p>
     <span class="n">max_isi_increase</span><span class="o">=</span><span class="mf">0.04</span><span class="p">,</span>   <span class="c1"># reject merge if ISI violations rise too much</span>
 <span class="p">)</span>
 
-<span class="n">n_absorbed</span> <span class="o">=</span> <span class="p">(</span><span class="o">~</span><span class="n">res</span><span class="p">[</span><span class="s2">&quot;passed&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Merged </span><span class="si">{</span><span class="n">n_absorbed</span><span class="si">}</span><span class="s2"> duplicate units&quot;</span><span class="p">)</span>
+<span class="n">n_absorbed</span> <span class="o">=</span> <span class="p">(</span><span class="o">~</span><span class="n">res</span><span class="p">[</span><span class="s2">"passed"</span><span class="p">])</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Merged </span><span class="si">{</span><span class="n">n_absorbed</span><span class="si">}</span><span class="s2"> duplicate units"</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>This requires <code class="docutils literal notranslate"><span class="pre">neuron_attributes</span></code> with position and <code class="docutils literal notranslate"><span class="pre">avg_waveform</span></code> entries,
@@ -870,8 +870,8 @@ are applied:</p>
 
 <span class="c1"># results contains per-criterion entries</span>
 <span class="k">for</span> <span class="n">criterion</span><span class="p">,</span> <span class="n">res</span> <span class="ow">in</span> <span class="n">results</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-    <span class="n">n_removed</span> <span class="o">=</span> <span class="p">(</span><span class="o">~</span><span class="n">res</span><span class="p">[</span><span class="s2">&quot;passed&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">criterion</span><span class="si">}</span><span class="s2">: removed </span><span class="si">{</span><span class="n">n_removed</span><span class="si">}</span><span class="s2"> units&quot;</span><span class="p">)</span>
+    <span class="n">n_removed</span> <span class="o">=</span> <span class="p">(</span><span class="o">~</span><span class="n">res</span><span class="p">[</span><span class="s2">"passed"</span><span class="p">])</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">criterion</span><span class="si">}</span><span class="s2">: removed </span><span class="si">{</span><span class="n">n_removed</span><span class="si">}</span><span class="s2"> units"</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
@@ -916,7 +916,7 @@ epoch to start at t=0:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">epoch_sds</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">split_epochs</span><span class="p">()</span>
 
 <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">epoch_sd</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">epoch_sds</span><span class="p">):</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Epoch </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">epoch_sd</span><span class="o">.</span><span class="n">N</span><span class="si">}</span><span class="s2"> units, </span><span class="si">{</span><span class="n">epoch_sd</span><span class="o">.</span><span class="n">length</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2"> ms&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Epoch </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">epoch_sd</span><span class="o">.</span><span class="n">N</span><span class="si">}</span><span class="s2"> units, </span><span class="si">{</span><span class="n">epoch_sd</span><span class="o">.</span><span class="n">length</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2"> ms"</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
@@ -961,16 +961,16 @@ exception chains to identify known failure signatures:</p>
 <span class="n">classify</span> <span class="o">=</span> <span class="n">classify_ks4_failure</span>  <span class="c1"># or classify_ks2_failure, classify_rt_sort_failure</span>
 
 <span class="k">try</span><span class="p">:</span>
-    <span class="n">results</span> <span class="o">=</span> <span class="n">sort_recording</span><span class="p">([</span><span class="s2">&quot;session1.raw.h5&quot;</span><span class="p">],</span> <span class="n">sorter</span><span class="o">=</span><span class="s2">&quot;kilosort4&quot;</span><span class="p">)</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="n">sort_recording</span><span class="p">([</span><span class="s2">"session1.raw.h5"</span><span class="p">],</span> <span class="n">sorter</span><span class="o">=</span><span class="s2">"kilosort4"</span><span class="p">)</span>
 <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
     <span class="n">classified</span> <span class="o">=</span> <span class="n">classify</span><span class="p">(</span><span class="n">output_folder</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">classified</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">classified</span><span class="p">,</span> <span class="n">BiologicalSortFailure</span><span class="p">):</span>
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Skipping (biology): </span><span class="si">{</span><span class="n">classified</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Skipping (biology): </span><span class="si">{</span><span class="n">classified</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
         <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">classified</span><span class="p">,</span> <span class="n">EnvironmentSortFailure</span><span class="p">):</span>
             <span class="k">raise</span>  <span class="c1"># stop the batch</span>
         <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">classified</span><span class="p">,</span> <span class="n">ResourceSortFailure</span><span class="p">):</span>
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Retry with smaller batch: </span><span class="si">{</span><span class="n">classified</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Retry with smaller batch: </span><span class="si">{</span><span class="n">classified</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="k">raise</span>  <span class="c1"># unrecognised failure</span>
 </pre></div>

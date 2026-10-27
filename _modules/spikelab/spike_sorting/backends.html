@@ -5,14 +5,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>spikelab.spike_sorting.backends &mdash; SpikeLab 0.1.1 documentation</title>
+  <title>spikelab.spike_sorting.backends &mdash; SpikeLab 0.1.2 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../../_static/documentation_options.js?v=a58bc63e"></script>
+      <script src="../../../_static/documentation_options.js?v=92734c54"></script>
       <script src="../../../_static/doctools.js?v=9bcbadda"></script>
       <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
@@ -492,38 +492,38 @@
            <div itemprop="articleBody">
              
   <h1>Source code for spikelab.spike_sorting.backends</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;Spike sorter backend registry.</span>
+<span></span><span class="sd">"""Spike sorter backend registry.</span>
 
 <span class="sd">Maps sorter names to their backend classes. Backends are imported</span>
 <span class="sd">lazily to avoid requiring all sorter dependencies at import time.</span>
-<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">"""</span>
 
 <span class="c1"># Registry: sorter name → (module_path, class_name)</span>
 <span class="n">_BACKEND_REGISTRY</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;kilosort2&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;.kilosort2&quot;</span><span class="p">,</span> <span class="s2">&quot;Kilosort2Backend&quot;</span><span class="p">),</span>
-    <span class="s2">&quot;kilosort4&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;.kilosort4&quot;</span><span class="p">,</span> <span class="s2">&quot;Kilosort4Backend&quot;</span><span class="p">),</span>
-    <span class="s2">&quot;rt_sort&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;.rt_sort&quot;</span><span class="p">,</span> <span class="s2">&quot;RTSortBackend&quot;</span><span class="p">),</span>
+    <span class="s2">"kilosort2"</span><span class="p">:</span> <span class="p">(</span><span class="s2">".kilosort2"</span><span class="p">,</span> <span class="s2">"Kilosort2Backend"</span><span class="p">),</span>
+    <span class="s2">"kilosort4"</span><span class="p">:</span> <span class="p">(</span><span class="s2">".kilosort4"</span><span class="p">,</span> <span class="s2">"Kilosort4Backend"</span><span class="p">),</span>
+    <span class="s2">"rt_sort"</span><span class="p">:</span> <span class="p">(</span><span class="s2">".rt_sort"</span><span class="p">,</span> <span class="s2">"RTSortBackend"</span><span class="p">),</span>
 <span class="p">}</span>
 
 
 <div class="viewcode-block" id="get_backend_class">
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting.backends.get_backend_class">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_backend_class</span><span class="p">(</span><span class="n">sorter_name</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Look up and import the backend class for a sorter name.</span>
+<span class="w">    </span><span class="sd">"""Look up and import the backend class for a sorter name.</span>
 
 <span class="sd">    Parameters:</span>
-<span class="sd">        sorter_name (str): Registered sorter name (e.g. ``&quot;kilosort2&quot;``).</span>
+<span class="sd">        sorter_name (str): Registered sorter name (e.g. ``"kilosort2"``).</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        cls: The ``SorterBackend`` subclass.</span>
 
 <span class="sd">    Raises:</span>
 <span class="sd">        ValueError: If the sorter name is not registered.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">if</span> <span class="n">sorter_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_BACKEND_REGISTRY</span><span class="p">:</span>
-        <span class="n">available</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">_BACKEND_REGISTRY</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
+        <span class="n">available</span> <span class="o">=</span> <span class="s2">", "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">_BACKEND_REGISTRY</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;Unknown sorter &#39;</span><span class="si">{</span><span class="n">sorter_name</span><span class="si">}</span><span class="s2">&#39;. &quot;</span> <span class="sa">f</span><span class="s2">&quot;Available sorters: </span><span class="si">{</span><span class="n">available</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">"Unknown sorter '</span><span class="si">{</span><span class="n">sorter_name</span><span class="si">}</span><span class="s2">'. "</span> <span class="sa">f</span><span class="s2">"Available sorters: </span><span class="si">{</span><span class="n">available</span><span class="si">}</span><span class="s2">"</span>
         <span class="p">)</span>
     <span class="n">module_path</span><span class="p">,</span> <span class="n">class_name</span> <span class="o">=</span> <span class="n">_BACKEND_REGISTRY</span><span class="p">[</span><span class="n">sorter_name</span><span class="p">]</span>
     <span class="kn">import</span><span class="w"> </span><span class="nn">importlib</span>
@@ -536,11 +536,11 @@
 <div class="viewcode-block" id="list_sorters">
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting.backends.list_sorters">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">list_sorters</span><span class="p">():</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the list of registered sorter names.</span>
+<span class="w">    </span><span class="sd">"""Return the list of registered sorter names.</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        sorters (list of str): Available sorter names.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">_BACKEND_REGISTRY</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span></div>
 
 </pre></div>

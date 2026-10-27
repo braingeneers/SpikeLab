@@ -5,14 +5,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>spikelab.spikedata.stat_utils &mdash; SpikeLab 0.1.1 documentation</title>
+  <title>spikelab.spikedata.stat_utils &mdash; SpikeLab 0.1.2 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../../_static/documentation_options.js?v=a58bc63e"></script>
+      <script src="../../../_static/documentation_options.js?v=92734c54"></script>
       <script src="../../../_static/doctools.js?v=9bcbadda"></script>
       <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
@@ -492,12 +492,12 @@
            <div itemprop="articleBody">
              
   <h1>Source code for spikelab.spikedata.stat_utils</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;Statistical utilities for SpikeLab.</span>
+<span></span><span class="sd">"""Statistical utilities for SpikeLab.</span>
 
 <span class="sd">Provides reusable statistical functions (regression, confidence intervals,</span>
 <span class="sd">pairwise group comparisons, paired tests, omnibus tests) that can be used</span>
 <span class="sd">independently of plotting.</span>
-<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">"""</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
@@ -505,7 +505,7 @@
 <div class="viewcode-block" id="linear_regression">
 <a class="viewcode-back" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.linear_regression">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">linear_regression</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">ci_level</span><span class="o">=</span><span class="mf">0.95</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute ordinary least-squares linear regression with optional confidence interval.</span>
+<span class="w">    </span><span class="sd">"""Compute ordinary least-squares linear regression with optional confidence interval.</span>
 
 <span class="sd">    Parameters:</span>
 <span class="sd">        x (np.ndarray): 1-D array of predictor values.</span>
@@ -525,11 +525,11 @@
 <span class="sd">    Notes:</span>
 <span class="sd">        - Uses pure numpy (no scipy/sklearn dependency).</span>
 <span class="sd">        - NaN pairs are dropped automatically.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
     <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">y</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;x and y must have the same length.&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"x and y must have the same length."</span><span class="p">)</span>
 
     <span class="c1"># Drop NaN pairs</span>
     <span class="n">valid</span> <span class="o">=</span> <span class="o">~</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">y</span><span class="p">))</span>
@@ -537,14 +537,14 @@
     <span class="n">y</span> <span class="o">=</span> <span class="n">y</span><span class="p">[</span><span class="n">valid</span><span class="p">]</span>
     <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">n</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Need at least 3 non-NaN data points for regression.&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Need at least 3 non-NaN data points for regression."</span><span class="p">)</span>
 
     <span class="c1"># OLS via normal equations</span>
     <span class="n">x_mean</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
     <span class="n">y_mean</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
     <span class="n">ss_xx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">x</span> <span class="o">-</span> <span class="n">x_mean</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">ss_xx</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;All x values are identical; regression is undefined.&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"All x values are identical; regression is undefined."</span><span class="p">)</span>
     <span class="n">ss_xy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">x</span> <span class="o">-</span> <span class="n">x_mean</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">y_mean</span><span class="p">))</span>
     <span class="n">slope</span> <span class="o">=</span> <span class="n">ss_xy</span> <span class="o">/</span> <span class="n">ss_xx</span>
     <span class="n">intercept</span> <span class="o">=</span> <span class="n">y_mean</span> <span class="o">-</span> <span class="n">slope</span> <span class="o">*</span> <span class="n">x_mean</span>
@@ -572,25 +572,25 @@
     <span class="n">ci_upper</span> <span class="o">=</span> <span class="n">y_fit</span> <span class="o">+</span> <span class="n">t_val</span> <span class="o">*</span> <span class="n">se_fit</span>
 
     <span class="k">return</span> <span class="p">{</span>
-        <span class="s2">&quot;slope&quot;</span><span class="p">:</span> <span class="n">slope</span><span class="p">,</span>
-        <span class="s2">&quot;intercept&quot;</span><span class="p">:</span> <span class="n">intercept</span><span class="p">,</span>
-        <span class="s2">&quot;r_squared&quot;</span><span class="p">:</span> <span class="n">r_squared</span><span class="p">,</span>
-        <span class="s2">&quot;x_fit&quot;</span><span class="p">:</span> <span class="n">x_fit</span><span class="p">,</span>
-        <span class="s2">&quot;y_fit&quot;</span><span class="p">:</span> <span class="n">y_fit</span><span class="p">,</span>
-        <span class="s2">&quot;ci_lower&quot;</span><span class="p">:</span> <span class="n">ci_lower</span><span class="p">,</span>
-        <span class="s2">&quot;ci_upper&quot;</span><span class="p">:</span> <span class="n">ci_upper</span><span class="p">,</span>
+        <span class="s2">"slope"</span><span class="p">:</span> <span class="n">slope</span><span class="p">,</span>
+        <span class="s2">"intercept"</span><span class="p">:</span> <span class="n">intercept</span><span class="p">,</span>
+        <span class="s2">"r_squared"</span><span class="p">:</span> <span class="n">r_squared</span><span class="p">,</span>
+        <span class="s2">"x_fit"</span><span class="p">:</span> <span class="n">x_fit</span><span class="p">,</span>
+        <span class="s2">"y_fit"</span><span class="p">:</span> <span class="n">y_fit</span><span class="p">,</span>
+        <span class="s2">"ci_lower"</span><span class="p">:</span> <span class="n">ci_lower</span><span class="p">,</span>
+        <span class="s2">"ci_upper"</span><span class="p">:</span> <span class="n">ci_upper</span><span class="p">,</span>
     <span class="p">}</span></div>
 
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_approx_normal_quantile</span><span class="p">(</span><span class="n">p</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Approximate the standard normal quantile for *p* in (0.5, 1).</span>
+<span class="w">    </span><span class="sd">"""Approximate the standard normal quantile for *p* in (0.5, 1).</span>
 
 <span class="sd">    Uses the rational approximation from Abramowitz &amp; Stegun (26.2.23).</span>
 <span class="sd">    Accurate to ~4.5e-4 for typical confidence levels.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">if</span> <span class="n">p</span> <span class="o">&lt;=</span> <span class="mf">0.5</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;p must be &gt; 0.5&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"p must be &gt; 0.5"</span><span class="p">)</span>
     <span class="n">t</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="o">-</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">p</span><span class="p">))</span>
     <span class="n">c0</span><span class="p">,</span> <span class="n">c1</span><span class="p">,</span> <span class="n">c2</span> <span class="o">=</span> <span class="mf">2.515517</span><span class="p">,</span> <span class="mf">0.802853</span><span class="p">,</span> <span class="mf">0.010328</span>
     <span class="n">d1</span><span class="p">,</span> <span class="n">d2</span><span class="p">,</span> <span class="n">d3</span> <span class="o">=</span> <span class="mf">1.432788</span><span class="p">,</span> <span class="mf">0.189269</span><span class="p">,</span> <span class="mf">0.001308</span>
@@ -601,23 +601,23 @@
 <a class="viewcode-back" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.pairwise_tests">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">pairwise_tests</span><span class="p">(</span>
     <span class="n">groups</span><span class="p">,</span>
-    <span class="n">test</span><span class="o">=</span><span class="s2">&quot;welch_t&quot;</span><span class="p">,</span>
-    <span class="n">correction</span><span class="o">=</span><span class="s2">&quot;bonferroni&quot;</span><span class="p">,</span>
+    <span class="n">test</span><span class="o">=</span><span class="s2">"welch_t"</span><span class="p">,</span>
+    <span class="n">correction</span><span class="o">=</span><span class="s2">"bonferroni"</span><span class="p">,</span>
     <span class="n">alpha</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span>
     <span class="n">labels</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
 <span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Run pairwise statistical tests across groups with multiple-comparison correction.</span>
+<span class="w">    </span><span class="sd">"""Run pairwise statistical tests across groups with multiple-comparison correction.</span>
 
 <span class="sd">    Parameters:</span>
 <span class="sd">        groups (dict[str, np.ndarray] or list[np.ndarray]): Per-group data</span>
 <span class="sd">            arrays. Dict keys are used as labels; for list input supply</span>
 <span class="sd">            ``labels`` separately.</span>
-<span class="sd">        test (str): Statistical test to use. ``&quot;welch_t&quot;`` (default) for</span>
-<span class="sd">            Welch&#39;s unequal-variance t-test, ``&quot;student_t&quot;`` for Student&#39;s</span>
-<span class="sd">            equal-variance t-test, ``&quot;mann_whitney&quot;`` for the Mann-Whitney U</span>
+<span class="sd">        test (str): Statistical test to use. ``"welch_t"`` (default) for</span>
+<span class="sd">            Welch's unequal-variance t-test, ``"student_t"`` for Student's</span>
+<span class="sd">            equal-variance t-test, ``"mann_whitney"`` for the Mann-Whitney U</span>
 <span class="sd">            test. All require ``scipy``.</span>
 <span class="sd">        correction (str or None): Multiple-comparison correction.</span>
-<span class="sd">            ``&quot;bonferroni&quot;`` (default) or ``None`` for uncorrected p-values.</span>
+<span class="sd">            ``"bonferroni"`` (default) or ``None`` for uncorrected p-values.</span>
 <span class="sd">        alpha (float): Significance threshold applied after correction.</span>
 <span class="sd">            Default 0.05.</span>
 <span class="sd">        labels (list[str] or None): Group labels. Required for list input;</span>
@@ -635,12 +635,12 @@
 <span class="sd">    Notes:</span>
 <span class="sd">        - Requires ``scipy`` (optional dependency). Raises ``ImportError``</span>
 <span class="sd">          with installation instructions if not available.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">scipy</span><span class="w"> </span><span class="kn">import</span> <span class="n">stats</span> <span class="k">as</span> <span class="n">sp_stats</span>
     <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
-            <span class="s2">&quot;pairwise_tests requires &#39;scipy&#39;. Install with: pip install scipy&quot;</span>
+            <span class="s2">"pairwise_tests requires 'scipy'. Install with: pip install scipy"</span>
         <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
 
     <span class="c1"># --- Normalise input --------------------------------------------------</span>
@@ -662,27 +662,27 @@
     <span class="n">pval_matrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">K</span><span class="p">,</span> <span class="n">K</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
 
     <span class="c1"># --- Select test function ---------------------------------------------</span>
-    <span class="k">if</span> <span class="n">test</span> <span class="o">==</span> <span class="s2">&quot;welch_t&quot;</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">test</span> <span class="o">==</span> <span class="s2">"welch_t"</span><span class="p">:</span>
 
         <span class="k">def</span><span class="w"> </span><span class="nf">_test</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
             <span class="n">_</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="n">sp_stats</span><span class="o">.</span><span class="n">ttest_ind</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">equal_var</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">p</span>
 
-    <span class="k">elif</span> <span class="n">test</span> <span class="o">==</span> <span class="s2">&quot;student_t&quot;</span><span class="p">:</span>
+    <span class="k">elif</span> <span class="n">test</span> <span class="o">==</span> <span class="s2">"student_t"</span><span class="p">:</span>
 
         <span class="k">def</span><span class="w"> </span><span class="nf">_test</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
             <span class="n">_</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="n">sp_stats</span><span class="o">.</span><span class="n">ttest_ind</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">equal_var</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">p</span>
 
-    <span class="k">elif</span> <span class="n">test</span> <span class="o">==</span> <span class="s2">&quot;mann_whitney&quot;</span><span class="p">:</span>
+    <span class="k">elif</span> <span class="n">test</span> <span class="o">==</span> <span class="s2">"mann_whitney"</span><span class="p">:</span>
 
         <span class="k">def</span><span class="w"> </span><span class="nf">_test</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
-            <span class="n">_</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="n">sp_stats</span><span class="o">.</span><span class="n">mannwhitneyu</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">alternative</span><span class="o">=</span><span class="s2">&quot;two-sided&quot;</span><span class="p">)</span>
+            <span class="n">_</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="n">sp_stats</span><span class="o">.</span><span class="n">mannwhitneyu</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">alternative</span><span class="o">=</span><span class="s2">"two-sided"</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">p</span>
 
     <span class="k">else</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;Unknown test &#39;</span><span class="si">{</span><span class="n">test</span><span class="si">}</span><span class="s2">&#39;. Use &#39;welch_t&#39;, &#39;student_t&#39;, or &#39;mann_whitney&#39;.&quot;</span>
+            <span class="sa">f</span><span class="s2">"Unknown test '</span><span class="si">{</span><span class="n">test</span><span class="si">}</span><span class="s2">'. Use 'welch_t', 'student_t', or 'mann_whitney'."</span>
         <span class="p">)</span>
 
     <span class="c1"># --- Run pairwise tests -----------------------------------------------</span>
@@ -690,11 +690,11 @@
         <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">K</span><span class="p">):</span>
             <span class="n">p</span> <span class="o">=</span> <span class="n">_test</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">data</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
 
-            <span class="k">if</span> <span class="n">correction</span> <span class="o">==</span> <span class="s2">&quot;bonferroni&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">correction</span> <span class="o">==</span> <span class="s2">"bonferroni"</span><span class="p">:</span>
                 <span class="n">p</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">p</span> <span class="o">*</span> <span class="n">n_comparisons</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
             <span class="k">elif</span> <span class="n">correction</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Unknown correction &#39;</span><span class="si">{</span><span class="n">correction</span><span class="si">}</span><span class="s2">&#39;. &quot;</span> <span class="s2">&quot;Use &#39;bonferroni&#39; or None.&quot;</span>
+                    <span class="sa">f</span><span class="s2">"Unknown correction '</span><span class="si">{</span><span class="n">correction</span><span class="si">}</span><span class="s2">'. "</span> <span class="s2">"Use 'bonferroni' or None."</span>
                 <span class="p">)</span>
 
             <span class="n">pval_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">p</span>
@@ -703,10 +703,10 @@
     <span class="n">sig_matrix</span> <span class="o">=</span> <span class="n">pval_matrix</span> <span class="o">&lt;</span> <span class="n">alpha</span>
 
     <span class="k">return</span> <span class="p">{</span>
-        <span class="s2">&quot;pval_matrix&quot;</span><span class="p">:</span> <span class="n">pval_matrix</span><span class="p">,</span>
-        <span class="s2">&quot;sig_matrix&quot;</span><span class="p">:</span> <span class="n">sig_matrix</span><span class="p">,</span>
-        <span class="s2">&quot;n_comparisons&quot;</span><span class="p">:</span> <span class="n">n_comparisons</span><span class="p">,</span>
-        <span class="s2">&quot;labels&quot;</span><span class="p">:</span> <span class="n">ordered_labels</span><span class="p">,</span>
+        <span class="s2">"pval_matrix"</span><span class="p">:</span> <span class="n">pval_matrix</span><span class="p">,</span>
+        <span class="s2">"sig_matrix"</span><span class="p">:</span> <span class="n">sig_matrix</span><span class="p">,</span>
+        <span class="s2">"n_comparisons"</span><span class="p">:</span> <span class="n">n_comparisons</span><span class="p">,</span>
+        <span class="s2">"labels"</span><span class="p">:</span> <span class="n">ordered_labels</span><span class="p">,</span>
     <span class="p">}</span></div>
 
 
@@ -716,18 +716,18 @@
 <span class="k">def</span><span class="w"> </span><span class="nf">paired_test</span><span class="p">(</span>
     <span class="n">a</span><span class="p">,</span>
     <span class="n">b</span><span class="p">,</span>
-    <span class="n">test</span><span class="o">=</span><span class="s2">&quot;wilcoxon&quot;</span><span class="p">,</span>
-    <span class="n">alternative</span><span class="o">=</span><span class="s2">&quot;two-sided&quot;</span><span class="p">,</span>
+    <span class="n">test</span><span class="o">=</span><span class="s2">"wilcoxon"</span><span class="p">,</span>
+    <span class="n">alternative</span><span class="o">=</span><span class="s2">"two-sided"</span><span class="p">,</span>
 <span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Run a paired statistical test on two matched samples.</span>
+<span class="w">    </span><span class="sd">"""Run a paired statistical test on two matched samples.</span>
 
 <span class="sd">    Parameters:</span>
 <span class="sd">        a (array-like): First sample (1-D).</span>
 <span class="sd">        b (array-like): Second sample (1-D, same length as *a*).</span>
-<span class="sd">        test (str): ``&quot;wilcoxon&quot;`` (default) for the Wilcoxon signed-rank</span>
-<span class="sd">            test, or ``&quot;paired_t&quot;`` for a paired Student&#39;s t-test.</span>
-<span class="sd">        alternative (str): ``&quot;two-sided&quot;`` (default), ``&quot;less&quot;``, or</span>
-<span class="sd">            ``&quot;greater&quot;``. Passed directly to the underlying scipy test.</span>
+<span class="sd">        test (str): ``"wilcoxon"`` (default) for the Wilcoxon signed-rank</span>
+<span class="sd">            test, or ``"paired_t"`` for a paired Student's t-test.</span>
+<span class="sd">        alternative (str): ``"two-sided"`` (default), ``"less"``, or</span>
+<span class="sd">            ``"greater"``. Passed directly to the underlying scipy test.</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        result (dict): Dictionary with keys:</span>
@@ -741,19 +741,19 @@
 <span class="sd">        - NaN pairs (where either *a* or *b* is NaN) are dropped</span>
 <span class="sd">          automatically.</span>
 <span class="sd">        - Requires ``scipy`` (optional dependency).</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">scipy</span><span class="w"> </span><span class="kn">import</span> <span class="n">stats</span> <span class="k">as</span> <span class="n">sp_stats</span>
     <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
-            <span class="s2">&quot;paired_test requires &#39;scipy&#39;. Install with: pip install scipy&quot;</span>
+            <span class="s2">"paired_test requires 'scipy'. Install with: pip install scipy"</span>
         <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
 
     <span class="n">a</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
     <span class="n">b</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;a and b must have the same length, got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="sa">f</span><span class="s2">"a and b must have the same length, got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="p">)</span><span class="si">}</span><span class="s2">."</span>
         <span class="p">)</span>
 
     <span class="n">valid</span> <span class="o">=</span> <span class="o">~</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">b</span><span class="p">))</span>
@@ -761,16 +761,16 @@
     <span class="n">b</span> <span class="o">=</span> <span class="n">b</span><span class="p">[</span><span class="n">valid</span><span class="p">]</span>
 
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No valid (non-NaN) pairs to test.&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"No valid (non-NaN) pairs to test."</span><span class="p">)</span>
 
-    <span class="k">if</span> <span class="n">test</span> <span class="o">==</span> <span class="s2">&quot;wilcoxon&quot;</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">test</span> <span class="o">==</span> <span class="s2">"wilcoxon"</span><span class="p">:</span>
         <span class="n">stat</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="n">sp_stats</span><span class="o">.</span><span class="n">wilcoxon</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">alternative</span><span class="o">=</span><span class="n">alternative</span><span class="p">)</span>
-    <span class="k">elif</span> <span class="n">test</span> <span class="o">==</span> <span class="s2">&quot;paired_t&quot;</span><span class="p">:</span>
+    <span class="k">elif</span> <span class="n">test</span> <span class="o">==</span> <span class="s2">"paired_t"</span><span class="p">:</span>
         <span class="n">stat</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="n">sp_stats</span><span class="o">.</span><span class="n">ttest_rel</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">alternative</span><span class="o">=</span><span class="n">alternative</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown test &#39;</span><span class="si">{</span><span class="n">test</span><span class="si">}</span><span class="s2">&#39;. Use &#39;wilcoxon&#39; or &#39;paired_t&#39;.&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unknown test '</span><span class="si">{</span><span class="n">test</span><span class="si">}</span><span class="s2">'. Use 'wilcoxon' or 'paired_t'."</span><span class="p">)</span>
 
-    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;statistic&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">stat</span><span class="p">),</span> <span class="s2">&quot;p_value&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">p</span><span class="p">),</span> <span class="s2">&quot;n&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)}</span></div>
+    <span class="k">return</span> <span class="p">{</span><span class="s2">"statistic"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">stat</span><span class="p">),</span> <span class="s2">"p_value"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">p</span><span class="p">),</span> <span class="s2">"n"</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)}</span></div>
 
 
 
@@ -782,10 +782,10 @@
     <span class="n">random_effect</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
     <span class="n">formula</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-    <span class="n">response_label</span><span class="o">=</span><span class="s2">&quot;value&quot;</span><span class="p">,</span>
+    <span class="n">response_label</span><span class="o">=</span><span class="s2">"value"</span><span class="p">,</span>
     <span class="n">alpha</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span>
 <span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Fit a linear mixed-effects model with one random intercept.</span>
+<span class="w">    </span><span class="sd">"""Fit a linear mixed-effects model with one random intercept.</span>
 
 <span class="sd">    Wraps ``statsmodels.regression.mixed_linear_model.MixedLM``. Typical use:</span>
 <span class="sd">    compare a per-observation metric across treatments while accounting for</span>
@@ -803,12 +803,12 @@
 <span class="sd">            observation) used as the random intercept group.</span>
 <span class="sd">        formula (str or None): Patsy formula for the fixed-effects part.</span>
 <span class="sd">            When None (default), an additive formula</span>
-<span class="sd">            ``&quot;&lt;response_label&gt; ~ k1 + k2 + ...&quot;`` is built from the</span>
+<span class="sd">            ``"&lt;response_label&gt; ~ k1 + k2 + ..."`` is built from the</span>
 <span class="sd">            keys of *fixed_effects*. Provide an explicit formula for</span>
-<span class="sd">            interactions (e.g. ``&quot;value ~ treatment * latency&quot;``).</span>
+<span class="sd">            interactions (e.g. ``"value ~ treatment * latency"``).</span>
 <span class="sd">        response_label (str): Name used for the response column in the</span>
 <span class="sd">            constructed DataFrame and in the auto-built formula</span>
-<span class="sd">            (default ``&quot;value&quot;``).</span>
+<span class="sd">            (default ``"value"``).</span>
 <span class="sd">        alpha (float): Significance threshold applied to coefficient</span>
 <span class="sd">            p-values when building the ``significant`` flags. Default 0.05.</span>
 
@@ -819,7 +819,7 @@
 <span class="sd">            - ``pvalues`` (dict[str, float]): Two-sided p-values per term.</span>
 <span class="sd">            - ``conf_int`` (dict[str, tuple[float, float]]): Confidence</span>
 <span class="sd">              intervals per term (using *alpha*).</span>
-<span class="sd">            - ``significant`` (dict[str, bool]): True where the term&#39;s</span>
+<span class="sd">            - ``significant`` (dict[str, bool]): True where the term's</span>
 <span class="sd">              p-value is below *alpha*.</span>
 <span class="sd">            - ``random_effect_variance`` (float): Estimated variance of</span>
 <span class="sd">              the random intercept.</span>
@@ -836,32 +836,32 @@
 <span class="sd">        - NaN observations (in *values*, any fixed effect, or the random</span>
 <span class="sd">          effect column) are dropped before fitting.</span>
 <span class="sd">        - Tries the lbfgs, powell, and bfgs optimizers in turn; near-</span>
-<span class="sd">          singular designs commonly break lbfgs&#39; gradient path.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">          singular designs commonly break lbfgs' gradient path.</span>
+<span class="sd">    """</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
     <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
-            <span class="s2">&quot;mixed_effects_compare requires &#39;pandas&#39;. &quot;</span>
-            <span class="s2">&quot;Install with: pip install pandas&quot;</span>
+            <span class="s2">"mixed_effects_compare requires 'pandas'. "</span>
+            <span class="s2">"Install with: pip install pandas"</span>
         <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
 
     <span class="k">try</span><span class="p">:</span>
         <span class="kn">import</span><span class="w"> </span><span class="nn">statsmodels.formula.api</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">smf</span>
     <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
-            <span class="s2">&quot;mixed_effects_compare requires &#39;statsmodels&#39;. &quot;</span>
-            <span class="s2">&quot;Install with: pip install statsmodels&quot;</span>
+            <span class="s2">"mixed_effects_compare requires 'statsmodels'. "</span>
+            <span class="s2">"Install with: pip install statsmodels"</span>
         <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
 
     <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">values</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
     <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;values must not be empty.&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"values must not be empty."</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fixed_effects</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">fixed_effects</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="s2">&quot;fixed_effects must be a non-empty dict mapping name -&gt; array.&quot;</span>
+            <span class="s2">"fixed_effects must be a non-empty dict mapping name -&gt; array."</span>
         <span class="p">)</span>
 
     <span class="n">columns</span> <span class="o">=</span> <span class="p">{</span><span class="n">response_label</span><span class="p">:</span> <span class="n">values</span><span class="p">}</span>
@@ -869,35 +869,35 @@
         <span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span> <span class="o">!=</span> <span class="n">n</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;fixed_effects[</span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2">] has length </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span><span class="si">}</span><span class="s2"> but values has </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">.&quot;</span>
+                <span class="sa">f</span><span class="s2">"fixed_effects[</span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2">] has length </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span><span class="si">}</span><span class="s2"> but values has </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">."</span>
             <span class="p">)</span>
         <span class="n">columns</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">arr</span>
 
     <span class="n">random_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">random_effect</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">random_arr</span><span class="p">)</span> <span class="o">!=</span> <span class="n">n</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;random_effect has length </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">random_arr</span><span class="p">)</span><span class="si">}</span><span class="s2"> but values has </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="sa">f</span><span class="s2">"random_effect has length </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">random_arr</span><span class="p">)</span><span class="si">}</span><span class="s2"> but values has </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">."</span>
         <span class="p">)</span>
-    <span class="n">columns</span><span class="p">[</span><span class="s2">&quot;_random_group&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">random_arr</span>
+    <span class="n">columns</span><span class="p">[</span><span class="s2">"_random_group"</span><span class="p">]</span> <span class="o">=</span> <span class="n">random_arr</span>
 
     <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">columns</span><span class="p">)</span>
     <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">dropna</span><span class="p">()</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="s2">&quot;Need at least 2 valid (non-NaN) observations after dropping NaNs.&quot;</span>
+            <span class="s2">"Need at least 2 valid (non-NaN) observations after dropping NaNs."</span>
         <span class="p">)</span>
-    <span class="k">if</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;_random_group&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">nunique</span><span class="p">()</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">df</span><span class="p">[</span><span class="s2">"_random_group"</span><span class="p">]</span><span class="o">.</span><span class="n">nunique</span><span class="p">()</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="s2">&quot;Need at least 2 distinct random-effect levels to fit a mixed model.&quot;</span>
+            <span class="s2">"Need at least 2 distinct random-effect levels to fit a mixed model."</span>
         <span class="p">)</span>
 
     <span class="k">if</span> <span class="n">formula</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">formula</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">response_label</span><span class="si">}</span><span class="s2"> ~ &quot;</span> <span class="o">+</span> <span class="s2">&quot; + &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">fixed_effects</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="n">formula</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">response_label</span><span class="si">}</span><span class="s2"> ~ "</span> <span class="o">+</span> <span class="s2">" + "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">fixed_effects</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
 
-    <span class="n">model</span> <span class="o">=</span> <span class="n">smf</span><span class="o">.</span><span class="n">mixedlm</span><span class="p">(</span><span class="n">formula</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">df</span><span class="p">,</span> <span class="n">groups</span><span class="o">=</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;_random_group&quot;</span><span class="p">])</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">smf</span><span class="o">.</span><span class="n">mixedlm</span><span class="p">(</span><span class="n">formula</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">df</span><span class="p">,</span> <span class="n">groups</span><span class="o">=</span><span class="n">df</span><span class="p">[</span><span class="s2">"_random_group"</span><span class="p">])</span>
     <span class="n">fit</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">last_err</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="k">for</span> <span class="n">method</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;lbfgs&quot;</span><span class="p">,</span> <span class="s2">&quot;powell&quot;</span><span class="p">,</span> <span class="s2">&quot;bfgs&quot;</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">method</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"lbfgs"</span><span class="p">,</span> <span class="s2">"powell"</span><span class="p">,</span> <span class="s2">"bfgs"</span><span class="p">):</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">fit</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">method</span><span class="o">=</span><span class="n">method</span><span class="p">)</span>
             <span class="k">break</span>
@@ -906,39 +906,39 @@
             <span class="k">continue</span>
     <span class="k">if</span> <span class="n">fit</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-            <span class="s2">&quot;MixedLM failed to converge with any optimizer &quot;</span>
-            <span class="s2">&quot;(tried lbfgs, powell, bfgs). The design may be near-singular — &quot;</span>
-            <span class="s2">&quot;check that fixed effects are not collinear and that random-effect &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;groups have enough observations. Last error: </span><span class="si">{</span><span class="n">last_err</span><span class="si">!r}</span><span class="s2">&quot;</span>
+            <span class="s2">"MixedLM failed to converge with any optimizer "</span>
+            <span class="s2">"(tried lbfgs, powell, bfgs). The design may be near-singular — "</span>
+            <span class="s2">"check that fixed effects are not collinear and that random-effect "</span>
+            <span class="sa">f</span><span class="s2">"groups have enough observations. Last error: </span><span class="si">{</span><span class="n">last_err</span><span class="si">!r}</span><span class="s2">"</span>
         <span class="p">)</span>
 
-    <span class="n">params</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">fit</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span> <span class="o">!=</span> <span class="s2">&quot;Group Var&quot;</span><span class="p">}</span>
-    <span class="n">pvalues</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">fit</span><span class="o">.</span><span class="n">pvalues</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span> <span class="o">!=</span> <span class="s2">&quot;Group Var&quot;</span><span class="p">}</span>
+    <span class="n">params</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">fit</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span> <span class="o">!=</span> <span class="s2">"Group Var"</span><span class="p">}</span>
+    <span class="n">pvalues</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">fit</span><span class="o">.</span><span class="n">pvalues</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span> <span class="o">!=</span> <span class="s2">"Group Var"</span><span class="p">}</span>
     <span class="n">ci_df</span> <span class="o">=</span> <span class="n">fit</span><span class="o">.</span><span class="n">conf_int</span><span class="p">(</span><span class="n">alpha</span><span class="o">=</span><span class="n">alpha</span><span class="p">)</span>
     <span class="n">conf_int</span> <span class="o">=</span> <span class="p">{</span>
         <span class="n">k</span><span class="p">:</span> <span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">float</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
         <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">ci_df</span><span class="o">.</span><span class="n">iterrows</span><span class="p">()</span>
-        <span class="k">if</span> <span class="n">k</span> <span class="o">!=</span> <span class="s2">&quot;Group Var&quot;</span>
+        <span class="k">if</span> <span class="n">k</span> <span class="o">!=</span> <span class="s2">"Group Var"</span>
     <span class="p">}</span>
     <span class="n">significant</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="nb">bool</span><span class="p">(</span><span class="n">p</span> <span class="o">&lt;</span> <span class="n">alpha</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">pvalues</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
 
     <span class="n">re_variance</span> <span class="o">=</span> <span class="p">(</span>
         <span class="nb">float</span><span class="p">(</span><span class="n">fit</span><span class="o">.</span><span class="n">cov_re</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
-        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">fit</span><span class="o">.</span><span class="n">cov_re</span><span class="p">,</span> <span class="s2">&quot;iloc&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">fit</span><span class="o">.</span><span class="n">cov_re</span><span class="p">,</span> <span class="s2">"iloc"</span><span class="p">)</span>
         <span class="k">else</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">fit</span><span class="o">.</span><span class="n">cov_re</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()[</span><span class="mi">0</span><span class="p">])</span>
     <span class="p">)</span>
 
     <span class="k">return</span> <span class="p">{</span>
-        <span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="n">params</span><span class="p">,</span>
-        <span class="s2">&quot;pvalues&quot;</span><span class="p">:</span> <span class="n">pvalues</span><span class="p">,</span>
-        <span class="s2">&quot;conf_int&quot;</span><span class="p">:</span> <span class="n">conf_int</span><span class="p">,</span>
-        <span class="s2">&quot;significant&quot;</span><span class="p">:</span> <span class="n">significant</span><span class="p">,</span>
-        <span class="s2">&quot;random_effect_variance&quot;</span><span class="p">:</span> <span class="n">re_variance</span><span class="p">,</span>
-        <span class="s2">&quot;n_obs&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)),</span>
-        <span class="s2">&quot;n_groups&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;_random_group&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">nunique</span><span class="p">()),</span>
-        <span class="s2">&quot;converged&quot;</span><span class="p">:</span> <span class="nb">bool</span><span class="p">(</span><span class="n">fit</span><span class="o">.</span><span class="n">converged</span><span class="p">),</span>
-        <span class="s2">&quot;summary&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">fit</span><span class="o">.</span><span class="n">summary</span><span class="p">()),</span>
-        <span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="n">fit</span><span class="p">,</span>
+        <span class="s2">"params"</span><span class="p">:</span> <span class="n">params</span><span class="p">,</span>
+        <span class="s2">"pvalues"</span><span class="p">:</span> <span class="n">pvalues</span><span class="p">,</span>
+        <span class="s2">"conf_int"</span><span class="p">:</span> <span class="n">conf_int</span><span class="p">,</span>
+        <span class="s2">"significant"</span><span class="p">:</span> <span class="n">significant</span><span class="p">,</span>
+        <span class="s2">"random_effect_variance"</span><span class="p">:</span> <span class="n">re_variance</span><span class="p">,</span>
+        <span class="s2">"n_obs"</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)),</span>
+        <span class="s2">"n_groups"</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">"_random_group"</span><span class="p">]</span><span class="o">.</span><span class="n">nunique</span><span class="p">()),</span>
+        <span class="s2">"converged"</span><span class="p">:</span> <span class="nb">bool</span><span class="p">(</span><span class="n">fit</span><span class="o">.</span><span class="n">converged</span><span class="p">),</span>
+        <span class="s2">"summary"</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">fit</span><span class="o">.</span><span class="n">summary</span><span class="p">()),</span>
+        <span class="s2">"model"</span><span class="p">:</span> <span class="n">fit</span><span class="p">,</span>
     <span class="p">}</span></div>
 
 
@@ -947,22 +947,22 @@
 <a class="viewcode-back" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.omnibus_test">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">omnibus_test</span><span class="p">(</span>
     <span class="n">groups</span><span class="p">,</span>
-    <span class="n">test</span><span class="o">=</span><span class="s2">&quot;anova&quot;</span><span class="p">,</span>
-    <span class="n">posthoc</span><span class="o">=</span><span class="s2">&quot;tukey&quot;</span><span class="p">,</span>
+    <span class="n">test</span><span class="o">=</span><span class="s2">"anova"</span><span class="p">,</span>
+    <span class="n">posthoc</span><span class="o">=</span><span class="s2">"tukey"</span><span class="p">,</span>
     <span class="n">labels</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
 <span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Run an omnibus test across groups with optional post-hoc comparisons.</span>
+<span class="w">    </span><span class="sd">"""Run an omnibus test across groups with optional post-hoc comparisons.</span>
 
 <span class="sd">    Parameters:</span>
 <span class="sd">        groups (dict[str, array-like] or list[array-like]): Per-group data.</span>
 <span class="sd">            Dict keys are used as labels; for list input supply *labels*</span>
 <span class="sd">            separately.</span>
-<span class="sd">        test (str): ``&quot;anova&quot;`` (default) for one-way ANOVA</span>
-<span class="sd">            (``scipy.stats.f_oneway``), or ``&quot;kruskal&quot;`` for the</span>
+<span class="sd">        test (str): ``"anova"`` (default) for one-way ANOVA</span>
+<span class="sd">            (``scipy.stats.f_oneway``), or ``"kruskal"`` for the</span>
 <span class="sd">            Kruskal-Wallis H test.</span>
 <span class="sd">        posthoc (str or None): Post-hoc test to run when the omnibus test is</span>
-<span class="sd">            significant. ``&quot;tukey&quot;`` (default) for Tukey HSD,</span>
-<span class="sd">            ``&quot;none&quot;``/``None`` to skip post-hoc comparisons.</span>
+<span class="sd">            significant. ``"tukey"`` (default) for Tukey HSD,</span>
+<span class="sd">            ``"none"``/``None`` to skip post-hoc comparisons.</span>
 <span class="sd">        labels (list[str] or None): Group labels for list input. Ignored for</span>
 <span class="sd">            dict input (keys are used).</span>
 
@@ -976,18 +976,18 @@
 <span class="sd">            - ``labels`` (list[str]): Ordered group labels.</span>
 <span class="sd">            - ``posthoc`` (list[dict] or None): Post-hoc comparison results</span>
 <span class="sd">              when *posthoc* is not None. Each dict contains:</span>
-<span class="sd">              ``&quot;group_a&quot;``, ``&quot;group_b&quot;``, ``&quot;p_value&quot;``, ``&quot;significant&quot;``</span>
+<span class="sd">              ``"group_a"``, ``"group_b"``, ``"p_value"``, ``"significant"``</span>
 <span class="sd">              (at alpha=0.05).</span>
 
 <span class="sd">    Notes:</span>
 <span class="sd">        - NaN values are stripped from each group before testing.</span>
 <span class="sd">        - Requires ``scipy`` (optional dependency).</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">scipy</span><span class="w"> </span><span class="kn">import</span> <span class="n">stats</span> <span class="k">as</span> <span class="n">sp_stats</span>
     <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
-            <span class="s2">&quot;omnibus_test requires &#39;scipy&#39;. Install with: pip install scipy&quot;</span>
+            <span class="s2">"omnibus_test requires 'scipy'. Install with: pip install scipy"</span>
         <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
 
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">groups</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
@@ -1002,26 +1002,26 @@
     <span class="n">data</span> <span class="o">=</span> <span class="p">[</span><span class="n">d</span><span class="p">[</span><span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">d</span><span class="p">)]</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">data</span><span class="p">]</span>
     <span class="n">K</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">K</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Need at least 2 groups for an omnibus test.&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Need at least 2 groups for an omnibus test."</span><span class="p">)</span>
 
-    <span class="k">if</span> <span class="n">test</span> <span class="o">==</span> <span class="s2">&quot;anova&quot;</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">test</span> <span class="o">==</span> <span class="s2">"anova"</span><span class="p">:</span>
         <span class="n">stat</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="n">sp_stats</span><span class="o">.</span><span class="n">f_oneway</span><span class="p">(</span><span class="o">*</span><span class="n">data</span><span class="p">)</span>
-    <span class="k">elif</span> <span class="n">test</span> <span class="o">==</span> <span class="s2">&quot;kruskal&quot;</span><span class="p">:</span>
+    <span class="k">elif</span> <span class="n">test</span> <span class="o">==</span> <span class="s2">"kruskal"</span><span class="p">:</span>
         <span class="n">stat</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="n">sp_stats</span><span class="o">.</span><span class="n">kruskal</span><span class="p">(</span><span class="o">*</span><span class="n">data</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown test &#39;</span><span class="si">{</span><span class="n">test</span><span class="si">}</span><span class="s2">&#39;. Use &#39;anova&#39; or &#39;kruskal&#39;.&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unknown test '</span><span class="si">{</span><span class="n">test</span><span class="si">}</span><span class="s2">'. Use 'anova' or 'kruskal'."</span><span class="p">)</span>
 
     <span class="n">result</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="s2">&quot;statistic&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">stat</span><span class="p">),</span>
-        <span class="s2">&quot;p_value&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">p</span><span class="p">),</span>
-        <span class="s2">&quot;n_groups&quot;</span><span class="p">:</span> <span class="n">K</span><span class="p">,</span>
-        <span class="s2">&quot;group_ns&quot;</span><span class="p">:</span> <span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">data</span><span class="p">],</span>
-        <span class="s2">&quot;labels&quot;</span><span class="p">:</span> <span class="n">ordered_labels</span><span class="p">,</span>
-        <span class="s2">&quot;posthoc&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="s2">"statistic"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">stat</span><span class="p">),</span>
+        <span class="s2">"p_value"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">p</span><span class="p">),</span>
+        <span class="s2">"n_groups"</span><span class="p">:</span> <span class="n">K</span><span class="p">,</span>
+        <span class="s2">"group_ns"</span><span class="p">:</span> <span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">data</span><span class="p">],</span>
+        <span class="s2">"labels"</span><span class="p">:</span> <span class="n">ordered_labels</span><span class="p">,</span>
+        <span class="s2">"posthoc"</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">}</span>
 
-    <span class="k">if</span> <span class="n">posthoc</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">posthoc</span> <span class="o">!=</span> <span class="s2">&quot;none&quot;</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">posthoc</span> <span class="o">==</span> <span class="s2">&quot;tukey&quot;</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">posthoc</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">posthoc</span> <span class="o">!=</span> <span class="s2">"none"</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">posthoc</span> <span class="o">==</span> <span class="s2">"tukey"</span><span class="p">:</span>
             <span class="n">tukey</span> <span class="o">=</span> <span class="n">sp_stats</span><span class="o">.</span><span class="n">tukey_hsd</span><span class="p">(</span><span class="o">*</span><span class="n">data</span><span class="p">)</span>
             <span class="n">posthoc_results</span> <span class="o">=</span> <span class="p">[]</span>
             <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">K</span><span class="p">):</span>
@@ -1029,15 +1029,15 @@
                     <span class="n">pv</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">tukey</span><span class="o">.</span><span class="n">pvalue</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">])</span>
                     <span class="n">posthoc_results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
                         <span class="p">{</span>
-                            <span class="s2">&quot;group_a&quot;</span><span class="p">:</span> <span class="n">ordered_labels</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
-                            <span class="s2">&quot;group_b&quot;</span><span class="p">:</span> <span class="n">ordered_labels</span><span class="p">[</span><span class="n">j</span><span class="p">],</span>
-                            <span class="s2">&quot;p_value&quot;</span><span class="p">:</span> <span class="n">pv</span><span class="p">,</span>
-                            <span class="s2">&quot;significant&quot;</span><span class="p">:</span> <span class="n">pv</span> <span class="o">&lt;</span> <span class="mf">0.05</span><span class="p">,</span>
+                            <span class="s2">"group_a"</span><span class="p">:</span> <span class="n">ordered_labels</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+                            <span class="s2">"group_b"</span><span class="p">:</span> <span class="n">ordered_labels</span><span class="p">[</span><span class="n">j</span><span class="p">],</span>
+                            <span class="s2">"p_value"</span><span class="p">:</span> <span class="n">pv</span><span class="p">,</span>
+                            <span class="s2">"significant"</span><span class="p">:</span> <span class="n">pv</span> <span class="o">&lt;</span> <span class="mf">0.05</span><span class="p">,</span>
                         <span class="p">}</span>
                     <span class="p">)</span>
-            <span class="n">result</span><span class="p">[</span><span class="s2">&quot;posthoc&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">posthoc_results</span>
+            <span class="n">result</span><span class="p">[</span><span class="s2">"posthoc"</span><span class="p">]</span> <span class="o">=</span> <span class="n">posthoc_results</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown posthoc &#39;</span><span class="si">{</span><span class="n">posthoc</span><span class="si">}</span><span class="s2">&#39;. Use &#39;tukey&#39; or None.&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unknown posthoc '</span><span class="si">{</span><span class="n">posthoc</span><span class="si">}</span><span class="s2">'. Use 'tukey' or None."</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">result</span></div>
 

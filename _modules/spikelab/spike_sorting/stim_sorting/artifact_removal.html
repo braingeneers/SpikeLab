@@ -5,14 +5,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>spikelab.spike_sorting.stim_sorting.artifact_removal &mdash; SpikeLab 0.1.1 documentation</title>
+  <title>spikelab.spike_sorting.stim_sorting.artifact_removal &mdash; SpikeLab 0.1.2 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../../../_static/documentation_options.js?v=a58bc63e"></script>
+      <script src="../../../../_static/documentation_options.js?v=92734c54"></script>
       <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
       <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/js/theme.js"></script>
@@ -492,13 +492,13 @@
            <div itemprop="articleBody">
              
   <h1>Source code for spikelab.spike_sorting.stim_sorting.artifact_removal</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;Stimulation artifact removal for offline electrophysiology recordings.</span>
+<span></span><span class="sd">"""Stimulation artifact removal for offline electrophysiology recordings.</span>
 
 <span class="sd">Removes electrical stimulation artifacts from multi-electrode array</span>
 <span class="sd">(MEA) recordings while preserving neural spikes.  Two methods are</span>
 <span class="sd">provided:</span>
 
-<span class="sd">``&quot;polynomial&quot;`` (default)</span>
+<span class="sd">``"polynomial"`` (default)</span>
 <span class="sd">    Per-event, per-channel low-order polynomial detrend.  A polynomial</span>
 <span class="sd">    (default cubic) is fit to the non-saturated samples in the artifact</span>
 <span class="sd">    tail — after the electrode desaturates — and subtracted.  Because</span>
@@ -506,7 +506,7 @@
 <span class="sd">    (~0.5-1 ms), spikes riding on the artifact tail are preserved in</span>
 <span class="sd">    the residual.  Saturated samples are blanked (set to zero).</span>
 
-<span class="sd">``&quot;blank&quot;``</span>
+<span class="sd">``"blank"``</span>
 <span class="sd">    Simply zeros out the entire artifact window.  Crude but useful as</span>
 <span class="sd">    a quick sanity check or when the artifact is too variable for a</span>
 <span class="sd">    good polynomial fit.</span>
@@ -523,7 +523,7 @@
 <span class="sd">for real-time operation.  This module is designed for offline use, so it</span>
 <span class="sd">instead looks ahead past saturation and fits the polynomial to the</span>
 <span class="sd">actual post-saturation recovery curve, yielding a more accurate fit</span>
-<span class="sd">without the extrapolation drift inherent in SALPA&#39;s forward prediction.</span>
+<span class="sd">without the extrapolation drift inherent in SALPA's forward prediction.</span>
 
 <span class="sd">Sequential stimulation handling</span>
 <span class="sd">    When multiple stim events occur in rapid succession (e.g. burst or</span>
@@ -533,7 +533,7 @@
 <span class="sd">    desaturation.  If re-saturation occurs before baseline is reached,</span>
 <span class="sd">    the blanking region is extended and the polynomial fit is deferred</span>
 <span class="sd">    until after the final stim in the burst.</span>
-<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">"""</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
 
@@ -541,7 +541,7 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_auto_saturation_threshold</span><span class="p">(</span><span class="n">traces</span><span class="p">,</span> <span class="n">quantile</span><span class="o">=</span><span class="mf">0.999</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Estimate a saturation threshold from the trace amplitude distribution.</span>
+<span class="w">    </span><span class="sd">"""Estimate a saturation threshold from the trace amplitude distribution.</span>
 
 <span class="sd">    Uses a high quantile of the absolute voltage distribution as the</span>
 <span class="sd">    threshold.  Recordings with genuine saturation will have a hard</span>
@@ -553,16 +553,16 @@
 
 <span class="sd">    Returns:</span>
 <span class="sd">        threshold (float): Absolute voltage threshold.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">quantile</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">traces</span><span class="p">),</span> <span class="n">quantile</span><span class="p">))</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_saturation_threshold_from_recording</span><span class="p">(</span>
     <span class="n">recording</span><span class="p">,</span> <span class="n">traces</span><span class="p">,</span> <span class="n">frac</span><span class="o">=</span><span class="mf">0.95</span><span class="p">,</span> <span class="n">min_clip_samples</span><span class="o">=</span><span class="mi">10</span>
 <span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Derive a saturation threshold (µV) from gain metadata + observed extremes.</span>
+<span class="w">    </span><span class="sd">"""Derive a saturation threshold (µV) from gain metadata + observed extremes.</span>
 
-<span class="sd">    Returns ``+inf`` (i.e. &quot;do not blank anything&quot;) when the recording</span>
+<span class="sd">    Returns ``+inf`` (i.e. "do not blank anything") when the recording</span>
 <span class="sd">    shows no evidence of ADC clipping.  Otherwise returns</span>
 <span class="sd">    ``frac * round(max_uV / gain_uV_per_bit) * gain_uV_per_bit`` — the</span>
 <span class="sd">    observed rail rounded to a whole number of raw ADC bits and pulled</span>
@@ -573,12 +573,12 @@
 <span class="sd">    large spike produces exactly one sample at the maximum.  We count</span>
 <span class="sd">    samples within one raw bit of ``max(|traces|)``; if fewer than</span>
 <span class="sd">    ``min_clip_samples``, we treat the recording as unsaturated and</span>
-<span class="sd">    return ``+inf``.  This means &quot;blank only completely saturated</span>
-<span class="sd">    electrodes&quot; semantics: high-amplitude artifacts that didn&#39;t reach</span>
+<span class="sd">    return ``+inf``.  This means "blank only completely saturated</span>
+<span class="sd">    electrodes" semantics: high-amplitude artifacts that didn't reach</span>
 <span class="sd">    the rail are left intact for the polynomial detrend.</span>
 
 <span class="sd">    Why use the gain at all (vs. raw ``frac * max(|traces|)``):</span>
-<span class="sd">      * Read from the recording&#39;s ``get_channel_gains()``, which on a</span>
+<span class="sd">      * Read from the recording's ``get_channel_gains()``, which on a</span>
 <span class="sd">        SpikeInterface chain is propagated from the underlying integer</span>
 <span class="sd">        extractor (e.g. ``MaxwellRecordingExtractor``).</span>
 <span class="sd">      * Rounding the observed max to a whole number of raw bits anchors</span>
@@ -586,7 +586,7 @@
 <span class="sd">        floating-point artefact of preprocessing arithmetic — two</span>
 <span class="sd">        recordings of the same probe at the same gain settings produce</span>
 <span class="sd">        the same threshold.</span>
-<span class="sd">      * The &quot;within one raw bit of max&quot; tolerance for the clip-detection</span>
+<span class="sd">      * The "within one raw bit of max" tolerance for the clip-detection</span>
 <span class="sd">        count is also gain-anchored, not arbitrary.</span>
 
 <span class="sd">    Parameters:</span>
@@ -608,7 +608,7 @@
 <span class="sd">    Returns:</span>
 <span class="sd">        threshold (float, µV) — finite if saturation detected, ``+inf``</span>
 <span class="sd">        if not.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">abs_traces</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">traces</span><span class="p">)</span>
     <span class="n">observed_max_uV</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">abs_traces</span><span class="p">))</span>
 
@@ -627,20 +627,20 @@
     <span class="c1"># spike is just one sample.</span>
     <span class="n">n_at_rail</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">abs_traces</span> <span class="o">&gt;=</span> <span class="n">observed_max_uV</span> <span class="o">-</span> <span class="n">gain_uV_per_bit</span><span class="p">))</span>
     <span class="k">if</span> <span class="n">n_at_rail</span> <span class="o">&lt;</span> <span class="n">min_clip_samples</span><span class="p">:</span>
-        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="s2">"inf"</span><span class="p">)</span>
 
     <span class="n">observed_rail_bits</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">observed_max_uV</span> <span class="o">/</span> <span class="n">gain_uV_per_bit</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">frac</span> <span class="o">*</span> <span class="n">observed_rail_bits</span> <span class="o">*</span> <span class="n">gain_uV_per_bit</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_auto_baseline_threshold</span><span class="p">(</span><span class="n">traces</span><span class="p">,</span> <span class="n">stim_times_ms</span><span class="p">,</span> <span class="n">fs_Hz</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mf">5.0</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Estimate a baseline envelope threshold from pre-stim signal.</span>
+<span class="w">    </span><span class="sd">"""Estimate a baseline envelope threshold from pre-stim signal.</span>
 
 <span class="sd">    Computes the median absolute deviation (MAD) of the signal in the</span>
 <span class="sd">    2 ms window before the first stim event (or the first 2 ms of the</span>
-<span class="sd">    recording if there&#39;s no pre-stim data), then returns</span>
-<span class="sd">    ``median + k * MAD`` as the threshold for &quot;signal has returned to</span>
-<span class="sd">    baseline-like levels.&quot;</span>
+<span class="sd">    recording if there's no pre-stim data), then returns</span>
+<span class="sd">    ``median + k * MAD`` as the threshold for "signal has returned to</span>
+<span class="sd">    baseline-like levels."</span>
 
 <span class="sd">    Parameters:</span>
 <span class="sd">        traces (np.ndarray): ``(channels, samples)``.</span>
@@ -650,7 +650,7 @@
 
 <span class="sd">    Returns:</span>
 <span class="sd">        threshold (float): Baseline envelope threshold (absolute).</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">baseline_ms</span> <span class="o">=</span> <span class="mf">2.0</span>
     <span class="n">baseline_samples</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">baseline_ms</span> <span class="o">*</span> <span class="n">fs_Hz</span> <span class="o">/</span> <span class="mf">1000.0</span><span class="p">)))</span>
 
@@ -672,7 +672,7 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_find_saturation_end</span><span class="p">(</span><span class="n">channel_trace</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">saturation_threshold</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Find the first sample after *start* where the signal desaturates.</span>
+<span class="w">    </span><span class="sd">"""Find the first sample after *start* where the signal desaturates.</span>
 
 <span class="sd">    Parameters:</span>
 <span class="sd">        channel_trace (np.ndarray): 1-D voltage trace for one channel.</span>
@@ -684,7 +684,7 @@
 <span class="sd">        end (int): First sample index where</span>
 <span class="sd">            ``|voltage| &lt; saturation_threshold``, or ``n_samples`` if</span>
 <span class="sd">            the signal never desaturates.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">idx</span> <span class="o">=</span> <span class="n">start</span>
     <span class="k">while</span> <span class="n">idx</span> <span class="o">&lt;</span> <span class="n">n_samples</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">channel_trace</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span> <span class="o">&gt;=</span> <span class="n">saturation_threshold</span><span class="p">:</span>
         <span class="n">idx</span> <span class="o">+=</span> <span class="mi">1</span>
@@ -692,15 +692,15 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_find_saturation_end_from_mask</span><span class="p">(</span><span class="n">mask_ch</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Variant of ``_find_saturation_end`` driven by a pre-computed</span>
+<span class="w">    </span><span class="sd">"""Variant of ``_find_saturation_end`` driven by a pre-computed</span>
 <span class="sd">    clip mask rather than an amplitude threshold.</span>
 
 <span class="sd">    When the caller has raw (pre-filter) traces available, it is more</span>
 <span class="sd">    correct to identify saturated samples from the raw signal and pass</span>
 <span class="sd">    a boolean mask here — bandpass filtering of a stim artifact</span>
 <span class="sd">    produces ringing whose amplitude can exceed the raw ADC rail even</span>
-<span class="sd">    on samples that weren&#39;t actually clipped.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    on samples that weren't actually clipped.</span>
+<span class="sd">    """</span>
     <span class="n">idx</span> <span class="o">=</span> <span class="n">start</span>
     <span class="k">while</span> <span class="n">idx</span> <span class="o">&lt;</span> <span class="n">n_samples</span> <span class="ow">and</span> <span class="n">mask_ch</span><span class="p">[</span><span class="n">idx</span><span class="p">]:</span>
         <span class="n">idx</span> <span class="o">+=</span> <span class="mi">1</span>
@@ -710,7 +710,7 @@
 <span class="k">def</span><span class="w"> </span><span class="nf">_signal_reached_baseline</span><span class="p">(</span>
     <span class="n">channel_trace</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">baseline_threshold</span><span class="p">,</span> <span class="n">window_samples</span><span class="p">,</span> <span class="n">n_samples</span>
 <span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Check whether the signal has returned to baseline-like levels.</span>
+<span class="w">    </span><span class="sd">"""Check whether the signal has returned to baseline-like levels.</span>
 
 <span class="sd">    The signal is considered at baseline when ``window_samples``</span>
 <span class="sd">    consecutive samples all have ``|voltage| &lt; baseline_threshold``.</span>
@@ -738,10 +738,10 @@
 <span class="sd">        prior sample-by-sample Python loop was ~18B operations</span>
 <span class="sd">        worst case — the convolve runs at numpy speed (100-1000×</span>
 <span class="sd">        faster on representative inputs).</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="c1"># Guard the trivial edge cases that the convolve path can&#39;t</span>
+<span class="sd">    """</span>
+    <span class="c1"># Guard the trivial edge cases that the convolve path can't</span>
     <span class="c1"># express cleanly. Pathological window_samples &lt;= 0 is treated</span>
-    <span class="c1"># as &quot;baseline already reached at ``start``&quot; — consistent with</span>
+    <span class="c1"># as "baseline already reached at ``start``" — consistent with</span>
     <span class="c1"># the original loop which would return True after zero</span>
     <span class="c1"># iterations of the consecutive counter.</span>
     <span class="k">if</span> <span class="n">window_samples</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
@@ -760,7 +760,7 @@
     <span class="n">sums</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">convolve</span><span class="p">(</span>
         <span class="n">below</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">),</span>
         <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">window_samples</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">),</span>
-        <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;valid&quot;</span><span class="p">,</span>
+        <span class="n">mode</span><span class="o">=</span><span class="s2">"valid"</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">hits</span> <span class="o">=</span> <span class="n">sums</span> <span class="o">==</span> <span class="n">window_samples</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">hits</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
@@ -782,7 +782,7 @@
     <span class="n">clamp_threshold</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">clamp_counter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
 <span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Fit a polynomial to ``channel_trace[lo:hi]`` (excluding blanked</span>
+<span class="w">    </span><span class="sd">"""Fit a polynomial to ``channel_trace[lo:hi]`` (excluding blanked</span>
 <span class="sd">    samples) and subtract it in-place.</span>
 
 <span class="sd">    If too few non-blanked samples remain to support the fit (e.g.</span>
@@ -798,7 +798,7 @@
 <span class="sd">    (e.g. extrapolating wildly across saturated tails at high stim</span>
 <span class="sd">    amplitudes), the segment is blanked instead of left in place, and</span>
 <span class="sd">    ``clamp_counter[0]`` is incremented for caller-side reporting.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">if</span> <span class="n">hi</span> <span class="o">&lt;=</span> <span class="n">lo</span><span class="p">:</span>
         <span class="k">return</span>
     <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">hi</span> <span class="o">-</span> <span class="n">lo</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
@@ -834,7 +834,7 @@
     <span class="n">clamp_threshold</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">clamp_counter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
 <span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Polynomial detrend for one stim group on one channel.</span>
+<span class="w">    </span><span class="sd">"""Polynomial detrend for one stim group on one channel.</span>
 
 <span class="sd">    Workflow per stim group:</span>
 <span class="sd">      1. Blank ``[group_start, last_desat)`` (any genuine ADC clip).</span>
@@ -856,7 +856,7 @@
 <span class="sd">              - Fit C: ``[pos_peak, fit_end]`` — decay back to</span>
 <span class="sd">                baseline (the original implementation).</span>
 <span class="sd">           This is the typical biphasic anodic-first case sorted with</span>
-<span class="sd">           ``peak_mode=&quot;down_edge&quot;``: the post-stim signal goes down,</span>
+<span class="sd">           ``peak_mode="down_edge"``: the post-stim signal goes down,</span>
 <span class="sd">           up through zero, may overshoot, and decays.</span>
 
 <span class="sd">         * **2-fit split** (descent + tail) when there is a descent</span>
@@ -864,16 +864,16 @@
 <span class="sd">              - Fit A: ``[fit_start, neg_peak]``</span>
 <span class="sd">              - Fit B+C: ``[neg_peak, fit_end]`` — single tail fit.</span>
 
-<span class="sd">         * **Single fit** when there&#39;s no descent (stim time is</span>
+<span class="sd">         * **Single fit** when there's no descent (stim time is</span>
 <span class="sd">           already at or essentially at the negative peak — e.g.</span>
-<span class="sd">           ``peak_mode=&quot;abs_max&quot;`` or ``&quot;neg_peak&quot;``):</span>
+<span class="sd">           ``peak_mode="abs_max"`` or ``"neg_peak"``):</span>
 <span class="sd">              - Fit C: ``[fit_start, fit_end]``.</span>
 
 <span class="sd">      Each segment is monotonic-ish, so a low-order polynomial (cubic)</span>
 <span class="sd">      fits each well; one polynomial trying to fit the full</span>
 <span class="sd">      down-up-down shape would have to interpolate two inflection</span>
 <span class="sd">      points and leaves residuals.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="c1"># Blank from group start through desaturation</span>
     <span class="n">blank_end</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">last_desat</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">)</span>
     <span class="n">channel_trace</span><span class="p">[</span><span class="n">group_start</span><span class="p">:</span><span class="n">blank_end</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
@@ -901,8 +901,8 @@
         <span class="c1"># small step at the boundary between the subtracted region</span>
         <span class="c1"># and the un-touched baseline tail.  Extending 3 ms past</span>
         <span class="c1"># ``baseline_idx`` (≈1 ms for the detection window + 2 ms of</span>
-        <span class="c1"># additional anchor) gives the polynomial enough &quot;known-</span>
-        <span class="c1"># baseline&quot; points to be pulled naturally toward zero at the</span>
+        <span class="c1"># additional anchor) gives the polynomial enough "known-</span>
+        <span class="c1"># baseline" points to be pulled naturally toward zero at the</span>
         <span class="c1"># boundary without over-extending the fit.</span>
         <span class="n">fit_end</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">baseline_idx</span> <span class="o">+</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">baseline_window_samples</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">)</span>
 
@@ -1009,7 +1009,7 @@
     <span class="n">clamp_threshold</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">clamp_counter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
 <span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Sliding-window polynomial detrend applied to an entire channel.</span>
+<span class="w">    </span><span class="sd">"""Sliding-window polynomial detrend applied to an entire channel.</span>
 
 <span class="sd">    Divides the trace into overlapping windows, fits a polynomial to</span>
 <span class="sd">    the non-saturated samples in each window, and subtracts the fit.</span>
@@ -1027,7 +1027,7 @@
 <span class="sd">        blanked (np.ndarray): 2-D boolean mask ``(channels, samples)``,</span>
 <span class="sd">            modified in-place.</span>
 <span class="sd">        ch_idx (int): Channel index for the blanked mask.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">step</span> <span class="o">=</span> <span class="n">window_samples</span> <span class="o">-</span> <span class="n">overlap_samples</span>
     <span class="k">if</span> <span class="n">step</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
         <span class="n">step</span> <span class="o">=</span> <span class="mi">1</span>
@@ -1063,7 +1063,7 @@
 
         <span class="c1"># Sanity clamp: a polynomial fit that diverged across saturated</span>
         <span class="c1"># samples can produce extra-physiological residuals.  Blank the</span>
-        <span class="c1"># whole window in that case rather than ship 10+ V &quot;neural&quot; data.</span>
+        <span class="c1"># whole window in that case rather than ship 10+ V "neural" data.</span>
         <span class="k">if</span> <span class="p">(</span>
             <span class="n">clamp_threshold</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
             <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">clamp_threshold</span><span class="p">)</span>
@@ -1096,20 +1096,20 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_maybe_warn_polynomial_clamp</span><span class="p">(</span><span class="n">counter</span><span class="p">,</span> <span class="n">clamp_threshold</span><span class="p">,</span> <span class="n">saturation_threshold</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Emit one warning per ``remove_stim_artifacts`` call when the</span>
-<span class="sd">    polynomial divergence sanity clamp fired one or more times.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Emit one warning per ``remove_stim_artifacts`` call when the</span>
+<span class="sd">    polynomial divergence sanity clamp fired one or more times."""</span>
     <span class="k">if</span> <span class="n">counter</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">counter</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">clamp_threshold</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">return</span>
     <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-        <span class="sa">f</span><span class="s2">&quot;remove_stim_artifacts: polynomial fit diverged on &quot;</span>
-        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">counter</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> segment(s) — exceeded clamp threshold &quot;</span>
-        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">clamp_threshold</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2"> (= poly_clamp_factor * &quot;</span>
-        <span class="sa">f</span><span class="s2">&quot;saturation_threshold = </span><span class="si">{</span><span class="n">saturation_threshold</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">).  Those &quot;</span>
-        <span class="sa">f</span><span class="s2">&quot;segments were blanked instead.  This usually indicates a stim &quot;</span>
-        <span class="sa">f</span><span class="s2">&quot;amplitude high enough to keep electrodes saturated through the &quot;</span>
-        <span class="sa">f</span><span class="s2">&quot;polynomial&#39;s fit window (e.g. &gt;500 mV on MaxOne); consider &quot;</span>
-        <span class="sa">f</span><span class="s2">&quot;method=&#39;blank&#39; for such recordings, or pass &quot;</span>
-        <span class="sa">f</span><span class="s2">&quot;poly_clamp_factor=None to disable this fallback.&quot;</span><span class="p">,</span>
+        <span class="sa">f</span><span class="s2">"remove_stim_artifacts: polynomial fit diverged on "</span>
+        <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">counter</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> segment(s) — exceeded clamp threshold "</span>
+        <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">clamp_threshold</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2"> (= poly_clamp_factor * "</span>
+        <span class="sa">f</span><span class="s2">"saturation_threshold = </span><span class="si">{</span><span class="n">saturation_threshold</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">).  Those "</span>
+        <span class="sa">f</span><span class="s2">"segments were blanked instead.  This usually indicates a stim "</span>
+        <span class="sa">f</span><span class="s2">"amplitude high enough to keep electrodes saturated through the "</span>
+        <span class="sa">f</span><span class="s2">"polynomial's fit window (e.g. &gt;500 mV on MaxOne); consider "</span>
+        <span class="sa">f</span><span class="s2">"method='blank' for such recordings, or pass "</span>
+        <span class="sa">f</span><span class="s2">"poly_clamp_factor=None to disable this fallback."</span><span class="p">,</span>
         <span class="ne">UserWarning</span><span class="p">,</span>
         <span class="n">stacklevel</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
     <span class="p">)</span>
@@ -1121,7 +1121,7 @@
     <span class="n">traces</span><span class="p">,</span>
     <span class="n">stim_times_ms</span><span class="p">,</span>
     <span class="n">fs_Hz</span><span class="p">,</span>
-    <span class="n">method</span><span class="o">=</span><span class="s2">&quot;polynomial&quot;</span><span class="p">,</span>
+    <span class="n">method</span><span class="o">=</span><span class="s2">"polynomial"</span><span class="p">,</span>
     <span class="n">artifact_window_ms</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span>
     <span class="n">saturation_threshold</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">baseline_threshold</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -1133,10 +1133,10 @@
     <span class="n">raw_traces</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">poly_clamp_factor</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span>
 <span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Remove stimulation artifacts from multi-channel voltage traces.</span>
+<span class="w">    </span><span class="sd">"""Remove stimulation artifacts from multi-channel voltage traces.</span>
 
 <span class="sd">    Processes each stim event independently per channel.  Saturated</span>
-<span class="sd">    samples are always blanked (zeroed).  For the ``&quot;polynomial&quot;``</span>
+<span class="sd">    samples are always blanked (zeroed).  For the ``"polynomial"``</span>
 <span class="sd">    method, a low-order polynomial is fit to the post-saturation</span>
 <span class="sd">    artifact tail and subtracted, preserving neural spikes (which are</span>
 <span class="sd">    too fast for the smooth polynomial to capture).</span>
@@ -1157,7 +1157,7 @@
 <span class="sd">        stim_times_ms (array-like): Corrected stim times in</span>
 <span class="sd">            milliseconds (e.g. from ``recenter_stim_times``).</span>
 <span class="sd">        fs_Hz (float): Sampling frequency in Hz.</span>
-<span class="sd">        method (str): ``&quot;polynomial&quot;`` (default) or ``&quot;blank&quot;``.</span>
+<span class="sd">        method (str): ``"polynomial"`` (default) or ``"blank"``.</span>
 <span class="sd">        artifact_window_ms (float): Maximum duration in milliseconds</span>
 <span class="sd">            of the artifact tail after the last desaturation point.</span>
 <span class="sd">            The polynomial is fit over this window.  Default 10.0.</span>
@@ -1165,12 +1165,12 @@
 <span class="sd">            Note: when the post-stim window contains a clear descent</span>
 <span class="sd">            from the recentered stim time to a subsequent negative</span>
 <span class="sd">            peak (typical for biphasic anodic-first pulses sorted with</span>
-<span class="sd">            ``peak_mode=&quot;down_edge&quot;``), the fit is automatically split</span>
+<span class="sd">            ``peak_mode="down_edge"``), the fit is automatically split</span>
 <span class="sd">            into two independent polynomials at the negative peak —</span>
 <span class="sd">            one for ``[stim_time, neg_peak]`` (the descent) and one</span>
 <span class="sd">            for ``[neg_peak, baseline_recovery]`` (the tail).  When</span>
 <span class="sd">            the recentered stim time IS the negative peak (e.g.</span>
-<span class="sd">            ``peak_mode=&quot;abs_max&quot;`` or ``&quot;neg_peak&quot;``), no descent</span>
+<span class="sd">            ``peak_mode="abs_max"`` or ``"neg_peak"``), no descent</span>
 <span class="sd">            exists and a single fit is used.  This is automatic; no</span>
 <span class="sd">            user knob.</span>
 <span class="sd">        saturation_threshold (float or None): Absolute voltage value</span>
@@ -1204,7 +1204,7 @@
 <span class="sd">        copy (bool): If True (default), return a copy; if False,</span>
 <span class="sd">            modify ``traces`` in-place.</span>
 <span class="sd">        poly_clamp_factor (float or None): Sanity-clamp factor for the</span>
-<span class="sd">            ``&quot;polynomial&quot;`` method.  After each polynomial subtraction,</span>
+<span class="sd">            ``"polynomial"`` method.  After each polynomial subtraction,</span>
 <span class="sd">            if any post-subtract sample exceeds</span>
 <span class="sd">            ``poly_clamp_factor * saturation_threshold`` in absolute</span>
 <span class="sd">            value, the segment is treated as a divergent fit</span>
@@ -1215,7 +1215,7 @@
 <span class="sd">            ``saturation_threshold`` is in the multi-thousand-µV range.</span>
 <span class="sd">            Set to ``None`` to disable.  Has no effect when</span>
 <span class="sd">            ``saturation_threshold`` is ``+inf`` (no clipping detected)</span>
-<span class="sd">            or ``method=&quot;blank&quot;``.</span>
+<span class="sd">            or ``method="blank"``.</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        cleaned (np.ndarray): Cleaned traces, shape</span>
@@ -1224,7 +1224,7 @@
 <span class="sd">            ``(channels, samples)``.  True for samples that were</span>
 <span class="sd">            blanked (zeroed) because they fell within a saturation</span>
 <span class="sd">            region.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">stim_times_ms</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">stim_times_ms</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">copy</span><span class="p">:</span>
         <span class="n">traces</span> <span class="o">=</span> <span class="n">traces</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
@@ -1235,16 +1235,16 @@
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">stim_times_ms</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">traces</span><span class="p">,</span> <span class="n">blanked</span>
 
-    <span class="k">if</span> <span class="n">method</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;polynomial&quot;</span><span class="p">,</span> <span class="s2">&quot;blank&quot;</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">method</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"polynomial"</span><span class="p">,</span> <span class="s2">"blank"</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;Unknown artifact removal method </span><span class="si">{</span><span class="n">method</span><span class="si">!r}</span><span class="s2">; &quot;</span>
-            <span class="s2">&quot;expected &#39;polynomial&#39; or &#39;blank&#39;.&quot;</span>
+            <span class="sa">f</span><span class="s2">"Unknown artifact removal method </span><span class="si">{</span><span class="n">method</span><span class="si">!r}</span><span class="s2">; "</span>
+            <span class="s2">"expected 'polynomial' or 'blank'."</span>
         <span class="p">)</span>
 
     <span class="k">if</span> <span class="n">traces</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">traces</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;traces must have at least one channel and one sample, &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;got shape </span><span class="si">{</span><span class="n">traces</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">"traces must have at least one channel and one sample, "</span>
+            <span class="sa">f</span><span class="s2">"got shape </span><span class="si">{</span><span class="n">traces</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">"</span>
         <span class="p">)</span>
 
     <span class="c1"># Pick the source of truth for saturation detection.  Prefer raw</span>
@@ -1287,9 +1287,9 @@
 
     <span class="c1"># Sanity-clamp threshold for the polynomial fit.  Inactive when the</span>
     <span class="c1"># caller disabled it, when no clipping was detected (saturation</span>
-    <span class="c1"># threshold = +inf), or when method != &quot;polynomial&quot;.</span>
+    <span class="c1"># threshold = +inf), or when method != "polynomial".</span>
     <span class="k">if</span> <span class="p">(</span>
-        <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;polynomial&quot;</span>
+        <span class="n">method</span> <span class="o">==</span> <span class="s2">"polynomial"</span>
         <span class="ow">and</span> <span class="n">poly_clamp_factor</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
         <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">saturation_threshold</span><span class="p">)</span>
     <span class="p">):</span>
@@ -1313,7 +1313,7 @@
         <span class="c1"># stim timing information is unavailable.</span>
         <span class="n">overlap_samples</span> <span class="o">=</span> <span class="n">artifact_window_samples</span> <span class="o">//</span> <span class="mi">2</span>
         <span class="k">for</span> <span class="n">ch</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_channels</span><span class="p">):</span>
-            <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;polynomial&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">"polynomial"</span><span class="p">:</span>
                 <span class="n">_global_polynomial_detrend</span><span class="p">(</span>
                     <span class="n">traces</span><span class="p">[</span><span class="n">ch</span><span class="p">],</span>
                     <span class="n">artifact_window_samples</span><span class="p">,</span>
@@ -1326,7 +1326,7 @@
                     <span class="n">clamp_threshold</span><span class="o">=</span><span class="n">poly_clamp_threshold</span><span class="p">,</span>
                     <span class="n">clamp_counter</span><span class="o">=</span><span class="n">poly_clamp_counter</span><span class="p">,</span>
                 <span class="p">)</span>
-            <span class="k">elif</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;blank&quot;</span><span class="p">:</span>
+            <span class="k">elif</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">"blank"</span><span class="p">:</span>
                 <span class="c1"># Global blank: blank only the saturated samples</span>
                 <span class="n">sat</span> <span class="o">=</span> <span class="n">clip_mask</span><span class="p">[</span><span class="n">ch</span><span class="p">]</span>
                 <span class="n">traces</span><span class="p">[</span><span class="n">ch</span><span class="p">,</span> <span class="n">sat</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
@@ -1342,7 +1342,7 @@
 
         <span class="c1"># Group stim events that form a sequential burst.</span>
         <span class="c1"># Walk through sorted stim samples; after each stim, find where</span>
-        <span class="c1"># saturation ends.  If the signal re-saturates or hasn&#39;t reached</span>
+        <span class="c1"># saturation ends.  If the signal re-saturates or hasn't reached</span>
         <span class="c1"># baseline before the next stim, merge into the same group.</span>
         <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="k">while</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">stim_samples</span><span class="p">):</span>
@@ -1371,7 +1371,7 @@
                     <span class="p">)</span>
 
                     <span class="k">if</span> <span class="ow">not</span> <span class="n">reached</span><span class="p">:</span>
-                        <span class="c1"># Signal hasn&#39;t recovered — merge with next stim</span>
+                        <span class="c1"># Signal hasn't recovered — merge with next stim</span>
                         <span class="n">current_stim_idx</span> <span class="o">=</span> <span class="n">next_idx</span>
                         <span class="n">new_desat</span> <span class="o">=</span> <span class="n">_find_saturation_end_from_mask</span><span class="p">(</span>
                             <span class="n">clip_mask</span><span class="p">[</span><span class="n">ch</span><span class="p">],</span>
@@ -1385,7 +1385,7 @@
                 <span class="k">break</span>
 
             <span class="c1"># Now process this group</span>
-            <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;polynomial&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">"polynomial"</span><span class="p">:</span>
                 <span class="n">_process_stim_group_polynomial</span><span class="p">(</span>
                     <span class="n">ch_trace</span><span class="p">,</span>
                     <span class="n">group_start</span><span class="p">,</span>
@@ -1400,7 +1400,7 @@
                     <span class="n">clamp_threshold</span><span class="o">=</span><span class="n">poly_clamp_threshold</span><span class="p">,</span>
                     <span class="n">clamp_counter</span><span class="o">=</span><span class="n">poly_clamp_counter</span><span class="p">,</span>
                 <span class="p">)</span>
-            <span class="k">elif</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;blank&quot;</span><span class="p">:</span>
+            <span class="k">elif</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">"blank"</span><span class="p">:</span>
                 <span class="n">blank_end</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">last_desat</span> <span class="o">+</span> <span class="n">artifact_window_samples</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">)</span>
                 <span class="n">ch_trace</span><span class="p">[</span><span class="n">group_start</span><span class="p">:</span><span class="n">blank_end</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
                 <span class="n">blanked</span><span class="p">[</span><span class="n">ch</span><span class="p">,</span> <span class="n">group_start</span><span class="p">:</span><span class="n">blank_end</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>

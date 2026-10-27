@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Batch Jobs &mdash; SpikeLab 0.1.1 documentation</title>
+  <title>Batch Jobs &mdash; SpikeLab 0.1.2 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=a58bc63e"></script>
+      <script src="../_static/documentation_options.js?v=92734c54"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
@@ -549,7 +549,7 @@ credentials chain).</p>
 profile:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.batch_jobs</span><span class="w"> </span><span class="kn">import</span> <span class="n">RunSession</span><span class="p">,</span> <span class="n">load_cluster_profile</span>
 
-<span class="n">profile</span> <span class="o">=</span> <span class="n">load_cluster_profile</span><span class="p">(</span><span class="s2">&quot;nrp&quot;</span><span class="p">)</span>
+<span class="n">profile</span> <span class="o">=</span> <span class="n">load_cluster_profile</span><span class="p">(</span><span class="s2">"nrp"</span><span class="p">)</span>
 <span class="n">session</span> <span class="o">=</span> <span class="n">RunSession</span><span class="o">.</span><span class="n">from_profile</span><span class="p">(</span><span class="n">profile</span><span class="p">)</span>
 </pre></div>
 </div>
@@ -569,13 +569,13 @@ returned.</p>
 
 <span class="n">result</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">submit_workspace_job</span><span class="p">(</span>
     <span class="n">workspace</span><span class="o">=</span><span class="n">ws</span><span class="p">,</span>                    <span class="c1"># AnalysisWorkspace or path to saved workspace</span>
-    <span class="n">script</span><span class="o">=</span><span class="s2">&quot;my_analysis.py&quot;</span><span class="p">,</span>         <span class="c1"># analysis script to run</span>
+    <span class="n">script</span><span class="o">=</span><span class="s2">"my_analysis.py"</span><span class="p">,</span>         <span class="c1"># analysis script to run</span>
     <span class="n">job_spec</span><span class="o">=</span><span class="n">JobSpec</span><span class="p">(</span>
-        <span class="n">name_prefix</span><span class="o">=</span><span class="s2">&quot;my-analysis&quot;</span><span class="p">,</span>
-        <span class="n">container</span><span class="o">=</span><span class="n">ContainerSpec</span><span class="p">(</span><span class="n">image</span><span class="o">=</span><span class="s2">&quot;spikelab/analysis:latest&quot;</span><span class="p">),</span>
+        <span class="n">name_prefix</span><span class="o">=</span><span class="s2">"my-analysis"</span><span class="p">,</span>
+        <span class="n">container</span><span class="o">=</span><span class="n">ContainerSpec</span><span class="p">(</span><span class="n">image</span><span class="o">=</span><span class="s2">"spikelab/analysis:latest"</span><span class="p">),</span>
         <span class="n">resources</span><span class="o">=</span><span class="n">ResourceSpec</span><span class="p">(</span>
-            <span class="n">requests_cpu</span><span class="o">=</span><span class="s2">&quot;2&quot;</span><span class="p">,</span>
-            <span class="n">requests_memory</span><span class="o">=</span><span class="s2">&quot;8Gi&quot;</span><span class="p">,</span>
+            <span class="n">requests_cpu</span><span class="o">=</span><span class="s2">"2"</span><span class="p">,</span>
+            <span class="n">requests_memory</span><span class="o">=</span><span class="s2">"8Gi"</span><span class="p">,</span>
         <span class="p">),</span>
     <span class="p">),</span>
 <span class="p">)</span>
@@ -595,15 +595,15 @@ directly.</p>
 <p>The analysis script runs inside the container with the workspace already
 loaded. Use it like a normal Python script:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># my_analysis.py</span>
-<span class="c1"># &#39;workspace&#39; is available as a global variable</span>
+<span class="c1"># 'workspace' is available as a global variable</span>
 
-<span class="n">sd</span> <span class="o">=</span> <span class="n">workspace</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;recording_01&quot;</span><span class="p">,</span> <span class="s2">&quot;spikedata&quot;</span><span class="p">)</span>
+<span class="n">sd</span> <span class="o">=</span> <span class="n">workspace</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"recording_01"</span><span class="p">,</span> <span class="s2">"spikedata"</span><span class="p">)</span>
 
-<span class="n">rates</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">rates</span><span class="p">(</span><span class="n">unit</span><span class="o">=</span><span class="s2">&quot;Hz&quot;</span><span class="p">)</span>
-<span class="n">workspace</span><span class="o">.</span><span class="n">store</span><span class="p">(</span><span class="s2">&quot;recording_01&quot;</span><span class="p">,</span> <span class="s2">&quot;firing_rates_hz&quot;</span><span class="p">,</span> <span class="n">rates</span><span class="p">)</span>
+<span class="n">rates</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">rates</span><span class="p">(</span><span class="n">unit</span><span class="o">=</span><span class="s2">"Hz"</span><span class="p">)</span>
+<span class="n">workspace</span><span class="o">.</span><span class="n">store</span><span class="p">(</span><span class="s2">"recording_01"</span><span class="p">,</span> <span class="s2">"firing_rates_hz"</span><span class="p">,</span> <span class="n">rates</span><span class="p">)</span>
 
 <span class="n">pop_rate</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">get_pop_rate</span><span class="p">(</span><span class="n">square_width</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">gauss_sigma</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
-<span class="n">workspace</span><span class="o">.</span><span class="n">store</span><span class="p">(</span><span class="s2">&quot;recording_01&quot;</span><span class="p">,</span> <span class="s2">&quot;pop_rate&quot;</span><span class="p">,</span> <span class="n">pop_rate</span><span class="p">)</span>
+<span class="n">workspace</span><span class="o">.</span><span class="n">store</span><span class="p">(</span><span class="s2">"recording_01"</span><span class="p">,</span> <span class="s2">"pop_rate"</span><span class="p">,</span> <span class="n">pop_rate</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>After the script finishes, the workspace is saved and uploaded automatically.</p>
@@ -611,7 +611,7 @@ loaded. Use it like a normal Python script:</p>
 <section id="retrieving-results">
 <h3><a class="toc-backref" href="#id8" role="doc-backlink">Retrieving results</a><a class="headerlink" href="#retrieving-results" title="Link to this heading"></a></h3>
 <p>Once the job completes, retrieve the updated workspace:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ws_updated</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">retrieve_result</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">local_dir</span><span class="o">=</span><span class="s2">&quot;./results&quot;</span><span class="p">)</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ws_updated</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">retrieve_result</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">local_dir</span><span class="o">=</span><span class="s2">"./results"</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>This downloads the workspace from S3 and returns an
@@ -626,15 +626,15 @@ and return the sorted results as a workspace.</p>
 <section id="id1">
 <h3><a class="toc-backref" href="#id10" role="doc-backlink">Submitting</a><a class="headerlink" href="#id1" title="Link to this heading"></a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">result</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">submit_sorting_job</span><span class="p">(</span>
-    <span class="n">recording_paths</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;session1.raw.h5&quot;</span><span class="p">,</span> <span class="s2">&quot;session2.raw.h5&quot;</span><span class="p">],</span>
-    <span class="n">config</span><span class="o">=</span><span class="s2">&quot;kilosort4&quot;</span><span class="p">,</span>             <span class="c1"># preset name, SortingPipelineConfig, or None</span>
-    <span class="n">config_overrides</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;fr_min&quot;</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span> <span class="s2">&quot;snr_min&quot;</span><span class="p">:</span> <span class="mf">6.0</span><span class="p">},</span>
+    <span class="n">recording_paths</span><span class="o">=</span><span class="p">[</span><span class="s2">"session1.raw.h5"</span><span class="p">,</span> <span class="s2">"session2.raw.h5"</span><span class="p">],</span>
+    <span class="n">config</span><span class="o">=</span><span class="s2">"kilosort4"</span><span class="p">,</span>             <span class="c1"># preset name, SortingPipelineConfig, or None</span>
+    <span class="n">config_overrides</span><span class="o">=</span><span class="p">{</span><span class="s2">"fr_min"</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span> <span class="s2">"snr_min"</span><span class="p">:</span> <span class="mf">6.0</span><span class="p">},</span>
     <span class="n">job_spec</span><span class="o">=</span><span class="n">JobSpec</span><span class="p">(</span>
-        <span class="n">name_prefix</span><span class="o">=</span><span class="s2">&quot;sorting-run&quot;</span><span class="p">,</span>
-        <span class="n">container</span><span class="o">=</span><span class="n">ContainerSpec</span><span class="p">(</span><span class="n">image</span><span class="o">=</span><span class="s2">&quot;spikelab/sorting:latest&quot;</span><span class="p">),</span>
+        <span class="n">name_prefix</span><span class="o">=</span><span class="s2">"sorting-run"</span><span class="p">,</span>
+        <span class="n">container</span><span class="o">=</span><span class="n">ContainerSpec</span><span class="p">(</span><span class="n">image</span><span class="o">=</span><span class="s2">"spikelab/sorting:latest"</span><span class="p">),</span>
         <span class="n">resources</span><span class="o">=</span><span class="n">ResourceSpec</span><span class="p">(</span>
-            <span class="n">requests_cpu</span><span class="o">=</span><span class="s2">&quot;4&quot;</span><span class="p">,</span>
-            <span class="n">requests_memory</span><span class="o">=</span><span class="s2">&quot;16Gi&quot;</span><span class="p">,</span>
+            <span class="n">requests_cpu</span><span class="o">=</span><span class="s2">"4"</span><span class="p">,</span>
+            <span class="n">requests_memory</span><span class="o">=</span><span class="s2">"16Gi"</span><span class="p">,</span>
             <span class="n">requests_gpu</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
         <span class="p">),</span>
     <span class="p">),</span>
@@ -647,7 +647,7 @@ container.</p>
 </section>
 <section id="id2">
 <h3><a class="toc-backref" href="#id11" role="doc-backlink">Retrieving results</a><a class="headerlink" href="#id2" title="Link to this heading"></a></h3>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ws_sorted</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">retrieve_result</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">local_dir</span><span class="o">=</span><span class="s2">&quot;./sorted&quot;</span><span class="p">)</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ws_sorted</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">retrieve_result</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">local_dir</span><span class="o">=</span><span class="s2">"./sorted"</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>The returned workspace contains one namespace per recording. Each namespace
@@ -660,8 +660,8 @@ counts per stage</p></li>
 <p>Any QC figures generated during sorting are downloaded to the local directory
 alongside the workspace.</p>
 <p>You can then continue directly with analysis:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">sd</span> <span class="o">=</span> <span class="n">ws_sorted</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;session1&quot;</span><span class="p">,</span> <span class="s2">&quot;spikedata&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="si">}</span><span class="s2"> curated units, </span><span class="si">{</span><span class="n">sd</span><span class="o">.</span><span class="n">length</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mi">1000</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> seconds&quot;</span><span class="p">)</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">sd</span> <span class="o">=</span> <span class="n">ws_sorted</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"session1"</span><span class="p">,</span> <span class="s2">"spikedata"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="si">}</span><span class="s2"> curated units, </span><span class="si">{</span><span class="n">sd</span><span class="o">.</span><span class="n">length</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mi">1000</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> seconds"</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
@@ -687,7 +687,7 @@ per-profile via the <code class="docutils literal notranslate"><span class="pre"
 trade-offs:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">result</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">submit_workspace_job</span><span class="p">(</span>
     <span class="n">workspace</span><span class="o">=</span><span class="n">ws</span><span class="p">,</span>
-    <span class="n">script</span><span class="o">=</span><span class="s2">&quot;my_analysis.py&quot;</span><span class="p">,</span>
+    <span class="n">script</span><span class="o">=</span><span class="s2">"my_analysis.py"</span><span class="p">,</span>
     <span class="n">job_spec</span><span class="o">=</span><span class="n">job_spec</span><span class="p">,</span>
     <span class="n">allow_policy_risk</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
 <span class="p">)</span>

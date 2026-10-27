@@ -5,14 +5,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>spikelab.spike_sorting.guards._disk_watchdog &mdash; SpikeLab 0.1.1 documentation</title>
+  <title>spikelab.spike_sorting.guards._disk_watchdog &mdash; SpikeLab 0.1.2 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../../../_static/documentation_options.js?v=a58bc63e"></script>
+      <script src="../../../../_static/documentation_options.js?v=92734c54"></script>
       <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
       <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/js/theme.js"></script>
@@ -492,7 +492,7 @@
            <div itemprop="articleBody">
              
   <h1>Source code for spikelab.spike_sorting.guards._disk_watchdog</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;Live disk-usage watchdog for spike-sorting runs.</span>
+<span></span><span class="sd">"""Live disk-usage watchdog for spike-sorting runs.</span>
 
 <span class="sd">RT-Sort writes large intermediate ``.npy`` files (scaled traces,</span>
 <span class="sd">model traces, model outputs) during ``detect_sequences``; on a</span>
@@ -512,7 +512,7 @@
 <span class="sd">The on-trip report is the primary user-facing artefact: it carries</span>
 <span class="sd">the information an operator needs to free space without guessing</span>
 <span class="sd">which folder to clean up.</span>
-<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">"""</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
@@ -539,7 +539,7 @@
 <a class="viewcode-back" href="../../../../api/spike_sorting.html#spikelab.spike_sorting.guards.DiskExhaustionReport">[docs]</a>
 <span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">DiskExhaustionReport</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Diagnostic payload built when the disk watchdog trips.</span>
+<span class="w">    </span><span class="sd">"""Diagnostic payload built when the disk watchdog trips.</span>
 
 <span class="sd">    Parameters:</span>
 <span class="sd">        folder (str): The folder whose free space crossed the</span>
@@ -548,13 +548,13 @@
 <span class="sd">            moment.</span>
 <span class="sd">        abort_threshold_gb (float): Configured abort threshold (GB).</span>
 <span class="sd">        projected_need_gb (float or None): Sorter-specific projected</span>
-<span class="sd">            on-disk footprint in GB when known (e.g. RT-Sort&#39;s</span>
+<span class="sd">            on-disk footprint in GB when known (e.g. RT-Sort's</span>
 <span class="sd">            ``estimate_rt_sort_intermediate_gb`` value).</span>
 <span class="sd">        bytes_consumed_during_sort (float): Bytes consumed inside</span>
 <span class="sd">            ``folder`` since the watchdog started — i.e. how much</span>
-<span class="sd">            this sort has written. Useful for distinguishing &quot;I</span>
-<span class="sd">            started near full and crossed the line&quot; vs &quot;I wrote</span>
-<span class="sd">            everything&quot;.</span>
+<span class="sd">            this sort has written. Useful for distinguishing "I</span>
+<span class="sd">            started near full and crossed the line" vs "I wrote</span>
+<span class="sd">            everything".</span>
 <span class="sd">        top_consumers (list[tuple[str, float]]): Up to 10 largest</span>
 <span class="sd">            files inside ``folder`` (depth-bounded ``os.walk``) as</span>
 <span class="sd">            ``(path, gb)`` tuples, sorted descending. Helps the</span>
@@ -562,7 +562,7 @@
 <span class="sd">        suggested_actions (list[str]): Free-form text hints. The</span>
 <span class="sd">            watchdog seeds these from the trip context; callers can</span>
 <span class="sd">            extend.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="n">folder</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">free_gb_at_trip</span><span class="p">:</span> <span class="nb">float</span>
@@ -575,17 +575,17 @@
 <div class="viewcode-block" id="DiskExhaustionReport.to_dict">
 <a class="viewcode-back" href="../../../../api/spike_sorting.html#spikelab.spike_sorting.guards.DiskExhaustionReport.to_dict">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a JSON-friendly dict representation of the report.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Return a JSON-friendly dict representation of the report."""</span>
         <span class="k">return</span> <span class="p">{</span>
-            <span class="s2">&quot;folder&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">folder</span><span class="p">,</span>
-            <span class="s2">&quot;free_gb_at_trip&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">free_gb_at_trip</span><span class="p">,</span>
-            <span class="s2">&quot;abort_threshold_gb&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">abort_threshold_gb</span><span class="p">,</span>
-            <span class="s2">&quot;projected_need_gb&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">projected_need_gb</span><span class="p">,</span>
-            <span class="s2">&quot;bytes_consumed_during_sort&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">bytes_consumed_during_sort</span><span class="p">,</span>
-            <span class="s2">&quot;top_consumers&quot;</span><span class="p">:</span> <span class="p">[</span>
-                <span class="p">{</span><span class="s2">&quot;path&quot;</span><span class="p">:</span> <span class="n">p</span><span class="p">,</span> <span class="s2">&quot;size_gb&quot;</span><span class="p">:</span> <span class="n">gb</span><span class="p">}</span> <span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">gb</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">top_consumers</span>
+            <span class="s2">"folder"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">folder</span><span class="p">,</span>
+            <span class="s2">"free_gb_at_trip"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">free_gb_at_trip</span><span class="p">,</span>
+            <span class="s2">"abort_threshold_gb"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">abort_threshold_gb</span><span class="p">,</span>
+            <span class="s2">"projected_need_gb"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">projected_need_gb</span><span class="p">,</span>
+            <span class="s2">"bytes_consumed_during_sort"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">bytes_consumed_during_sort</span><span class="p">,</span>
+            <span class="s2">"top_consumers"</span><span class="p">:</span> <span class="p">[</span>
+                <span class="p">{</span><span class="s2">"path"</span><span class="p">:</span> <span class="n">p</span><span class="p">,</span> <span class="s2">"size_gb"</span><span class="p">:</span> <span class="n">gb</span><span class="p">}</span> <span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">gb</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">top_consumers</span>
             <span class="p">],</span>
-            <span class="s2">&quot;suggested_actions&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">suggested_actions</span><span class="p">),</span>
+            <span class="s2">"suggested_actions"</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">suggested_actions</span><span class="p">),</span>
         <span class="p">}</span></div>
 </div>
 
@@ -595,7 +595,7 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_disk_free_gb</span><span class="p">(</span><span class="n">folder</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return free disk space at ``folder`` in GB, or None on failure.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Return free disk space at ``folder`` in GB, or None on failure."""</span>
     <span class="n">p</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">folder</span><span class="p">)</span>
     <span class="k">while</span> <span class="ow">not</span> <span class="n">p</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span> <span class="ow">and</span> <span class="n">p</span><span class="o">.</span><span class="n">parent</span> <span class="o">!=</span> <span class="n">p</span><span class="p">:</span>
         <span class="n">p</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">parent</span>
@@ -606,11 +606,11 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_folder_size_bytes</span><span class="p">(</span><span class="n">folder</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the total size (bytes) of files under *folder*.</span>
+<span class="w">    </span><span class="sd">"""Return the total size (bytes) of files under *folder*.</span>
 
 <span class="sd">    Best-effort: errors traversing the tree are swallowed so a</span>
 <span class="sd">    partial result is returned rather than failing the watchdog.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">total</span> <span class="o">=</span> <span class="mi">0</span>
     <span class="n">folder</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">folder</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">folder</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
@@ -631,7 +631,7 @@
 <span class="k">def</span><span class="w"> </span><span class="nf">_top_consumers</span><span class="p">(</span>
     <span class="n">folder</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">limit</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span> <span class="n">max_depth</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the *limit* largest files under *folder* as (path, gb).</span>
+<span class="w">    </span><span class="sd">"""Return the *limit* largest files under *folder* as (path, gb).</span>
 
 <span class="sd">    Walks at most *max_depth* directories deep to keep the cost</span>
 <span class="sd">    bounded on very deep trees. Errors are swallowed; the partial</span>
@@ -648,7 +648,7 @@
 <span class="sd">    abort path on a multi-million-file walk; the entry-time</span>
 <span class="sd">    snapshot already provides a fallback when the trip-time walk</span>
 <span class="sd">    runs out of time.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">folder</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">folder</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">folder</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
         <span class="k">return</span> <span class="p">[]</span>
@@ -676,7 +676,7 @@
 <div class="viewcode-block" id="DiskUsageWatchdog">
 <a class="viewcode-back" href="../../../../api/spike_sorting.html#spikelab.spike_sorting.guards.DiskUsageWatchdog">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">DiskUsageWatchdog</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Daemon watchdog that aborts the sort on low free disk space.</span>
+<span class="w">    </span><span class="sd">"""Daemon watchdog that aborts the sort on low free disk space.</span>
 
 <span class="sd">    Use as a context manager around the per-recording sort. While</span>
 <span class="sd">    active, a daemon thread polls free space on *folder* every</span>
@@ -715,7 +715,7 @@
 <span class="sd">          exits.</span>
 <span class="sd">        - Disabled (no-op) when ``abort_free_gb`` is non-positive or</span>
 <span class="sd">          when neither a popen nor a kill_callback is provided.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
 <div class="viewcode-block" id="DiskUsageWatchdog.__init__">
 <a class="viewcode-back" href="../../../../api/spike_sorting.html#spikelab.spike_sorting.guards.DiskUsageWatchdog.__init__">[docs]</a>
@@ -727,7 +727,7 @@
         <span class="n">abort_free_gb</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
         <span class="n">poll_interval_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">10.0</span><span class="p">,</span>
         <span class="n">warn_repeat_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">30.0</span><span class="p">,</span>
-        <span class="n">sorter</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;sort&quot;</span><span class="p">,</span>
+        <span class="n">sorter</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"sort"</span><span class="p">,</span>
         <span class="n">projected_need_gb</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">popen</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">subprocess</span><span class="o">.</span><span class="n">Popen</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">kill_callback</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[],</span> <span class="kc">None</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -740,39 +740,39 @@
         <span class="c1"># ``poll_interval_s &lt;= 0`` check further down via ``np.isnan``,</span>
         <span class="c1"># so it is intentionally omitted here.</span>
         <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">warn_free_gb</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;warn_free_gb must not be NaN&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"warn_free_gb must not be NaN"</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">abort_free_gb</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;abort_free_gb must not be NaN&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"abort_free_gb must not be NaN"</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">warn_repeat_s</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;warn_repeat_s must not be NaN&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"warn_repeat_s must not be NaN"</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">kill_grace_s</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;kill_grace_s must not be NaN&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"kill_grace_s must not be NaN"</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">projected_need_gb</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">projected_need_gb</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;projected_need_gb must not be NaN&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"projected_need_gb must not be NaN"</span><span class="p">)</span>
 
         <span class="c1"># Negative-value guards. ``abort_free_gb == 0`` is preserved as</span>
         <span class="c1"># the explicit-disable sentinel (handled by the ``_enabled``</span>
         <span class="c1"># computation below); only strict ``&lt; 0`` is rejected here.</span>
         <span class="k">if</span> <span class="n">warn_free_gb</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;warn_free_gb must be &gt;= 0, got </span><span class="si">{</span><span class="n">warn_free_gb</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"warn_free_gb must be &gt;= 0, got </span><span class="si">{</span><span class="n">warn_free_gb</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">abort_free_gb</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;abort_free_gb must be &gt;= 0, got </span><span class="si">{</span><span class="n">abort_free_gb</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"abort_free_gb must be &gt;= 0, got </span><span class="si">{</span><span class="n">abort_free_gb</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">warn_repeat_s</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;warn_repeat_s must be &gt;= 0, got </span><span class="si">{</span><span class="n">warn_repeat_s</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"warn_repeat_s must be &gt;= 0, got </span><span class="si">{</span><span class="n">warn_repeat_s</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">projected_need_gb</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">projected_need_gb</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;projected_need_gb must be &gt;= 0, got </span><span class="si">{</span><span class="n">projected_need_gb</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"projected_need_gb must be &gt;= 0, got </span><span class="si">{</span><span class="n">projected_need_gb</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">warn_free_gb</span> <span class="o">&lt;=</span> <span class="n">abort_free_gb</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;warn_free_gb (</span><span class="si">{</span><span class="n">warn_free_gb</span><span class="si">}</span><span class="s2">) must be greater than &quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;abort_free_gb (</span><span class="si">{</span><span class="n">abort_free_gb</span><span class="si">}</span><span class="s2">).&quot;</span>
+                <span class="sa">f</span><span class="s2">"warn_free_gb (</span><span class="si">{</span><span class="n">warn_free_gb</span><span class="si">}</span><span class="s2">) must be greater than "</span>
+                <span class="sa">f</span><span class="s2">"abort_free_gb (</span><span class="si">{</span><span class="n">abort_free_gb</span><span class="si">}</span><span class="s2">)."</span>
             <span class="p">)</span>
         <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">poll_interval_s</span><span class="p">)</span> <span class="ow">or</span> <span class="n">poll_interval_s</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;poll_interval_s must be positive, got </span><span class="si">{</span><span class="n">poll_interval_s</span><span class="si">}</span><span class="s2">.&quot;</span>
+                <span class="sa">f</span><span class="s2">"poll_interval_s must be positive, got </span><span class="si">{</span><span class="n">poll_interval_s</span><span class="si">}</span><span class="s2">."</span>
             <span class="p">)</span>
         <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">kill_grace_s</span><span class="p">)</span> <span class="ow">or</span> <span class="n">kill_grace_s</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;kill_grace_s must be non-negative, got </span><span class="si">{</span><span class="n">kill_grace_s</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"kill_grace_s must be non-negative, got </span><span class="si">{</span><span class="n">kill_grace_s</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">folder</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">folder</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">warn_free_gb</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">warn_free_gb</span><span class="p">)</span>
@@ -807,35 +807,35 @@
 <div class="viewcode-block" id="DiskUsageWatchdog.tripped">
 <a class="viewcode-back" href="../../../../api/spike_sorting.html#spikelab.spike_sorting.guards.DiskUsageWatchdog.tripped">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">tripped</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return True once the watchdog has fired its abort path.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Return True once the watchdog has fired its abort path."""</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tripped</span></div>
 
 
 <div class="viewcode-block" id="DiskUsageWatchdog.report">
 <a class="viewcode-back" href="../../../../api/spike_sorting.html#spikelab.spike_sorting.guards.DiskUsageWatchdog.report">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">report</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">DiskExhaustionReport</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the :class:`DiskExhaustionReport` if the watchdog tripped.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Return the :class:`DiskExhaustionReport` if the watchdog tripped."""</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_report</span></div>
 
 
 <div class="viewcode-block" id="DiskUsageWatchdog.make_error">
 <a class="viewcode-back" href="../../../../api/spike_sorting.html#spikelab.spike_sorting.guards.DiskUsageWatchdog.make_error">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">make_error</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DiskExhaustionError</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Build a :class:`DiskExhaustionError` from the trip state.</span>
+<span class="w">        </span><span class="sd">"""Build a :class:`DiskExhaustionError` from the trip state.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            message (str or None): Override the default message.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            err (DiskExhaustionError): Exception ready to raise.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="n">message</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">free</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_free_at_trip</span>
-            <span class="n">free_str</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">free</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">free</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s2">&quot;?&quot;</span>
+            <span class="n">free_str</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">free</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">"</span> <span class="k">if</span> <span class="n">free</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s2">"?"</span>
             <span class="n">message</span> <span class="o">=</span> <span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Free disk on </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">folder</span><span class="si">}</span><span class="s2"> dropped to </span><span class="si">{</span><span class="n">free_str</span><span class="si">}</span><span class="s2"> GB &quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;(&lt;= </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">abort_free_gb</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> GB abort threshold) &quot;</span>
-                <span class="s2">&quot;during sort. Aborted.&quot;</span>
+                <span class="sa">f</span><span class="s2">"Free disk on </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">folder</span><span class="si">}</span><span class="s2"> dropped to </span><span class="si">{</span><span class="n">free_str</span><span class="si">}</span><span class="s2"> GB "</span>
+                <span class="sa">f</span><span class="s2">"(&lt;= </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">abort_free_gb</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> GB abort threshold) "</span>
+                <span class="s2">"during sort. Aborted."</span>
             <span class="p">)</span>
         <span class="k">return</span> <span class="n">DiskExhaustionError</span><span class="p">(</span>
             <span class="n">message</span><span class="p">,</span>
@@ -850,25 +850,25 @@
     <span class="c1"># Context manager</span>
     <span class="c1"># ------------------------------------------------------------------</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;DiskUsageWatchdog&quot;</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"DiskUsageWatchdog"</span><span class="p">:</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_enabled</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span>
         <span class="c1"># Kick the baseline walk off in a daemon thread so __enter__</span>
         <span class="c1"># returns immediately. On a multi-million-file intermediate</span>
         <span class="c1"># folder a synchronous walk could block the sort start by</span>
         <span class="c1"># several seconds. ``_initial_folder_size`` stays None until</span>
-        <span class="c1"># the walk completes; ``_build_report`` treats None as &quot;no</span>
-        <span class="c1"># baseline yet&quot; and falls back to a zero-consumed estimate.</span>
+        <span class="c1"># the walk completes; ``_build_report`` treats None as "no</span>
+        <span class="c1"># baseline yet" and falls back to a zero-consumed estimate.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_initial_folder_size</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_initial_top_consumers</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_baseline_thread</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="p">(</span>
             <span class="n">target</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_compute_baseline</span><span class="p">,</span>
-            <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;DiskUsageWatchdog[</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">folder</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">]:baseline&quot;</span><span class="p">,</span>
+            <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">"DiskUsageWatchdog[</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">folder</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">]:baseline"</span><span class="p">,</span>
             <span class="n">daemon</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_baseline_thread</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
         <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-            <span class="s2">&quot;active: folder=</span><span class="si">%s</span><span class="s2"> warn&lt;=</span><span class="si">%.1f</span><span class="s2">GB abort&lt;=</span><span class="si">%.1f</span><span class="s2">GB poll=</span><span class="si">%.1f</span><span class="s2">s&quot;</span><span class="p">,</span>
+            <span class="s2">"active: folder=</span><span class="si">%s</span><span class="s2"> warn&lt;=</span><span class="si">%.1f</span><span class="s2">GB abort&lt;=</span><span class="si">%.1f</span><span class="s2">GB poll=</span><span class="si">%.1f</span><span class="s2">s"</span><span class="p">,</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">folder</span><span class="p">,</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">warn_free_gb</span><span class="p">,</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">abort_free_gb</span><span class="p">,</span>
@@ -877,14 +877,14 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_stop_event</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_thread</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="p">(</span>
             <span class="n">target</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_poll_loop</span><span class="p">,</span>
-            <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;DiskUsageWatchdog[</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">folder</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">]&quot;</span><span class="p">,</span>
+            <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">"DiskUsageWatchdog[</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">folder</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">]"</span><span class="p">,</span>
             <span class="n">daemon</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_thread</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
         <span class="k">return</span> <span class="bp">self</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_compute_baseline</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute folder-size + top-consumers baseline in a daemon thread.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Compute folder-size + top-consumers baseline in a daemon thread."""</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">size</span> <span class="o">=</span> <span class="n">_folder_size_bytes</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">folder</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
@@ -909,7 +909,7 @@
         <span class="c1"># not outlive the watchdog. Daemon ⇒ the process exit will</span>
         <span class="c1"># kill it anyway, but a clean join keeps tests + analysis</span>
         <span class="c1"># loops tidy.</span>
-        <span class="n">baseline_thread</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_baseline_thread&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">baseline_thread</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"_baseline_thread"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">baseline_thread</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">baseline_thread</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_baseline_thread</span> <span class="o">=</span> <span class="kc">None</span>
@@ -919,7 +919,7 @@
     <span class="c1"># ------------------------------------------------------------------</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_poll_loop</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Polling loop: warn, then trip, then exit.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Polling loop: warn, then trip, then exit."""</span>
         <span class="c1"># Defer the first measurement so __enter__ has time to return.</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stop_event</span><span class="o">.</span><span class="n">wait</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">poll_interval_s</span><span class="p">):</span>
             <span class="k">return</span>
@@ -954,22 +954,22 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">_stop_event</span><span class="o">.</span><span class="n">wait</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">poll_interval_s</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_maybe_warn</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">free_gb</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Print a warning if enough time has passed since the last one.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Print a warning if enough time has passed since the last one."""</span>
         <span class="n">now</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">now</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_warn_t</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">warn_repeat_s</span><span class="p">:</span>
             <span class="k">return</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_last_warn_t</span> <span class="o">=</span> <span class="n">now</span>
         <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-            <span class="s2">&quot;free disk on </span><span class="si">%s</span><span class="s2"> = </span><span class="si">%.2f</span><span class="s2"> GB (warn&lt;=</span><span class="si">%.1f</span><span class="s2"> / abort&lt;=</span><span class="si">%.1f</span><span class="s2">). &quot;</span>
-            <span class="s2">&quot;Free space soon or the sort will be aborted.&quot;</span><span class="p">,</span>
+            <span class="s2">"free disk on </span><span class="si">%s</span><span class="s2"> = </span><span class="si">%.2f</span><span class="s2"> GB (warn&lt;=</span><span class="si">%.1f</span><span class="s2"> / abort&lt;=</span><span class="si">%.1f</span><span class="s2">). "</span>
+            <span class="s2">"Free space soon or the sort will be aborted."</span><span class="p">,</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">folder</span><span class="p">,</span>
             <span class="n">free_gb</span><span class="p">,</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">warn_free_gb</span><span class="p">,</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">abort_free_gb</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="n">append_audit_event</span><span class="p">(</span>
-            <span class="n">watchdog</span><span class="o">=</span><span class="s2">&quot;disk&quot;</span><span class="p">,</span>
-            <span class="n">event</span><span class="o">=</span><span class="s2">&quot;warn&quot;</span><span class="p">,</span>
+            <span class="n">watchdog</span><span class="o">=</span><span class="s2">"disk"</span><span class="p">,</span>
+            <span class="n">event</span><span class="o">=</span><span class="s2">"warn"</span><span class="p">,</span>
             <span class="n">folder</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">folder</span><span class="p">),</span>
             <span class="n">free_gb</span><span class="o">=</span><span class="n">free_gb</span><span class="p">,</span>
             <span class="n">warn_free_gb</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">warn_free_gb</span><span class="p">,</span>
@@ -978,34 +978,34 @@
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_warn_blind</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">blind_for</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-            <span class="s2">&quot;free-disk reading for </span><span class="si">%s</span><span class="s2"> unreadable for </span><span class="si">%.1f</span><span class="s2">s — watchdog &quot;</span>
-            <span class="s2">&quot;is blind to disk-pressure aborts until readings recover. &quot;</span>
-            <span class="s2">&quot;Likely a flaky network mount or a folder whose ancestor &quot;</span>
-            <span class="s2">&quot;vanished mid-sort.&quot;</span><span class="p">,</span>
+            <span class="s2">"free-disk reading for </span><span class="si">%s</span><span class="s2"> unreadable for </span><span class="si">%.1f</span><span class="s2">s — watchdog "</span>
+            <span class="s2">"is blind to disk-pressure aborts until readings recover. "</span>
+            <span class="s2">"Likely a flaky network mount or a folder whose ancestor "</span>
+            <span class="s2">"vanished mid-sort."</span><span class="p">,</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">folder</span><span class="p">,</span>
             <span class="n">blind_for</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="n">append_audit_event</span><span class="p">(</span>
-            <span class="n">watchdog</span><span class="o">=</span><span class="s2">&quot;disk&quot;</span><span class="p">,</span>
-            <span class="n">event</span><span class="o">=</span><span class="s2">&quot;blind_warn&quot;</span><span class="p">,</span>
-            <span class="n">source</span><span class="o">=</span><span class="s2">&quot;disk_free&quot;</span><span class="p">,</span>
+            <span class="n">watchdog</span><span class="o">=</span><span class="s2">"disk"</span><span class="p">,</span>
+            <span class="n">event</span><span class="o">=</span><span class="s2">"blind_warn"</span><span class="p">,</span>
+            <span class="n">source</span><span class="o">=</span><span class="s2">"disk_free"</span><span class="p">,</span>
             <span class="n">folder</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">folder</span><span class="p">),</span>
             <span class="n">blind_for_s</span><span class="o">=</span><span class="n">blind_for</span><span class="p">,</span>
         <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_on_trip</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">free_gb</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Build the report, terminate any subprocess, then run the callback.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Build the report, terminate any subprocess, then run the callback."""</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_tripped</span> <span class="o">=</span> <span class="kc">True</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_free_at_trip</span> <span class="o">=</span> <span class="n">free_gb</span>
         <span class="n">_logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
-            <span class="s2">&quot;TRIP: free disk on </span><span class="si">%s</span><span class="s2"> = </span><span class="si">%.2f</span><span class="s2"> GB (&lt;= </span><span class="si">%.2f</span><span class="s2"> GB).&quot;</span><span class="p">,</span>
+            <span class="s2">"TRIP: free disk on </span><span class="si">%s</span><span class="s2"> = </span><span class="si">%.2f</span><span class="s2"> GB (&lt;= </span><span class="si">%.2f</span><span class="s2"> GB)."</span><span class="p">,</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">folder</span><span class="p">,</span>
             <span class="n">free_gb</span><span class="p">,</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">abort_free_gb</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="n">append_audit_event</span><span class="p">(</span>
-            <span class="n">watchdog</span><span class="o">=</span><span class="s2">&quot;disk&quot;</span><span class="p">,</span>
-            <span class="n">event</span><span class="o">=</span><span class="s2">&quot;abort&quot;</span><span class="p">,</span>
+            <span class="n">watchdog</span><span class="o">=</span><span class="s2">"disk"</span><span class="p">,</span>
+            <span class="n">event</span><span class="o">=</span><span class="s2">"abort"</span><span class="p">,</span>
             <span class="n">folder</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">folder</span><span class="p">),</span>
             <span class="n">free_gb</span><span class="o">=</span><span class="n">free_gb</span><span class="p">,</span>
             <span class="n">abort_free_gb</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">abort_free_gb</span><span class="p">,</span>
@@ -1017,10 +1017,10 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_report</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_report</span><span class="p">(</span><span class="n">free_gb</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_report</span><span class="o">.</span><span class="n">top_consumers</span><span class="p">:</span>
             <span class="n">top_path</span><span class="p">,</span> <span class="n">top_gb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_report</span><span class="o">.</span><span class="n">top_consumers</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-            <span class="n">top_summary</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">top_path</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="nb">round</span><span class="p">(</span><span class="n">top_gb</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">)</span><span class="si">}</span><span class="s2"> GB)&quot;</span>
+            <span class="n">top_summary</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">top_path</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="nb">round</span><span class="p">(</span><span class="n">top_gb</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">)</span><span class="si">}</span><span class="s2"> GB)"</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">top_summary</span> <span class="o">=</span> <span class="s2">&quot;(none found)&quot;</span>
-        <span class="n">_logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;report: top consumer = </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">top_summary</span><span class="p">)</span>
+            <span class="n">top_summary</span> <span class="o">=</span> <span class="s2">"(none found)"</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">"report: top consumer = </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span> <span class="n">top_summary</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">popen</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
@@ -1028,8 +1028,8 @@
                     <span class="bp">self</span><span class="o">.</span><span class="n">popen</span><span class="o">.</span><span class="n">terminate</span><span class="p">()</span>
             <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
                 <span class="n">_logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
-                    <span class="s2">&quot;terminate() failed for pid=</span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
-                    <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">popen</span><span class="p">,</span> <span class="s2">&quot;pid&quot;</span><span class="p">,</span> <span class="s2">&quot;?&quot;</span><span class="p">),</span>
+                    <span class="s2">"terminate() failed for pid=</span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span>
+                    <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">popen</span><span class="p">,</span> <span class="s2">"pid"</span><span class="p">,</span> <span class="s2">"?"</span><span class="p">),</span>
                     <span class="n">exc</span><span class="p">,</span>
                 <span class="p">)</span>
             <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">kill_grace_s</span><span class="p">)</span>
@@ -1037,13 +1037,13 @@
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">popen</span><span class="o">.</span><span class="n">poll</span><span class="p">()</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">popen</span><span class="o">.</span><span class="n">kill</span><span class="p">()</span>
                     <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                        <span class="s2">&quot;killed pid=</span><span class="si">%s</span><span class="s2"> (terminate ignored).&quot;</span><span class="p">,</span>
-                        <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">popen</span><span class="p">,</span> <span class="s2">&quot;pid&quot;</span><span class="p">,</span> <span class="s2">&quot;?&quot;</span><span class="p">),</span>
+                        <span class="s2">"killed pid=</span><span class="si">%s</span><span class="s2"> (terminate ignored)."</span><span class="p">,</span>
+                        <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">popen</span><span class="p">,</span> <span class="s2">"pid"</span><span class="p">,</span> <span class="s2">"?"</span><span class="p">),</span>
                     <span class="p">)</span>
             <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
                 <span class="n">_logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
-                    <span class="s2">&quot;kill() failed for pid=</span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
-                    <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">popen</span><span class="p">,</span> <span class="s2">&quot;pid&quot;</span><span class="p">,</span> <span class="s2">&quot;?&quot;</span><span class="p">),</span>
+                    <span class="s2">"kill() failed for pid=</span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span>
+                    <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">popen</span><span class="p">,</span> <span class="s2">"pid"</span><span class="p">,</span> <span class="s2">"?"</span><span class="p">),</span>
                     <span class="n">exc</span><span class="p">,</span>
                 <span class="p">)</span>
 
@@ -1056,12 +1056,12 @@
                 <span class="c1"># swallow either kind of intentional interrupt.</span>
                 <span class="k">raise</span>
             <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-                <span class="n">_logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;kill_callback raised: </span><span class="si">%r</span><span class="s2">; continuing.&quot;</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
+                <span class="n">_logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">"kill_callback raised: </span><span class="si">%r</span><span class="s2">; continuing."</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_top_consumers_with_timeout</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">timeout_s</span><span class="p">:</span> <span class="nb">float</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Run :func:`_top_consumers` on a worker thread with a timeout.</span>
+<span class="w">        </span><span class="sd">"""Run :func:`_top_consumers` on a worker thread with a timeout.</span>
 
 <span class="sd">        Returns the fresh result when the walk completes inside</span>
 <span class="sd">        *timeout_s*, ``None`` when the walk is still running. The</span>
@@ -1076,7 +1076,7 @@
 <span class="sd">              acceptable on the abort path because the process is</span>
 <span class="sd">              about to terminate anyway. In ``os._exit`` paths the</span>
 <span class="sd">              worker is killed with the rest of the process.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">result</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]]]</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span>
 
         <span class="k">def</span><span class="w"> </span><span class="nf">_worker</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -1087,7 +1087,7 @@
 
         <span class="n">t</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="p">(</span>
             <span class="n">target</span><span class="o">=</span><span class="n">_worker</span><span class="p">,</span>
-            <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;DiskUsageWatchdog[</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">folder</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">]:walk&quot;</span><span class="p">,</span>
+            <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">"DiskUsageWatchdog[</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">folder</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">]:walk"</span><span class="p">,</span>
             <span class="n">daemon</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="n">t</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
@@ -1097,7 +1097,7 @@
         <span class="k">return</span> <span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_build_report</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">free_gb</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DiskExhaustionReport</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Snapshot folder state into a :class:`DiskExhaustionReport`.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Snapshot folder state into a :class:`DiskExhaustionReport`."""</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">current_size_bytes</span> <span class="o">=</span> <span class="n">_folder_size_bytes</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">folder</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
@@ -1112,33 +1112,33 @@
             <span class="n">top</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_initial_top_consumers</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">top</span><span class="p">:</span>
                 <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-                    <span class="s2">&quot;live top-consumer walk timed out; falling back &quot;</span>
-                    <span class="s2">&quot;to entry-time snapshot.&quot;</span>
+                    <span class="s2">"live top-consumer walk timed out; falling back "</span>
+                    <span class="s2">"to entry-time snapshot."</span>
                 <span class="p">)</span>
 
         <span class="n">suggestions</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">projected_need_gb</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">projected_need_gb</span> <span class="o">&gt;</span> <span class="n">free_gb</span><span class="p">:</span>
             <span class="n">shortfall</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">projected_need_gb</span> <span class="o">-</span> <span class="n">free_gb</span>
             <span class="n">suggestions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Sort projects ~</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">projected_need_gb</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> GB intermediate &quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;need, exceeding free disk by ~</span><span class="si">{</span><span class="n">shortfall</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> GB. Free at &quot;</span>
-                <span class="s2">&quot;least that much before retrying.&quot;</span>
+                <span class="sa">f</span><span class="s2">"Sort projects ~</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">projected_need_gb</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> GB intermediate "</span>
+                <span class="sa">f</span><span class="s2">"need, exceeding free disk by ~</span><span class="si">{</span><span class="n">shortfall</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> GB. Free at "</span>
+                <span class="s2">"least that much before retrying."</span>
             <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">suggestions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Free at least </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">warn_free_gb</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> GB on the volume &quot;</span>
-                <span class="s2">&quot;holding the intermediate folder before retrying.&quot;</span>
+                <span class="sa">f</span><span class="s2">"Free at least </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">warn_free_gb</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> GB on the volume "</span>
+                <span class="s2">"holding the intermediate folder before retrying."</span>
             <span class="p">)</span>
         <span class="k">if</span> <span class="n">top</span><span class="p">:</span>
             <span class="n">largest_path</span><span class="p">,</span> <span class="n">largest_gb</span> <span class="o">=</span> <span class="n">top</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
             <span class="n">suggestions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Largest existing file in </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">folder</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">largest_path</span><span class="si">}</span><span class="s2"> &quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="n">largest_gb</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> GB). Inspect before deleting.&quot;</span>
+                <span class="sa">f</span><span class="s2">"Largest existing file in </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">folder</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">largest_path</span><span class="si">}</span><span class="s2"> "</span>
+                <span class="sa">f</span><span class="s2">"(</span><span class="si">{</span><span class="n">largest_gb</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> GB). Inspect before deleting."</span>
             <span class="p">)</span>
         <span class="n">suggestions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-            <span class="s2">&quot;Consider pointing intermediate_folders at a larger volume, &quot;</span>
-            <span class="s2">&quot;or shorten the recording window via &quot;</span>
-            <span class="s2">&quot;RTSortConfig.recording_window_ms / first_n_mins.&quot;</span>
+            <span class="s2">"Consider pointing intermediate_folders at a larger volume, "</span>
+            <span class="s2">"or shorten the recording window via "</span>
+            <span class="s2">"RTSortConfig.recording_window_ms / first_n_mins."</span>
         <span class="p">)</span>
 
         <span class="k">return</span> <span class="n">DiskExhaustionReport</span><span class="p">(</span>

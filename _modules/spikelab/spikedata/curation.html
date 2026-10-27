@@ -5,14 +5,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>spikelab.spikedata.curation &mdash; SpikeLab 0.1.1 documentation</title>
+  <title>spikelab.spikedata.curation &mdash; SpikeLab 0.1.2 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../../_static/documentation_options.js?v=a58bc63e"></script>
+      <script src="../../../_static/documentation_options.js?v=92734c54"></script>
       <script src="../../../_static/doctools.js?v=9bcbadda"></script>
       <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
@@ -492,7 +492,7 @@
            <div itemprop="articleBody">
              
   <h1>Source code for spikelab.spikedata.curation</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;Unit curation methods for SpikeData objects.</span>
+<span></span><span class="sd">"""Unit curation methods for SpikeData objects.</span>
 
 <span class="sd">Each public function accepts a SpikeData as its first argument and returns</span>
 <span class="sd">``(SpikeData, result_dict)`` where *result_dict* always contains:</span>
@@ -506,7 +506,7 @@
 
 <span class="sd">These functions are bound as methods on ``SpikeData`` by</span>
 <span class="sd">``spikedata.py`` so they can be called as ``sd.curate_by_*(…)``.</span>
-<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">"""</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
@@ -517,7 +517,7 @@
 <div class="viewcode-block" id="curate_by_min_spikes">
 <a class="viewcode-back" href="../../../api/curation.html#spikelab.spikedata.curation.curate_by_min_spikes">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">curate_by_min_spikes</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">min_spikes</span><span class="o">=</span><span class="mi">30</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Remove units with fewer than *min_spikes* spikes.</span>
+<span class="w">    </span><span class="sd">"""Remove units with fewer than *min_spikes* spikes.</span>
 
 <span class="sd">    Parameters:</span>
 <span class="sd">        sd (SpikeData): Source spike data.</span>
@@ -525,18 +525,18 @@
 
 <span class="sd">    Returns:</span>
 <span class="sd">        sd_out (SpikeData): SpikeData with only passing units.</span>
-<span class="sd">        result (dict): ``{&quot;metric&quot;: (N,) spike counts, &quot;passed&quot;: (N,) bool mask}``.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">        result (dict): ``{"metric": (N,) spike counts, "passed": (N,) bool mask}``.</span>
+<span class="sd">    """</span>
     <span class="n">metric</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">sd</span><span class="o">.</span><span class="n">train</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
     <span class="n">passed</span> <span class="o">=</span> <span class="n">metric</span> <span class="o">&gt;=</span> <span class="n">min_spikes</span>
-    <span class="k">return</span> <span class="n">sd</span><span class="o">.</span><span class="n">subset</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">passed</span><span class="p">)[</span><span class="mi">0</span><span class="p">]),</span> <span class="p">{</span><span class="s2">&quot;metric&quot;</span><span class="p">:</span> <span class="n">metric</span><span class="p">,</span> <span class="s2">&quot;passed&quot;</span><span class="p">:</span> <span class="n">passed</span><span class="p">}</span></div>
+    <span class="k">return</span> <span class="n">sd</span><span class="o">.</span><span class="n">subset</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">passed</span><span class="p">)[</span><span class="mi">0</span><span class="p">]),</span> <span class="p">{</span><span class="s2">"metric"</span><span class="p">:</span> <span class="n">metric</span><span class="p">,</span> <span class="s2">"passed"</span><span class="p">:</span> <span class="n">passed</span><span class="p">}</span></div>
 
 
 
 <div class="viewcode-block" id="curate_by_firing_rate">
 <a class="viewcode-back" href="../../../api/curation.html#spikelab.spikedata.curation.curate_by_firing_rate">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">curate_by_firing_rate</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">min_rate_hz</span><span class="o">=</span><span class="mf">0.05</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Remove units whose firing rate is below *min_rate_hz*.</span>
+<span class="w">    </span><span class="sd">"""Remove units whose firing rate is below *min_rate_hz*.</span>
 
 <span class="sd">    Parameters:</span>
 <span class="sd">        sd (SpikeData): Source spike data.</span>
@@ -544,51 +544,51 @@
 
 <span class="sd">    Returns:</span>
 <span class="sd">        sd_out (SpikeData): SpikeData with only passing units.</span>
-<span class="sd">        result (dict): ``{&quot;metric&quot;: (N,) firing rates in Hz, &quot;passed&quot;: (N,) bool mask}``.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">        result (dict): ``{"metric": (N,) firing rates in Hz, "passed": (N,) bool mask}``.</span>
+<span class="sd">    """</span>
     <span class="n">duration_s</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">length</span> <span class="o">/</span> <span class="mf">1000.0</span>
     <span class="k">if</span> <span class="n">duration_s</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
         <span class="n">metric</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">metric</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="o">/</span> <span class="n">duration_s</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">sd</span><span class="o">.</span><span class="n">train</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
     <span class="n">passed</span> <span class="o">=</span> <span class="n">metric</span> <span class="o">&gt;=</span> <span class="n">min_rate_hz</span>
-    <span class="k">return</span> <span class="n">sd</span><span class="o">.</span><span class="n">subset</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">passed</span><span class="p">)[</span><span class="mi">0</span><span class="p">]),</span> <span class="p">{</span><span class="s2">&quot;metric&quot;</span><span class="p">:</span> <span class="n">metric</span><span class="p">,</span> <span class="s2">&quot;passed&quot;</span><span class="p">:</span> <span class="n">passed</span><span class="p">}</span></div>
+    <span class="k">return</span> <span class="n">sd</span><span class="o">.</span><span class="n">subset</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">passed</span><span class="p">)[</span><span class="mi">0</span><span class="p">]),</span> <span class="p">{</span><span class="s2">"metric"</span><span class="p">:</span> <span class="n">metric</span><span class="p">,</span> <span class="s2">"passed"</span><span class="p">:</span> <span class="n">passed</span><span class="p">}</span></div>
 
 
 
 <div class="viewcode-block" id="curate_by_isi_violations">
 <a class="viewcode-back" href="../../../api/curation.html#spikelab.spikedata.curation.curate_by_isi_violations">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">curate_by_isi_violations</span><span class="p">(</span>
-    <span class="n">sd</span><span class="p">,</span> <span class="n">max_violation</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">threshold_ms</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span> <span class="n">min_isi_ms</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;percent&quot;</span>
+    <span class="n">sd</span><span class="p">,</span> <span class="n">max_violation</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">threshold_ms</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span> <span class="n">min_isi_ms</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">"percent"</span>
 <span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Remove units with excessive inter-spike-interval violations.</span>
+<span class="w">    </span><span class="sd">"""Remove units with excessive inter-spike-interval violations.</span>
 
 <span class="sd">    Two methods are available:</span>
 
-<span class="sd">    - ``&quot;percent&quot;`` — violation count divided by total spike count,</span>
+<span class="sd">    - ``"percent"`` — violation count divided by total spike count,</span>
 <span class="sd">      expressed as a fraction in ``[0, 1]`` (e.g. ``0.01`` means 1 % of</span>
 <span class="sd">      spikes are ISI violations).</span>
-<span class="sd">    - ``&quot;hill&quot;`` — violation rate ratio from Hill et al. (2011)</span>
+<span class="sd">    - ``"hill"`` — violation rate ratio from Hill et al. (2011)</span>
 <span class="sd">      J Neurosci 31:8699-8705.  Values above 1 indicate highly</span>
 <span class="sd">      contaminated units.</span>
 
 <span class="sd">    Parameters:</span>
 <span class="sd">        sd (SpikeData): Source spike data.</span>
 <span class="sd">        max_violation (float): Maximum allowed metric. With</span>
-<span class="sd">            ``method=&quot;percent&quot;`` this is a fraction in ``[0, 1]``</span>
-<span class="sd">            (default ``0.01`` = 1 % of spikes). With ``method=&quot;hill&quot;``</span>
+<span class="sd">            ``method="percent"`` this is a fraction in ``[0, 1]``</span>
+<span class="sd">            (default ``0.01`` = 1 % of spikes). With ``method="hill"``</span>
 <span class="sd">            it is a contamination ratio.</span>
 <span class="sd">        threshold_ms (float): Refractory period threshold in ms.</span>
 <span class="sd">        min_isi_ms (float): Minimum possible ISI enforced by hardware or</span>
 <span class="sd">            post-processing, in ms.</span>
-<span class="sd">        method (str): ``&quot;percent&quot;`` or ``&quot;hill&quot;``.</span>
+<span class="sd">        method (str): ``"percent"`` or ``"hill"``.</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        sd_out (SpikeData): SpikeData with only passing units.</span>
-<span class="sd">        result (dict): ``{&quot;metric&quot;: (N,) ISI violation metric, &quot;passed&quot;: (N,) bool mask}``.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="n">method</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;percent&quot;</span><span class="p">,</span> <span class="s2">&quot;hill&quot;</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;method must be &#39;percent&#39; or &#39;hill&#39;, got &#39;</span><span class="si">{</span><span class="n">method</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+<span class="sd">        result (dict): ``{"metric": (N,) ISI violation metric, "passed": (N,) bool mask}``.</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="n">method</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"percent"</span><span class="p">,</span> <span class="s2">"hill"</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"method must be 'percent' or 'hill', got '</span><span class="si">{</span><span class="n">method</span><span class="si">}</span><span class="s2">'"</span><span class="p">)</span>
 
     <span class="n">duration_s</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">length</span> <span class="o">/</span> <span class="mf">1000.0</span>
     <span class="n">threshold_s</span> <span class="o">=</span> <span class="n">threshold_ms</span> <span class="o">/</span> <span class="mf">1000.0</span>
@@ -603,7 +603,7 @@
         <span class="n">isis</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">train</span><span class="p">)</span>  <span class="c1"># already in ms</span>
         <span class="n">violation_count</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">isis</span> <span class="o">&lt;</span> <span class="n">threshold_ms</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;hill&quot;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">"hill"</span><span class="p">:</span>
             <span class="n">violation_time</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">n_spikes</span> <span class="o">*</span> <span class="p">(</span><span class="n">threshold_s</span> <span class="o">-</span> <span class="n">min_isi_s</span><span class="p">)</span>
             <span class="n">total_rate</span> <span class="o">=</span> <span class="n">n_spikes</span> <span class="o">/</span> <span class="n">duration_s</span> <span class="k">if</span> <span class="n">duration_s</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span>
             <span class="n">violation_rate</span> <span class="o">=</span> <span class="p">(</span>
@@ -614,14 +614,14 @@
             <span class="n">metric</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">violation_count</span> <span class="o">/</span> <span class="n">n_spikes</span>
 
     <span class="n">passed</span> <span class="o">=</span> <span class="n">metric</span> <span class="o">&lt;=</span> <span class="n">max_violation</span>
-    <span class="k">return</span> <span class="n">sd</span><span class="o">.</span><span class="n">subset</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">passed</span><span class="p">)[</span><span class="mi">0</span><span class="p">]),</span> <span class="p">{</span><span class="s2">&quot;metric&quot;</span><span class="p">:</span> <span class="n">metric</span><span class="p">,</span> <span class="s2">&quot;passed&quot;</span><span class="p">:</span> <span class="n">passed</span><span class="p">}</span></div>
+    <span class="k">return</span> <span class="n">sd</span><span class="o">.</span><span class="n">subset</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">passed</span><span class="p">)[</span><span class="mi">0</span><span class="p">]),</span> <span class="p">{</span><span class="s2">"metric"</span><span class="p">:</span> <span class="n">metric</span><span class="p">,</span> <span class="s2">"passed"</span><span class="p">:</span> <span class="n">passed</span><span class="p">}</span></div>
 
 
 
 <div class="viewcode-block" id="curate_by_snr">
 <a class="viewcode-back" href="../../../api/curation.html#spikelab.spikedata.curation.curate_by_snr">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">curate_by_snr</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">min_snr</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span> <span class="n">ms_before</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">ms_after</span><span class="o">=</span><span class="mf">2.0</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Remove units whose signal-to-noise ratio is below *min_snr*.</span>
+<span class="w">    </span><span class="sd">"""Remove units whose signal-to-noise ratio is below *min_snr*.</span>
 
 <span class="sd">    SNR is defined as ``peak_amplitude / noise_level`` where peak</span>
 <span class="sd">    amplitude is the absolute maximum of the average waveform on the</span>
@@ -629,7 +629,7 @@
 <span class="sd">    via the median absolute deviation (MAD) of the raw trace on that</span>
 <span class="sd">    channel.</span>
 
-<span class="sd">    The method first checks for a precomputed ``&quot;snr&quot;`` value in</span>
+<span class="sd">    The method first checks for a precomputed ``"snr"`` value in</span>
 <span class="sd">    ``neuron_attributes``.  If not found, it computes SNR from</span>
 <span class="sd">    ``raw_data`` (using ``get_waveform_traces``).  If neither is</span>
 <span class="sd">    available a ``ValueError`` is raised.</span>
@@ -644,11 +644,11 @@
 
 <span class="sd">    Returns:</span>
 <span class="sd">        sd_out (SpikeData): SpikeData with only passing units.</span>
-<span class="sd">        result (dict): ``{&quot;metric&quot;: (N,) per-unit SNR, &quot;passed&quot;: (N,) bool mask}``.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">metric</span> <span class="o">=</span> <span class="n">_get_or_compute_waveform_metric</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="s2">&quot;snr&quot;</span><span class="p">,</span> <span class="n">ms_before</span><span class="p">,</span> <span class="n">ms_after</span><span class="p">)</span>
+<span class="sd">        result (dict): ``{"metric": (N,) per-unit SNR, "passed": (N,) bool mask}``.</span>
+<span class="sd">    """</span>
+    <span class="n">metric</span> <span class="o">=</span> <span class="n">_get_or_compute_waveform_metric</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="s2">"snr"</span><span class="p">,</span> <span class="n">ms_before</span><span class="p">,</span> <span class="n">ms_after</span><span class="p">)</span>
     <span class="n">passed</span> <span class="o">=</span> <span class="n">metric</span> <span class="o">&gt;=</span> <span class="n">min_snr</span>
-    <span class="k">return</span> <span class="n">sd</span><span class="o">.</span><span class="n">subset</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">passed</span><span class="p">)[</span><span class="mi">0</span><span class="p">]),</span> <span class="p">{</span><span class="s2">&quot;metric&quot;</span><span class="p">:</span> <span class="n">metric</span><span class="p">,</span> <span class="s2">&quot;passed&quot;</span><span class="p">:</span> <span class="n">passed</span><span class="p">}</span></div>
+    <span class="k">return</span> <span class="n">sd</span><span class="o">.</span><span class="n">subset</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">passed</span><span class="p">)[</span><span class="mi">0</span><span class="p">]),</span> <span class="p">{</span><span class="s2">"metric"</span><span class="p">:</span> <span class="n">metric</span><span class="p">,</span> <span class="s2">"passed"</span><span class="p">:</span> <span class="n">passed</span><span class="p">}</span></div>
 
 
 
@@ -663,7 +663,7 @@
     <span class="n">ms_before</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
     <span class="n">ms_after</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span>
 <span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Remove units whose normalized waveform standard deviation exceeds</span>
+<span class="w">    </span><span class="sd">"""Remove units whose normalized waveform standard deviation exceeds</span>
 <span class="sd">    *max_std_norm*.</span>
 
 <span class="sd">    Normalized STD is ``|std| / |amplitude|`` on the channel with the</span>
@@ -671,7 +671,7 @@
 <span class="sd">    single peak sample; otherwise it is averaged over a window around</span>
 <span class="sd">    the peak.</span>
 
-<span class="sd">    The method first checks for a precomputed ``&quot;std_norm&quot;`` value in</span>
+<span class="sd">    The method first checks for a precomputed ``"std_norm"`` value in</span>
 <span class="sd">    ``neuron_attributes``.  If not found, it computes the metric from</span>
 <span class="sd">    ``raw_data``.  If neither is available a ``ValueError`` is raised.</span>
 
@@ -690,11 +690,11 @@
 
 <span class="sd">    Returns:</span>
 <span class="sd">        sd_out (SpikeData): SpikeData with only passing units.</span>
-<span class="sd">        result (dict): ``{&quot;metric&quot;: (N,) normalized STD, &quot;passed&quot;: (N,) bool mask}``.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">        result (dict): ``{"metric": (N,) normalized STD, "passed": (N,) bool mask}``.</span>
+<span class="sd">    """</span>
     <span class="n">metric</span> <span class="o">=</span> <span class="n">_get_or_compute_waveform_metric</span><span class="p">(</span>
         <span class="n">sd</span><span class="p">,</span>
-        <span class="s2">&quot;std_norm&quot;</span><span class="p">,</span>
+        <span class="s2">"std_norm"</span><span class="p">,</span>
         <span class="n">ms_before</span><span class="p">,</span>
         <span class="n">ms_after</span><span class="p">,</span>
         <span class="n">at_peak</span><span class="o">=</span><span class="n">at_peak</span><span class="p">,</span>
@@ -702,7 +702,7 @@
         <span class="n">window_ms_after</span><span class="o">=</span><span class="n">window_ms_after</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">passed</span> <span class="o">=</span> <span class="n">metric</span> <span class="o">&lt;=</span> <span class="n">max_std_norm</span>
-    <span class="k">return</span> <span class="n">sd</span><span class="o">.</span><span class="n">subset</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">passed</span><span class="p">)[</span><span class="mi">0</span><span class="p">]),</span> <span class="p">{</span><span class="s2">&quot;metric&quot;</span><span class="p">:</span> <span class="n">metric</span><span class="p">,</span> <span class="s2">&quot;passed&quot;</span><span class="p">:</span> <span class="n">passed</span><span class="p">}</span></div>
+    <span class="k">return</span> <span class="n">sd</span><span class="o">.</span><span class="n">subset</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">passed</span><span class="p">)[</span><span class="mi">0</span><span class="p">]),</span> <span class="p">{</span><span class="s2">"metric"</span><span class="p">:</span> <span class="n">metric</span><span class="p">,</span> <span class="s2">"passed"</span><span class="p">:</span> <span class="n">passed</span><span class="p">}</span></div>
 
 
 
@@ -718,15 +718,15 @@
     <span class="n">freq_min</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span>
     <span class="n">freq_max</span><span class="o">=</span><span class="mi">6000</span><span class="p">,</span>
 <span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute average waveforms, SNR, and normalized STD for every unit.</span>
+<span class="w">    </span><span class="sd">"""Compute average waveforms, SNR, and normalized STD for every unit.</span>
 
 <span class="sd">    Results are stored in ``neuron_attributes`` under the keys</span>
-<span class="sd">    ``&quot;snr&quot;`` and ``&quot;std_norm&quot;``.  Average waveforms are stored by</span>
+<span class="sd">    ``"snr"`` and ``"std_norm"``.  Average waveforms are stored by</span>
 <span class="sd">    ``get_waveform_traces`` (called internally with ``store=True``).</span>
 
 <span class="sd">    Waveforms are extracted from bandpass-filtered data (*freq_min*–*freq_max*</span>
 <span class="sd">    Hz) and noise is estimated on the same filtered band.  This matches</span>
-<span class="sd">    SpikeInterface&#39;s quality-metrics convention and avoids inflating the SNR</span>
+<span class="sd">    SpikeInterface's quality-metrics convention and avoids inflating the SNR</span>
 <span class="sd">    denominator with LFP energy.</span>
 
 <span class="sd">    Parameters:</span>
@@ -747,14 +747,14 @@
 <span class="sd">    Returns:</span>
 <span class="sd">        sd (SpikeData): The same SpikeData object (modified in place</span>
 <span class="sd">            with updated ``neuron_attributes``).</span>
-<span class="sd">        metrics (dict): Dict with keys ``&quot;snr&quot;`` and ``&quot;std_norm&quot;``,</span>
+<span class="sd">        metrics (dict): Dict with keys ``"snr"`` and ``"std_norm"``,</span>
 <span class="sd">            each mapping to an ``np.ndarray`` of shape ``(N,)``.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">raw_data</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">raise</span> <span class="n">EmptyWaveformMetricsError</span><span class="p">(</span>
-            <span class="s2">&quot;raw_data is empty. Attach raw voltage traces before calling &quot;</span>
-            <span class="s2">&quot;compute_waveform_metrics.&quot;</span><span class="p">,</span>
-            <span class="n">metric_name</span><span class="o">=</span><span class="s2">&quot;waveform_metrics&quot;</span><span class="p">,</span>
+            <span class="s2">"raw_data is empty. Attach raw voltage traces before calling "</span>
+            <span class="s2">"compute_waveform_metrics."</span><span class="p">,</span>
+            <span class="n">metric_name</span><span class="o">=</span><span class="s2">"waveform_metrics"</span><span class="p">,</span>
         <span class="p">)</span>
 
     <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -787,13 +787,13 @@
 
     <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="p">):</span>
         <span class="n">attrs</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
-        <span class="n">waveforms</span> <span class="o">=</span> <span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;waveforms&quot;</span><span class="p">)</span>  <span class="c1"># (channels, samples, spikes)</span>
+        <span class="n">waveforms</span> <span class="o">=</span> <span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"waveforms"</span><span class="p">)</span>  <span class="c1"># (channels, samples, spikes)</span>
         <span class="k">if</span> <span class="n">waveforms</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">waveforms</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">snr_arr</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
             <span class="n">std_norm_arr</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span>
             <span class="k">continue</span>
 
-        <span class="n">avg_wf</span> <span class="o">=</span> <span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;avg_waveform&quot;</span><span class="p">)</span>  <span class="c1"># (channels, samples)</span>
+        <span class="n">avg_wf</span> <span class="o">=</span> <span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"avg_waveform"</span><span class="p">)</span>  <span class="c1"># (channels, samples)</span>
         <span class="k">if</span> <span class="n">avg_wf</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">avg_wf</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">waveforms</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 
@@ -808,7 +808,7 @@
 
         <span class="c1"># SNR = amplitude / noise</span>
         <span class="n">noise</span> <span class="o">=</span> <span class="n">noise_levels</span><span class="p">[</span><span class="n">chan_max</span><span class="p">]</span> <span class="k">if</span> <span class="n">chan_max</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">noise_levels</span><span class="p">)</span> <span class="k">else</span> <span class="mf">1.0</span>
-        <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">invalid</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">):</span>
+        <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="s2">"ignore"</span><span class="p">,</span> <span class="n">invalid</span><span class="o">=</span><span class="s2">"ignore"</span><span class="p">):</span>
             <span class="n">snr_arr</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">amplitude</span> <span class="o">/</span> <span class="n">noise</span> <span class="k">if</span> <span class="n">noise</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span>
 
         <span class="c1"># Normalized STD</span>
@@ -824,14 +824,14 @@
             <span class="n">win_end</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">chan_std</span><span class="p">),</span> <span class="n">peak_ind</span> <span class="o">+</span> <span class="n">n_after</span><span class="p">)</span>
             <span class="n">std_val</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">chan_std</span><span class="p">[</span><span class="n">win_start</span><span class="p">:</span><span class="n">win_end</span><span class="p">])</span>
 
-        <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">invalid</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">):</span>
+        <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="s2">"ignore"</span><span class="p">,</span> <span class="n">invalid</span><span class="o">=</span><span class="s2">"ignore"</span><span class="p">):</span>
             <span class="n">std_norm_arr</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">std_val</span> <span class="o">/</span> <span class="n">amplitude</span><span class="p">)</span> <span class="k">if</span> <span class="n">amplitude</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span>
 
         <span class="c1"># Store in neuron_attributes</span>
-        <span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;snr&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">snr_arr</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
-        <span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;std_norm&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">std_norm_arr</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+        <span class="n">attrs</span><span class="p">[</span><span class="s2">"snr"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">snr_arr</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+        <span class="n">attrs</span><span class="p">[</span><span class="s2">"std_norm"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">std_norm_arr</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
 
-    <span class="k">return</span> <span class="n">sd</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;snr&quot;</span><span class="p">:</span> <span class="n">snr_arr</span><span class="p">,</span> <span class="s2">&quot;std_norm&quot;</span><span class="p">:</span> <span class="n">std_norm_arr</span><span class="p">}</span></div>
+    <span class="k">return</span> <span class="n">sd</span><span class="p">,</span> <span class="p">{</span><span class="s2">"snr"</span><span class="p">:</span> <span class="n">snr_arr</span><span class="p">,</span> <span class="s2">"std_norm"</span><span class="p">:</span> <span class="n">std_norm_arr</span><span class="p">}</span></div>
 
 
 
@@ -844,7 +844,7 @@
     <span class="n">isi_max</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">isi_threshold_ms</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span>
     <span class="n">isi_min_ms</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
-    <span class="n">isi_method</span><span class="o">=</span><span class="s2">&quot;percent&quot;</span><span class="p">,</span>
+    <span class="n">isi_method</span><span class="o">=</span><span class="s2">"percent"</span><span class="p">,</span>
     <span class="n">min_snr</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">max_std_norm</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">std_at_peak</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
@@ -853,7 +853,7 @@
     <span class="n">snr_ms_before</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
     <span class="n">snr_ms_after</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span>
 <span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Apply multiple curation criteria in sequence (intersection).</span>
+<span class="w">    </span><span class="sd">"""Apply multiple curation criteria in sequence (intersection).</span>
 
 <span class="sd">    Only criteria whose threshold is not None are applied.  Returns the</span>
 <span class="sd">    filtered SpikeData and a dict of per-criterion results.</span>
@@ -865,7 +865,7 @@
 <span class="sd">        isi_max (float or None): Maximum ISI violation metric.</span>
 <span class="sd">        isi_threshold_ms (float): Refractory period for ISI check.</span>
 <span class="sd">        isi_min_ms (float): Minimum possible ISI for ISI check.</span>
-<span class="sd">        isi_method (str): ``&quot;percent&quot;`` or ``&quot;hill&quot;`` for ISI check.</span>
+<span class="sd">        isi_method (str): ``"percent"`` or ``"hill"`` for ISI check.</span>
 <span class="sd">        min_snr (float or None): Minimum SNR.</span>
 <span class="sd">        max_std_norm (float or None): Maximum normalized STD.</span>
 <span class="sd">        std_at_peak (bool): Measure STD at peak only.</span>
@@ -876,18 +876,18 @@
 
 <span class="sd">    Returns:</span>
 <span class="sd">        sd_out (SpikeData): SpikeData with only units passing all criteria.</span>
-<span class="sd">        results (dict): Mapping from criterion name to ``{&quot;metric&quot;: (N,), &quot;passed&quot;: (N,)}``.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">        results (dict): Mapping from criterion name to ``{"metric": (N,), "passed": (N,)}``.</span>
+<span class="sd">    """</span>
     <span class="n">results</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="n">current</span> <span class="o">=</span> <span class="n">sd</span>
 
     <span class="k">if</span> <span class="n">min_spikes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">current</span><span class="p">,</span> <span class="n">res</span> <span class="o">=</span> <span class="n">curate_by_min_spikes</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="n">min_spikes</span><span class="o">=</span><span class="n">min_spikes</span><span class="p">)</span>
-        <span class="n">results</span><span class="p">[</span><span class="s2">&quot;spike_count&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">res</span>
+        <span class="n">results</span><span class="p">[</span><span class="s2">"spike_count"</span><span class="p">]</span> <span class="o">=</span> <span class="n">res</span>
 
     <span class="k">if</span> <span class="n">min_rate_hz</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">current</span><span class="p">,</span> <span class="n">res</span> <span class="o">=</span> <span class="n">curate_by_firing_rate</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="n">min_rate_hz</span><span class="o">=</span><span class="n">min_rate_hz</span><span class="p">)</span>
-        <span class="n">results</span><span class="p">[</span><span class="s2">&quot;firing_rate&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">res</span>
+        <span class="n">results</span><span class="p">[</span><span class="s2">"firing_rate"</span><span class="p">]</span> <span class="o">=</span> <span class="n">res</span>
 
     <span class="k">if</span> <span class="n">isi_max</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">current</span><span class="p">,</span> <span class="n">res</span> <span class="o">=</span> <span class="n">curate_by_isi_violations</span><span class="p">(</span>
@@ -897,7 +897,7 @@
             <span class="n">min_isi_ms</span><span class="o">=</span><span class="n">isi_min_ms</span><span class="p">,</span>
             <span class="n">method</span><span class="o">=</span><span class="n">isi_method</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="n">results</span><span class="p">[</span><span class="s2">&quot;isi_violation&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">res</span>
+        <span class="n">results</span><span class="p">[</span><span class="s2">"isi_violation"</span><span class="p">]</span> <span class="o">=</span> <span class="n">res</span>
 
     <span class="k">if</span> <span class="n">min_snr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">current</span><span class="p">,</span> <span class="n">res</span> <span class="o">=</span> <span class="n">curate_by_snr</span><span class="p">(</span>
@@ -906,7 +906,7 @@
             <span class="n">ms_before</span><span class="o">=</span><span class="n">snr_ms_before</span><span class="p">,</span>
             <span class="n">ms_after</span><span class="o">=</span><span class="n">snr_ms_after</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="n">results</span><span class="p">[</span><span class="s2">&quot;snr&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">res</span>
+        <span class="n">results</span><span class="p">[</span><span class="s2">"snr"</span><span class="p">]</span> <span class="o">=</span> <span class="n">res</span>
 
     <span class="k">if</span> <span class="n">max_std_norm</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">current</span><span class="p">,</span> <span class="n">res</span> <span class="o">=</span> <span class="n">curate_by_std_norm</span><span class="p">(</span>
@@ -918,7 +918,7 @@
             <span class="n">ms_before</span><span class="o">=</span><span class="n">snr_ms_before</span><span class="p">,</span>
             <span class="n">ms_after</span><span class="o">=</span><span class="n">snr_ms_after</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="n">results</span><span class="p">[</span><span class="s2">&quot;std_norm&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">res</span>
+        <span class="n">results</span><span class="p">[</span><span class="s2">"std_norm"</span><span class="p">]</span> <span class="o">=</span> <span class="n">res</span>
 
     <span class="k">return</span> <span class="n">current</span><span class="p">,</span> <span class="n">results</span></div>
 
@@ -927,7 +927,7 @@
 <div class="viewcode-block" id="build_curation_history">
 <a class="viewcode-back" href="../../../api/curation.html#spikelab.spikedata.curation.build_curation_history">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">build_curation_history</span><span class="p">(</span><span class="n">sd_original</span><span class="p">,</span> <span class="n">sd_curated</span><span class="p">,</span> <span class="n">results</span><span class="p">,</span> <span class="n">parameters</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Translate curation results into a serializable history dict.</span>
+<span class="w">    </span><span class="sd">"""Translate curation results into a serializable history dict.</span>
 
 <span class="sd">    The output format mirrors the curation history produced by the</span>
 <span class="sd">    Kilosort2 pipeline, making it suitable for saving as JSON.</span>
@@ -937,8 +937,8 @@
 <span class="sd">        sd_curated (SpikeData): The SpikeData **after** curation.</span>
 <span class="sd">        results (dict): Results dict returned by ``curate()`` or</span>
 <span class="sd">            assembled manually from individual ``curate_by_*`` calls.</span>
-<span class="sd">            Keys are criterion names, values are dicts with ``&quot;metric&quot;``</span>
-<span class="sd">            and ``&quot;passed&quot;`` arrays.</span>
+<span class="sd">            Keys are criterion names, values are dicts with ``"metric"``</span>
+<span class="sd">            and ``"passed"`` arrays.</span>
 <span class="sd">        parameters (dict or None): Curation parameter values to record.</span>
 <span class="sd">            If None, an empty dict is stored.</span>
 
@@ -946,13 +946,13 @@
 <span class="sd">        history (dict): Serializable curation history with keys:</span>
 <span class="sd">            ``curation_parameters``, ``initial``, ``curations``,</span>
 <span class="sd">            ``curated``, ``failed``, ``metrics``, ``curated_final``.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
-    <span class="c1"># Resolve unit IDs: use neuron_attributes[&quot;unit_id&quot;] if available,</span>
+    <span class="c1"># Resolve unit IDs: use neuron_attributes["unit_id"] if available,</span>
     <span class="c1"># otherwise fall back to positional indices.</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_unit_ids</span><span class="p">(</span><span class="n">sd</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">a</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;unit_id&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">]</span>
+            <span class="n">ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">a</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"unit_id"</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">]</span>
             <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">uid</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">uid</span> <span class="ow">in</span> <span class="n">ids</span><span class="p">):</span>
                 <span class="k">return</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">uid</span><span class="p">)</span> <span class="k">for</span> <span class="n">uid</span> <span class="ow">in</span> <span class="n">ids</span><span class="p">]</span>
         <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="p">))</span>
@@ -968,17 +968,17 @@
     <span class="c1"># Walk through results in insertion order.  Each result was computed</span>
     <span class="c1"># on the SpikeData that entered that stage (after previous filters),</span>
     <span class="c1"># but the metric and passed arrays are indexed relative to that</span>
-    <span class="c1"># stage&#39;s input.  We need to map back to the original unit IDs.</span>
+    <span class="c1"># stage's input.  We need to map back to the original unit IDs.</span>
     <span class="c1">#</span>
-    <span class="c1"># Because curate() applies criteria sequentially, each stage&#39;s input</span>
+    <span class="c1"># Because curate() applies criteria sequentially, each stage's input</span>
     <span class="c1"># is a subset of the original.  We track the surviving ID list to</span>
     <span class="c1"># perform the mapping.</span>
     <span class="n">surviving_ids</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">original_ids</span><span class="p">)</span>
 
     <span class="k">for</span> <span class="n">criterion</span><span class="p">,</span> <span class="n">res</span> <span class="ow">in</span> <span class="n">results</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
         <span class="n">curations</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">criterion</span><span class="p">)</span>
-        <span class="n">metric_arr</span> <span class="o">=</span> <span class="n">res</span><span class="p">[</span><span class="s2">&quot;metric&quot;</span><span class="p">]</span>
-        <span class="n">passed_arr</span> <span class="o">=</span> <span class="n">res</span><span class="p">[</span><span class="s2">&quot;passed&quot;</span><span class="p">]</span>
+        <span class="n">metric_arr</span> <span class="o">=</span> <span class="n">res</span><span class="p">[</span><span class="s2">"metric"</span><span class="p">]</span>
+        <span class="n">passed_arr</span> <span class="o">=</span> <span class="n">res</span><span class="p">[</span><span class="s2">"passed"</span><span class="p">]</span>
 
         <span class="n">stage_curated</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">stage_failed</span> <span class="o">=</span> <span class="p">[]</span>
@@ -999,13 +999,13 @@
         <span class="n">surviving_ids</span> <span class="o">=</span> <span class="n">stage_curated</span>
 
     <span class="k">return</span> <span class="p">{</span>
-        <span class="s2">&quot;curation_parameters&quot;</span><span class="p">:</span> <span class="n">parameters</span> <span class="k">if</span> <span class="n">parameters</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">{},</span>
-        <span class="s2">&quot;initial&quot;</span><span class="p">:</span> <span class="n">original_ids</span><span class="p">,</span>
-        <span class="s2">&quot;curations&quot;</span><span class="p">:</span> <span class="n">curations</span><span class="p">,</span>
-        <span class="s2">&quot;curated&quot;</span><span class="p">:</span> <span class="n">curated</span><span class="p">,</span>
-        <span class="s2">&quot;failed&quot;</span><span class="p">:</span> <span class="n">failed</span><span class="p">,</span>
-        <span class="s2">&quot;metrics&quot;</span><span class="p">:</span> <span class="n">metrics</span><span class="p">,</span>
-        <span class="s2">&quot;curated_final&quot;</span><span class="p">:</span> <span class="n">final_ids</span><span class="p">,</span>
+        <span class="s2">"curation_parameters"</span><span class="p">:</span> <span class="n">parameters</span> <span class="k">if</span> <span class="n">parameters</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">{},</span>
+        <span class="s2">"initial"</span><span class="p">:</span> <span class="n">original_ids</span><span class="p">,</span>
+        <span class="s2">"curations"</span><span class="p">:</span> <span class="n">curations</span><span class="p">,</span>
+        <span class="s2">"curated"</span><span class="p">:</span> <span class="n">curated</span><span class="p">,</span>
+        <span class="s2">"failed"</span><span class="p">:</span> <span class="n">failed</span><span class="p">,</span>
+        <span class="s2">"metrics"</span><span class="p">:</span> <span class="n">metrics</span><span class="p">,</span>
+        <span class="s2">"curated_final"</span><span class="p">:</span> <span class="n">final_ids</span><span class="p">,</span>
     <span class="p">}</span></div>
 
 
@@ -1024,14 +1024,14 @@
     <span class="n">freq_min</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span>
     <span class="n">freq_max</span><span class="o">=</span><span class="mi">6000</span><span class="p">,</span>
 <span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Estimate per-channel noise via MAD on random chunks of *raw_data*.</span>
+<span class="w">    </span><span class="sd">"""Estimate per-channel noise via MAD on random chunks of *raw_data*.</span>
 
 <span class="sd">    When *fs* is provided the full *raw_data* array is bandpass-filtered first</span>
 <span class="sd">    (4th-order Butterworth, *freq_min*–*freq_max* Hz, zero-phase), then random</span>
 <span class="sd">    chunks are sampled from the filtered result for the MAD estimate.  Filtering</span>
 <span class="sd">    before chunking avoids the edge artifacts that arise when short segments are</span>
 <span class="sd">    filtered independently.  This removes LFP energy from the noise denominator</span>
-<span class="sd">    and matches SpikeInterface&#39;s quality-metrics convention.</span>
+<span class="sd">    and matches SpikeInterface's quality-metrics convention.</span>
 
 <span class="sd">    Parameters:</span>
 <span class="sd">        raw_data (np.ndarray): Shape ``(channels, time)``.</span>
@@ -1045,13 +1045,13 @@
 
 <span class="sd">    Returns:</span>
 <span class="sd">        noise (np.ndarray): Shape ``(channels,)``.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="c1"># Filter the full trace before sampling so chunk boundaries don&#39;t introduce</span>
-    <span class="c1"># edge artifacts from the zero-phase filter&#39;s start/end padding.</span>
+<span class="sd">    """</span>
+    <span class="c1"># Filter the full trace before sampling so chunk boundaries don't introduce</span>
+    <span class="c1"># edge artifacts from the zero-phase filter's start/end padding.</span>
     <span class="k">if</span> <span class="n">fs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">freq_min</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">freq_max</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.signal</span><span class="w"> </span><span class="kn">import</span> <span class="n">butter</span><span class="p">,</span> <span class="n">sosfiltfilt</span>
 
-        <span class="n">sos</span> <span class="o">=</span> <span class="n">butter</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="p">[</span><span class="n">freq_min</span><span class="p">,</span> <span class="n">freq_max</span><span class="p">],</span> <span class="n">btype</span><span class="o">=</span><span class="s2">&quot;bandpass&quot;</span><span class="p">,</span> <span class="n">fs</span><span class="o">=</span><span class="n">fs</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="s2">&quot;sos&quot;</span><span class="p">)</span>
+        <span class="n">sos</span> <span class="o">=</span> <span class="n">butter</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="p">[</span><span class="n">freq_min</span><span class="p">,</span> <span class="n">freq_max</span><span class="p">],</span> <span class="n">btype</span><span class="o">=</span><span class="s2">"bandpass"</span><span class="p">,</span> <span class="n">fs</span><span class="o">=</span><span class="n">fs</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="s2">"sos"</span><span class="p">)</span>
         <span class="n">raw_data</span> <span class="o">=</span> <span class="n">sosfiltfilt</span><span class="p">(</span><span class="n">sos</span><span class="p">,</span> <span class="n">raw_data</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 
     <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
@@ -1070,12 +1070,12 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_get_or_compute_waveform_metric</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">metric_name</span><span class="p">,</span> <span class="n">ms_before</span><span class="p">,</span> <span class="n">ms_after</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Try to read a precomputed metric from neuron_attributes, fall back</span>
+<span class="w">    </span><span class="sd">"""Try to read a precomputed metric from neuron_attributes, fall back</span>
 <span class="sd">    to computing from raw_data, or raise if neither is available.</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        metric (np.ndarray): Shape ``(N,)``.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="c1"># 1. Check neuron_attributes for precomputed values</span>
     <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">values</span> <span class="o">=</span> <span class="p">[]</span>
@@ -1089,9 +1089,9 @@
 
     <span class="c1"># 2. Fall back to computing from raw_data</span>
     <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">raw_data</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="n">at_peak</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;at_peak&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
-        <span class="n">window_ms_before</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;window_ms_before&quot;</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">)</span>
-        <span class="n">window_ms_after</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;window_ms_after&quot;</span><span class="p">,</span> <span class="mf">1.5</span><span class="p">)</span>
+        <span class="n">at_peak</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"at_peak"</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+        <span class="n">window_ms_before</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"window_ms_before"</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">)</span>
+        <span class="n">window_ms_after</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"window_ms_after"</span><span class="p">,</span> <span class="mf">1.5</span><span class="p">)</span>
         <span class="n">_</span><span class="p">,</span> <span class="n">metrics</span> <span class="o">=</span> <span class="n">compute_waveform_metrics</span><span class="p">(</span>
             <span class="n">sd</span><span class="p">,</span>
             <span class="n">ms_before</span><span class="o">=</span><span class="n">ms_before</span><span class="p">,</span>
@@ -1104,9 +1104,9 @@
 
     <span class="c1"># 3. Neither available</span>
     <span class="k">raise</span> <span class="n">EmptyWaveformMetricsError</span><span class="p">(</span>
-        <span class="sa">f</span><span class="s2">&quot;Cannot compute &#39;</span><span class="si">{</span><span class="n">metric_name</span><span class="si">}</span><span class="s2">&#39;: no precomputed values in &quot;</span>
-        <span class="s2">&quot;neuron_attributes and raw_data is empty. Call &quot;</span>
-        <span class="s2">&quot;compute_waveform_metrics() first, or attach raw voltage traces.&quot;</span><span class="p">,</span>
+        <span class="sa">f</span><span class="s2">"Cannot compute '</span><span class="si">{</span><span class="n">metric_name</span><span class="si">}</span><span class="s2">': no precomputed values in "</span>
+        <span class="s2">"neuron_attributes and raw_data is empty. Call "</span>
+        <span class="s2">"compute_waveform_metrics() first, or attach raw voltage traces."</span><span class="p">,</span>
         <span class="n">metric_name</span><span class="o">=</span><span class="n">metric_name</span><span class="p">,</span>
     <span class="p">)</span>
 
@@ -1117,10 +1117,10 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_find_nearby_unit_pairs</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">dist_um</span><span class="o">=</span><span class="mf">200.0</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return all pairs of units whose electrode positions are within distance.</span>
+<span class="w">    </span><span class="sd">"""Return all pairs of units whose electrode positions are within distance.</span>
 
-<span class="sd">    Uses ``sd.unit_locations`` (which normalizes across ``&quot;location&quot;``,</span>
-<span class="sd">    ``&quot;x&quot;/&quot;y&quot;``, and ``&quot;position&quot;`` keys) so this works regardless of</span>
+<span class="sd">    Uses ``sd.unit_locations`` (which normalizes across ``"location"``,</span>
+<span class="sd">    ``"x"/"y"``, and ``"position"`` keys) so this works regardless of</span>
 <span class="sd">    which loader populated the SpikeData object.</span>
 
 <span class="sd">    Parameters:</span>
@@ -1132,11 +1132,11 @@
 
 <span class="sd">    Returns:</span>
 <span class="sd">        pairs (set[tuple[int, int]]): Set of (i, j) index tuples with i &lt; j.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">locations</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">unit_locations</span>
     <span class="k">if</span> <span class="n">locations</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="s2">&quot;sd.unit_locations is None. Position data is required to find nearby pairs.&quot;</span>
+            <span class="s2">"sd.unit_locations is None. Position data is required to find nearby pairs."</span>
         <span class="p">)</span>
     <span class="n">pairs</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
     <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="p">):</span>
@@ -1151,7 +1151,7 @@
 <span class="k">def</span><span class="w"> </span><span class="nf">_filter_pairs_by_isi_violations</span><span class="p">(</span>
     <span class="n">sd</span><span class="p">,</span> <span class="n">pairs</span><span class="p">,</span> <span class="n">max_violation_rate</span><span class="o">=</span><span class="mf">0.04</span><span class="p">,</span> <span class="n">threshold_ms</span><span class="o">=</span><span class="mf">1.5</span>
 <span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Remove pairs where either unit exceeds the ISI violation rate threshold.</span>
+<span class="w">    </span><span class="sd">"""Remove pairs where either unit exceeds the ISI violation rate threshold.</span>
 
 <span class="sd">    ISI violation rate is n_violations / n_spikes where a violation is any</span>
 <span class="sd">    inter-spike interval shorter than threshold_ms.</span>
@@ -1167,7 +1167,7 @@
 <span class="sd">        filtered_pairs (set[tuple[int, int]]): Pairs where both units pass.</span>
 <span class="sd">        violation_rates (dict[int, float]): Per-unit violation rates for</span>
 <span class="sd">            every unit that appeared in pairs.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">pairs</span><span class="p">:</span>
         <span class="k">return</span> <span class="nb">set</span><span class="p">(),</span> <span class="p">{}</span>
 
@@ -1185,7 +1185,7 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_compute_pairwise_similarity</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">pairs</span><span class="p">,</span> <span class="n">max_lag</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute cosine similarity for candidate pairs using flat concatenated waveforms.</span>
+<span class="w">    </span><span class="sd">"""Compute cosine similarity for candidate pairs using flat concatenated waveforms.</span>
 
 <span class="sd">    Each unit is represented as a single 1-D array built by concatenating</span>
 <span class="sd">    avg_waveform in a globally consistent channel order (sorted numerically).</span>
@@ -1193,7 +1193,7 @@
 <span class="sd">    selection is applied.</span>
 
 <span class="sd">    Requires ``avg_waveform`` (shape: n_channels x n_samples) and</span>
-<span class="sd">    ``traces_meta[&quot;channels&quot;]`` in neuron_attributes, as populated by</span>
+<span class="sd">    ``traces_meta["channels"]`` in neuron_attributes, as populated by</span>
 <span class="sd">    ``sd.get_waveforms()`` or ``sd.get_waveform_traces(store=True)``.</span>
 
 <span class="sd">    Parameters:</span>
@@ -1208,12 +1208,12 @@
 <span class="sd">            pairs; 1.0 on the diagonal.</span>
 <span class="sd">        lag_matrix (np.ndarray): Shape (N, N).  Best lag in samples; NaN</span>
 <span class="sd">            for unevaluated pairs; 0 on the diagonal.</span>
-<span class="sd">        unit_ids (list): neuron_attributes[&quot;unit_id&quot;] or index fallback,</span>
+<span class="sd">        unit_ids (list): neuron_attributes["unit_id"] or index fallback,</span>
 <span class="sd">            one entry per unit.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="s2">&quot;neuron_attributes is None. Waveform data is required for similarity computation.&quot;</span>
+            <span class="s2">"neuron_attributes is None. Waveform data is required for similarity computation."</span>
         <span class="p">)</span>
 
     <span class="n">n</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">N</span>
@@ -1222,7 +1222,7 @@
     <span class="n">np</span><span class="o">.</span><span class="n">fill_diagonal</span><span class="p">(</span><span class="n">sim_mat</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
     <span class="n">np</span><span class="o">.</span><span class="n">fill_diagonal</span><span class="p">(</span><span class="n">lag_mat</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
 
-    <span class="n">unit_ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;unit_id&quot;</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">attrs</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">)]</span>
+    <span class="n">unit_ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"unit_id"</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">attrs</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">)]</span>
 
     <span class="k">if</span> <span class="ow">not</span> <span class="n">pairs</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">sim_mat</span><span class="p">,</span> <span class="n">lag_mat</span><span class="p">,</span> <span class="n">unit_ids</span>
@@ -1231,25 +1231,25 @@
     <span class="n">all_channels</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
     <span class="n">wf_lengths</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">for</span> <span class="n">attrs</span> <span class="ow">in</span> <span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">:</span>
-        <span class="n">avg_wf</span> <span class="o">=</span> <span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;avg_waveform&quot;</span><span class="p">)</span>
+        <span class="n">avg_wf</span> <span class="o">=</span> <span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"avg_waveform"</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">avg_wf</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">continue</span>
         <span class="n">wf_lengths</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">avg_wf</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
-        <span class="n">traces_meta</span> <span class="o">=</span> <span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;traces_meta&quot;</span><span class="p">,</span> <span class="p">{})</span>
-        <span class="k">for</span> <span class="n">ch</span> <span class="ow">in</span> <span class="n">traces_meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;channels&quot;</span><span class="p">,</span> <span class="p">[]):</span>
+        <span class="n">traces_meta</span> <span class="o">=</span> <span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"traces_meta"</span><span class="p">,</span> <span class="p">{})</span>
+        <span class="k">for</span> <span class="n">ch</span> <span class="ow">in</span> <span class="n">traces_meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"channels"</span><span class="p">,</span> <span class="p">[]):</span>
             <span class="n">all_channels</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">ch</span><span class="p">))</span>
 
     <span class="k">if</span> <span class="ow">not</span> <span class="n">wf_lengths</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="s2">&quot;No units have &#39;avg_waveform&#39; in neuron_attributes. &quot;</span>
-            <span class="s2">&quot;Load waveform data before calling _compute_pairwise_similarity().&quot;</span>
+            <span class="s2">"No units have 'avg_waveform' in neuron_attributes. "</span>
+            <span class="s2">"Load waveform data before calling _compute_pairwise_similarity()."</span>
         <span class="p">)</span>
 
     <span class="k">if</span> <span class="ow">not</span> <span class="n">all_channels</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="s2">&quot;avg_waveform found in neuron_attributes but no unit has &quot;</span>
-            <span class="s2">&quot;traces_meta[&#39;channels&#39;]. Call compute_waveform_metrics() or &quot;</span>
-            <span class="s2">&quot;get_waveform_traces(store=True) to populate both keys together.&quot;</span>
+            <span class="s2">"avg_waveform found in neuron_attributes but no unit has "</span>
+            <span class="s2">"traces_meta['channels']. Call compute_waveform_metrics() or "</span>
+            <span class="s2">"get_waveform_traces(store=True) to populate both keys together."</span>
         <span class="p">)</span>
 
     <span class="n">global_channels</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">all_channels</span><span class="p">)</span>
@@ -1282,7 +1282,7 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_filter_by_cosine_sim</span><span class="p">(</span><span class="n">pairs</span><span class="p">,</span> <span class="n">similarity_matrix</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="mf">0.9</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the subset of pairs whose cosine similarity meets threshold.</span>
+<span class="w">    </span><span class="sd">"""Return the subset of pairs whose cosine similarity meets threshold.</span>
 
 <span class="sd">    Parameters:</span>
 <span class="sd">        pairs (set[tuple[int, int]]): Candidate unit-index pairs.</span>
@@ -1292,7 +1292,7 @@
 
 <span class="sd">    Returns:</span>
 <span class="sd">        filtered_pairs (set[tuple[int, int]]): Pairs passing the threshold.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">return</span> <span class="p">{</span>
         <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">pairs</span>
@@ -1314,7 +1314,7 @@
     <span class="n">max_isi_increase</span><span class="o">=</span><span class="mf">0.04</span><span class="p">,</span>
     <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
 <span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Remove duplicate units by merging nearby pairs with similar waveforms.</span>
+<span class="w">    </span><span class="sd">"""Remove duplicate units by merging nearby pairs with similar waveforms.</span>
 
 <span class="sd">    Runs the full merge-based deduplication pipeline:</span>
 
@@ -1345,25 +1345,25 @@
 
 <span class="sd">    Returns:</span>
 <span class="sd">        sd_out (SpikeData): SpikeData with merged units.</span>
-<span class="sd">        result (dict): ``{&quot;metric&quot;: (N,) cosine similarity to merge partner (0 if unmerged), &quot;passed&quot;: (N,) bool mask of retained units}``.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">        result (dict): ``{"metric": (N,) cosine similarity to merge partner (0 if unmerged), "passed": (N,) bool mask of retained units}``.</span>
+<span class="sd">    """</span>
     <span class="n">metric</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
     <span class="n">passed</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
 
     <span class="n">pairs</span> <span class="o">=</span> <span class="n">_find_nearby_unit_pairs</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">dist_um</span><span class="o">=</span><span class="n">dist_um</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">pairs</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">sd</span><span class="o">.</span><span class="n">subset</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="p">)),</span> <span class="p">{</span><span class="s2">&quot;metric&quot;</span><span class="p">:</span> <span class="n">metric</span><span class="p">,</span> <span class="s2">&quot;passed&quot;</span><span class="p">:</span> <span class="n">passed</span><span class="p">}</span>
+        <span class="k">return</span> <span class="n">sd</span><span class="o">.</span><span class="n">subset</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="p">)),</span> <span class="p">{</span><span class="s2">"metric"</span><span class="p">:</span> <span class="n">metric</span><span class="p">,</span> <span class="s2">"passed"</span><span class="p">:</span> <span class="n">passed</span><span class="p">}</span>
 
     <span class="n">pairs</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">_filter_pairs_by_isi_violations</span><span class="p">(</span>
         <span class="n">sd</span><span class="p">,</span> <span class="n">pairs</span><span class="p">,</span> <span class="n">max_violation_rate</span><span class="o">=</span><span class="n">max_violation_rate</span><span class="p">,</span> <span class="n">threshold_ms</span><span class="o">=</span><span class="n">isi_threshold_ms</span>
     <span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">pairs</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">sd</span><span class="o">.</span><span class="n">subset</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="p">)),</span> <span class="p">{</span><span class="s2">&quot;metric&quot;</span><span class="p">:</span> <span class="n">metric</span><span class="p">,</span> <span class="s2">&quot;passed&quot;</span><span class="p">:</span> <span class="n">passed</span><span class="p">}</span>
+        <span class="k">return</span> <span class="n">sd</span><span class="o">.</span><span class="n">subset</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="p">)),</span> <span class="p">{</span><span class="s2">"metric"</span><span class="p">:</span> <span class="n">metric</span><span class="p">,</span> <span class="s2">"passed"</span><span class="p">:</span> <span class="n">passed</span><span class="p">}</span>
 
     <span class="n">sim_mat</span><span class="p">,</span> <span class="n">lag_mat</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">_compute_pairwise_similarity</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">pairs</span><span class="p">,</span> <span class="n">max_lag</span><span class="o">=</span><span class="n">max_lag</span><span class="p">)</span>
     <span class="n">pairs</span> <span class="o">=</span> <span class="n">_filter_by_cosine_sim</span><span class="p">(</span><span class="n">pairs</span><span class="p">,</span> <span class="n">sim_mat</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="n">cosine_threshold</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">pairs</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">sd</span><span class="o">.</span><span class="n">subset</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="p">)),</span> <span class="p">{</span><span class="s2">&quot;metric&quot;</span><span class="p">:</span> <span class="n">metric</span><span class="p">,</span> <span class="s2">&quot;passed&quot;</span><span class="p">:</span> <span class="n">passed</span><span class="p">}</span>
+        <span class="k">return</span> <span class="n">sd</span><span class="o">.</span><span class="n">subset</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="p">)),</span> <span class="p">{</span><span class="s2">"metric"</span><span class="p">:</span> <span class="n">metric</span><span class="p">,</span> <span class="s2">"passed"</span><span class="p">:</span> <span class="n">passed</span><span class="p">}</span>
 
     <span class="n">sd_out</span><span class="p">,</span> <span class="n">merge_result</span> <span class="o">=</span> <span class="n">_merge_redundant_units</span><span class="p">(</span>
         <span class="n">sd</span><span class="p">,</span>
@@ -1376,12 +1376,12 @@
         <span class="n">verbose</span><span class="o">=</span><span class="n">verbose</span><span class="p">,</span>
     <span class="p">)</span>
 
-    <span class="k">for</span> <span class="n">primary</span><span class="p">,</span> <span class="n">secondary</span><span class="p">,</span> <span class="n">sim</span> <span class="ow">in</span> <span class="n">merge_result</span><span class="p">[</span><span class="s2">&quot;merged_pairs&quot;</span><span class="p">]:</span>
+    <span class="k">for</span> <span class="n">primary</span><span class="p">,</span> <span class="n">secondary</span><span class="p">,</span> <span class="n">sim</span> <span class="ow">in</span> <span class="n">merge_result</span><span class="p">[</span><span class="s2">"merged_pairs"</span><span class="p">]:</span>
         <span class="n">passed</span><span class="p">[</span><span class="n">secondary</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="n">metric</span><span class="p">[</span><span class="n">secondary</span><span class="p">]</span> <span class="o">=</span> <span class="n">sim</span>
         <span class="n">metric</span><span class="p">[</span><span class="n">primary</span><span class="p">]</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">metric</span><span class="p">[</span><span class="n">primary</span><span class="p">],</span> <span class="n">sim</span><span class="p">)</span>
 
-    <span class="k">return</span> <span class="n">sd_out</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;metric&quot;</span><span class="p">:</span> <span class="n">metric</span><span class="p">,</span> <span class="s2">&quot;passed&quot;</span><span class="p">:</span> <span class="n">passed</span><span class="p">}</span></div>
+    <span class="k">return</span> <span class="n">sd_out</span><span class="p">,</span> <span class="p">{</span><span class="s2">"metric"</span><span class="p">:</span> <span class="n">metric</span><span class="p">,</span> <span class="s2">"passed"</span><span class="p">:</span> <span class="n">passed</span><span class="p">}</span></div>
 
 
 
@@ -1395,7 +1395,7 @@
     <span class="n">isi_threshold_ms</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span>
     <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
 <span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Merge pre-filtered candidate duplicate unit pairs into a new SpikeData.</span>
+<span class="w">    </span><span class="sd">"""Merge pre-filtered candidate duplicate unit pairs into a new SpikeData.</span>
 
 <span class="sd">    Pairs are processed in descending similarity order (greedy).  For each</span>
 <span class="sd">    pair the unit with more spikes is kept as primary; the unit with fewer</span>
@@ -1411,7 +1411,7 @@
 <span class="sd">        similarity_matrix (np.ndarray): Shape (N, N) similarity values</span>
 <span class="sd">            used to sort pairs and record scores.</span>
 <span class="sd">        lag_matrix (np.ndarray, optional): Shape (N, N) lag values in samples.</span>
-<span class="sd">            If provided, the secondary unit&#39;s spikes are shifted by the lag</span>
+<span class="sd">            If provided, the secondary unit's spikes are shifted by the lag</span>
 <span class="sd">            before merging to correct for timing offsets.  Default None.</span>
 <span class="sd">        delta_ms (float): Spike deduplication window in ms.</span>
 <span class="sd">        max_isi_increase (float): Maximum allowable absolute increase in ISI</span>
@@ -1421,14 +1421,14 @@
 
 <span class="sd">    Returns:</span>
 <span class="sd">        sd_out (SpikeData): New SpikeData with merged units.</span>
-<span class="sd">        result (dict): {&quot;merged_pairs&quot;: list[tuple], &quot;n_removed&quot;: int}.</span>
+<span class="sd">        result (dict): {"merged_pairs": list[tuple], "n_removed": int}.</span>
 <span class="sd">            merged_pairs is a list of (primary, secondary, similarity)</span>
 <span class="sd">            tuples that were accepted.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">pairs</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="s2">&quot;pairs must be a non-empty collection. &quot;</span>
-            <span class="s2">&quot;Run _filter_by_cosine_sim() first.&quot;</span>
+            <span class="s2">"pairs must be a non-empty collection. "</span>
+            <span class="s2">"Run _filter_by_cosine_sim() first."</span>
         <span class="p">)</span>
 
     <span class="n">sorted_pairs</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
@@ -1444,7 +1444,7 @@
     <span class="n">accepted_pairs</span> <span class="o">=</span> <span class="p">[]</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_resolve</span><span class="p">(</span><span class="n">unit</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Follow merge_chain to its root (with path compression).&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Follow merge_chain to its root (with path compression)."""</span>
         <span class="k">while</span> <span class="n">unit</span> <span class="ow">in</span> <span class="n">merge_chain</span><span class="p">:</span>
             <span class="n">nxt</span> <span class="o">=</span> <span class="n">merge_chain</span><span class="p">[</span><span class="n">unit</span><span class="p">]</span>
             <span class="k">if</span> <span class="n">nxt</span> <span class="ow">in</span> <span class="n">merge_chain</span><span class="p">:</span>
@@ -1478,11 +1478,11 @@
         <span class="k">if</span> <span class="n">lag_matrix</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">prim_secondary</span> <span class="o">==</span> <span class="n">secondary</span><span class="p">:</span>
             <span class="n">lag_val</span> <span class="o">=</span> <span class="n">lag_matrix</span><span class="p">[</span><span class="n">primary</span><span class="p">,</span> <span class="n">secondary</span><span class="p">]</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">lag_val</span><span class="p">)</span> <span class="ow">and</span> <span class="n">lag_val</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="n">fs</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;fs_Hz&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">metadata</span> <span class="k">else</span> <span class="kc">None</span>
+                <span class="n">fs</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"fs_Hz"</span><span class="p">)</span> <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">metadata</span> <span class="k">else</span> <span class="kc">None</span>
                 <span class="k">if</span> <span class="n">fs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                     <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                        <span class="s2">&quot;Lag correction requires &#39;fs_Hz&#39; in sd.metadata. &quot;</span>
-                        <span class="s2">&quot;Set sd.metadata[&#39;fs_Hz&#39;] to the sampling rate in Hz.&quot;</span>
+                        <span class="s2">"Lag correction requires 'fs_Hz' in sd.metadata. "</span>
+                        <span class="s2">"Set sd.metadata['fs_Hz'] to the sampling rate in Hz."</span>
                     <span class="p">)</span>
                 <span class="n">secondary_train</span> <span class="o">=</span> <span class="n">secondary_train</span> <span class="o">+</span> <span class="nb">float</span><span class="p">(</span><span class="n">lag_val</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">fs</span> <span class="o">/</span> <span class="mf">1000.0</span><span class="p">)</span>
 
@@ -1501,14 +1501,14 @@
             <span class="n">accepted_pairs</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">primary</span><span class="p">,</span> <span class="n">secondary</span><span class="p">,</span> <span class="n">sim</span><span class="p">))</span>
             <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
                 <span class="nb">print</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;  Merge [</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">,</span><span class="si">{</span><span class="n">j</span><span class="si">}</span><span class="s2">]: sim=</span><span class="si">{</span><span class="n">sim</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">, &quot;</span>
-                    <span class="sa">f</span><span class="s2">&quot;ISI </span><span class="si">{</span><span class="n">before_max</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">→</span><span class="si">{</span><span class="n">after_rate</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> (Δ=</span><span class="si">{</span><span class="n">isi_increase</span><span class="si">:</span><span class="s2">+.3f</span><span class="si">}</span><span class="s2">)&quot;</span>
+                    <span class="sa">f</span><span class="s2">"  Merge [</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">,</span><span class="si">{</span><span class="n">j</span><span class="si">}</span><span class="s2">]: sim=</span><span class="si">{</span><span class="n">sim</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">, "</span>
+                    <span class="sa">f</span><span class="s2">"ISI </span><span class="si">{</span><span class="n">before_max</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">→</span><span class="si">{</span><span class="n">after_rate</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> (Δ=</span><span class="si">{</span><span class="n">isi_increase</span><span class="si">:</span><span class="s2">+.3f</span><span class="si">}</span><span class="s2">)"</span>
                 <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
                 <span class="nb">print</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;  Skip  [</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">,</span><span class="si">{</span><span class="n">j</span><span class="si">}</span><span class="s2">]: sim=</span><span class="si">{</span><span class="n">sim</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">, &quot;</span>
-                    <span class="sa">f</span><span class="s2">&quot;ISI increase too high (Δ=</span><span class="si">{</span><span class="n">isi_increase</span><span class="si">:</span><span class="s2">+.3f</span><span class="si">}</span><span class="s2"> &gt; </span><span class="si">{</span><span class="n">max_isi_increase</span><span class="si">}</span><span class="s2">)&quot;</span>
+                    <span class="sa">f</span><span class="s2">"  Skip  [</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">,</span><span class="si">{</span><span class="n">j</span><span class="si">}</span><span class="s2">]: sim=</span><span class="si">{</span><span class="n">sim</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">, "</span>
+                    <span class="sa">f</span><span class="s2">"ISI increase too high (Δ=</span><span class="si">{</span><span class="n">isi_increase</span><span class="si">:</span><span class="s2">+.3f</span><span class="si">}</span><span class="s2"> &gt; </span><span class="si">{</span><span class="n">max_isi_increase</span><span class="si">}</span><span class="s2">)"</span>
                 <span class="p">)</span>
 
     <span class="c1"># Build a mapping: final_primary → list of original units that merged into it.</span>
@@ -1530,11 +1530,11 @@
         <span class="n">total_dup</span> <span class="o">=</span> <span class="n">original_spike_count</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">merged</span><span class="p">)</span>
         <span class="n">new_trains</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">merged</span><span class="p">)</span>
         <span class="n">attrs</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">[</span><span class="n">primary</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span> <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="k">else</span> <span class="p">{}</span>
-        <span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;merged_from&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">[</span><span class="n">u</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;unit_id&quot;</span><span class="p">,</span> <span class="n">u</span><span class="p">)</span> <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="k">else</span> <span class="n">u</span><span class="p">)</span>
+        <span class="n">attrs</span><span class="p">[</span><span class="s2">"merged_from"</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">[</span><span class="n">u</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"unit_id"</span><span class="p">,</span> <span class="n">u</span><span class="p">)</span> <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="k">else</span> <span class="n">u</span><span class="p">)</span>
             <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">constituent_units</span>
         <span class="p">]</span>
-        <span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;n_duplicates_removed&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">total_dup</span>
+        <span class="n">attrs</span><span class="p">[</span><span class="s2">"n_duplicates_removed"</span><span class="p">]</span> <span class="o">=</span> <span class="n">total_dup</span>
         <span class="n">new_attrs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">attrs</span><span class="p">)</span>
 
     <span class="kn">from</span><span class="w"> </span><span class="nn">.spikedata</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpikeData</span>
@@ -1551,9 +1551,9 @@
 
     <span class="n">n_removed</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">N</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">new_trains</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">n_removed</span><span class="si">}</span><span class="s2"> units merged; &quot;</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="si">}</span><span class="s2"> → </span><span class="si">{</span><span class="n">sd_out</span><span class="o">.</span><span class="n">N</span><span class="si">}</span><span class="s2"> units&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">n_removed</span><span class="si">}</span><span class="s2"> units merged; "</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="si">}</span><span class="s2"> → </span><span class="si">{</span><span class="n">sd_out</span><span class="o">.</span><span class="n">N</span><span class="si">}</span><span class="s2"> units"</span><span class="p">)</span>
 
-    <span class="k">return</span> <span class="n">sd_out</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;merged_pairs&quot;</span><span class="p">:</span> <span class="n">accepted_pairs</span><span class="p">,</span> <span class="s2">&quot;n_removed&quot;</span><span class="p">:</span> <span class="n">n_removed</span><span class="p">}</span>
+    <span class="k">return</span> <span class="n">sd_out</span><span class="p">,</span> <span class="p">{</span><span class="s2">"merged_pairs"</span><span class="p">:</span> <span class="n">accepted_pairs</span><span class="p">,</span> <span class="s2">"n_removed"</span><span class="p">:</span> <span class="n">n_removed</span><span class="p">}</span>
 
 
 <span class="c1"># ---------------------------------------------------------------------------</span>
@@ -1562,7 +1562,7 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_isi_violation_fraction</span><span class="p">(</span><span class="n">train</span><span class="p">,</span> <span class="n">threshold_ms</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the ISI violation rate as a fraction for a spike train.</span>
+<span class="w">    </span><span class="sd">"""Return the ISI violation rate as a fraction for a spike train.</span>
 
 <span class="sd">    ISI violation rate is n_violations / n_spikes.</span>
 
@@ -1573,7 +1573,7 @@
 <span class="sd">    Returns:</span>
 <span class="sd">        rate (float): Violation rate as a fraction (0.0-1.0), or 0.0 for</span>
 <span class="sd">            fewer than 2 spikes.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">train</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
         <span class="k">return</span> <span class="mf">0.0</span>
     <span class="n">isis</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">train</span><span class="p">)</span>
@@ -1582,9 +1582,9 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_build_1d_array_for_channels</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">unit_idx</span><span class="p">,</span> <span class="n">channels</span><span class="p">,</span> <span class="n">template_len</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build a 1-D waveform vector for unit_idx on an explicit channel list.</span>
+<span class="w">    </span><span class="sd">"""Build a 1-D waveform vector for unit_idx on an explicit channel list.</span>
 
-<span class="sd">    Channels present in the unit&#39;s avg_waveform are copied in; missing</span>
+<span class="sd">    Channels present in the unit's avg_waveform are copied in; missing</span>
 <span class="sd">    channels are zero-padded.</span>
 
 <span class="sd">    Parameters:</span>
@@ -1595,11 +1595,11 @@
 
 <span class="sd">    Returns:</span>
 <span class="sd">        arr (np.ndarray): 1-D array of length len(channels) * template_len.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">attrs</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">[</span><span class="n">unit_idx</span><span class="p">]</span>
-    <span class="n">avg_wf</span> <span class="o">=</span> <span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;avg_waveform&quot;</span><span class="p">)</span>
-    <span class="n">traces_meta</span> <span class="o">=</span> <span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;traces_meta&quot;</span><span class="p">,</span> <span class="p">{})</span>
-    <span class="n">channel_list</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">traces_meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;channels&quot;</span><span class="p">,</span> <span class="p">[])]</span>
+    <span class="n">avg_wf</span> <span class="o">=</span> <span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"avg_waveform"</span><span class="p">)</span>
+    <span class="n">traces_meta</span> <span class="o">=</span> <span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"traces_meta"</span><span class="p">,</span> <span class="p">{})</span>
+    <span class="n">channel_list</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">traces_meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"channels"</span><span class="p">,</span> <span class="p">[])]</span>
     <span class="n">ch_to_row</span> <span class="o">=</span> <span class="p">{</span><span class="n">ch</span><span class="p">:</span> <span class="n">idx</span> <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">ch</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">channel_list</span><span class="p">)}</span>
 
     <span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">channels</span><span class="p">)</span> <span class="o">*</span> <span class="n">template_len</span><span class="p">)</span>
@@ -1615,7 +1615,7 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_merge_two_trains</span><span class="p">(</span><span class="n">train1</span><span class="p">,</span> <span class="n">train2</span><span class="p">,</span> <span class="n">delta_ms</span><span class="o">=</span><span class="mf">0.4</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Merge two spike trains, removing duplicates within delta_ms.</span>
+<span class="w">    </span><span class="sd">"""Merge two spike trains, removing duplicates within delta_ms.</span>
 
 <span class="sd">    Parameters:</span>
 <span class="sd">        train1 (np.ndarray): First spike train (ms).</span>
@@ -1625,7 +1625,7 @@
 <span class="sd">    Returns:</span>
 <span class="sd">        merged (np.ndarray): Sorted merged spike train.</span>
 <span class="sd">        n_duplicates (int): Number of spikes removed as duplicates.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">train1</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">train2</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]),</span> <span class="mi">0</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">train1</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
@@ -1637,7 +1637,7 @@
     <span class="n">membership</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span>
         <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">train1</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int8</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">train2</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int8</span><span class="p">)]</span>
     <span class="p">)</span>
-    <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;mergesort&quot;</span><span class="p">)</span>
+    <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="s2">"mergesort"</span><span class="p">)</span>
     <span class="n">times</span> <span class="o">=</span> <span class="n">times</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
     <span class="n">membership</span> <span class="o">=</span> <span class="n">membership</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
 
@@ -1653,10 +1653,10 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_choose_primary_unit</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return (primary, secondary) based on spike count.</span>
+<span class="w">    </span><span class="sd">"""Return (primary, secondary) based on spike count.</span>
 
 <span class="sd">    The unit with the larger number of spikes is kept as primary.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">spike_count_i</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">train</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
     <span class="n">spike_count_j</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">train</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
     <span class="k">return</span> <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span> <span class="k">if</span> <span class="n">spike_count_i</span> <span class="o">&gt;=</span> <span class="n">spike_count_j</span> <span class="k">else</span> <span class="p">(</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>

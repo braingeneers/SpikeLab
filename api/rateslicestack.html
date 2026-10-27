@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RateSliceStack &mdash; SpikeLab 0.1.1 documentation</title>
+  <title>RateSliceStack &mdash; SpikeLab 0.1.2 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=a58bc63e"></script>
+      <script src="../_static/documentation_options.js?v=92734c54"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
@@ -505,7 +505,7 @@ rate profiles.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="spikelab.spikedata.rateslicestack.RateSliceStack">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">spikelab.spikedata.rateslicestack.</span></span><span class="sig-name descname"><span class="pre">RateSliceStack</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data_obj</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">times_start_to_end</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_peaks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_bounds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">event_matrix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">step_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">neuron_attributes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/rateslicestack.html#RateSliceStack"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.rateslicestack.RateSliceStack" title="Link to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/builtins/functions.html#object" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>A 3D firing rate matrix of shape (U, T, S) with correlation and similarity capabilities.</p>
 <p>U is units (neurons), T is time bins, and S is slices (bursts, events, etc).
 Construct from either a data_obj (SpikeData or RateData) with time
@@ -516,22 +516,22 @@ variables are the same regardless of input option.</p>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>data_obj</strong> (<a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData"><em>SpikeData</em></a><em> or </em><a class="reference internal" href="ratedata.html#spikelab.spikedata.ratedata.RateData" title="spikelab.spikedata.ratedata.RateData"><em>RateData</em></a>) – A data object to slice. Provide
 either this or event_matrix, not both.</p></li>
-<li><p><strong>times_start_to_end</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em> or </em><em>None</em>) – Each entry is a tuple (start, end)
+<li><p><strong>times_start_to_end</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em> or </em><em>None</em>) – Each entry is a tuple (start, end)
 representing the start and end times of a desired slice. Each
 tuple must have the same duration.</p></li>
-<li><p><strong>time_peaks</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em> or </em><em>None</em>) – List of times as int or float where there
+<li><p><strong>time_peaks</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em> or </em><em>None</em>) – List of times as int or float where there
 is a burst peak or stimulation event. Must be paired with
 time_bounds. Alternative to times_start_to_end.</p></li>
-<li><p><strong>time_bounds</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em> or </em><em>None</em>) – Single tuple (left_bound, right_bound).
+<li><p><strong>time_bounds</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple" title="(in Python v3.15)"><em>tuple</em></a><em> or </em><em>None</em>) – Single tuple (left_bound, right_bound).
 For example, (250, 500) means 250 ms before peak and 500 ms
 after peak. Must be paired with time_peaks.</p></li>
-<li><p><strong>sigma_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Smoothing factor for computing ISI if you input a
+<li><p><strong>sigma_ms</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Smoothing factor for computing ISI if you input a
 SpikeData object. Otherwise not used.</p></li>
 <li><p><strong>event_matrix</strong> (<em>np.ndarray</em><em> or </em><em>None</em>) – A 3D array of shape (U, T, S).
 Provide either this or data_obj, not both.</p></li>
-<li><p><strong>step_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Time resolution in milliseconds between
+<li><p><strong>step_size</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> or </em><em>None</em>) – Time resolution in milliseconds between
 consecutive time bins. If None, defaults to 1.0.</p></li>
-<li><p><strong>neuron_attributes</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em> or </em><em>None</em>) – List of attribute objects, one per
+<li><p><strong>neuron_attributes</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em> or </em><em>None</em>) – List of attribute objects, one per
 unit, containing arbitrary metadata about each neuron.</p></li>
 </ul>
 </dd>
@@ -557,7 +557,7 @@ chronologically. Length equals S. Example:
 [(100, 200), (500, 600), (1000, 1100)].</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)">list</a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)">list</a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -571,7 +571,7 @@ to 1.0 ms. Example: 1.0 means time bins are at [100, 101, 102, …]
 ms.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)">float</a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)">float</a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -583,7 +583,7 @@ ms.</p>
 unit, containing arbitrary metadata about each neuron.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)">list</a> or None</p>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)">list</a> or None</p>
 </dd>
 </dl>
 </dd></dl>
@@ -600,15 +600,15 @@ unit, containing arbitrary metadata about each neuron.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>agg_func</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Either <code class="docutils literal notranslate"><span class="pre">&quot;median&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;mean&quot;</span></code>. Used for
+<li><p><strong>agg_func</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Either <code class="docutils literal notranslate"><span class="pre">&quot;median&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;mean&quot;</span></code>. Used for
 calculating the median/mean time when each unit has peak
 firing rate.</p></li>
-<li><p><strong>MIN_RATE_THRESHOLD</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Minimum peak firing rate for a slice
+<li><p><strong>MIN_RATE_THRESHOLD</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Minimum peak firing rate for a slice
 to be included in the ordering calculation. Slices where a
 unit’s max rate is below this threshold are excluded from
 that unit’s typical peak time calculation. Ignored when
 timing_matrix is provided.</p></li>
-<li><p><strong>MIN_FRAC_ACTIVE</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Minimum fraction of slices a unit must
+<li><p><strong>MIN_FRAC_ACTIVE</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Minimum fraction of slices a unit must
 be active in to be placed in the highly-active group.
 Default 0.0 means all units are in the first group, so the
 second array in each output tuple will be empty.</p></li>
@@ -645,7 +645,7 @@ across slices.</p>
 </p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>reordered_slice_matrices (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)">tuple</a> of arrays)</p>
+<dd class="field-odd"><p>reordered_slice_matrices (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple" title="(in Python v3.15)">tuple</a> of arrays)</p>
 </dd>
 </dl>
 <p class="rubric">Notes</p>
@@ -667,11 +667,11 @@ rank_order_correlation and this method).</p></li>
 <li><p><strong>compare_func</strong> (<em>callable</em>) – Comparison function from utils. Specify
 cross-correlation or cosine similarity. The default is cross
 correlation. See utils.py for details.</p></li>
-<li><p><strong>MIN_RATE_THRESHOLD</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Minimum mean firing rate to consider a
+<li><p><strong>MIN_RATE_THRESHOLD</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Minimum mean firing rate to consider a
 slice valid for that neuron.</p></li>
-<li><p><strong>MIN_FRAC</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Maximum fraction of slices that can be skipped
+<li><p><strong>MIN_FRAC</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Maximum fraction of slices that can be skipped
 before a unit is deemed invalid (default 0.3 = 30%).</p></li>
-<li><p><strong>max_lag</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Maximum lag in frames to search for similarity. If
+<li><p><strong>max_lag</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Maximum lag in frames to search for similarity. If
 None, lag is set to 0.</p></li>
 <li><p><strong>frac_active</strong> (<em>np.ndarray</em><em> or </em><em>None</em>) – Optional pre-computed
 fraction-active array of shape (U,) to override the internal
@@ -681,7 +681,7 @@ frac_active[u] &lt; (1 - MIN_FRAC). MIN_RATE_THRESHOLD still
 controls which individual slice pairs are computed.
 Compatible sources: SpikeSliceStack.compute_frac_active and
 SpikeData.get_frac_active (frac_per_unit output).</p></li>
-<li><p><strong>n_jobs</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Number of threads for parallel computation. -1 uses
+<li><p><strong>n_jobs</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Number of threads for parallel computation. -1 uses
 all cores (default), 1 disables parallelism, None is serial.</p></li>
 </ul>
 </dd>
@@ -720,9 +720,9 @@ Shape is (S, S, U) in the stack attribute.</p>
 <li><p><strong>compare_func</strong> (<em>callable</em>) – Comparison function from utils. Specify
 cross-correlation or cosine similarity. The default is cosine
 similarity. See utils.py for details.</p></li>
-<li><p><strong>max_lag</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Maximum lag in frames to search for similarity. If
+<li><p><strong>max_lag</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Maximum lag in frames to search for similarity. If
 None, lag is set to 0.</p></li>
-<li><p><strong>n_jobs</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Number of threads for parallel computation. -1 uses
+<li><p><strong>n_jobs</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Number of threads for parallel computation. -1 uses
 all cores (default), 1 disables parallelism, None is serial.</p></li>
 </ul>
 </dd>
@@ -751,7 +751,7 @@ Shape is (S, S, T) in the stack attribute.</p>
 <dd class="field-odd"><p>List of RateData objects. Length equals S.</p>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p>output (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)">list</a>)</p>
+<dd class="field-even"><p>output (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)">list</a>)</p>
 </dd>
 </dl>
 </dd></dl>
@@ -767,9 +767,9 @@ Shape is (S, S, T) in the stack attribute.</p>
 <li><p><strong>compare_func</strong> (<em>callable</em>) – Comparison function from utils. Specify
 cross-correlation or cosine similarity. The default is cross
 correlation. See utils.py for details.</p></li>
-<li><p><strong>max_lag</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Maximum lag in frames to search for similarity. If
+<li><p><strong>max_lag</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Maximum lag in frames to search for similarity. If
 None, lag is set to 0.</p></li>
-<li><p><strong>n_jobs</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Number of threads for parallel computation. -1 uses
+<li><p><strong>n_jobs</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Number of threads for parallel computation. -1 uses
 all cores (default), 1 disables parallelism, None is serial.</p></li>
 </ul>
 </dd>
@@ -803,7 +803,7 @@ square <code class="docutils literal notranslate"><span class="pre">(S,</span> <
 requested metric.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>metric</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – One of <code class="docutils literal notranslate"><span class="pre">&quot;cosine&quot;</span></code> (default), <code class="docutils literal notranslate"><span class="pre">&quot;pearson&quot;</span></code>,
+<dd class="field-odd"><p><strong>metric</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – One of <code class="docutils literal notranslate"><span class="pre">&quot;cosine&quot;</span></code> (default), <code class="docutils literal notranslate"><span class="pre">&quot;pearson&quot;</span></code>,
 <code class="docutils literal notranslate"><span class="pre">&quot;euclidean&quot;</span></code> (distance), or <code class="docutils literal notranslate"><span class="pre">&quot;cross_entropy&quot;</span></code>
 (symmetric KL on rate distributions normalized to sum 1).</p>
 </dd>
@@ -836,14 +836,14 @@ feature extraction.</p></li>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>units</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em> or </em><em>array</em>) – Unit indices to extract. If by is None,
+<li><p><strong>units</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em> or </em><em>array</em>) – Unit indices to extract. If by is None,
 this should always be a list of ints. If by is not None,
 the list can contain ints or strings.</p></li>
-<li><p><strong>by</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><em>None</em>) – Neuron attribute key to match against. Only
+<li><p><strong>by</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> or </em><em>None</em>) – Neuron attribute key to match against. Only
 use this if you initialized the object with
 neuron_attributes. Set to the key that contains neuron_id
 values. None selects by index (default).</p></li>
-<li><p><strong>preserve_order</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – When False (default), output is
+<li><p><strong>preserve_order</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – When False (default), output is
 sorted ascending by index — consistent with the other
 SpikeLab data classes. When True, output respects the
 order of the input <code class="docutils literal notranslate"><span class="pre">units</span></code> list. Duplicates are
@@ -872,9 +872,9 @@ deduplicated either way.</p></li>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>start_idx</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Starting time bin index (inclusive). Supports
+<li><p><strong>start_idx</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Starting time bin index (inclusive). Supports
 negative indexing.</p></li>
-<li><p><strong>end_idx</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Ending time bin index (exclusive). Supports
+<li><p><strong>end_idx</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Ending time bin index (exclusive). Supports
 negative indexing.</p></li>
 </ul>
 </dd>
@@ -907,7 +907,7 @@ from the original.</p></li>
 bins (T dimension).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>slices</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – Slice index or list of slice indices to
+<dd class="field-odd"><p><strong>slices</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a><em> or </em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a>) – Slice index or list of slice indices to
 extract. Indices are kept in <strong>caller order</strong>;
 duplicates are deduplicated (first occurrence wins).
 Negative indices are accepted and resolved against
@@ -947,7 +947,7 @@ index of the peak firing rate for unit u in slice s. Units whose
 peak rate falls below MIN_RATE_THRESHOLD in a slice are marked NaN.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>MIN_RATE_THRESHOLD</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Minimum peak firing rate for a unit
+<dd class="field-odd"><p><strong>MIN_RATE_THRESHOLD</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Minimum peak firing rate for a unit
 to count as active in a slice (default: 0.1).</p>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -991,21 +991,21 @@ correlation is z-score normalised against it.</p>
 timing values per unit per slice. NaN entries mark inactive
 units. Typically produced by <code class="docutils literal notranslate"><span class="pre">get_unit_timing_per_slice</span></code>.
 When None, computed automatically using MIN_RATE_THRESHOLD.</p></li>
-<li><p><strong>MIN_RATE_THRESHOLD</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Minimum peak firing rate threshold
+<li><p><strong>MIN_RATE_THRESHOLD</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>) – Minimum peak firing rate threshold
 (default: 0.1). Only used when timing_matrix is None.</p></li>
-<li><p><strong>min_overlap</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Minimum number of units that must be active in
+<li><p><strong>min_overlap</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Minimum number of units that must be active in
 both slices (default: 3).</p></li>
-<li><p><strong>min_overlap_frac</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Minimum fraction of total units
+<li><p><strong>min_overlap_frac</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a><em> or </em><em>None</em>) – Minimum fraction of total units
 that must be active in both slices (default: None). When
 provided, the effective threshold is
 <code class="docutils literal notranslate"><span class="pre">max(min_overlap,</span> <span class="pre">ceil(min_overlap_frac</span> <span class="pre">*</span> <span class="pre">U))</span></code>.</p></li>
-<li><p><strong>n_shuffles</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Number of shuffle iterations for z-scoring
+<li><p><strong>n_shuffles</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Number of shuffle iterations for z-scoring
 (default: 100). Set to 0 to return raw Spearman correlations.
 Values between 1 and 4 are rejected (minimum 5 required for
 a meaningful null distribution).</p></li>
-<li><p><strong>seed</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><em>None</em>) – Random seed for reproducibility of the shuffle
+<li><p><strong>seed</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a><em> or </em><em>None</em>) – Random seed for reproducibility of the shuffle
 (default: 1).</p></li>
-<li><p><strong>n_jobs</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Number of threads for parallel computation. -1 uses
+<li><p><strong>n_jobs</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Number of threads for parallel computation. -1 uses
 all cores (default), 1 disables parallelism, None is serial.</p></li>
 </ul>
 </dd>

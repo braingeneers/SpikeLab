@@ -5,14 +5,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>spikelab.spike_sorting.report &mdash; SpikeLab 0.1.1 documentation</title>
+  <title>spikelab.spike_sorting.report &mdash; SpikeLab 0.1.2 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../../_static/documentation_options.js?v=a58bc63e"></script>
+      <script src="../../../_static/documentation_options.js?v=92734c54"></script>
       <script src="../../../_static/doctools.js?v=9bcbadda"></script>
       <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
@@ -492,7 +492,7 @@
            <div itemprop="articleBody">
              
   <h1>Source code for spikelab.spike_sorting.report</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;Post-sorting Markdown report generator.</span>
+<span></span><span class="sd">"""Post-sorting Markdown report generator.</span>
 
 <span class="sd">After every sorted recording, ``sort_recording`` calls</span>
 <span class="sd">:func:`generate_sorting_report` to produce a human-readable</span>
@@ -511,7 +511,7 @@
 <span class="sd">  parsed from ``[YYYY-MM-DD HH:MM:SS]`` markers in the Tee log.</span>
 <span class="sd">* **Unit quality distributions** — summary stats (mean / median / std</span>
 <span class="sd">  / min / max) for SNR, firing rate, ISI%, std_norm, amplitude, drawn</span>
-<span class="sd">  from the curated SpikeData&#39;s ``neuron_attributes``.</span>
+<span class="sd">  from the curated SpikeData's ``neuron_attributes``.</span>
 <span class="sd">* **Resources at finish** — the closing summary banner from the Tee</span>
 <span class="sd">  log.</span>
 <span class="sd">* **Output files** — recursive listing of the results folder with</span>
@@ -523,10 +523,10 @@
 <span class="sd">  Tee log can be safely deleted under ``tee_log_policy``.</span>
 
 <span class="sd">The function is deliberately tolerant — missing inputs become</span>
-<span class="sd">&quot;(unavailable)&quot; sections rather than aborting the report. The</span>
+<span class="sd">"(unavailable)" sections rather than aborting the report. The</span>
 <span class="sd">caller (``sort_recording``) treats a successful report write as the</span>
 <span class="sd">gate for applying ``tee_log_policy`` (delete / gzip the Tee log).</span>
-<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">"""</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
@@ -547,31 +547,31 @@
 <span class="c1"># Tee log parsing</span>
 <span class="c1"># ---------------------------------------------------------------------------</span>
 
-<span class="n">_TIMESTAMP_RE</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\[(\d</span><span class="si">{4}</span><span class="s2">-\d</span><span class="si">{2}</span><span class="s2">-\d</span><span class="si">{2}</span><span class="s2"> \d</span><span class="si">{2}</span><span class="s2">:\d</span><span class="si">{2}</span><span class="s2">:\d</span><span class="si">{2}</span><span class="s2">)\]&quot;</span><span class="p">)</span>
+<span class="n">_TIMESTAMP_RE</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">"\[(\d</span><span class="si">{4}</span><span class="s2">-\d</span><span class="si">{2}</span><span class="s2">-\d</span><span class="si">{2}</span><span class="s2"> \d</span><span class="si">{2}</span><span class="s2">:\d</span><span class="si">{2}</span><span class="s2">:\d</span><span class="si">{2}</span><span class="s2">)\]"</span><span class="p">)</span>
 <span class="c1"># Tier L-D10: derive the banner regex from the shared constants</span>
 <span class="c1"># ``BANNER_CHAR`` / ``BANNER_WIDTH`` defined in ``sorting_utils`` so</span>
-<span class="c1"># a future change to the banner char doesn&#39;t require touching this</span>
+<span class="c1"># a future change to the banner char doesn't require touching this</span>
 <span class="c1"># regex independently. ``re.escape`` ensures the char is regex-safe.</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">.sorting_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">BANNER_CHAR</span> <span class="k">as</span> <span class="n">_BANNER_CHAR</span>
 
-<span class="n">_BANNER_LINE_RE</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">rf</span><span class="s2">&quot;^</span><span class="si">{</span><span class="n">re</span><span class="o">.</span><span class="n">escape</span><span class="p">(</span><span class="n">_BANNER_CHAR</span><span class="p">)</span><span class="si">}</span><span class="s2">+$&quot;</span><span class="p">)</span>
-<span class="n">_TRACEBACK_START_RE</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;^Traceback \(most recent call last\):&quot;</span><span class="p">)</span>
-<span class="n">_TRACEBACK_END_RE</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;^[A-Z][\w\.]*(?:Error|Exception|Interrupt)\b.*&quot;</span><span class="p">)</span>
-<span class="n">_WARNING_RE</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;(?i)warning|warn&quot;</span><span class="p">)</span>
+<span class="n">_BANNER_LINE_RE</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">rf</span><span class="s2">"^</span><span class="si">{</span><span class="n">re</span><span class="o">.</span><span class="n">escape</span><span class="p">(</span><span class="n">_BANNER_CHAR</span><span class="p">)</span><span class="si">}</span><span class="s2">+$"</span><span class="p">)</span>
+<span class="n">_TRACEBACK_START_RE</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">"^Traceback \(most recent call last\):"</span><span class="p">)</span>
+<span class="n">_TRACEBACK_END_RE</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">"^[A-Z][\w\.]*(?:Error|Exception|Interrupt)\b.*"</span><span class="p">)</span>
+<span class="n">_WARNING_RE</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">"(?i)warning|warn"</span><span class="p">)</span>
 <span class="n">_BANNER_TEXT_RE</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span>
-    <span class="sa">r</span><span class="s2">&quot;^\s+([A-Z][A-Z0-9 \-_/().,]{2,})\s*$&quot;</span>  <span class="c1"># centered uppercase banner text</span>
+    <span class="sa">r</span><span class="s2">"^\s+([A-Z][A-Z0-9 \-_/().,]{2,})\s*$"</span>  <span class="c1"># centered uppercase banner text</span>
 <span class="p">)</span>
 
 
 <div class="viewcode-block" id="parse_sorting_log">
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting.report.parse_sorting_log">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">parse_sorting_log</span><span class="p">(</span><span class="n">log_text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Extract structured fields from a Tee-mirrored sorting log.</span>
+<span class="w">    </span><span class="sd">"""Extract structured fields from a Tee-mirrored sorting log.</span>
 
 <span class="sd">    The sort_recording pipeline writes per-recording stdout to a</span>
 <span class="sd">    ``sorting_&lt;timestamp&gt;.log`` via ``Tee``. That log includes a</span>
 <span class="sd">    structured banner block, ISO-stamped stage banners, the</span>
-<span class="sd">    &quot;Curation: N -&gt; M units&quot; line, a closing summary, and any</span>
+<span class="sd">    "Curation: N -&gt; M units" line, a closing summary, and any</span>
 <span class="sd">    Python traceback on failure. This function pulls those pieces</span>
 <span class="sd">    out into a dict suitable for templating into Markdown.</span>
 
@@ -585,7 +585,7 @@
 <span class="sd">            None), ``closing_summary`` (dict), ``warnings``</span>
 <span class="sd">            (list[str]), ``traceback`` (str or None),</span>
 <span class="sd">            ``last_lines_before_traceback`` (list[str]).</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">lines</span> <span class="o">=</span> <span class="n">log_text</span><span class="o">.</span><span class="n">splitlines</span><span class="p">()</span>
 
     <span class="n">environment</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
@@ -610,43 +610,43 @@
     <span class="n">summary_started</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">lines</span><span class="p">):</span>
         <span class="n">stripped</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
-        <span class="k">if</span> <span class="n">stripped</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;-- Environment --&quot;</span><span class="p">):</span>
-            <span class="n">current_section</span> <span class="o">=</span> <span class="s2">&quot;environment&quot;</span>
+        <span class="k">if</span> <span class="n">stripped</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"-- Environment --"</span><span class="p">):</span>
+            <span class="n">current_section</span> <span class="o">=</span> <span class="s2">"environment"</span>
             <span class="k">continue</span>
-        <span class="k">if</span> <span class="n">stripped</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;-- System Resources --&quot;</span><span class="p">):</span>
-            <span class="n">current_section</span> <span class="o">=</span> <span class="s2">&quot;system_resources&quot;</span>
+        <span class="k">if</span> <span class="n">stripped</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"-- System Resources --"</span><span class="p">):</span>
+            <span class="n">current_section</span> <span class="o">=</span> <span class="s2">"system_resources"</span>
             <span class="k">continue</span>
-        <span class="k">if</span> <span class="n">stripped</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;-- Run --&quot;</span><span class="p">):</span>
-            <span class="n">current_section</span> <span class="o">=</span> <span class="s2">&quot;run&quot;</span>
+        <span class="k">if</span> <span class="n">stripped</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"-- Run --"</span><span class="p">):</span>
+            <span class="n">current_section</span> <span class="o">=</span> <span class="s2">"run"</span>
             <span class="k">continue</span>
-        <span class="k">if</span> <span class="s2">&quot;SUMMARY&quot;</span> <span class="ow">in</span> <span class="n">stripped</span> <span class="ow">and</span> <span class="n">_BANNER_TEXT_RE</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">line</span><span class="p">):</span>
-            <span class="n">current_section</span> <span class="o">=</span> <span class="s2">&quot;summary&quot;</span>
+        <span class="k">if</span> <span class="s2">"SUMMARY"</span> <span class="ow">in</span> <span class="n">stripped</span> <span class="ow">and</span> <span class="n">_BANNER_TEXT_RE</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">line</span><span class="p">):</span>
+            <span class="n">current_section</span> <span class="o">=</span> <span class="s2">"summary"</span>
             <span class="n">summary_started</span> <span class="o">=</span> <span class="kc">True</span>
             <span class="k">continue</span>
 
         <span class="c1"># Within an active section, consume key:value lines into the</span>
         <span class="c1"># right bucket. Two reset rules apply:</span>
         <span class="c1">#   * environment / system_resources / run end at an empty</span>
-        <span class="c1">#     line or a `===` boundary — they&#39;re tightly packed</span>
+        <span class="c1">#     line or a `===` boundary — they're tightly packed</span>
         <span class="c1">#     dashed-marker blocks.</span>
-        <span class="c1">#   * summary&#39;s key:value pairs come AFTER a `===` /</span>
+        <span class="c1">#   * summary's key:value pairs come AFTER a `===` /</span>
         <span class="c1">#     ``[timestamp]`` banner pair, so we skip those silently</span>
         <span class="c1">#     and only reset when the next *real* section marker</span>
         <span class="c1">#     appears (handled at the top of the loop).</span>
-        <span class="k">if</span> <span class="n">current_section</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;environment&quot;</span><span class="p">,</span> <span class="s2">&quot;system_resources&quot;</span><span class="p">,</span> <span class="s2">&quot;run&quot;</span><span class="p">,</span> <span class="s2">&quot;summary&quot;</span><span class="p">):</span>
-            <span class="n">m</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;^([A-Za-z][\w \-/]*?):\s*(.+)$&quot;</span><span class="p">,</span> <span class="n">stripped</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">current_section</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"environment"</span><span class="p">,</span> <span class="s2">"system_resources"</span><span class="p">,</span> <span class="s2">"run"</span><span class="p">,</span> <span class="s2">"summary"</span><span class="p">):</span>
+            <span class="n">m</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="sa">r</span><span class="s2">"^([A-Za-z][\w \-/]*?):\s*(.+)$"</span><span class="p">,</span> <span class="n">stripped</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">m</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">key</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
                 <span class="n">value</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
-                <span class="k">if</span> <span class="n">current_section</span> <span class="o">==</span> <span class="s2">&quot;summary&quot;</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">current_section</span> <span class="o">==</span> <span class="s2">"summary"</span><span class="p">:</span>
                     <span class="n">closing_summary</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
-                <span class="k">elif</span> <span class="n">current_section</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;environment&quot;</span><span class="p">,</span> <span class="s2">&quot;system_resources&quot;</span><span class="p">):</span>
+                <span class="k">elif</span> <span class="n">current_section</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"environment"</span><span class="p">,</span> <span class="s2">"system_resources"</span><span class="p">):</span>
                     <span class="n">environment</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
-                <span class="k">elif</span> <span class="n">current_section</span> <span class="o">==</span> <span class="s2">&quot;run&quot;</span><span class="p">:</span>
+                <span class="k">elif</span> <span class="n">current_section</span> <span class="o">==</span> <span class="s2">"run"</span><span class="p">:</span>
                     <span class="n">run</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
                 <span class="k">continue</span>
-            <span class="k">if</span> <span class="n">current_section</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;environment&quot;</span><span class="p">,</span> <span class="s2">&quot;system_resources&quot;</span><span class="p">,</span> <span class="s2">&quot;run&quot;</span><span class="p">):</span>
-                <span class="k">if</span> <span class="n">stripped</span> <span class="o">==</span> <span class="s2">&quot;&quot;</span> <span class="ow">or</span> <span class="n">stripped</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;=&quot;</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">current_section</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"environment"</span><span class="p">,</span> <span class="s2">"system_resources"</span><span class="p">,</span> <span class="s2">"run"</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">stripped</span> <span class="o">==</span> <span class="s2">""</span> <span class="ow">or</span> <span class="n">stripped</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"="</span><span class="p">):</span>
                     <span class="n">current_section</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="c1"># Stage banners — print_stage produces a centered uppercase</span>
@@ -660,24 +660,24 @@
                     <span class="n">cand</span> <span class="o">=</span> <span class="n">_BANNER_TEXT_RE</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">lines</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
                     <span class="k">if</span> <span class="n">cand</span><span class="p">:</span>
                         <span class="n">name</span> <span class="o">=</span> <span class="n">cand</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
-                        <span class="k">if</span> <span class="n">name</span> <span class="ow">and</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;ENVIRONMENT&quot;</span><span class="p">,</span> <span class="s2">&quot;SYSTEM RESOURCES&quot;</span><span class="p">):</span>
-                            <span class="n">stage_timings</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">name</span><span class="p">,</span> <span class="s2">&quot;timestamp&quot;</span><span class="p">:</span> <span class="n">ts</span><span class="p">})</span>
+                        <span class="k">if</span> <span class="n">name</span> <span class="ow">and</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"ENVIRONMENT"</span><span class="p">,</span> <span class="s2">"SYSTEM RESOURCES"</span><span class="p">):</span>
+                            <span class="n">stage_timings</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">"name"</span><span class="p">:</span> <span class="n">name</span><span class="p">,</span> <span class="s2">"timestamp"</span><span class="p">:</span> <span class="n">ts</span><span class="p">})</span>
                             <span class="k">break</span>
 
         <span class="c1"># Curation line — emitted by process_recording.</span>
-        <span class="k">if</span> <span class="n">curation_line</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">stripped</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;Curation: &quot;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">curation_line</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">stripped</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"Curation: "</span><span class="p">):</span>
             <span class="n">curation_line</span> <span class="o">=</span> <span class="n">stripped</span>
 
         <span class="c1"># Warnings.</span>
         <span class="k">if</span> <span class="n">_WARNING_RE</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">stripped</span><span class="p">)</span> <span class="ow">and</span> <span class="n">stripped</span><span class="p">:</span>
-            <span class="c1"># Filter out the matplotlib UserWarning&#39;s &quot;context&quot; lines</span>
+            <span class="c1"># Filter out the matplotlib UserWarning's "context" lines</span>
             <span class="c1"># that lack a recognisable warning identifier.</span>
             <span class="k">if</span> <span class="nb">any</span><span class="p">(</span>
                 <span class="n">tag</span> <span class="ow">in</span> <span class="n">stripped</span>
                 <span class="k">for</span> <span class="n">tag</span> <span class="ow">in</span> <span class="p">(</span>
-                    <span class="s2">&quot;Warning&quot;</span><span class="p">,</span>
-                    <span class="s2">&quot;WARN&quot;</span><span class="p">,</span>
-                    <span class="s2">&quot;warning&quot;</span><span class="p">,</span>
+                    <span class="s2">"Warning"</span><span class="p">,</span>
+                    <span class="s2">"WARN"</span><span class="p">,</span>
+                    <span class="s2">"warning"</span><span class="p">,</span>
                 <span class="p">)</span>
             <span class="p">):</span>
                 <span class="n">warnings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">stripped</span><span class="p">)</span>
@@ -694,20 +694,20 @@
             <span class="k">if</span> <span class="n">_TRACEBACK_END_RE</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">lines</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()):</span>
                 <span class="n">tb_end</span> <span class="o">=</span> <span class="n">i</span>
                 <span class="k">break</span>
-        <span class="n">traceback_block</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">lines</span><span class="p">[</span><span class="n">tb_start</span> <span class="p">:</span> <span class="n">tb_end</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span>
+        <span class="n">traceback_block</span> <span class="o">=</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">lines</span><span class="p">[</span><span class="n">tb_start</span> <span class="p">:</span> <span class="n">tb_end</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span>
         <span class="c1"># Last 200 stdout lines before the traceback for context.</span>
         <span class="n">ctx_start</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">tb_start</span> <span class="o">-</span> <span class="mi">200</span><span class="p">)</span>
         <span class="n">last_lines</span> <span class="o">=</span> <span class="n">lines</span><span class="p">[</span><span class="n">ctx_start</span><span class="p">:</span><span class="n">tb_start</span><span class="p">]</span>
 
     <span class="k">return</span> <span class="p">{</span>
-        <span class="s2">&quot;environment&quot;</span><span class="p">:</span> <span class="n">environment</span><span class="p">,</span>
-        <span class="s2">&quot;run&quot;</span><span class="p">:</span> <span class="n">run</span><span class="p">,</span>
-        <span class="s2">&quot;stage_timings&quot;</span><span class="p">:</span> <span class="n">stage_timings</span><span class="p">,</span>
-        <span class="s2">&quot;curation_line&quot;</span><span class="p">:</span> <span class="n">curation_line</span><span class="p">,</span>
-        <span class="s2">&quot;closing_summary&quot;</span><span class="p">:</span> <span class="n">closing_summary</span><span class="p">,</span>
-        <span class="s2">&quot;warnings&quot;</span><span class="p">:</span> <span class="n">warnings</span><span class="p">,</span>
-        <span class="s2">&quot;traceback&quot;</span><span class="p">:</span> <span class="n">traceback_block</span><span class="p">,</span>
-        <span class="s2">&quot;last_lines_before_traceback&quot;</span><span class="p">:</span> <span class="n">last_lines</span><span class="p">,</span>
+        <span class="s2">"environment"</span><span class="p">:</span> <span class="n">environment</span><span class="p">,</span>
+        <span class="s2">"run"</span><span class="p">:</span> <span class="n">run</span><span class="p">,</span>
+        <span class="s2">"stage_timings"</span><span class="p">:</span> <span class="n">stage_timings</span><span class="p">,</span>
+        <span class="s2">"curation_line"</span><span class="p">:</span> <span class="n">curation_line</span><span class="p">,</span>
+        <span class="s2">"closing_summary"</span><span class="p">:</span> <span class="n">closing_summary</span><span class="p">,</span>
+        <span class="s2">"warnings"</span><span class="p">:</span> <span class="n">warnings</span><span class="p">,</span>
+        <span class="s2">"traceback"</span><span class="p">:</span> <span class="n">traceback_block</span><span class="p">,</span>
+        <span class="s2">"last_lines_before_traceback"</span><span class="p">:</span> <span class="n">last_lines</span><span class="p">,</span>
     <span class="p">}</span></div>
 
 
@@ -718,7 +718,7 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">serialize_config_for_report</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert a SortingPipelineConfig into a JSON-safe dict.</span>
+<span class="w">    </span><span class="sd">"""Convert a SortingPipelineConfig into a JSON-safe dict.</span>
 
 <span class="sd">    Used to write ``config_used.json`` per recording so the Markdown</span>
 <span class="sd">    report can list non-default settings. Path / Tuple values are</span>
@@ -730,13 +730,13 @@
 <span class="sd">    Returns:</span>
 <span class="sd">        snapshot (dict): Nested dict mirroring the dataclass</span>
 <span class="sd">            structure.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">raw</span> <span class="o">=</span> <span class="n">asdict</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">_jsonify</span><span class="p">(</span><span class="n">raw</span><span class="p">)</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_jsonify</span><span class="p">(</span><span class="n">obj</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Coerce Path / Tuple / non-JSON-friendly values to JSON-safe forms.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Coerce Path / Tuple / non-JSON-friendly values to JSON-safe forms."""</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
         <span class="k">return</span> <span class="p">{</span><span class="nb">str</span><span class="p">(</span><span class="n">k</span><span class="p">):</span> <span class="n">_jsonify</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">obj</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
@@ -751,7 +751,7 @@
 <span class="k">def</span><span class="w"> </span><span class="nf">diff_against_default</span><span class="p">(</span>
     <span class="n">config</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">default_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return ``(field_path, default, actual)`` tuples for non-default values.</span>
+<span class="w">    </span><span class="sd">"""Return ``(field_path, default, actual)`` tuples for non-default values.</span>
 
 <span class="sd">    Used by the report to show only the parameters the user actually</span>
 <span class="sd">    changed, rather than dumping the full default-laden config.</span>
@@ -764,7 +764,7 @@
 <span class="sd">    Returns:</span>
 <span class="sd">        diffs (list): List of ``(dotted_path, default_value, actual_value)``</span>
 <span class="sd">            triples for fields where the value diverged.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">if</span> <span class="n">default_config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">SortingPipelineConfig</span>
 
@@ -772,12 +772,12 @@
     <span class="n">actual</span> <span class="o">=</span> <span class="n">_jsonify</span><span class="p">(</span><span class="n">asdict</span><span class="p">(</span><span class="n">config</span><span class="p">))</span>
     <span class="n">default</span> <span class="o">=</span> <span class="n">_jsonify</span><span class="p">(</span><span class="n">asdict</span><span class="p">(</span><span class="n">default_config</span><span class="p">))</span>
     <span class="n">diffs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="n">_walk_diff</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">default</span><span class="p">,</span> <span class="n">actual</span><span class="p">,</span> <span class="n">diffs</span><span class="p">)</span>
+    <span class="n">_walk_diff</span><span class="p">(</span><span class="s2">""</span><span class="p">,</span> <span class="n">default</span><span class="p">,</span> <span class="n">actual</span><span class="p">,</span> <span class="n">diffs</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">diffs</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_walk_diff</span><span class="p">(</span><span class="n">prefix</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">actual</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">out</span><span class="p">:</span> <span class="n">List</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Recurse two parallel dicts or lists; record diverging leaf values.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Recurse two parallel dicts or lists; record diverging leaf values."""</span>
     <span class="c1"># Short-circuit on identical subtrees. ``diff_against_default``</span>
     <span class="c1"># passes whole sub-config dicts to this function; the common case</span>
     <span class="c1"># is that the user changed one or two fields and the rest of the</span>
@@ -787,7 +787,7 @@
         <span class="k">return</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">default</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">actual</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
         <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">actual</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="o">|</span> <span class="n">default</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
-            <span class="n">sub_prefix</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">prefix</span> <span class="k">else</span> <span class="n">key</span>
+            <span class="n">sub_prefix</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">"</span> <span class="k">if</span> <span class="n">prefix</span> <span class="k">else</span> <span class="n">key</span>
             <span class="n">_walk_diff</span><span class="p">(</span><span class="n">sub_prefix</span><span class="p">,</span> <span class="n">default</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">),</span> <span class="n">actual</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">),</span> <span class="n">out</span><span class="p">)</span>
         <span class="k">return</span>
     <span class="k">if</span> <span class="p">(</span>
@@ -796,7 +796,7 @@
         <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">default</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">actual</span><span class="p">)</span>
     <span class="p">):</span>
         <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">a</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">default</span><span class="p">,</span> <span class="n">actual</span><span class="p">)):</span>
-            <span class="n">sub_prefix</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">[</span><span class="si">{</span><span class="n">idx</span><span class="si">}</span><span class="s2">]&quot;</span>
+            <span class="n">sub_prefix</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">[</span><span class="si">{</span><span class="n">idx</span><span class="si">}</span><span class="s2">]"</span>
             <span class="n">_walk_diff</span><span class="p">(</span><span class="n">sub_prefix</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
         <span class="k">return</span>
     <span class="k">if</span> <span class="n">default</span> <span class="o">!=</span> <span class="n">actual</span><span class="p">:</span>
@@ -809,17 +809,17 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_summary_stats</span><span class="p">(</span><span class="n">values</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return mean / median / std / min / max of a numeric list.</span>
+<span class="w">    </span><span class="sd">"""Return mean / median / std / min / max of a numeric list.</span>
 
 <span class="sd">    Skips non-finite values. Returns ``{}`` when the input is empty</span>
 <span class="sd">    or all values are non-finite.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">finite</span> <span class="o">=</span> <span class="p">[</span>
         <span class="n">v</span>
         <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">values</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">))</span>
         <span class="ow">and</span> <span class="n">v</span> <span class="o">==</span> <span class="n">v</span>
-        <span class="ow">and</span> <span class="n">v</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">),</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;-inf&quot;</span><span class="p">))</span>
+        <span class="ow">and</span> <span class="n">v</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="s2">"inf"</span><span class="p">),</span> <span class="nb">float</span><span class="p">(</span><span class="s2">"-inf"</span><span class="p">))</span>
     <span class="p">]</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">finite</span><span class="p">:</span>
         <span class="k">return</span> <span class="p">{}</span>
@@ -834,19 +834,19 @@
     <span class="n">var</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">((</span><span class="n">v</span> <span class="o">-</span> <span class="n">mean</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">finite</span><span class="p">)</span> <span class="o">/</span> <span class="n">n</span>
     <span class="n">std</span> <span class="o">=</span> <span class="n">var</span><span class="o">**</span><span class="mf">0.5</span>
     <span class="k">return</span> <span class="p">{</span>
-        <span class="s2">&quot;mean&quot;</span><span class="p">:</span> <span class="n">mean</span><span class="p">,</span>
-        <span class="s2">&quot;median&quot;</span><span class="p">:</span> <span class="n">median</span><span class="p">,</span>
-        <span class="s2">&quot;std&quot;</span><span class="p">:</span> <span class="n">std</span><span class="p">,</span>
-        <span class="s2">&quot;min&quot;</span><span class="p">:</span> <span class="n">sorted_vals</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
-        <span class="s2">&quot;max&quot;</span><span class="p">:</span> <span class="n">sorted_vals</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>
-        <span class="s2">&quot;n&quot;</span><span class="p">:</span> <span class="n">n</span><span class="p">,</span>
+        <span class="s2">"mean"</span><span class="p">:</span> <span class="n">mean</span><span class="p">,</span>
+        <span class="s2">"median"</span><span class="p">:</span> <span class="n">median</span><span class="p">,</span>
+        <span class="s2">"std"</span><span class="p">:</span> <span class="n">std</span><span class="p">,</span>
+        <span class="s2">"min"</span><span class="p">:</span> <span class="n">sorted_vals</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+        <span class="s2">"max"</span><span class="p">:</span> <span class="n">sorted_vals</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>
+        <span class="s2">"n"</span><span class="p">:</span> <span class="n">n</span><span class="p">,</span>
     <span class="p">}</span>
 
 
 <div class="viewcode-block" id="extract_unit_quality_stats">
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting.report.extract_unit_quality_stats">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">extract_unit_quality_stats</span><span class="p">(</span><span class="n">curated_pkl_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Read the curated SpikeData pickle and return per-metric summary stats.</span>
+<span class="w">    </span><span class="sd">"""Read the curated SpikeData pickle and return per-metric summary stats.</span>
 
 <span class="sd">    Reads attributes from ``sd.neuron_attributes`` for SNR, std_norm,</span>
 <span class="sd">    amplitude. Computes firing rate from ``sd.train`` lengths and</span>
@@ -858,59 +858,59 @@
 
 <span class="sd">    Returns:</span>
 <span class="sd">        stats (dict): Dict of metric name → summary stats dict.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">p</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">curated_pkl_path</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">p</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
         <span class="k">return</span> <span class="p">{}</span>
     <span class="k">try</span><span class="p">:</span>
-        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="s2">"rb"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
             <span class="n">sd</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
     <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
         <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-            <span class="s2">&quot;extract_unit_quality_stats: failed to unpickle </span><span class="si">%s</span><span class="s2">; returning &quot;</span>
-            <span class="s2">&quot;empty stats.&quot;</span><span class="p">,</span>
+            <span class="s2">"extract_unit_quality_stats: failed to unpickle </span><span class="si">%s</span><span class="s2">; returning "</span>
+            <span class="s2">"empty stats."</span><span class="p">,</span>
             <span class="n">p</span><span class="p">,</span>
             <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="p">{}</span>
 
     <span class="n">stats</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
-    <span class="n">attrs</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="s2">&quot;neuron_attributes&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">or</span> <span class="p">[]</span>
+    <span class="n">attrs</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="s2">"neuron_attributes"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">or</span> <span class="p">[]</span>
 
     <span class="n">snr_vals</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">std_norm_vals</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">amp_vals</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">attrs</span><span class="p">:</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">snr_vals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;snr&quot;</span><span class="p">)))</span>
+            <span class="n">snr_vals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"snr"</span><span class="p">)))</span>
         <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
             <span class="k">pass</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">std_norm_vals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;std_norm&quot;</span><span class="p">)))</span>
+            <span class="n">std_norm_vals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"std_norm"</span><span class="p">)))</span>
         <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
             <span class="k">pass</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">amp_vals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;amplitude&quot;</span><span class="p">)))</span>
+            <span class="n">amp_vals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"amplitude"</span><span class="p">)))</span>
         <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
             <span class="k">pass</span>
 
     <span class="k">if</span> <span class="n">snr_vals</span><span class="p">:</span>
-        <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;snr&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_summary_stats</span><span class="p">(</span><span class="n">snr_vals</span><span class="p">)</span>
+        <span class="n">stats</span><span class="p">[</span><span class="s2">"snr"</span><span class="p">]</span> <span class="o">=</span> <span class="n">_summary_stats</span><span class="p">(</span><span class="n">snr_vals</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">std_norm_vals</span><span class="p">:</span>
-        <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;std_norm&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_summary_stats</span><span class="p">(</span><span class="n">std_norm_vals</span><span class="p">)</span>
+        <span class="n">stats</span><span class="p">[</span><span class="s2">"std_norm"</span><span class="p">]</span> <span class="o">=</span> <span class="n">_summary_stats</span><span class="p">(</span><span class="n">std_norm_vals</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">amp_vals</span><span class="p">:</span>
-        <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;amplitude_uv&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_summary_stats</span><span class="p">(</span><span class="n">amp_vals</span><span class="p">)</span>
+        <span class="n">stats</span><span class="p">[</span><span class="s2">"amplitude_uv"</span><span class="p">]</span> <span class="o">=</span> <span class="n">_summary_stats</span><span class="p">(</span><span class="n">amp_vals</span><span class="p">)</span>
 
     <span class="c1"># Firing rates: spikes per second for each unit.</span>
-    <span class="n">train</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-    <span class="n">length</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="s2">&quot;length&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="n">train</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="s2">"train"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="n">length</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="s2">"length"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">train</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">length</span> <span class="ow">and</span> <span class="n">length</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
         <span class="c1"># length is in ms; convert to seconds.</span>
         <span class="n">length_s</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">length</span><span class="p">)</span> <span class="o">/</span> <span class="mf">1000.0</span>
         <span class="n">fr_vals</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">))</span> <span class="o">/</span> <span class="n">length_s</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">train</span><span class="p">]</span>
-        <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;firing_rate_hz&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_summary_stats</span><span class="p">(</span><span class="n">fr_vals</span><span class="p">)</span>
+        <span class="n">stats</span><span class="p">[</span><span class="s2">"firing_rate_hz"</span><span class="p">]</span> <span class="o">=</span> <span class="n">_summary_stats</span><span class="p">(</span><span class="n">fr_vals</span><span class="p">)</span>
         <span class="n">n_total_spikes</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">train</span><span class="p">)</span>
-        <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;total_spikes&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;n&quot;</span><span class="p">:</span> <span class="n">n_total_spikes</span><span class="p">}</span>
+        <span class="n">stats</span><span class="p">[</span><span class="s2">"total_spikes"</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"n"</span><span class="p">:</span> <span class="n">n_total_spikes</span><span class="p">}</span>
     <span class="k">return</span> <span class="n">stats</span></div>
 
 
@@ -921,79 +921,79 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_md_kv_table</span><span class="p">(</span><span class="n">rows</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Render a 2-column key/value Markdown table.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Render a 2-column key/value Markdown table."""</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">rows</span><span class="p">:</span>
-        <span class="k">return</span> <span class="s2">&quot;_(unavailable)_</span><span class="se">\n</span><span class="s2">&quot;</span>
-    <span class="n">lines</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;| Field | Value |&quot;</span><span class="p">,</span> <span class="s2">&quot;|---|---|&quot;</span><span class="p">]</span>
+        <span class="k">return</span> <span class="s2">"_(unavailable)_</span><span class="se">\n</span><span class="s2">"</span>
+    <span class="n">lines</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"| Field | Value |"</span><span class="p">,</span> <span class="s2">"|---|---|"</span><span class="p">]</span>
     <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">rows</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;| </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2"> | </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2"> |&quot;</span><span class="p">)</span>
-    <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"| </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2"> | </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2"> |"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span> <span class="o">+</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_md_stage_table</span><span class="p">(</span><span class="n">stages</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Render the pipeline-timing table with deltas between stages.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Render the pipeline-timing table with deltas between stages."""</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">stages</span><span class="p">:</span>
-        <span class="k">return</span> <span class="s2">&quot;_(no stage banners parsed)_</span><span class="se">\n</span><span class="s2">&quot;</span>
-    <span class="n">lines</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;| Stage | Timestamp | Δ from previous |&quot;</span><span class="p">,</span> <span class="s2">&quot;|---|---|---|&quot;</span><span class="p">]</span>
+        <span class="k">return</span> <span class="s2">"_(no stage banners parsed)_</span><span class="se">\n</span><span class="s2">"</span>
+    <span class="n">lines</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"| Stage | Timestamp | Δ from previous |"</span><span class="p">,</span> <span class="s2">"|---|---|---|"</span><span class="p">]</span>
     <span class="n">prev_dt</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">stages</span><span class="p">:</span>
-        <span class="n">ts</span> <span class="o">=</span> <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">]</span>
+        <span class="n">ts</span> <span class="o">=</span> <span class="n">entry</span><span class="p">[</span><span class="s2">"timestamp"</span><span class="p">]</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">dt</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">fromisoformat</span><span class="p">(</span><span class="n">ts</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
             <span class="n">dt</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="n">delta</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+        <span class="n">delta</span> <span class="o">=</span> <span class="s2">""</span>
         <span class="k">if</span> <span class="n">dt</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">prev_dt</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">secs</span> <span class="o">=</span> <span class="p">(</span><span class="n">dt</span> <span class="o">-</span> <span class="n">prev_dt</span><span class="p">)</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span>
-            <span class="n">delta</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">secs</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">s&quot;</span> <span class="k">if</span> <span class="n">secs</span> <span class="o">&lt;</span> <span class="mi">60</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">secs</span><span class="o">/</span><span class="mi">60</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">m&quot;</span>
-        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;| </span><span class="si">{</span><span class="n">entry</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> | </span><span class="si">{</span><span class="n">ts</span><span class="si">}</span><span class="s2"> | </span><span class="si">{</span><span class="n">delta</span><span class="si">}</span><span class="s2"> |&quot;</span><span class="p">)</span>
+            <span class="n">delta</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">secs</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">s"</span> <span class="k">if</span> <span class="n">secs</span> <span class="o">&lt;</span> <span class="mi">60</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">secs</span><span class="o">/</span><span class="mi">60</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">m"</span>
+        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"| </span><span class="si">{</span><span class="n">entry</span><span class="p">[</span><span class="s1">'name'</span><span class="p">]</span><span class="si">}</span><span class="s2"> | </span><span class="si">{</span><span class="n">ts</span><span class="si">}</span><span class="s2"> | </span><span class="si">{</span><span class="n">delta</span><span class="si">}</span><span class="s2"> |"</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">dt</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">prev_dt</span> <span class="o">=</span> <span class="n">dt</span>
-    <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="k">return</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span> <span class="o">+</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_md_quality_section</span><span class="p">(</span><span class="n">stats</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Render the unit quality summary table.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Render the unit quality summary table."""</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">stats</span><span class="p">:</span>
-        <span class="k">return</span> <span class="s2">&quot;_(no curated SpikeData loaded)_</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="k">return</span> <span class="s2">"_(no curated SpikeData loaded)_</span><span class="se">\n</span><span class="s2">"</span>
     <span class="n">lines</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="s2">&quot;| Metric | n | mean | median | std | min | max |&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;|---|---|---|---|---|---|---|&quot;</span><span class="p">,</span>
+        <span class="s2">"| Metric | n | mean | median | std | min | max |"</span><span class="p">,</span>
+        <span class="s2">"|---|---|---|---|---|---|---|"</span><span class="p">,</span>
     <span class="p">]</span>
     <span class="k">for</span> <span class="n">metric</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">stats</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-        <span class="k">if</span> <span class="n">metric</span> <span class="o">==</span> <span class="s2">&quot;total_spikes&quot;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">metric</span> <span class="o">==</span> <span class="s2">"total_spikes"</span><span class="p">:</span>
             <span class="k">continue</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">s</span><span class="p">:</span>
             <span class="k">continue</span>
         <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;| </span><span class="si">{</span><span class="n">metric</span><span class="si">}</span><span class="s2"> | </span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;n&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2"> | &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;mean&#39;</span><span class="p">,</span><span class="w"> </span><span class="nb">float</span><span class="p">(</span><span class="s1">&#39;nan&#39;</span><span class="p">))</span><span class="si">:</span><span class="s2">.3g</span><span class="si">}</span><span class="s2"> | &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;median&#39;</span><span class="p">,</span><span class="w"> </span><span class="nb">float</span><span class="p">(</span><span class="s1">&#39;nan&#39;</span><span class="p">))</span><span class="si">:</span><span class="s2">.3g</span><span class="si">}</span><span class="s2"> | &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;std&#39;</span><span class="p">,</span><span class="w"> </span><span class="nb">float</span><span class="p">(</span><span class="s1">&#39;nan&#39;</span><span class="p">))</span><span class="si">:</span><span class="s2">.3g</span><span class="si">}</span><span class="s2"> | &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;min&#39;</span><span class="p">,</span><span class="w"> </span><span class="nb">float</span><span class="p">(</span><span class="s1">&#39;nan&#39;</span><span class="p">))</span><span class="si">:</span><span class="s2">.3g</span><span class="si">}</span><span class="s2"> | &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;max&#39;</span><span class="p">,</span><span class="w"> </span><span class="nb">float</span><span class="p">(</span><span class="s1">&#39;nan&#39;</span><span class="p">))</span><span class="si">:</span><span class="s2">.3g</span><span class="si">}</span><span class="s2"> |&quot;</span>
+            <span class="sa">f</span><span class="s2">"| </span><span class="si">{</span><span class="n">metric</span><span class="si">}</span><span class="s2"> | </span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'n'</span><span class="p">,</span><span class="w"> </span><span class="s1">''</span><span class="p">)</span><span class="si">}</span><span class="s2"> | "</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'mean'</span><span class="p">,</span><span class="w"> </span><span class="nb">float</span><span class="p">(</span><span class="s1">'nan'</span><span class="p">))</span><span class="si">:</span><span class="s2">.3g</span><span class="si">}</span><span class="s2"> | "</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'median'</span><span class="p">,</span><span class="w"> </span><span class="nb">float</span><span class="p">(</span><span class="s1">'nan'</span><span class="p">))</span><span class="si">:</span><span class="s2">.3g</span><span class="si">}</span><span class="s2"> | "</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'std'</span><span class="p">,</span><span class="w"> </span><span class="nb">float</span><span class="p">(</span><span class="s1">'nan'</span><span class="p">))</span><span class="si">:</span><span class="s2">.3g</span><span class="si">}</span><span class="s2"> | "</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'min'</span><span class="p">,</span><span class="w"> </span><span class="nb">float</span><span class="p">(</span><span class="s1">'nan'</span><span class="p">))</span><span class="si">:</span><span class="s2">.3g</span><span class="si">}</span><span class="s2"> | "</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'max'</span><span class="p">,</span><span class="w"> </span><span class="nb">float</span><span class="p">(</span><span class="s1">'nan'</span><span class="p">))</span><span class="si">:</span><span class="s2">.3g</span><span class="si">}</span><span class="s2"> |"</span>
         <span class="p">)</span>
-    <span class="k">if</span> <span class="s2">&quot;total_spikes&quot;</span> <span class="ow">in</span> <span class="n">stats</span><span class="p">:</span>
-        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
-        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;**Total spikes (curated):** </span><span class="si">{</span><span class="n">stats</span><span class="p">[</span><span class="s1">&#39;total_spikes&#39;</span><span class="p">][</span><span class="s1">&#39;n&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="k">if</span> <span class="s2">"total_spikes"</span> <span class="ow">in</span> <span class="n">stats</span><span class="p">:</span>
+        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">""</span><span class="p">)</span>
+        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"**Total spikes (curated):** </span><span class="si">{</span><span class="n">stats</span><span class="p">[</span><span class="s1">'total_spikes'</span><span class="p">][</span><span class="s1">'n'</span><span class="p">]</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span> <span class="o">+</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_md_settings_section</span><span class="p">(</span><span class="n">diffs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Render the non-default-settings table.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Render the non-default-settings table."""</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">diffs</span><span class="p">:</span>
-        <span class="k">return</span> <span class="s2">&quot;_(all defaults)_</span><span class="se">\n</span><span class="s2">&quot;</span>
-    <span class="n">lines</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;| Setting | Default | Used |&quot;</span><span class="p">,</span> <span class="s2">&quot;|---|---|---|&quot;</span><span class="p">]</span>
+        <span class="k">return</span> <span class="s2">"_(all defaults)_</span><span class="se">\n</span><span class="s2">"</span>
+    <span class="n">lines</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"| Setting | Default | Used |"</span><span class="p">,</span> <span class="s2">"|---|---|---|"</span><span class="p">]</span>
     <span class="k">for</span> <span class="n">path</span><span class="p">,</span> <span class="n">default</span><span class="p">,</span> <span class="n">used</span> <span class="ow">in</span> <span class="n">diffs</span><span class="p">:</span>
-        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;| `</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">` | `</span><span class="si">{</span><span class="n">default</span><span class="si">}</span><span class="s2">` | `</span><span class="si">{</span><span class="n">used</span><span class="si">}</span><span class="s2">` |&quot;</span><span class="p">)</span>
-    <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"| `</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">` | `</span><span class="si">{</span><span class="n">default</span><span class="si">}</span><span class="s2">` | `</span><span class="si">{</span><span class="n">used</span><span class="si">}</span><span class="s2">` |"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span> <span class="o">+</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_md_files_section</span><span class="p">(</span><span class="n">folder</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Render the output-files listing with per-file MB sizes.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Render the output-files listing with per-file MB sizes."""</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">folder</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
-        <span class="k">return</span> <span class="s2">&quot;_(results folder missing)_</span><span class="se">\n</span><span class="s2">&quot;</span>
-    <span class="n">lines</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;| File | Size (MB) |&quot;</span><span class="p">,</span> <span class="s2">&quot;|---|---|&quot;</span><span class="p">]</span>
+        <span class="k">return</span> <span class="s2">"_(results folder missing)_</span><span class="se">\n</span><span class="s2">"</span>
+    <span class="n">lines</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"| File | Size (MB) |"</span><span class="p">,</span> <span class="s2">"|---|---|"</span><span class="p">]</span>
     <span class="n">rows</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">base</span> <span class="o">=</span> <span class="n">folder</span>
 
@@ -1015,74 +1015,74 @@
                 <span class="n">size</span> <span class="o">=</span> <span class="n">entry</span><span class="o">.</span><span class="n">stat</span><span class="p">(</span><span class="n">follow_symlinks</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">st_size</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1024</span> <span class="o">*</span> <span class="mi">1024</span><span class="p">)</span>
             <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
                 <span class="k">continue</span>
-            <span class="n">rel</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">entry</span><span class="o">.</span><span class="n">path</span><span class="p">)</span><span class="o">.</span><span class="n">relative_to</span><span class="p">(</span><span class="n">base</span><span class="p">))</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\\</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;/&quot;</span><span class="p">)</span>
+            <span class="n">rel</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">entry</span><span class="o">.</span><span class="n">path</span><span class="p">)</span><span class="o">.</span><span class="n">relative_to</span><span class="p">(</span><span class="n">base</span><span class="p">))</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">"</span><span class="se">\\</span><span class="s2">"</span><span class="p">,</span> <span class="s2">"/"</span><span class="p">)</span>
             <span class="n">rows</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">rel</span><span class="p">,</span> <span class="n">size</span><span class="p">))</span>
 
     <span class="n">_walk</span><span class="p">(</span><span class="n">folder</span><span class="p">)</span>
     <span class="n">rows</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="o">-</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
     <span class="k">for</span> <span class="n">rel</span><span class="p">,</span> <span class="n">size</span> <span class="ow">in</span> <span class="n">rows</span><span class="p">[:</span><span class="mi">50</span><span class="p">]:</span>
-        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;| `</span><span class="si">{</span><span class="n">rel</span><span class="si">}</span><span class="s2">` | </span><span class="si">{</span><span class="n">size</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> |&quot;</span><span class="p">)</span>
+        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"| `</span><span class="si">{</span><span class="n">rel</span><span class="si">}</span><span class="s2">` | </span><span class="si">{</span><span class="n">size</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> |"</span><span class="p">)</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">rows</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">50</span><span class="p">:</span>
-        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">""</span><span class="p">)</span>
         <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;_(</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">rows</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">50</span><span class="si">}</span><span class="s2"> additional files omitted; sorted by size descending)_&quot;</span>
+            <span class="sa">f</span><span class="s2">"_(</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">rows</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">50</span><span class="si">}</span><span class="s2"> additional files omitted; sorted by size descending)_"</span>
         <span class="p">)</span>
-    <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="k">return</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span> <span class="o">+</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_md_curation_outcome</span><span class="p">(</span>
     <span class="n">parsed</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">stats</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Render the headline curation-outcome block.&quot;&quot;&quot;</span>
-    <span class="n">line</span> <span class="o">=</span> <span class="n">parsed</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;curation_line&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">&quot;_(curation line not found in log)_&quot;</span>
-    <span class="n">parts</span> <span class="o">=</span> <span class="p">[</span><span class="n">line</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">]</span>
-    <span class="n">snr</span> <span class="o">=</span> <span class="n">stats</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;snr&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="p">{}</span>
-    <span class="n">fr</span> <span class="o">=</span> <span class="n">stats</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;firing_rate_hz&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="p">{}</span>
-    <span class="n">total</span> <span class="o">=</span> <span class="n">stats</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;total_spikes&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="p">{}</span>
+<span class="w">    </span><span class="sd">"""Render the headline curation-outcome block."""</span>
+    <span class="n">line</span> <span class="o">=</span> <span class="n">parsed</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"curation_line"</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">"_(curation line not found in log)_"</span>
+    <span class="n">parts</span> <span class="o">=</span> <span class="p">[</span><span class="n">line</span><span class="p">,</span> <span class="s2">""</span><span class="p">]</span>
+    <span class="n">snr</span> <span class="o">=</span> <span class="n">stats</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"snr"</span><span class="p">)</span> <span class="ow">or</span> <span class="p">{}</span>
+    <span class="n">fr</span> <span class="o">=</span> <span class="n">stats</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"firing_rate_hz"</span><span class="p">)</span> <span class="ow">or</span> <span class="p">{}</span>
+    <span class="n">total</span> <span class="o">=</span> <span class="n">stats</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"total_spikes"</span><span class="p">)</span> <span class="ow">or</span> <span class="p">{}</span>
     <span class="k">if</span> <span class="n">snr</span> <span class="ow">or</span> <span class="n">fr</span> <span class="ow">or</span> <span class="n">total</span><span class="p">:</span>
-        <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;**Quick stats:**&quot;</span><span class="p">)</span>
+        <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">"**Quick stats:**"</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">total</span><span class="p">:</span>
-            <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;- Total curated spikes: </span><span class="si">{</span><span class="n">total</span><span class="p">[</span><span class="s1">&#39;n&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"- Total curated spikes: </span><span class="si">{</span><span class="n">total</span><span class="p">[</span><span class="s1">'n'</span><span class="p">]</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">fr</span><span class="p">:</span>
             <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;- Mean firing rate: </span><span class="si">{</span><span class="n">fr</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;mean&#39;</span><span class="p">,</span><span class="w"> </span><span class="nb">float</span><span class="p">(</span><span class="s1">&#39;nan&#39;</span><span class="p">))</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> Hz &quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;(median </span><span class="si">{</span><span class="n">fr</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;median&#39;</span><span class="p">,</span><span class="w"> </span><span class="nb">float</span><span class="p">(</span><span class="s1">&#39;nan&#39;</span><span class="p">))</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> Hz)&quot;</span>
+                <span class="sa">f</span><span class="s2">"- Mean firing rate: </span><span class="si">{</span><span class="n">fr</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'mean'</span><span class="p">,</span><span class="w"> </span><span class="nb">float</span><span class="p">(</span><span class="s1">'nan'</span><span class="p">))</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> Hz "</span>
+                <span class="sa">f</span><span class="s2">"(median </span><span class="si">{</span><span class="n">fr</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'median'</span><span class="p">,</span><span class="w"> </span><span class="nb">float</span><span class="p">(</span><span class="s1">'nan'</span><span class="p">))</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> Hz)"</span>
             <span class="p">)</span>
         <span class="k">if</span> <span class="n">snr</span><span class="p">:</span>
             <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;- Mean SNR: </span><span class="si">{</span><span class="n">snr</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;mean&#39;</span><span class="p">,</span><span class="w"> </span><span class="nb">float</span><span class="p">(</span><span class="s1">&#39;nan&#39;</span><span class="p">))</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> &quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;(median </span><span class="si">{</span><span class="n">snr</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;median&#39;</span><span class="p">,</span><span class="w"> </span><span class="nb">float</span><span class="p">(</span><span class="s1">&#39;nan&#39;</span><span class="p">))</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">)&quot;</span>
+                <span class="sa">f</span><span class="s2">"- Mean SNR: </span><span class="si">{</span><span class="n">snr</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'mean'</span><span class="p">,</span><span class="w"> </span><span class="nb">float</span><span class="p">(</span><span class="s1">'nan'</span><span class="p">))</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> "</span>
+                <span class="sa">f</span><span class="s2">"(median </span><span class="si">{</span><span class="n">snr</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'median'</span><span class="p">,</span><span class="w"> </span><span class="nb">float</span><span class="p">(</span><span class="s1">'nan'</span><span class="p">))</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">)"</span>
             <span class="p">)</span>
-    <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="k">return</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">+</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_md_warnings_section</span><span class="p">(</span><span class="n">warnings</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Render the warnings extracted from the Tee log.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Render the warnings extracted from the Tee log."""</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">warnings</span><span class="p">:</span>
-        <span class="k">return</span> <span class="s2">&quot;_(none)_</span><span class="se">\n</span><span class="s2">&quot;</span>
-    <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;- `</span><span class="si">{</span><span class="n">w</span><span class="si">}</span><span class="s2">`&quot;</span> <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">warnings</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="k">return</span> <span class="s2">"_(none)_</span><span class="se">\n</span><span class="s2">"</span>
+    <span class="k">return</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="sa">f</span><span class="s2">"- `</span><span class="si">{</span><span class="n">w</span><span class="si">}</span><span class="s2">`"</span> <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">warnings</span><span class="p">)</span> <span class="o">+</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_md_failure_section</span><span class="p">(</span><span class="n">parsed</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Render the failure section with traceback + tail context.&quot;&quot;&quot;</span>
-    <span class="n">tb</span> <span class="o">=</span> <span class="n">parsed</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;traceback&quot;</span><span class="p">)</span>
-    <span class="n">last_lines</span> <span class="o">=</span> <span class="n">parsed</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;last_lines_before_traceback&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="p">[]</span>
+<span class="w">    </span><span class="sd">"""Render the failure section with traceback + tail context."""</span>
+    <span class="n">tb</span> <span class="o">=</span> <span class="n">parsed</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"traceback"</span><span class="p">)</span>
+    <span class="n">last_lines</span> <span class="o">=</span> <span class="n">parsed</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"last_lines_before_traceback"</span><span class="p">)</span> <span class="ow">or</span> <span class="p">[]</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">tb</span><span class="p">:</span>
-        <span class="k">return</span> <span class="s2">&quot;&quot;</span>
-    <span class="n">parts</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="s2">&quot;## Failure&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">]</span>
+        <span class="k">return</span> <span class="s2">""</span>
+    <span class="n">parts</span> <span class="o">=</span> <span class="p">[</span><span class="s2">""</span><span class="p">,</span> <span class="s2">"## Failure"</span><span class="p">,</span> <span class="s2">""</span><span class="p">]</span>
     <span class="k">if</span> <span class="n">last_lines</span><span class="p">:</span>
-        <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;### Last 200 stdout lines before failure&quot;</span><span class="p">)</span>
-        <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
-        <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;```&quot;</span><span class="p">)</span>
+        <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">"### Last 200 stdout lines before failure"</span><span class="p">)</span>
+        <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">""</span><span class="p">)</span>
+        <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">"```"</span><span class="p">)</span>
         <span class="n">parts</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">last_lines</span><span class="p">)</span>
-        <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;```&quot;</span><span class="p">)</span>
-        <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
-    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;### Traceback&quot;</span><span class="p">)</span>
-    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
-    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;```&quot;</span><span class="p">)</span>
+        <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">"```"</span><span class="p">)</span>
+        <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">""</span><span class="p">)</span>
+    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">"### Traceback"</span><span class="p">)</span>
+    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">""</span><span class="p">)</span>
+    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">"```"</span><span class="p">)</span>
     <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tb</span><span class="p">)</span>
-    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;```&quot;</span><span class="p">)</span>
-    <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">"```"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">+</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span>
 
 
 <div class="viewcode-block" id="generate_sorting_report">
@@ -1096,7 +1096,7 @@
     <span class="n">config_used_path</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">output_path</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Path</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Generate a Markdown sorting report for a single recording.</span>
+<span class="w">    </span><span class="sd">"""Generate a Markdown sorting report for a single recording.</span>
 
 <span class="sd">    Reads the per-recording Tee log, ``recording_report.json``,</span>
 <span class="sd">    ``config_used.json``, and the curated SpikeData pickle (each</span>
@@ -1128,42 +1128,42 @@
 <span class="sd">            Default: ``&lt;results_folder&gt;/sorting_report.md``.</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">        path (Path or None): The written file&#39;s path, or ``None`` on</span>
+<span class="sd">        path (Path or None): The written file's path, or ``None`` on</span>
 <span class="sd">            best-effort failure (the surrounding pipeline never lets</span>
 <span class="sd">            a report failure abort the batch).</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">folder</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">results_folder</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">output_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">output_path</span> <span class="o">=</span> <span class="n">folder</span> <span class="o">/</span> <span class="s2">&quot;sorting_report.md&quot;</span>
+        <span class="n">output_path</span> <span class="o">=</span> <span class="n">folder</span> <span class="o">/</span> <span class="s2">"sorting_report.md"</span>
     <span class="n">output_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">output_path</span><span class="p">)</span>
 
     <span class="c1"># Auto-detect paths.</span>
     <span class="k">if</span> <span class="n">log_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">candidates</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">folder</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">&quot;sorting_*.log&quot;</span><span class="p">))</span>
+        <span class="n">candidates</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">folder</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">"sorting_*.log"</span><span class="p">))</span>
         <span class="n">log_path</span> <span class="o">=</span> <span class="n">candidates</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="n">candidates</span> <span class="k">else</span> <span class="kc">None</span>
     <span class="k">if</span> <span class="n">recording_report_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">rec_report</span> <span class="o">=</span> <span class="n">folder</span> <span class="o">/</span> <span class="s2">&quot;recording_report.json&quot;</span>
+        <span class="n">rec_report</span> <span class="o">=</span> <span class="n">folder</span> <span class="o">/</span> <span class="s2">"recording_report.json"</span>
         <span class="n">recording_report_path</span> <span class="o">=</span> <span class="n">rec_report</span> <span class="k">if</span> <span class="n">rec_report</span><span class="o">.</span><span class="n">is_file</span><span class="p">()</span> <span class="k">else</span> <span class="kc">None</span>
     <span class="k">if</span> <span class="n">curated_pkl_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">cur</span> <span class="o">=</span> <span class="n">folder</span> <span class="o">/</span> <span class="s2">&quot;sorted_spikedata_curated.pkl&quot;</span>
+        <span class="n">cur</span> <span class="o">=</span> <span class="n">folder</span> <span class="o">/</span> <span class="s2">"sorted_spikedata_curated.pkl"</span>
         <span class="n">curated_pkl_path</span> <span class="o">=</span> <span class="n">cur</span> <span class="k">if</span> <span class="n">cur</span><span class="o">.</span><span class="n">is_file</span><span class="p">()</span> <span class="k">else</span> <span class="kc">None</span>
     <span class="k">if</span> <span class="n">config_used_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">cfg</span> <span class="o">=</span> <span class="n">folder</span> <span class="o">/</span> <span class="s2">&quot;config_used.json&quot;</span>
+        <span class="n">cfg</span> <span class="o">=</span> <span class="n">folder</span> <span class="o">/</span> <span class="s2">"config_used.json"</span>
         <span class="n">config_used_path</span> <span class="o">=</span> <span class="n">cfg</span> <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">is_file</span><span class="p">()</span> <span class="k">else</span> <span class="kc">None</span>
 
-    <span class="n">log_text</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+    <span class="n">log_text</span> <span class="o">=</span> <span class="s2">""</span>
     <span class="k">if</span> <span class="n">log_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">Path</span><span class="p">(</span><span class="n">log_path</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">log_text</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">log_path</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">,</span> <span class="n">errors</span><span class="o">=</span><span class="s2">&quot;replace&quot;</span><span class="p">)</span>
+            <span class="n">log_text</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">log_path</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">,</span> <span class="n">errors</span><span class="o">=</span><span class="s2">"replace"</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-            <span class="n">log_text</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+            <span class="n">log_text</span> <span class="o">=</span> <span class="s2">""</span>
     <span class="n">parsed</span> <span class="o">=</span> <span class="n">parse_sorting_log</span><span class="p">(</span><span class="n">log_text</span><span class="p">)</span>
 
     <span class="n">rec_record</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="k">if</span> <span class="n">recording_report_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">Path</span><span class="p">(</span><span class="n">recording_report_path</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">rec_record</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span>
-                <span class="n">Path</span><span class="p">(</span><span class="n">recording_report_path</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
+                <span class="n">Path</span><span class="p">(</span><span class="n">recording_report_path</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span>
             <span class="p">)</span>
         <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
             <span class="n">rec_record</span> <span class="o">=</span> <span class="p">{}</span>
@@ -1175,15 +1175,15 @@
     <span class="n">config_diffs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">if</span> <span class="n">config_used_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">Path</span><span class="p">(</span><span class="n">config_used_path</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">used</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">config_used_path</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">))</span>
+            <span class="n">used</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">config_used_path</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">))</span>
             <span class="kn">from</span><span class="w"> </span><span class="nn">.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">SortingPipelineConfig</span>
 
             <span class="n">default_dict</span> <span class="o">=</span> <span class="n">_jsonify</span><span class="p">(</span><span class="n">asdict</span><span class="p">(</span><span class="n">SortingPipelineConfig</span><span class="p">()))</span>
-            <span class="n">_walk_diff</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">default_dict</span><span class="p">,</span> <span class="n">used</span><span class="p">,</span> <span class="n">config_diffs</span><span class="p">)</span>
+            <span class="n">_walk_diff</span><span class="p">(</span><span class="s2">""</span><span class="p">,</span> <span class="n">default_dict</span><span class="p">,</span> <span class="n">used</span><span class="p">,</span> <span class="n">config_diffs</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
             <span class="n">config_diffs</span> <span class="o">=</span> <span class="p">[]</span>
 
-    <span class="n">rec_name</span> <span class="o">=</span> <span class="n">rec_record</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;rec_name&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">folder</span><span class="o">.</span><span class="n">name</span>
+    <span class="n">rec_name</span> <span class="o">=</span> <span class="n">rec_record</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"rec_name"</span><span class="p">)</span> <span class="ow">or</span> <span class="n">folder</span><span class="o">.</span><span class="n">name</span>
     <span class="n">md</span> <span class="o">=</span> <span class="n">_render_report_markdown</span><span class="p">(</span>
         <span class="n">rec_name</span><span class="o">=</span><span class="n">rec_name</span><span class="p">,</span>
         <span class="n">rec_record</span><span class="o">=</span><span class="n">rec_record</span><span class="p">,</span>
@@ -1198,8 +1198,8 @@
         <span class="n">output_path</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="c1"># Atomic write so an os._exit fired by the inactivity</span>
         <span class="c1"># watchdog mid-write cannot leave a corrupt report behind.</span>
-        <span class="n">tmp</span> <span class="o">=</span> <span class="n">output_path</span><span class="o">.</span><span class="n">with_suffix</span><span class="p">(</span><span class="n">output_path</span><span class="o">.</span><span class="n">suffix</span> <span class="o">+</span> <span class="s2">&quot;.tmp&quot;</span><span class="p">)</span>
-        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">tmp</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">tmp</span> <span class="o">=</span> <span class="n">output_path</span><span class="o">.</span><span class="n">with_suffix</span><span class="p">(</span><span class="n">output_path</span><span class="o">.</span><span class="n">suffix</span> <span class="o">+</span> <span class="s2">".tmp"</span><span class="p">)</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">tmp</span><span class="p">,</span> <span class="s2">"w"</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
             <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">md</span><span class="p">)</span>
             <span class="n">f</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
             <span class="k">try</span><span class="p">:</span>
@@ -1209,7 +1209,7 @@
         <span class="n">os</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">tmp</span><span class="p">,</span> <span class="n">output_path</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">output_path</span>
     <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-        <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[sorting report] failed to write </span><span class="si">{</span><span class="n">output_path</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">exc</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">"[sorting report] failed to write </span><span class="si">{</span><span class="n">output_path</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">exc</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
         <span class="k">return</span> <span class="kc">None</span></div>
 
 
@@ -1224,68 +1224,68 @@
     <span class="n">folder</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span>
     <span class="n">log_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Assemble the full Markdown body.&quot;&quot;&quot;</span>
-    <span class="n">parts</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;# Sorting report: </span><span class="si">{</span><span class="n">rec_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">]</span>
+<span class="w">    </span><span class="sd">"""Assemble the full Markdown body."""</span>
+    <span class="n">parts</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">"# Sorting report: </span><span class="si">{</span><span class="n">rec_name</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="s2">""</span><span class="p">]</span>
 
-    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;## Curation outcome&quot;</span><span class="p">)</span>
-    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">"## Curation outcome"</span><span class="p">)</span>
+    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">""</span><span class="p">)</span>
     <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_md_curation_outcome</span><span class="p">(</span><span class="n">parsed</span><span class="p">,</span> <span class="n">stats</span><span class="p">))</span>
 
     <span class="n">overview</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="k">if</span> <span class="n">rec_record</span><span class="p">:</span>
-        <span class="n">overview</span><span class="p">[</span><span class="s2">&quot;Status&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">rec_record</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;status&quot;</span><span class="p">,</span> <span class="s2">&quot;unknown&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">rec_record</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;error_class&quot;</span><span class="p">):</span>
-            <span class="n">overview</span><span class="p">[</span><span class="s2">&quot;Error class&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">rec_record</span><span class="p">[</span><span class="s2">&quot;error_class&quot;</span><span class="p">]</span>
-        <span class="k">if</span> <span class="n">rec_record</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;error_message&quot;</span><span class="p">):</span>
-            <span class="n">overview</span><span class="p">[</span><span class="s2">&quot;Error message&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">rec_record</span><span class="p">[</span><span class="s2">&quot;error_message&quot;</span><span class="p">]</span>
-        <span class="n">overview</span><span class="p">[</span><span class="s2">&quot;Wall time (s)&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">rec_record</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;wall_time_s&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
-        <span class="n">overview</span><span class="p">[</span><span class="s2">&quot;Retries used&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">rec_record</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;retries_used&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
-        <span class="n">overview</span><span class="p">[</span><span class="s2">&quot;Curated units&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">rec_record</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;n_curated_units&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">rec_record</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;rec_path&quot;</span><span class="p">):</span>
-            <span class="n">overview</span><span class="p">[</span><span class="s2">&quot;Recording&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">rec_record</span><span class="p">[</span><span class="s2">&quot;rec_path&quot;</span><span class="p">]</span>
-        <span class="k">if</span> <span class="n">rec_record</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;results_folder&quot;</span><span class="p">):</span>
-            <span class="n">overview</span><span class="p">[</span><span class="s2">&quot;Results folder&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">rec_record</span><span class="p">[</span><span class="s2">&quot;results_folder&quot;</span><span class="p">]</span>
+        <span class="n">overview</span><span class="p">[</span><span class="s2">"Status"</span><span class="p">]</span> <span class="o">=</span> <span class="n">rec_record</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"status"</span><span class="p">,</span> <span class="s2">"unknown"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">rec_record</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"error_class"</span><span class="p">):</span>
+            <span class="n">overview</span><span class="p">[</span><span class="s2">"Error class"</span><span class="p">]</span> <span class="o">=</span> <span class="n">rec_record</span><span class="p">[</span><span class="s2">"error_class"</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">rec_record</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"error_message"</span><span class="p">):</span>
+            <span class="n">overview</span><span class="p">[</span><span class="s2">"Error message"</span><span class="p">]</span> <span class="o">=</span> <span class="n">rec_record</span><span class="p">[</span><span class="s2">"error_message"</span><span class="p">]</span>
+        <span class="n">overview</span><span class="p">[</span><span class="s2">"Wall time (s)"</span><span class="p">]</span> <span class="o">=</span> <span class="n">rec_record</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"wall_time_s"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
+        <span class="n">overview</span><span class="p">[</span><span class="s2">"Retries used"</span><span class="p">]</span> <span class="o">=</span> <span class="n">rec_record</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"retries_used"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
+        <span class="n">overview</span><span class="p">[</span><span class="s2">"Curated units"</span><span class="p">]</span> <span class="o">=</span> <span class="n">rec_record</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"n_curated_units"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">rec_record</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"rec_path"</span><span class="p">):</span>
+            <span class="n">overview</span><span class="p">[</span><span class="s2">"Recording"</span><span class="p">]</span> <span class="o">=</span> <span class="n">rec_record</span><span class="p">[</span><span class="s2">"rec_path"</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">rec_record</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"results_folder"</span><span class="p">):</span>
+            <span class="n">overview</span><span class="p">[</span><span class="s2">"Results folder"</span><span class="p">]</span> <span class="o">=</span> <span class="n">rec_record</span><span class="p">[</span><span class="s2">"results_folder"</span><span class="p">]</span>
     <span class="k">if</span> <span class="n">log_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">overview</span><span class="p">[</span><span class="s2">&quot;Log file&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">log_path</span><span class="p">)</span>
-    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;## Overview&quot;</span><span class="p">)</span>
-    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="n">overview</span><span class="p">[</span><span class="s2">"Log file"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">log_path</span><span class="p">)</span>
+    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">"## Overview"</span><span class="p">)</span>
+    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">""</span><span class="p">)</span>
     <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_md_kv_table</span><span class="p">(</span><span class="n">overview</span><span class="p">))</span>
 
-    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;## Script settings (non-default)&quot;</span><span class="p">)</span>
-    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">"## Script settings (non-default)"</span><span class="p">)</span>
+    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">""</span><span class="p">)</span>
     <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_md_settings_section</span><span class="p">(</span><span class="n">config_diffs</span><span class="p">))</span>
 
-    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;## Environment&quot;</span><span class="p">)</span>
-    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
-    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_md_kv_table</span><span class="p">(</span><span class="n">parsed</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;environment&quot;</span><span class="p">,</span> <span class="p">{})))</span>
+    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">"## Environment"</span><span class="p">)</span>
+    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">""</span><span class="p">)</span>
+    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_md_kv_table</span><span class="p">(</span><span class="n">parsed</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"environment"</span><span class="p">,</span> <span class="p">{})))</span>
 
-    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;## Run banner&quot;</span><span class="p">)</span>
-    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
-    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_md_kv_table</span><span class="p">(</span><span class="n">parsed</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;run&quot;</span><span class="p">,</span> <span class="p">{})))</span>
+    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">"## Run banner"</span><span class="p">)</span>
+    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">""</span><span class="p">)</span>
+    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_md_kv_table</span><span class="p">(</span><span class="n">parsed</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"run"</span><span class="p">,</span> <span class="p">{})))</span>
 
-    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;## Pipeline timing&quot;</span><span class="p">)</span>
-    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
-    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_md_stage_table</span><span class="p">(</span><span class="n">parsed</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;stage_timings&quot;</span><span class="p">,</span> <span class="p">[])))</span>
+    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">"## Pipeline timing"</span><span class="p">)</span>
+    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">""</span><span class="p">)</span>
+    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_md_stage_table</span><span class="p">(</span><span class="n">parsed</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"stage_timings"</span><span class="p">,</span> <span class="p">[])))</span>
 
-    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;## Unit quality distributions&quot;</span><span class="p">)</span>
-    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">"## Unit quality distributions"</span><span class="p">)</span>
+    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">""</span><span class="p">)</span>
     <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_md_quality_section</span><span class="p">(</span><span class="n">stats</span><span class="p">))</span>
 
-    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;## Resources at finish&quot;</span><span class="p">)</span>
-    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
-    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_md_kv_table</span><span class="p">(</span><span class="n">parsed</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;closing_summary&quot;</span><span class="p">,</span> <span class="p">{})))</span>
+    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">"## Resources at finish"</span><span class="p">)</span>
+    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">""</span><span class="p">)</span>
+    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_md_kv_table</span><span class="p">(</span><span class="n">parsed</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"closing_summary"</span><span class="p">,</span> <span class="p">{})))</span>
 
-    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;## Warnings&quot;</span><span class="p">)</span>
-    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
-    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_md_warnings_section</span><span class="p">(</span><span class="n">parsed</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;warnings&quot;</span><span class="p">,</span> <span class="p">[])))</span>
+    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">"## Warnings"</span><span class="p">)</span>
+    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">""</span><span class="p">)</span>
+    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_md_warnings_section</span><span class="p">(</span><span class="n">parsed</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"warnings"</span><span class="p">,</span> <span class="p">[])))</span>
 
-    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;## Output files&quot;</span><span class="p">)</span>
-    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">"## Output files"</span><span class="p">)</span>
+    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">""</span><span class="p">)</span>
     <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_md_files_section</span><span class="p">(</span><span class="n">folder</span><span class="p">))</span>
 
     <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_md_failure_section</span><span class="p">(</span><span class="n">parsed</span><span class="p">))</span>
 
-    <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="k">return</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">+</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span>
 
 
 <span class="c1"># ---------------------------------------------------------------------------</span>
@@ -1294,7 +1294,7 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">apply_tee_log_policy</span><span class="p">(</span><span class="n">log_path</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">policy</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Path</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Delete or gzip the Tee log per *policy*; return the resulting path.</span>
+<span class="w">    </span><span class="sd">"""Delete or gzip the Tee log per *policy*; return the resulting path.</span>
 
 <span class="sd">    Called by ``sort_recording`` AFTER ``generate_sorting_report``</span>
 <span class="sd">    returns successfully — failures preserve the log automatically</span>
@@ -1304,42 +1304,42 @@
 
 <span class="sd">    Parameters:</span>
 <span class="sd">        log_path (path-like): Path to the Tee log file.</span>
-<span class="sd">        policy (str): One of ``&quot;keep&quot;``, ``&quot;gzip_on_success&quot;``,</span>
-<span class="sd">            ``&quot;delete_on_success&quot;``. Anything else is treated as</span>
-<span class="sd">            ``&quot;keep&quot;`` for safety.</span>
+<span class="sd">        policy (str): One of ``"keep"``, ``"gzip_on_success"``,</span>
+<span class="sd">            ``"delete_on_success"``. Anything else is treated as</span>
+<span class="sd">            ``"keep"`` for safety.</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        result (Path or None): Final path of the Tee log</span>
 <span class="sd">            (``&lt;log&gt;.gz`` for gzip; ``None`` for delete; the</span>
 <span class="sd">            original path for keep). ``None`` on any error.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">p</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">log_path</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">p</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
         <span class="k">return</span> <span class="kc">None</span>
-    <span class="k">if</span> <span class="n">policy</span> <span class="o">==</span> <span class="s2">&quot;keep&quot;</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">policy</span> <span class="o">==</span> <span class="s2">"keep"</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">p</span>
-    <span class="k">if</span> <span class="n">policy</span> <span class="o">==</span> <span class="s2">&quot;gzip_on_success&quot;</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">policy</span> <span class="o">==</span> <span class="s2">"gzip_on_success"</span><span class="p">:</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="kn">import</span><span class="w"> </span><span class="nn">gzip</span>
 
-            <span class="n">target</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">with_suffix</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">suffix</span> <span class="o">+</span> <span class="s2">&quot;.gz&quot;</span><span class="p">)</span>
-            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">src</span><span class="p">,</span> <span class="n">gzip</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">dst</span><span class="p">:</span>
+            <span class="n">target</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">with_suffix</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">suffix</span> <span class="o">+</span> <span class="s2">".gz"</span><span class="p">)</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="s2">"rb"</span><span class="p">)</span> <span class="k">as</span> <span class="n">src</span><span class="p">,</span> <span class="n">gzip</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="s2">"wb"</span><span class="p">)</span> <span class="k">as</span> <span class="n">dst</span><span class="p">:</span>
                 <span class="n">shutil</span><span class="o">.</span><span class="n">copyfileobj</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">dst</span><span class="p">)</span>
             <span class="n">p</span><span class="o">.</span><span class="n">unlink</span><span class="p">()</span>
             <span class="k">return</span> <span class="n">target</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-            <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[tee log policy] gzip failed for </span><span class="si">{</span><span class="n">p</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">exc</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">"[tee log policy] gzip failed for </span><span class="si">{</span><span class="n">p</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">exc</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">p</span>
-    <span class="k">if</span> <span class="n">policy</span> <span class="o">==</span> <span class="s2">&quot;delete_on_success&quot;</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">policy</span> <span class="o">==</span> <span class="s2">"delete_on_success"</span><span class="p">:</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">p</span><span class="o">.</span><span class="n">unlink</span><span class="p">()</span>
             <span class="k">return</span> <span class="kc">None</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-            <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[tee log policy] delete failed for </span><span class="si">{</span><span class="n">p</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">exc</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">"[tee log policy] delete failed for </span><span class="si">{</span><span class="n">p</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">exc</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">p</span>
     <span class="c1"># Unknown policy → keep, with a warning.</span>
     <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-        <span class="sa">f</span><span class="s2">&quot;[tee log policy] unknown policy </span><span class="si">{</span><span class="n">policy</span><span class="si">!r}</span><span class="s2">; keeping log untouched.&quot;</span>
+        <span class="sa">f</span><span class="s2">"[tee log policy] unknown policy </span><span class="si">{</span><span class="n">policy</span><span class="si">!r}</span><span class="s2">; keeping log untouched."</span>
     <span class="p">)</span>
     <span class="k">return</span> <span class="n">p</span>
 </pre></div>
