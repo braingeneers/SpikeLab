@@ -3,6 +3,7 @@ from .workspace import (
     LazyAnalysisWorkspace,
     WorkspaceManager,
     get_workspace_manager,
+    init_project,
 )
 
 __all__ = [
@@ -10,4 +11,5 @@ __all__ = [
     "LazyAnalysisWorkspace",
     "WorkspaceManager",
     "get_workspace_manager",
+    "init_project",
 ]

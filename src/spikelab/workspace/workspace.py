@@ -110,6 +110,44 @@ def _make_summary(obj: Any) -> dict:
     return {"type": type(obj).__name__}
 
 
+def init_project(
+    project_dir: str, subdirs=("figures", "results", "cache")
+) -> Dict[str, str]:
+    """Create the canonical analysis project layout and return its paths.
+
+    Analyses accumulate three kinds of output that benefit from being kept
+    apart: figures for reading, derived results for reuse, and cached raw or
+    intermediate data that can be regenerated. Creating them up front means a
+    project is navigable from the first script rather than after a tidy-up that
+    usually never happens.
+
+    Parameters:
+        project_dir (str): Project root, conventionally
+            ``analysis/<project_name>/``. Created if absent.
+        subdirs (tuple): Subdirectory names to create. The default is the
+            conventional set; pass a different tuple only when a project
+            genuinely needs another shape.
+
+    Returns:
+        paths (dict): Mapping of ``"root"`` plus each subdirectory name to its
+            absolute path, so callers can build filenames without re-deriving
+            the layout.
+
+    Example:
+        >>> paths = init_project("analysis/ibl_auditory")
+        >>> fig_path = os.path.join(paths["figures"], "raster.png")
+        >>> ws.save(os.path.join(paths["results"], "workspace"))
+    """
+    root = os.path.abspath(project_dir)
+    os.makedirs(root, exist_ok=True)
+    paths = {"root": root}
+    for name in subdirs:
+        p = os.path.join(root, name)
+        os.makedirs(p, exist_ok=True)
+        paths[name] = p
+    return paths
+
+
 class AnalysisWorkspace:
     """Named, namespaced container for storing analysis results.
 

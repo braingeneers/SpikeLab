@@ -2074,7 +2074,7 @@ def load_spikedata_from_ibl(
     one = ONE(password="international")
 
     # Retrieve good units for this probe from the Brain-Wide Map table.
-    unit_df = bwm_units(one)
+    unit_df = _bwm_units_compat(one)
     good_units = unit_df[(unit_df["pid"] == pid) & (unit_df["label"] == 1)]
 
     # Build the ordered list of collections to try. When the caller
@@ -3052,6 +3052,75 @@ def load_recording_from_dandi(
             cleanup.cleanup()
 
 
+# brainwidemap tag that still carries a checksum for the trials aggregate table.
+# Used only as a fallback when the installed default lacks one; see _bwm_units_compat.
+_IBL_TRIALS_FALLBACK_TAG = "2024_Q2_IBL_et_al_BWM"
+
+
+def _bwm_units_compat(one, **kwargs):
+    """Call ``brainwidemap.bwm_units``, working around a missing checksum entry.
+
+    ``bwm_units`` always downloads the trials aggregate table, but recent
+    brainwidemap releases ship a default tag whose ``md5_expected`` entry lists
+    only the clusters tables. The checksum lookup then raises ``KeyError:
+    'trials'`` before any download problem arises, and ``bwm_units`` exposes no
+    way to choose a different tag.
+
+    An earlier tag carries checksums for both tables, so on that specific failure
+    the trials download is retried against it. Only the trials request is
+    redirected -- clusters continue to come from the current release, so the unit
+    table itself is unaffected. The patch is reverted immediately, and any other
+    ``KeyError`` is re-raised untouched rather than silently retried.
+    """
+    from brainwidemap import bwm_units  # type: ignore
+
+    # ``bwm_units`` defaults to enforce_version=True, which asserts that the unit
+    # set hashes to the exact 2023_12 paper freeze. Against any newer aggregate
+    # table that assertion fails by construction -- the release genuinely contains
+    # different units -- so the default makes the function unusable with current
+    # data. We want the current release, not a reproduction of the paper freeze,
+    # so opt out unless the caller asks otherwise.
+    kwargs.setdefault("enforce_version", False)
+
+    try:
+        return bwm_units(one, **kwargs)
+    except KeyError as exc:
+        if "trials" not in str(exc):
+            raise
+
+        import inspect
+
+        from brainwidemap import bwm_loading as _bwm  # type: ignore
+
+        original = _bwm.download_aggregate_tables
+        params = inspect.signature(original).parameters
+        current_tag = params["tag"].default
+        fallback_tag = _IBL_TRIALS_FALLBACK_TAG
+        if fallback_tag == current_tag:
+            raise  # nothing else to try
+
+        def _with_fallback_tag(
+            one_, target_path=None, type="clusters", tag=None, overwrite=False
+        ):
+            if tag is None:
+                tag = fallback_tag if type == "trials" else current_tag
+            return original(
+                one_, target_path=target_path, type=type, tag=tag, overwrite=overwrite
+            )
+
+        _bwm.download_aggregate_tables = _with_fallback_tag
+        try:
+            warnings.warn(
+                f"brainwidemap tag {current_tag!r} has no 'trials' checksum; "
+                f"retrying the trials table against {fallback_tag!r}. The clusters "
+                "table is still taken from the current release.",
+                RuntimeWarning,
+            )
+            return bwm_units(one, **kwargs)
+        finally:
+            _bwm.download_aggregate_tables = original
+
+
 def query_ibl_probes(
     target_regions: Optional[List[str]] = None,
     *,
@@ -3116,7 +3185,7 @@ def query_ibl_probes(
     one = ONE(password="international")
 
     # Fetch all good units from the Brain-Wide Map table.
-    unit_df = bwm_units(one)
+    unit_df = _bwm_units_compat(one)
     good_units = unit_df[unit_df["label"] == 1].copy()
 
     # Build per-probe aggregation.

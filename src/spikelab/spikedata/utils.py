@@ -1,5 +1,7 @@
 import math
 import os
+import sys
+import time
 import warnings
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional, List, Literal, Union, Dict, Any
@@ -701,15 +703,29 @@ def randomize(ar, swap_per_spike=5, seed=None):
     idxs = np.where(ar == 1.0)
     n_spikes = int(np.sum(ar))
     attempts = int((swap_per_spike + 1) * n_spikes)
+
+    # This loop is O(n_spikes * swap_per_spike) in pure Python, so on a large
+    # raster a single call runs for minutes with nothing to show for it. Report
+    # progress once it is demonstrably slow -- the time check is amortised over
+    # _REPORT_EVERY iterations because calling time() every attempt would itself
+    # be a measurable cost at this iteration count.
+    reporter = _SlowLoopProgress(attempts, "randomize (double-edge swaps)")
+    _REPORT_EVERY = 50_000
+
     cnt_swap = 0
-    for _ in range(attempts):
+    for i in range(attempts):
         if swap(ar, idxs, rng):
             cnt_swap += 1
+        if (i + 1) % _REPORT_EVERY == 0:
+            reporter.step(i + 1)
 
     if cnt_swap < swap_per_spike * n_spikes:
-        for _ in range(attempts):
+        for i in range(attempts):
             if swap(ar, idxs, rng):
                 cnt_swap += 1
+            if (i + 1) % _REPORT_EVERY == 0:
+                reporter.step(i + 1)
+    reporter.close()
 
     if cnt_swap < swap_per_spike * n_spikes:
         warnings.warn(
@@ -1659,6 +1675,62 @@ def consecutive_durations(signal, threshold, mode="above", min_dur=1):
         durations = durations[durations >= min_dur]
 
     return durations
+
+
+class _SlowLoopProgress:
+    """Report progress on a long loop, but only once it is demonstrably slow.
+
+    Multi-shuffle operations can run for many minutes with no output, which is
+    indistinguishable from being hung. Reporting unconditionally would spam the
+    common fast case, so nothing is printed until ``min_seconds`` have already
+    elapsed; from then on progress is reported with an ETA, at most once every
+    ``min_interval`` seconds.
+
+    Output goes to stderr so it never contaminates stdout that a caller may be
+    parsing.
+    """
+
+    def __init__(self, total, label, min_seconds=30.0, min_interval=60.0, stream=None):
+        self.total = int(total)
+        self.label = label
+        # Stay silent unless the operation is genuinely long: anything finishing
+        # inside min_seconds never announces itself at all.
+        self.min_seconds = float(min_seconds)
+        # Then report about once a minute. Callers report at whatever granularity
+        # is natural for them -- for a tight loop, many times a second -- so the
+        # throttle lives here rather than in each caller. The cadence is
+        # deliberately slow: this output is read by an agent whose context these
+        # lines consume, so a chatty progress bar is actively harmful.
+        self.min_interval = float(min_interval)
+        self.stream = stream if stream is not None else sys.stderr
+        self._t0 = time.time()
+        self._active = False
+        self._last_print = 0.0
+
+    def step(self, completed):
+        now = time.time()
+        elapsed = now - self._t0
+        if not self._active and elapsed < self.min_seconds:
+            return
+        if self._active and (now - self._last_print) < self.min_interval:
+            return
+        self._active = True
+        self._last_print = now
+        rate = completed / elapsed if elapsed > 0 else 0.0
+        remaining = (self.total - completed) / rate if rate > 0 else float("nan")
+        msg = f"[{self.label}] {completed}/{self.total} ({elapsed:.0f}s elapsed"
+        if completed < self.total and remaining == remaining:  # not NaN
+            msg += f", ~{remaining:.0f}s remaining"
+        msg += ")"
+        print(msg, file=self.stream, flush=True)
+
+    def close(self):
+        if self._active:
+            print(
+                f"[{self.label}] done in {time.time() - self._t0:.0f}s",
+                file=self.stream,
+                flush=True,
+            )
 
 
 def gplvm_state_entropy(posterior_latent_marg):

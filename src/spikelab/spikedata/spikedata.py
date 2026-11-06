@@ -179,6 +179,21 @@ class SpikeData:
             train[i].extend(times)
 
         kwargs.setdefault("length", T * bin_size_ms)
+        # A raster covering `length` ms has ceil(length / bin_size) bins, so
+        # whenever length is not an exact multiple of bin_size the final bin
+        # extends past the end of the window and a reconstructed spike time can
+        # land outside it by up to one bin. Clamp instead of letting the
+        # SpikeData constructor reject it: the overrun is an artefact of
+        # binning, not a property of the data. Encountered via spike_shuffle()
+        # on a SpikeData built by concatenating trial windows, whose length was
+        # a non-integer number of ms -- the round trip raised
+        # "spike time 1830290.5000 ms exceeds end of time window
+        # (1830290.4779113596)" and aborted the shuffle.
+        end = t_offset + kwargs["length"]
+        train = [
+            np.minimum(np.asarray(t, dtype=float), end) if len(t) else np.asarray(t)
+            for t in train
+        ]
         return SpikeData(train, **kwargs)
 
     @staticmethod
@@ -2437,7 +2452,9 @@ class SpikeData:
         )
         return shuffled_spike_data
 
-    def spike_shuffle_stack(self, n_shuffles, seed=None, swap_per_spike=5, bin_size=1):
+    def spike_shuffle_stack(
+        self, n_shuffles, seed=None, swap_per_spike=5, bin_size=1, progress=True
+    ):
         """Generate multiple shuffled copies as a SpikeSliceStack.
 
         Each shuffle is an independent call to ``spike_shuffle``. The
@@ -2456,6 +2473,10 @@ class SpikeData:
             swap_per_spike (int): Forwarded to ``spike_shuffle``
                 (default: 5).
             bin_size (int): Forwarded to ``spike_shuffle`` (default: 1).
+            progress (bool): Report progress to stderr for long-running calls
+                (default: True). Nothing is printed unless the operation has
+                already run for ~30s, and then at most once a minute. Set
+                False to silence entirely.
 
         Returns:
             stack (SpikeSliceStack): Stack of n_shuffles shuffled SpikeData
@@ -2487,13 +2508,22 @@ class SpikeData:
             # directly — no extra conversion needed.
             child_seeds = list(np.random.SeedSequence(seed).spawn(n_shuffles))
 
+        from .utils import _SlowLoopProgress
+
+        reporter = (
+            _SlowLoopProgress(n_shuffles, "spike_shuffle_stack") if progress else None
+        )
         shuffled = []
-        for child in child_seeds:
+        for i, child in enumerate(child_seeds, start=1):
             shuffled.append(
                 self.spike_shuffle(
                     swap_per_spike=swap_per_spike, seed=child, bin_size=bin_size
                 )
             )
+            if reporter is not None:
+                reporter.step(i)
+        if reporter is not None:
+            reporter.close()
 
         times = [(self.start_time, self.start_time + self.length)] * n_shuffles
         return SpikeSliceStack(
@@ -2840,7 +2870,11 @@ class SpikeData:
     def compute_spike_trig_pop_rate(
         self, window_ms=80, cutoff_hz=20, fs=1000, bin_size=1, cut_outer=10
     ):
-        """Compute spike-triggered population rate (stPR).
+        """Compute population coupling via the spike-triggered population rate (stPR).
+
+        This is the library's population-coupling measure: the zero-lag value of
+        the returned stPR curve is each unit's coupling strength to the rest of
+        the population.
 
         Implementation of the stPR measure from Bimbard et al., building on
         Okun et al. (Nature, 2015). For each neuron i and lag tau, the
@@ -3250,9 +3284,17 @@ class SpikeData:
         n_time_per_chunk=10000,
         random_seed=3,
         model_class=None,
+        return_diagnostics=True,
         **model_kwargs,
     ):
-        """Fit a Gaussian Process Latent Variable Model to binned spike counts.
+        """Fit a latent state space model to spike data (GPLVM).
+
+        This is the library's latent state / state-space model: it infers a
+        latent trajectory and a per-timebin posterior over latent states from
+        population spiking. Use it wherever a hidden-state or state-space model
+        of population activity is wanted -- it plays the role an HMM would, but
+        with a continuous latent whose effective dimensionality is set by the
+        data rather than by a state count you have to choose.
 
         Bins the spike data into a spike count matrix, fits a GPLVM model
         via expectation-maximisation, decodes latent states, and returns
@@ -3273,6 +3315,12 @@ class SpikeData:
             random_seed (int): Random seed for JAX PRNG key.
             model_class (class or None): Model class to use. Defaults to
                 ``PoissonGPLVMJump1D`` from ``poor_man_gplvm``.
+            return_diagnostics (bool): If True (default), include a
+                ``"diagnostics"`` entry summarising whether the latent
+                posterior is well-determined -- mean state entropy against its
+                uniform ceiling, effective number of occupied states, state
+                occupancy range, and mean continuity probability. Set False to
+                skip the computation.
             **model_kwargs: Additional keyword arguments passed to the model
                 constructor (e.g. ``p_move_to_jump``, ``basis_type``).
 
@@ -3283,7 +3331,9 @@ class SpikeData:
                 ``"reorder_indices"`` (unit reordering indices based on
                 tuning curve peaks), ``"model"`` (the fitted model object),
                 ``"binned_spike_counts"`` (the (T, N) binned spike count
-                matrix), and ``"bin_size_ms"`` (the bin width used).
+                matrix), ``"bin_size_ms"`` (the bin width used), and --
+                unless ``return_diagnostics=False`` -- ``"diagnostics"``
+                (latent-posterior summary; see ``return_diagnostics``).
 
         Notes:
             - Requires ``poor_man_gplvm`` and ``jax``. Install with
@@ -3348,7 +3398,7 @@ class SpikeData:
         sort_res = pmg_utils.post_fit_sort_neuron(em_res)
         reorder_indices = np.asarray(sort_res["argsort"])
 
-        return {
+        result = {
             "decode_res": decode_res,
             "log_marginal_l": log_marginal_l,
             "reorder_indices": reorder_indices,
@@ -3356,6 +3406,69 @@ class SpikeData:
             "binned_spike_counts": np.asarray(binned_spk_mat),
             "bin_size_ms": bin_size_ms,
         }
+
+        if return_diagnostics:
+            result["diagnostics"] = self._gplvm_diagnostics(decode_res, n_latent_bin)
+
+        return result
+
+    @staticmethod
+    def _gplvm_diagnostics(decode_res, n_latent_bin):
+        """Summarise whether a fitted GPLVM latent posterior is well-determined.
+
+        A continuous-latent model has no discrete state count to compare against
+        a maximum, so the analogue of "did the fit saturate the complexity it was
+        given" is whether the latent posterior stayed structured: entropy well
+        below the uniform ceiling, and dynamics that remain temporally coherent.
+        These are reported alongside the fit so the check does not depend on the
+        caller knowing to look for it.
+
+        Returns a dict of summary scalars plus the per-bin series they derive
+        from. Keys are absent (rather than fabricated) when the model class does
+        not expose the underlying posterior.
+        """
+        from .utils import (
+            gplvm_average_state_probability,
+            gplvm_continuity_prob,
+            gplvm_state_entropy,
+        )
+
+        diag = {"n_latent_bin": n_latent_bin}
+
+        marg = decode_res.get("posterior_latent_marg")
+        if marg is not None:
+            entropy = gplvm_state_entropy(marg)
+            avg_prob = gplvm_average_state_probability(marg)
+            # Uniform occupancy over n_latent_bin states is the maximum entropy
+            # attainable; a ratio near 1 means the posterior carries no
+            # information about which state the system is in.
+            ceiling = float(np.log(n_latent_bin)) if n_latent_bin > 1 else np.nan
+            mean_entropy = float(np.mean(entropy))
+            diag.update(
+                {
+                    "state_entropy": entropy,
+                    "state_entropy_mean": mean_entropy,
+                    "state_entropy_ceiling": ceiling,
+                    "state_entropy_ratio": (
+                        float(mean_entropy / ceiling)
+                        if ceiling and ceiling > 0
+                        else np.nan
+                    ),
+                    # exp(H) is the perplexity: roughly how many states the
+                    # posterior is genuinely spread over at a typical time bin.
+                    "effective_n_states": float(np.exp(mean_entropy)),
+                    "avg_state_probability": avg_prob,
+                    "state_occupancy_max": float(np.max(avg_prob)),
+                    "state_occupancy_min": float(np.min(avg_prob)),
+                }
+            )
+
+        if "posterior_dynamics_marg" in decode_res:
+            continuity = gplvm_continuity_prob(decode_res)
+            diag["continuity_prob"] = continuity
+            diag["continuity_prob_mean"] = float(np.mean(continuity))
+
+        return diag
 
     def plot(self, **kwargs):
         """Assemble a multi-panel column figure from this SpikeData object.

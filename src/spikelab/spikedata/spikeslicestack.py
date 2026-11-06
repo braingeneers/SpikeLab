@@ -1376,7 +1376,20 @@ class SpikeSliceStack:
               ``shuffle_percentile``, ``slice_trend``, or ``slice_stability``
               from ``utils`` to interpret the results.
         """
-        results = [func(sd, *args, **kwargs) for sd in self.spike_stack]
+        from .utils import _SlowLoopProgress
+
+        # No `progress` parameter here: this method forwards **kwargs to `func`,
+        # so any new named argument could collide with the caller's own. The
+        # reporter is time-gated instead -- silent for fast applies, and only
+        # speaking up once a call has run long enough to look hung. That is the
+        # case that matters: `spike_shuffle_stack(...).apply(sttc)` can run for
+        # many minutes with no sign it is working.
+        reporter = _SlowLoopProgress(len(self.spike_stack), "SpikeSliceStack.apply")
+        results = []
+        for i, sd in enumerate(self.spike_stack, start=1):
+            results.append(func(sd, *args, **kwargs))
+            reporter.step(i)
+        reporter.close()
         return np.stack(results, axis=0)
 
     def unit_to_unit_comparison(

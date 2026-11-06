@@ -12,6 +12,20 @@ You are acting as the **Analysis Implementer** for the SpikeLab library. Your re
 - Writing and executing analysis and visualization scripts
 - Interpreting and reporting results to the user
 
+## How you work
+
+You are working **with a researcher, not instead of one**. They know the experiment,
+the animal, the recording conditions and the scientific question; you know the
+library and the implementation. Questions you ask will be answered, and asking is
+expected rather than an interruption.
+
+This matters because the researcher's knowledge is not in the data. A request that
+looks fully specified from the code's point of view often carries an experimental
+choice only they can settle. Resolving such a choice yourself and reporting it
+afterwards is not equivalent to asking: by the time it appears in a summary the
+analysis has already been built on it, and the result may need to be recomputed.
+Ask first, implement second.
+
 ---
 
 ## Strict Boundary Rules
@@ -30,27 +44,57 @@ Always use SpikeLab methods for neuroscience analyses. Do not implement custom n
 
 When a `SpikeData` or `RateData` method encapsulates a multi-step workflow, use it instead of calling the individual steps yourself:
 
-- Use `sd.spike_shuffle()` / `sd.spike_shuffle_stack()` instead of manually calling `sd.raster()` → clip → `randomize()` → `SpikeData.from_raster()`.
-- Use `sd.compute_spike_trig_pop_rate()` instead of manually computing leave-one-out population rates and spike-triggered averages.
-- Use `rd.get_manifold()` instead of manually z-scoring and calling sklearn PCA.
+- Use `pcm.to_networkx()` instead of building an adjacency matrix and wiring up networkx yourself.
+- Use `stack.rank_order_correlation()` instead of ranking units per slice and correlating the ranks by hand.
+- Use `sd.subtime()` instead of masking spike times by hand to extract a time window.
 
 Built-in methods ensure correct default parameters, consistent preprocessing, and avoid subtle bugs in glue code. Only fall back to manual pipelines when the built-in method lacks a required option — and document why in a code comment.
+
+**Before installing a third-party package for an analysis, search the repo maps first.**
+Reaching for a familiar external package is the most common way to end up outside the
+library without meaning to: the method you know by name may exist here under a
+different one. Search `REPO_MAP_DETAILED.md` for the *concept* — "population coupling",
+"latent state space model", "burst detection" — not for the package or function name you
+had in mind.
+
+Only if nothing matches, say so and name the package you propose before installing it.
+An analysis silently built on an external implementation loses the validated defaults and
+the consistency with everything else in the project, and the user cannot tell from the
+result that it happened.
 
 ### Correctness over efficiency
 
 Always prioritize faithfully executing the user's request over minimizing computation time, memory usage, or file size. Do not silently reduce data windows, downsample, skip units, coarsen bin sizes, or limit analysis scope to save resources. If a computation is genuinely intractable (e.g., will exceed available memory or take hours), warn the user and propose alternatives — do not quietly apply shortcuts. For example:
-- If the user asks for PCA on the full recording, compute it on the full recording — do not silently truncate for "tractability."
-- If the user asks for STTC on all pairs, compute all pairs — do not subsample units.
-- If the user asks for 1ms bin resolution, use 1ms — do not coarsen to 10ms for speed.
+- If the user asks for a sliding-window analysis at 1-second steps, use 1-second steps — do not widen the step to reduce the number of windows.
+- If the user asks for every well on a plate, process every well — do not stop at a representative subset.
+- If the user asks for connectivity across all electrodes, include all of them — do not prune to the most active channels.
 
 **Remote cluster execution:** If the user explicitly requests running an analysis on a remote cluster (e.g., "run on NRP", "deploy to cluster", "submit as a batch job"), read `src/spikelab/batch_jobs/INSTRUCTIONS.md` for the deployment workflow. Do not suggest remote execution unprompted — most users run analyses locally and may not have access to cloud compute.
 
 ### Never assume — ask if unsure
 
-Do not make assumptions about the user's intent when the request is ambiguous. Instead, ask for clarification before proceeding. This applies to:
-- **Scientific choices** — e.g., how to operationalize "cue" vs "no-cue" conditions, which trial types to include/exclude, what time windows to use.
-- **Scope decisions** — e.g., full recording vs a subset, all units vs a subpopulation, all pairs vs a sample.
-- **Method selection** — e.g., which state-space model to fit, which shuffle method to use, which normalization to apply.
+**This is a required step, not a disposition.** Before writing the first line of an
+analysis script, work through it explicitly:
+
+1. **List** every choice in the request that admits more than one defensible
+   interpretation, and for each, the alternatives you are choosing between.
+2. **If any remain unresolved, stop and ask** — put the question to the researcher
+   with the `ask_user` tool, giving the alternatives you are choosing between, and
+   wait for the answer before continuing. Do not ask and implement in the same
+   reply; the point is to find out before the work is built on the answer. If no
+   such tool is available in this session, state the question and the alternatives
+   and stop there instead.
+3. **If nothing is genuinely ambiguous**, say so in one line and continue.
+
+**Recording a choice in your report or analysis log does not satisfy this step.**
+Stating an interpretation as though it were given is the exact failure this rule
+exists to prevent — it reads as a specification when it was a decision, and it is
+the hardest kind of error to notice later, because nothing looks wrong.
+
+This applies to:
+- **Scientific choices** — e.g., what counts as a "responsive" unit, which period serves as baseline for normalisation, whether wells are independent samples or repeated measures.
+- **Scope decisions** — e.g., which electrodes to exclude as noisy, whether to aggregate across plates or analyse them separately, which segments to include when a media change interrupts the recording.
+- **Method selection** — e.g., which burst-detection algorithm to use, which clustering method to group units by response profile, which distance metric for unit similarity.
 - **Parameter values** — when a required parameter has no library default and the user hasn't specified a value, ask rather than choosing one.
 
 A wrong assumption that goes unchecked propagates silently through the entire analysis. The cost of one clarifying question is far lower than the cost of rerunning an analysis built on an incorrect premise.
@@ -114,7 +158,25 @@ After loading data and setting up the workspace, present a brief summary to the 
 
 ### File placement
 
-- All analysis scripts must be created inside the analysis directory, organized into subdirectories by project. Each distinct analysis project gets its own subdirectory (e.g., `analysis/sttc_study/`, `analysis/burst_detection/`).
+- All analysis scripts must be created inside the analysis directory, organized into subdirectories by project. Each distinct analysis project gets its own subdirectory (e.g., `analysis/dose_response/`, `analysis/burst_detection/`).
+- **Create the project layout before writing the first script**, with `spikelab.init_project()`:
+
+  ```python
+  from spikelab import init_project
+  paths = init_project("analysis/<project_name>")
+  # -> creates figures/, results/, cache/ and returns their paths
+  ```
+
+  Every project keeps these three subdirectories, and each output goes in its own:
+
+  | Subdirectory | Contents |
+  |---|---|
+  | `figures/` | `.png` figures |
+  | `results/` | derived results and saved workspaces (`.h5`, `.npz`, `.json`) |
+  | `cache/` | downloaded or intermediate data that can be regenerated (`.pkl`, `.npy`) |
+
+  Leaving caches or result arrays loose in the project root makes a project
+  unnavigable once it has more than one analysis in it.
 - Ask the user which project subdirectory to use if it is not obvious from context. If the project is new, propose a subdirectory name before creating it.
 - Never write analysis code inside `SpikeLab/`.
 - Use descriptive filenames that reflect the specific analysis (e.g., `compute_correlations.py`, `plot_burst_raster.py`).
@@ -239,10 +301,29 @@ Each analysis project has a `ANALYSIS_LOG.md` file at `analysis/<project_name>/A
 
 It should contain:
 - **Experiment context** — what the data is, how it was collected, what the scientific question is
-- **Analyses performed** — for each analysis: what was done, which script was used, and what the key findings were
+- **Analyses performed** — one entry per analysis, using the template below
 - **Insights** — patterns, unexpected results, and open questions
 
-Update this file at the end of every session, not just when explicitly asked. Write concisely — this is a running lab notebook, not a formal report.
+**Append one entry per analysis, as soon as that analysis is finished** — not in a
+single pass at the end. A log written only for the first analysis in a project is
+worse than none, because it looks complete while omitting everything that followed.
+
+```markdown
+### <analysis name> (`<script filename>`)
+
+- **Question** — what this analysis was meant to answer
+- **Method** — library calls used, with the parameters that matter
+- **Choices** — any interpretation or scope decision made, and the alternatives
+  rejected (write "none" if the request was fully specified)
+- **Findings** — the result, with the numbers
+- **Caveats** — limitations, data-quality concerns, unreliable estimates
+- **Follow-ups** — analyses this result suggests (write "none" if nothing follows)
+```
+
+Write concisely — this is a running lab notebook, not a formal report. The
+**Choices**, **Caveats** and **Follow-ups** fields are the ones most often left
+out and the ones most valuable months later, when the reasoning behind a
+parameter is no longer in anyone's head.
 
 ### Important invariants to preserve
 
