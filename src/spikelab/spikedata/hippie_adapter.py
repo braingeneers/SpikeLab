@@ -1,6 +1,6 @@
 """HIPPIE neuron classification adapter for SpikeData.
 
-Requires: pip install spikelab[hippie]
+Requires: pip install "spikelab[hippie]" git+https://github.com/braingeneers/HIPPIE.git
 
 Workflow:
     1. extract_features(sd)  — compute wave/ISI/ACG arrays from a SpikeData object
@@ -38,7 +38,8 @@ def _require_hippie():
     except ImportError:
         raise ImportError(
             "HIPPIE is required for neuron classification. "
-            "Install it with: pip install spikelab[hippie]"
+            'Install it with: pip install "spikelab[hippie]" '
+            "git+https://github.com/braingeneers/HIPPIE.git"
         )
 
 

@@ -3153,7 +3153,7 @@ async def classify_neurons_hippie(
         device: "cuda" or "cpu" for the HIPPIE encoder.
         cache_dir: Directory to cache the downloaded checkpoint.
     """
-    from ....spikedata.hippie_adapter import classify_neurons
+    from ...spikedata.hippie_adapter import classify_neurons
 
     ws = _get_workspace(workspace_id)
     sd = _get_spikedata(ws, namespace)
@@ -3205,7 +3205,7 @@ async def train_vae_hippie(
     """
     import os
 
-    from ....spikedata.hippie_adapter import train_vae_on_spikedata
+    from ...spikedata.hippie_adapter import train_vae_on_spikedata
 
     ws = _get_workspace(workspace_id)
     sd = _get_spikedata(ws, namespace)
@@ -3271,7 +3271,7 @@ async def compress_neurons_hippie(
         umap_min_dist: UMAP minimum distance.
         device: "cuda" or "cpu".
     """
-    from ....spikedata.hippie_adapter import compress_neurons
+    from ...spikedata.hippie_adapter import compress_neurons
 
     ws = _get_workspace(workspace_id)
     sd = _get_spikedata(ws, namespace)
