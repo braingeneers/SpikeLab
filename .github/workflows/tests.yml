@@ -23,7 +23,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev,s3,spike-sorting,batch-jobs]"
           pip install scikit-learn networkx pandas matplotlib tqdm
-          pip install pytest-forked
+          # pytest 9.2.0 breaks --forked: every forked test exits with
+          # status 3 before it runs. Remove this cap once pytest-forked
+          # supports 9.2.
+          pip install "pytest<9.2" pytest-forked
 
       - name: Run tests
         # `console_output_style=classic` prints each test name on its
