@@ -9604,3 +9604,39 @@ class TestLoadFromHdf5RaggedHappyPath:
         loaded_sd = ws.get(result["namespace"], "spikedata")
         assert loaded_sd is not None
         assert loaded_sd.N == 2
+
+
+class _AdapterReached(Exception):
+    """Raised by a stubbed HIPPIE adapter function to prove it was reached."""
+
+
+class TestHippieToolImports:
+    """The HIPPIE MCP tools import their adapter at call time."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "tool_name, adapter_name, extra_args",
+        [
+            ("classify_neurons_hippie", "classify_neurons", {}),
+            ("train_vae_hippie", "train_vae_on_spikedata", {"output_dir": "out"}),
+            ("compress_neurons_hippie", "compress_neurons", {"checkpoint_path": "x"}),
+        ],
+    )
+    async def test_tool_reaches_adapter(
+        self, loaded_ws, tool_name, adapter_name, extra_args
+    ):
+        """
+        Each HIPPIE tool resolves its relative import and calls the adapter.
+
+        Tests:
+            (Test Case 1) The call reaches the stubbed adapter function
+                instead of failing with "attempted relative import beyond
+                top-level package". HIPPIE itself is not needed.
+        """
+        ws_id, ns = loaded_ws
+        stub = MagicMock(side_effect=_AdapterReached)
+        with patch(f"spikelab.spikedata.hippie_adapter.{adapter_name}", stub):
+            with pytest.raises(_AdapterReached):
+                await getattr(analysis, tool_name)(ws_id, ns, **extra_args)
+        stub.assert_called_once()
