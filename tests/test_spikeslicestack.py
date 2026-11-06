@@ -525,6 +525,41 @@ class TestToRasterArray:
         # Second slice should be all zeros (no spikes in [80, 100])
         assert np.all(result[:, :, 1] == 0)
 
+    def test_to_raster_array_float_event_times(self):
+        """
+        Regression: align_to_events with float event times must produce slices
+        with consistent bin counts so np.stack in to_raster_array succeeds.
+
+        Pre-fix bug: SpikeData.subtime sets length = end - start, where end
+        and start come from (peak + after) and (peak - before). Float
+        arithmetic produces length values like 1000.0000000000002 instead of
+        1000.0 on ~2% of slices. sparse_raster's int(np.ceil(length /
+        bin_size)) then rounds up to 1001 bins on those slices, and np.stack
+        raises "all input arrays must have the same shape". Fix: sparse_raster
+        absorbs sub-bin float drift via a scaled tolerance.
+
+        Tests:
+            (Test Case 1) align_to_events + to_raster_array succeeds with
+                500 random float event times.
+            (Test Case 2) Output shape is exactly (U, T, S) with consistent T.
+            (Test Case 3) Every slice has the same bin count (no +/- 1).
+        """
+        sd = make_spikedata(n_units=10, length_ms=60_000.0, seed=0)
+        rng = np.random.default_rng(seed=1)
+        # Float-valued event times in [600, 59400] reliably trigger the drift
+        # in ~2% of slices for pre/post = 500 ms windows at 1 ms bins.
+        events = rng.uniform(600.0, 59_400.0, size=500)
+
+        stack = sd.align_to_events(events, pre_ms=500, post_ms=500, kind="spike")
+
+        # Pre-fix: np.stack inside to_raster_array raised ValueError.
+        result = stack.to_raster_array(bin_size=1.0)
+
+        assert result.shape == (10, 1000, 500)
+        # Every slice independently rasterizes to the same bin count.
+        for slc in stack.spike_stack:
+            assert slc.sparse_raster(bin_size=1.0).shape[1] == 1000
+
     def test_absolute_times_basic(self):
         """
         absolute_times=True places spikes at their original recording positions.

@@ -286,7 +286,7 @@ submitting anything to the cluster:
 ```bash
 spikelab-batch-jobs render-job \
   --profile <profile> \
-  --job-config examples/batch_jobs/temp_cpu_job.yaml \
+  --job-config src/spikelab/batch_jobs/examples/temp_cpu_job.yaml \
   --image-profile cpu
 ```
 

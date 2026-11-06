@@ -2,9 +2,14 @@
 
 from .spikedata import SpikeData, RateData, RateSliceStack, SpikeSliceStack
 from .spikedata.pairwise import PairwiseCompMatrix, PairwiseCompMatrixStack
-from .workspace import AnalysisWorkspace, WorkspaceManager, get_workspace_manager
+from .workspace import (
+    AnalysisWorkspace,
+    WorkspaceManager,
+    get_workspace_manager,
+    init_project,
+)
 
-__version__ = "0.1.1"
+__version__ = "0.1.3"
 
 __all__ = [
     "SpikeData",
@@ -16,4 +21,5 @@ __all__ = [
     "AnalysisWorkspace",
     "WorkspaceManager",
     "get_workspace_manager",
+    "init_project",
 ]

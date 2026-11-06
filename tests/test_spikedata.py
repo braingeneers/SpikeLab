@@ -36,6 +36,7 @@ from spikelab.spikedata.utils import (
     extract_unit_waveforms,
     extract_waveforms,
     get_channels_for_unit,
+    get_sttc,
     get_valid_spike_times,
     waveforms_by_channel,
 )
@@ -1949,6 +1950,42 @@ class TestSpikeDataRates:
         # Bin 3: [10, 20) → spike at 15
         assert raster[0, 3] == 1
 
+    def test_sparse_raster_absorbs_sub_bin_length_drift(self):
+        """
+        sparse_raster must not produce an extra bin when self.length drifts
+        by sub-bin float epsilon (e.g., 1000.0000000000002 from event-aligned
+        slicing arithmetic).
+
+        Tests:
+            (Test Case 1) length exactly on bin boundary -> ceil produces N bins.
+            (Test Case 2) length with sub-bin epsilon overshoot -> ceil still
+                produces N bins (not N+1).
+            (Test Case 3) length with a true sub-bin overshoot (>tolerance)
+                -> ceil produces N+1 bins as before.
+            (Test Case 4) drift tolerance scales with bin count so a fine
+                bin_size on a long recording still absorbs ULP-magnitude drift.
+        """
+        train = [np.array([100.0, 200.0])]
+
+        sd_exact = SpikeData(train, length=1000.0)
+        assert sd_exact.sparse_raster(bin_size=1.0).shape[1] == 1000
+
+        # Sub-bin drift typical of event-aligned slicing: 1000.0000000000002
+        sd_drift = SpikeData(train, length=1000.0 + 2e-13)
+        assert sd_drift.sparse_raster(bin_size=1.0).shape[1] == 1000
+
+        # Real sub-bin overshoot must still round up
+        sd_real_overshoot = SpikeData(train, length=1000.5)
+        assert sd_real_overshoot.sparse_raster(bin_size=1.0).shape[1] == 1001
+
+        # Long recording, fine bin: ULP-magnitude drift in length must be
+        # absorbed by the scaling tolerance. For length=1e6 ms, ULP is
+        # ~1.2e-10 ms; tolerance must catch drift at that magnitude when
+        # divided by bin_size=0.1 ms (drift / bin = 1.2e-9 bins).
+        ulp_drift = np.spacing(1_000_000.0) * 2  # ~2.3e-10 ms
+        sd_long = SpikeData(train, length=1_000_000.0 + ulp_drift)
+        assert sd_long.sparse_raster(bin_size=0.1).shape[1] == 10_000_000
+
     def test_rates(self):
         """
         Tests rates() method for correct spike rate calculation and unit handling.
@@ -3139,6 +3176,92 @@ class TestSpikeDataCorrelation:
         assert isinstance(result, float)
         # get_sttc returns 0.0 for empty trains
         np.testing.assert_equal(result, 0.0)
+
+    def test_sttc_on_empty_nan(self):
+        """
+        on_empty="nan" reports empty-train pairs as NaN rather than 0.0.
+
+        0.0 is the most meaningful value in the STTC range (coincidence rate
+        equals chance), so the default sentinel is indistinguishable from a
+        real chance-level measurement. on_empty="nan" lets callers keep the
+        two apart.
+
+        Tests:
+            (Test Case 1) Default remains 0.0 (backwards compatible).
+            (Test Case 2) on_empty="nan" returns NaN for an empty pair.
+            (Test Case 3) Non-empty pairs are unaffected by the option.
+            (Test Case 4) An unrecognised option raises ValueError.
+        """
+        sd = SpikeData([[], [1.0, 2.0, 3.0], [1.2, 2.2, 3.2]], length=100.0)
+
+        np.testing.assert_equal(sd.spike_time_tiling(0, 1, delt=5.0), 0.0)
+        assert np.isnan(sd.spike_time_tiling(0, 1, delt=5.0, on_empty="nan"))
+        np.testing.assert_allclose(
+            sd.spike_time_tiling(1, 2, delt=5.0, on_empty="nan"),
+            sd.spike_time_tiling(1, 2, delt=5.0),
+        )
+        with pytest.raises(ValueError, match="on_empty must be"):
+            sd.spike_time_tiling(0, 1, delt=5.0, on_empty="none")
+
+    def test_sttc_matrix_on_empty_nan(self):
+        """
+        spike_time_tilings(on_empty="nan") masks empty units in the matrix.
+
+        Tests:
+            (Test Case 1) Default gives an empty unit a 0.0 row and 1.0 diagonal.
+            (Test Case 2) on_empty="nan" makes that row and diagonal NaN.
+            (Test Case 3) Entries between two non-empty units are unchanged.
+            (Test Case 4) A NaN-aware mean excludes the empty unit.
+        """
+        # N=4 so the numba path is taken when numba is installed.
+        train = [[], [1.0, 2.0, 3.0], [1.2, 2.2, 3.2], [50.0, 60.0, 70.0]]
+        sd = SpikeData(train, length=100.0)
+
+        m_zero = sd.spike_time_tilings(delt=5.0).matrix
+        np.testing.assert_array_equal(m_zero[0, 1:], np.zeros(3))
+        np.testing.assert_equal(m_zero[0, 0], 1.0)
+
+        m_nan = sd.spike_time_tilings(delt=5.0, on_empty="nan").matrix
+        assert np.all(np.isnan(m_nan[0, :]))
+        assert np.all(np.isnan(m_nan[:, 0]))
+
+        # The real pairs are untouched by the option.
+        np.testing.assert_allclose(m_nan[1:, 1:], m_zero[1:, 1:])
+
+        # A nanmean over the lower triangle drops the empty unit entirely.
+        lower = np.tril_indices(4, k=-1)
+        real = [k for k, (i, j) in enumerate(zip(*lower)) if 0 not in (i, j)]
+        real_pairs = m_zero[lower][real]
+        assert len(real_pairs) == 3
+        np.testing.assert_allclose(np.nanmean(m_nan[lower]), float(np.mean(real_pairs)))
+
+    def test_sttc_matrix_on_empty_path_parity(self):
+        """
+        Both dispatch paths of spike_time_tilings agree under on_empty.
+
+        spike_time_tilings uses numba only when numba is installed and N > 2,
+        so the two implementations must produce the same matrix.
+
+        Tests:
+            (Test Case 1) N=4 matrix matches a per-pair get_sttc reference.
+        """
+        rng = np.random.default_rng(7)
+        train = [np.array([])] + [
+            np.sort(rng.uniform(0, 1000, size=8)) for _ in range(3)
+        ]
+        sd = SpikeData(train, length=1000.0)
+        got = sd.spike_time_tilings(delt=20.0, on_empty="nan").matrix
+
+        expected = np.empty((4, 4))
+        for i in range(4):
+            for j in range(4):
+                if i == j:
+                    expected[i, j] = 1.0 if len(train[i]) else np.nan
+                else:
+                    expected[i, j] = get_sttc(
+                        train[i], train[j], 20.0, 1000.0, on_empty="nan"
+                    )
+        np.testing.assert_allclose(got, expected, equal_nan=True)
 
     def test_sttc_delt_zero(self):
         """

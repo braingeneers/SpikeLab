@@ -198,6 +198,19 @@ A set of preflight checks and live watchdogs run automatically — there is noth
 
 ## Running a Sorting Job
 
+### Watchdog kills are not surfaced through `conda run` — poll for progress
+
+Sorts are normally launched indirectly — you write a sorting script and run it through the env wrapper, e.g. `conda run -n spikelab python sort_job.py`. **A watchdog abort does not reliably surface back to the session through that wrapper.** When an in-process watchdog trips (KS4 / RT-Sort), the kill path ends in `os._exit(1)`, which terminates the interpreter abruptly without unwinding — and `conda run` (like other process wrappers) can buffer or drop the child's stdout and mask the exit code. The result is an opaque, often silent termination: you will *not* see the classified error, traceback, or even a clean non-zero return that tells you the sort was aborted. KS2 MATLAB / Docker subprocess kills have the same problem, since the kill happens inside the sort, not in the script you invoked.
+
+Because of this, **do not treat the `conda run` command returning as proof the sort finished — poll the on-disk artefacts for true progress and final status:**
+
+- `<results_folder>/recording_report.json` — authoritative final status (`status`, `error class`, retries). Absent or stale ⇒ the sort has not completed.
+- `<results_folder>/watchdog_events.jsonl` — appears only when a watchdog crossed warn/abort; the last lines tell you which watchdog tripped and why.
+- `<results_folder>/sorting_<YYMMDD_HHMMSS>.log` — Tee-mirrored stdout; growing mtime ⇒ still alive, stagnant ⇒ stalled or killed. Failed sorts always preserve this log.
+- `<results_folder>/sorting_report.md` — written only after a clean post-sort report; its presence is the positive signal that the recording finished.
+
+Practical pattern: run the sort in the background (or as a long-running job) and **poll these files on an interval** rather than blocking on a single foreground `conda run` call. Until `recording_report.json` exists with a terminal status (or `sorting_report.md` appears), assume the sort is still running or was killed — check `watchdog_events.jsonl` and the tail of the Tee log to distinguish the two. See "Live watchdogs" and "Output artefacts" under **Pipeline Resource Management** for the full artefact semantics.
+
 ### Remote cluster handoff
 
 If the user explicitly requests cluster execution:
