@@ -146,8 +146,9 @@ ibl = [
   "ONE-api>=2.0",
 ]
 hippie = [
-  # Install HIPPIE from GitHub (or a local editable install for development)
-  "hippie @ git+https://github.com/braingeneers/HIPPIE.git",
+  # HIPPIE is not on PyPI, and PyPI rejects direct-URL dependencies, so
+  # it cannot be listed here. Install it manually:
+  #   pip install git+https://github.com/braingeneers/HIPPIE.git
   "huggingface-hub>=0.20",
   "torch>=2.0",
   "umap-learn>=0.5.0",

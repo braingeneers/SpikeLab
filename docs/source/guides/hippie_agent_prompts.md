@@ -121,4 +121,4 @@ Step 3 — Report:
 | VAE checkpoint | Saved locally to `output_dir/vae_best.ckpt` |
 | `avg_waveform` required | Must be present in `neuron_attributes` before calling either pipeline |
 | MCP per-unit limitation | `get_waveform_traces` MCP tool is per-unit; for bulk waveform extraction ask the agent to loop over units or use the Python API directly |
-| HIPPIE install | `pip install spikelab[hippie]` before running any of the above |
+| HIPPIE install | `pip install "spikelab[hippie]" git+https://github.com/braingeneers/HIPPIE.git` before running any of the above |

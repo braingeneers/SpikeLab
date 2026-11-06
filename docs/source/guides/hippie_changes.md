@@ -6,7 +6,7 @@ HIPPIE is added as an **optional dependency** of SpikeLab.
 Users who want cell-type classification install it with:
 
 ```bash
-pip install "spikelab[hippie]"
+pip install "spikelab[hippie]" git+https://github.com/braingeneers/HIPPIE.git
 ```
 
 Nothing in the base SpikeLab install changes — all new code is either in new files or behind lazy imports that only run when HIPPIE is actually present.

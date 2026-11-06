@@ -16,10 +16,11 @@ Installation
 
 HIPPIE is an optional dependency — install it alongside SpikeLab::
 
-    pip install "spikelab[hippie]"
+    pip install "spikelab[hippie]" git+https://github.com/braingeneers/HIPPIE.git
 
-This pulls in PyTorch, HuggingFace Hub, umap-learn, and hdbscan in addition
-to the HIPPIE package itself.  PyTorch with CUDA must be installed separately
+The ``hippie`` extra pulls in PyTorch, HuggingFace Hub, umap-learn, and
+hdbscan.  HIPPIE itself is not on PyPI, so it is installed from GitHub in
+the same command.  PyTorch with CUDA must be installed separately
 if GPU inference is desired.
 
 .. note::
@@ -424,7 +425,7 @@ Using via the MCP server
 ------------------------
 
 The ``classify_neurons_hippie`` tool is available in the SpikeLab MCP
-server once ``spikelab[hippie]`` is installed.  After the tool runs, it
+server once ``spikelab[hippie]`` and HIPPIE are installed.  After the tool runs, it
 writes ``hippie_embedding``, ``hippie_umap_x``, ``hippie_umap_y``, and
 ``hippie_cluster`` directly into ``neuron_attributes``, making them
 accessible to all downstream tools.
